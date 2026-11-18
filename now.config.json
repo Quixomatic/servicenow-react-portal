@@ -1,0 +1,6 @@
+{
+  "scope": "x_312987_portal",
+  "scopeId": "3947d92c83901310e8fbc9a6feaad3f7",
+  "name": "React Portal",
+  "tsconfigPath": "./src/server/tsconfig.json"
+}
