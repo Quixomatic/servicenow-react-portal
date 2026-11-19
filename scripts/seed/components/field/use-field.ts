@@ -113,7 +113,9 @@ export function useField(input: string | FieldProps): UseFieldResult {
         if (props.error) list.push({ kind: 'error', text: props.error, id: 'prop-error' })
         for (const m of props.messages || NO_MESSAGES) list.push(m)
         for (const m of (entry && entry.messages) || NO_MESSAGES) list.push(m)
-        if (showErrors && missing) list.push({ kind: 'error', text: `${label} is required`, id: 'required' })
+        // "Required" appears after a submit/validate, or once the user changed the value and left it
+        // empty: never just for tabbing through an empty field (no error flash, no layout shift).
+        if (missing && (snap.submitted || (touched && value !== originalValue))) list.push({ kind: 'error', text: `${label} is required`, id: 'required' })
         if (maxLength && maxLength > 0 && String(current || '').length > maxLength)
             list.push({ kind: 'error', text: `Use ${maxLength} characters or fewer (${String(current).length} now)`, id: 'max-length' })
         if (props.validate && showErrors && !isEmpty(current)) {
@@ -121,7 +123,7 @@ export function useField(input: string | FieldProps): UseFieldResult {
             if (msg) list.push({ kind: 'error', text: msg, id: 'validate' })
         }
         return list
-    }, [props.error, props.messages, entry, showErrors, missing, label, maxLength, current, props.validate])
+    }, [props.error, props.messages, entry, showErrors, missing, label, maxLength, current, props.validate, snap.submitted, touched, value, originalValue])
     const error = messages.find((m) => m.kind === 'error')
 
     const onChangeRef = useRef(props.onChange)

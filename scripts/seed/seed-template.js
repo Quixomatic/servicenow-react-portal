@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.6.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.7.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -252,7 +252,7 @@
 
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home',
-        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'Layouts', to: 'layouts' }, { label: 'Fields', to: 'fields' }, { label: 'About', to: 'about' }],
+        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'Layouts', to: 'layouts' }, { label: 'Fields', to: 'fields' }, { label: 'Catalog', to: 'catalog' }, { label: 'About', to: 'about' }],
         pages: [
             { route: 'home', name: 'Home', widgets: [
                 { c: 'hello-card', options: { title: 'Welcome to the Service Portal', body: 'Rendered by React 19 from records: layout, theme and widgets are all compiled builds.', links: [{ label: 'Orders', to: 'orders' }, { label: 'Order 42', to: 'orders/42' }, { label: 'About (other layout)', to: 'about' }] } },
@@ -298,6 +298,24 @@
             // Field primitives (app/field + app/*-field): standalone and bound to a real incident.
             { route: 'fields', name: 'Fields', widgets: [
                 { c: 'field-demo', options: { table: 'incident' } },
+            ] },
+            // Catalog variables (app/variable, app/mrvs, app/catalog-item): picker + item, chosen via ?item=<sys_id>.
+            { route: 'catalog', name: 'Catalog', widgets: [
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] }, children: {
+                    'col-1': [
+                        { c: 'catalog-picker', options: { title: 'Catalog', search: true, items: [
+                            { sysId: '54c9ead947dec110f53d37d2846d43ea', label: 'Request zoom webinar', note: 'Item · text, date/time, checkbox, masked, list collector' },
+                            { sysId: 'e56a7ffe41011300964ff05369414ebd', label: 'Corporate Mobile Devices - Bulk Orders', note: 'Item · reference, multi-row variable set' },
+                            { sysId: '575274511d830010f8776f77b927f284', label: 'Parking Sticker Request', note: 'Item · requested for, rich text, attachments' },
+                            { sysId: '04b7e94b4f7b4200086eeed18110c7fd', label: 'Standard Laptop', note: 'Item · checkbox group, price' },
+                            { sysId: '67e2f2da4fff0200086eeed18110c7dd', label: 'Firewall Rule Change', note: 'Item · variable set, IP address, radio' },
+                            { sysId: '38c1fc840a0a0b2700285921c2bf5fc8', label: 'Report Outage', note: 'Record producer · incident' },
+                        ] } },
+                    ],
+                    'col-2': [
+                        { c: 'catalog-item', options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' } },
+                    ],
+                } },
             ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },

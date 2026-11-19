@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.6.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.7.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -140,6 +140,31 @@
   ],
   "imports": []
  },
+ "catalog": {
+  "meta": {
+   "name": "Catalog",
+   "kind": "utility",
+   "tailwind": false
+  },
+  "clientScript": "/**\n * utilities:app/catalog: Service Catalog data for app/variable, app/mrvs and app/catalog-item.\n *\n * Fetchers: fetchCatalogItem, fetchItemPrice, submitCatalogItem, fetchMrvsRowForm,\n *           validateVariableRegex, checkDelegation, uploadVariableAttachment (see api.ts for the\n *           platform call behind each).\n * Hooks:    useCatalogItem(sysId, table?)   cached per item (a fresh draft record each mount)\n *           useItemPrice(itemId, variables, quantity, enabled)   debounced, keyed by values\n *           useMrvsRowForm(setId, itemId, row?)\n */\nimport { useQuery, keepPreviousData } from 'utilities:react-query'\nimport { useDebouncedValue, stableChanges } from 'utilities:app/graphql'\nimport { fetchCatalogItem, fetchItemPrice, fetchMrvsRowForm } from './api'\nimport type { CatalogItem, MrvsRowForm, PriceResult } from './types'\n\nexport {\n    ITEM_LAYOUT_QUERY,\n    fetchCatalogItem,\n    fetchItemPrice,\n    submitCatalogItem,\n    fetchMrvsRowForm,\n    validateVariableRegex,\n    checkDelegation,\n    uploadVariableAttachment,\n} from './api'\nexport type { CatalogItem, CatalogVariable, CatalogLayoutNode, PriceResult, SubmitResult, MrvsRowField, MrvsRowForm } from './types'\n\nexport function useCatalogItem(sysId: string | undefined, table = 'sc_cat_item') {\n    return useQuery<CatalogItem>({\n        queryKey: ['rp-catalog', 'item', table, sysId || ''],\n        queryFn: ({ signal }: { signal: AbortSignal }) => fetchCatalogItem(sysId as string, table, signal),\n        enabled: !!sysId,\n        // Each load reserves a draft record for attachments: keep the one we have.\n        staleTime: Infinity,\n        gcTime: 5 * 60_000,\n        refetchOnMount: false,\n    })\n}\n\nexport function useItemPrice(itemId: string | undefined, variables: Record<string, string>, quantity: string, enabled: boolean) {\n    const key = useDebouncedValue(stableChanges(variables) + '|' + quantity, 400)\n    return useQuery<PriceResult>({\n        queryKey: ['rp-catalog', 'price', itemId || '', key],\n        queryFn: () => {\n            const [vars, qty] = [JSON.parse(key.slice(0, key.lastIndexOf('|')) || '{}'), key.slice(key.lastIndexOf('|') + 1)]\n            return fetchItemPrice(itemId as string, vars, qty)\n        },\n        enabled: !!itemId && enabled,\n        staleTime: 60_000,\n        placeholderData: keepPreviousData,\n    })\n}\n\nexport function useMrvsRowForm(setId: string | undefined, itemId: string | undefined, sourceTable = 'sc_cat_item', enabled = true) {\n    return useQuery<MrvsRowForm>({\n        queryKey: ['rp-catalog', 'mrvs-row', setId || '', itemId || ''],\n        queryFn: () => fetchMrvsRowForm({ setId: setId as string, itemId: itemId as string, sourceTable }),\n        enabled: !!setId && !!itemId && enabled,\n        staleTime: 10 * 60_000,\n    })\n}\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [
+   {
+    "path": "api.ts",
+    "target": "client",
+    "content": "import { graphql, authHeaders } from 'utilities:app/graphql'\r\nimport type { CatalogItem, CatalogVariable, MrvsRowField, MrvsRowForm, PriceResult, SubmitResult } from './types'\r\n\r\n/**\r\n * Catalog platform calls (the same ones Workspace's catalog form makes):\r\n *\r\n *   fetchCatalogItem      POST /api/now/graphql   AppCatalogView_Query.itemViewLayout → AppCatalog_Query.itemLayout\r\n *                         (item, pricing, variables, variablesLayout, variablesValues: one request)\r\n *   fetchItemPrice        POST /api/sn_sc/servicecatalog/items/{id}/price\r\n *   submitCatalogItem     POST /api/sn_sc/servicecatalog/items/{id}/order_now | submit_producer\r\n *   fetchMrvsRowForm      POST /api/now/sp/widget/sc-multi-row-active-row   (row form metadata; Workspace's MRVS modal uses it)\r\n *   validateVariableRegex POST /api/now/graphql   snSc.serviceCatalog.validateVariableRegex\r\n *   checkDelegation       GET  /api/sn_sc/v1/servicecatalog/items/{id}/delegation/{user}\r\n *   uploadVariableAttachment POST /api/now/attachment/file  (table ZZ_YY<draft table>, the draft record)\r\n */\r\n\r\nexport const ITEM_LAYOUT_QUERY = `query rpCatalogItem($table: String!, $sysId: String!) {\r\n  AppCatalogView_Query {\r\n    itemViewLayout(sourceTable: $table, sourceId: $sysId) {\r\n      _query {\r\n        AppCatalog_Query {\r\n          itemLayout(sourceTable: $table, sourceId: $sysId) {\r\n            name shortDescription description sysId picture requestMethod mandatoryAttachment hideQuantity hideAttachment\r\n            quantity { label value } type targetRecordTable targetRecordSysId\r\n            pricing { price displayPrice recurringPrice recurringDisplayPrice recurringFrequencyDisplay showPrices currencyCode currencySymbol }\r\n            variablesLayout { name type parent ... on AppCatalog_ContainerVariableFieldLayoutType { caption captionDisplay layout columns { fields { name type } } } }\r\n            variablesValues { name value displayValue }\r\n            variables {\r\n              __typename\r\n              ... on AppCatalog_MultiRowVariableSetType { type name label containerType variableName id maxRows visible: canRead fields { name id label type unique hideOnGrid } rowData { row { id value displayValue } } }\r\n              ... on AppCatalog_SingleRowVariableSetType { type id name label containerType visible variableName }\r\n              ... on AppCatalog_ChoiceQuestionElementType { type id name variableName label order mandatory readOnly visible variableAttributes defaultValue lookupTable includeNone choiceDirection choices { displayValue: label value } dependentField referringTable referringRecordId hasPriceImplecations showHelp helpText instructions }\r\n              ... on AppCatalog_ReferenceQuestionElementType { type id name variableName label order mandatory readOnly visible reference referenceQual listTable useReferenceQualifier variableAttributes defaultValue referringTable referringRecordId refAcOrderBy hasPriceImplecations showHelp helpText instructions }\r\n              ... on AppCatalog_ContainerQuestionElementType { type id name variableName label order visible displayTitle layout containerType showHelp helpText instructions }\r\n              ... on AppCatalog_AttachmentQuestionElementType { type id name variableName label order mandatory readOnly visible allowedFileExtensions maxAttachmentSize variableAttributes defaultValue showHelp helpText instructions }\r\n              ... on AppCatalog_MacroQuestionElementType { type id name variableName label order mandatory variableAttributes defaultValue macroponentId showHelp helpText instructions }\r\n              ... on AppCatalog_StandardQuestionElementType { type id name variableName label order mandatory readOnly visible variableAttributes defaultValue exampleText useConfirmation regExp hasPriceImplecations showHelp helpText instructions }\r\n            }\r\n          }\r\n        }\r\n      }\r\n    }\r\n  }\r\n}`\r\n\r\nconst bool = (v: unknown) => v === true || v === 'true'\r\n\r\n/** Item or record producer, with variables, layout and default values, in one GraphQL request. */\r\nexport async function fetchCatalogItem(sysId: string, table = 'sc_cat_item', signal?: AbortSignal): Promise<CatalogItem> {\r\n    const data = await graphql(ITEM_LAYOUT_QUERY, { table, sysId }, { signal })\r\n    const L = data && data.AppCatalogView_Query && data.AppCatalogView_Query.itemViewLayout && data.AppCatalogView_Query.itemViewLayout._query.AppCatalog_Query.itemLayout\r\n    if (!L) throw new Error('Catalog item not found or not available to you')\r\n    const values: CatalogItem['values'] = {}\r\n    for (const v of L.variablesValues || []) values[v.name] = { value: v.value == null ? '' : String(v.value), displayValue: v.displayValue == null ? '' : String(v.displayValue) }\r\n    return {\r\n        sysId: L.sysId,\r\n        name: L.name || '',\r\n        shortDescription: L.shortDescription || '',\r\n        description: L.description || '',\r\n        picture: L.picture || '',\r\n        type: L.type || 'catalog_item',\r\n        requestMethod: L.requestMethod || 'order',\r\n        mandatoryAttachment: bool(L.mandatoryAttachment),\r\n        hideQuantity: bool(L.hideQuantity),\r\n        hideAttachment: bool(L.hideAttachment),\r\n        quantity: L.quantity || [],\r\n        targetRecordTable: L.targetRecordTable || '',\r\n        targetRecordSysId: L.targetRecordSysId || '',\r\n        pricing: L.pricing || null,\r\n        variables: (L.variables || []) as CatalogVariable[],\r\n        layout: L.variablesLayout || [],\r\n        values,\r\n    }\r\n}\r\n\r\nasync function restJson(method: string, url: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<any> {\r\n    const response = await fetch(url, {\r\n        method,\r\n        credentials: 'same-origin',\r\n        headers: { ...authHeaders(body !== undefined), ...(extraHeaders || {}) },\r\n        body: body === undefined ? undefined : JSON.stringify(body),\r\n    })\r\n    const text = await response.text()\r\n    let json: any = null\r\n    try {\r\n        json = text ? JSON.parse(text) : null\r\n    } catch (e) {\r\n        /* not JSON */\r\n    }\r\n    if (!response.ok) {\r\n        const err = json && (json.error || (json.result && json.result.errMsg))\r\n        const message = (err && (err.message || err.detail || err)) || `HTTP ${response.status}`\r\n        throw new Error(typeof message === 'string' ? message : JSON.stringify(message))\r\n    }\r\n    return json ? json.result : null\r\n}\r\n\r\n/** Price for the current values and quantity (variables keyed by variable name). */\r\nexport async function fetchItemPrice(itemId: string, variables: Record<string, string>, quantity = '1'): Promise<PriceResult> {\r\n    const r = (await restJson('POST', `/api/sn_sc/servicecatalog/items/${encodeURIComponent(itemId)}/price`, { sysparm_id: itemId, sysparm_quantity: quantity, variables })) || {}\r\n    return {\r\n        price: r.price ? String(r.price_display || r.price) : '',\r\n        recurringPrice: r.recurring_frequency ? `${r.recurring_price_display || r.recurring_price} ${r.recurring_frequency}` : '',\r\n        priceValue: Number(r.price || 0),\r\n        recurringValue: Number(r.recurring_price || 0),\r\n        frequency: r.recurring_frequency || '',\r\n        subtotal: r.price_subtotal_display ? String(r.price_subtotal_display) : '',\r\n        recurringSubtotal: r.recurring_frequency && r.recurring_price_subtotal_display ? `${r.recurring_price_subtotal_display} ${r.recurring_frequency}` : '',\r\n    }\r\n}\r\n\r\n/**\r\n * Order now (catalog items) or submit (record producers). `variables` are keyed by variable name;\r\n * MRVS values are JSON arrays of rows (keyed by the set's variable names), as strings.\r\n */\r\nexport async function submitCatalogItem(args: {\r\n    itemId: string\r\n    kind: 'order_now' | 'submit_producer'\r\n    variables: Record<string, string>\r\n    quantity?: string\r\n    requestedFor?: string\r\n    itemGuid?: string\r\n}): Promise<SubmitResult> {\r\n    const body: Record<string, unknown> = { variables: args.variables }\r\n    if (args.itemGuid) body.sysparm_item_guid = args.itemGuid\r\n    if (args.kind === 'order_now') {\r\n        body.sysparm_quantity = args.quantity || '1'\r\n        if (args.requestedFor) body.sysparm_requested_for = args.requestedFor\r\n    }\r\n    const r = (await restJson('POST', `/api/sn_sc/servicecatalog/items/${encodeURIComponent(args.itemId)}/${args.kind}`, body)) || {}\r\n    return {\r\n        table: r.table || (args.kind === 'order_now' ? 'sc_request' : ''),\r\n        sysId: r.sys_id || r.request_id || '',\r\n        number: r.number || r.request_number || '',\r\n        requestNumber: r.request_number,\r\n        requestId: r.request_id,\r\n        raw: r,\r\n    }\r\n}\r\n\r\nconst SP_PORTAL = '81b75d3147032100ba13a5554ee4902b' // Service Portal id Workspace sends for this widget\r\n\r\n/** MRVS row form: field metadata for one row (add) or prefilled from a row (edit). */\r\nexport async function fetchMrvsRowForm(args: { setId: string; itemId: string; sourceTable?: string; row?: Record<string, string> }): Promise<MrvsRowForm> {\r\n    const r = await restJson(\r\n        'POST',\r\n        '/api/now/sp/widget/sc-multi-row-active-row',\r\n        {\r\n            action: args.row ? 'edit' : 'add',\r\n            variable_set_id: args.setId,\r\n            source_id: args.itemId,\r\n            source_table: args.sourceTable || 'sc_cat_item',\r\n            row_data: args.row ? JSON.stringify(args.row) : '',\r\n            workspace_form: true,\r\n        },\r\n        { 'x-portal': SP_PORTAL },\r\n    )\r\n    const row = r && r.data && r.data.active_row\r\n    if (!row) throw new Error('The platform returned no row form for this variable set')\r\n    const fields: MrvsRowField[] = Object.keys(row._fields || {}).map((name) => {\r\n        const f = row._fields[name]\r\n        const ed = f.ed || {}\r\n        return {\r\n            name,\r\n            sysId: f.sys_id,\r\n            label: f.label || name,\r\n            type: String(f.type || 'string'),\r\n            mandatory: bool(f.mandatory),\r\n            readOnly: bool(f.read_only) || bool(f.readonly) || bool(f.sys_readonly),\r\n            visible: f.visible !== false,\r\n            value: f.value == null ? '' : String(f.value),\r\n            displayValue: f.displayValue == null ? String(f.display_value ?? f.value ?? '') : String(f.displayValue),\r\n            order: Number(f.order || 0),\r\n            unique: bool(f.unique),\r\n            choices: Array.isArray(f.choices) ? f.choices.map((c: any) => ({ value: String(c.value ?? ''), label: String(c.label ?? c.value ?? '') })) : undefined,\r\n            reference: f.refTable || ed.reference || f.reference || undefined,\r\n            referenceQual: ed.qualifier || f.reference_qual || undefined,\r\n            attributes: f.attributes || '',\r\n            helpText: f.help_text || f.instructions || '',\r\n            placeholder: f.placeholder || '',\r\n        }\r\n    })\r\n    fields.sort((a, b) => a.order - b.order)\r\n    const columns: string[][] = []\r\n    for (const s of row._sections || []) for (const c of s.columns || []) columns.push((c.fields || []).map((x: any) => x.name))\r\n    return { fields, columns: columns.filter((c) => c.length) }\r\n}\r\n\r\n/** Server-side regex validation of a variable (question regex). Resolves with an error message or ''. */\r\nexport async function validateVariableRegex(questionId: string, value: string): Promise<string> {\r\n    const data = await graphql(\r\n        `query rpVarRegex($questionId: String!, $value: String!) { snSc { serviceCatalog { validateVariableRegex(questionId: $questionId, value: $value) { result errMsg } } } }`,\r\n        { questionId, value },\r\n    )\r\n    const r = data && data.snSc && data.snSc.serviceCatalog && data.snSc.serviceCatalog.validateVariableRegex\r\n    return r && r.result === false ? r.errMsg || 'Invalid value' : ''\r\n}\r\n\r\n/** Can the current user request this item for `userId`? Resolves with an error message or ''. */\r\nexport async function checkDelegation(itemId: string, userId: string): Promise<string> {\r\n    const r = await restJson('GET', `/api/sn_sc/v1/servicecatalog/items/${encodeURIComponent(itemId)}/delegation/${encodeURIComponent(userId)}`)\r\n    if (!r) return ''\r\n    return r.failed_delegations && r.failed_delegations.length ? r.failed_delegations.map((f: any) => f.message || f).join(' ') : r.errMsg || ''\r\n}\r\n\r\n/** Upload a file for an attachment variable to the form's draft record; resolves with the attachment sys_id. */\r\nexport async function uploadVariableAttachment(args: { file: File; draftTable: string; draftSysId: string }): Promise<{ sysId: string; fileName: string }> {\r\n    const url = `/api/now/attachment/file?table_name=${encodeURIComponent('ZZ_YY' + args.draftTable)}&table_sys_id=${encodeURIComponent(args.draftSysId)}&file_name=${encodeURIComponent(args.file.name)}`\r\n    const headers = authHeaders(false)\r\n    headers['Content-Type'] = args.file.type || 'application/octet-stream'\r\n    const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: args.file })\r\n    const json = await response.json().catch(() => null)\r\n    if (!response.ok || !json || !json.result) throw new Error((json && json.error && json.error.message) || `Upload failed (HTTP ${response.status})`)\r\n    return { sysId: json.result.sys_id, fileName: json.result.file_name }\r\n}\r\n"
+   },
+   {
+    "path": "types.ts",
+    "target": "client",
+    "content": "/** A catalog variable as the AppCatalog GraphQL schema returns it (fields we use). */\r\nexport type CatalogVariable = {\r\n    __typename: string\r\n    /** Glide-like UI type: string, multi_two_lines, choice, multiple_choice, numeric_scale, yes_no,\r\n     *  reference, requested_for, glide_list, boolean, glide_date, glide_date_time, masked, email,\r\n     *  url, ip_address, glide_duration, html, label, rich_text_label, break, attachment, macro,\r\n     *  ui_page, container, … */\r\n    type: string\r\n    id: string\r\n    /** Form field name: 'variables.<variableName>' (containers: 'variables.<sys_id>'). */\r\n    name: string\r\n    variableName: string | null\r\n    label: string\r\n    order?: number\r\n    mandatory?: boolean\r\n    readOnly?: boolean\r\n    visible?: boolean\r\n    variableAttributes?: string\r\n    defaultValue?: string\r\n    showHelp?: boolean\r\n    helpText?: string\r\n    instructions?: string | null\r\n    exampleText?: string\r\n    useConfirmation?: boolean\r\n    regExp?: string\r\n    hasPriceImplecations?: boolean\r\n    // choice\r\n    choices?: { displayValue: string; value: string }[]\r\n    includeNone?: boolean\r\n    choiceDirection?: string\r\n    lookupTable?: string\r\n    dependentField?: string\r\n    // reference\r\n    reference?: string\r\n    referenceQual?: string\r\n    useReferenceQualifier?: string\r\n    listTable?: string\r\n    refAcOrderBy?: string\r\n    referringTable?: string\r\n    referringRecordId?: string\r\n    // container / sets\r\n    containerType?: string\r\n    displayTitle?: boolean\r\n    layout?: string\r\n    maxRows?: number\r\n    fields?: { name: string; id: string; label: string; type: string; unique?: boolean; hideOnGrid?: boolean }[]\r\n    rowData?: { row: { id: string; value: string; displayValue: string }[] }[]\r\n    // attachment\r\n    allowedFileExtensions?: string\r\n    maxAttachmentSize?: string\r\n    // macro\r\n    macroponentId?: string\r\n}\r\n\r\n/** Layout node: a field, or a container with columns of fields (nested by `parent`). */\r\nexport type CatalogLayoutNode = {\r\n    name: string\r\n    type: 'field' | 'container' | 'checkbox_container' | 'multi_row_container' | string\r\n    parent: string\r\n    caption?: string\r\n    captionDisplay?: string\r\n    layout?: string\r\n    columns?: { fields: { name: string; type: string }[] }[]\r\n}\r\n\r\nexport type CatalogItem = {\r\n    sysId: string\r\n    name: string\r\n    shortDescription: string\r\n    description: string\r\n    picture: string\r\n    /** 'catalog_item' | 'record_producer' | … */\r\n    type: string\r\n    /** 'order' | 'request' | 'submit' (button label for items). */\r\n    requestMethod: string\r\n    mandatoryAttachment: boolean\r\n    hideQuantity: boolean\r\n    hideAttachment: boolean\r\n    quantity: { label: string; value: string }[]\r\n    /** Draft record the platform reserved for this form (attachments go there). */\r\n    targetRecordTable: string\r\n    targetRecordSysId: string\r\n    pricing: {\r\n        price: number\r\n        displayPrice: string\r\n        recurringPrice: number\r\n        recurringDisplayPrice: string\r\n        recurringFrequencyDisplay: string | null\r\n        showPrices: boolean\r\n        currencyCode: string\r\n        currencySymbol: string\r\n    } | null\r\n    variables: CatalogVariable[]\r\n    layout: CatalogLayoutNode[]\r\n    values: Record<string, { value: string; displayValue: string }>\r\n}\r\n\r\nexport type PriceResult = { price: string; recurringPrice: string; priceValue: number; recurringValue: number; frequency: string; subtotal: string; recurringSubtotal: string }\r\n\r\nexport type SubmitResult = {\r\n    /** Created record (request for items, target record for producers). */\r\n    table: string\r\n    sysId: string\r\n    number: string\r\n    /** Item orders: the sc_request. */\r\n    requestNumber?: string\r\n    requestId?: string\r\n    raw: Record<string, unknown>\r\n}\r\n\r\n/** MRVS row field as the platform's row form returns it. */\r\nexport type MrvsRowField = {\r\n    name: string\r\n    sysId: string\r\n    label: string\r\n    type: string\r\n    mandatory: boolean\r\n    readOnly: boolean\r\n    visible: boolean\r\n    value: string\r\n    displayValue: string\r\n    order: number\r\n    unique: boolean\r\n    choices?: { value: string; label: string }[]\r\n    reference?: string\r\n    referenceQual?: string\r\n    attributes?: string\r\n    helpText?: string\r\n    placeholder?: string\r\n}\r\n\r\nexport type MrvsRowForm = {\r\n    fields: MrvsRowField[]\r\n    /** Column layout of the row form. */\r\n    columns: string[][]\r\n}\r\n"
+   }
+  ],
+  "imports": [
+   "graphql"
+  ]
+ },
  "field": {
   "meta": {
    "name": "Field",
@@ -183,11 +208,26 @@
    {
     "path": "use-field.ts",
     "target": "client",
-    "content": "import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'\nimport { useFieldMeta } from 'utilities:app/graphql'\nimport { useFormContext } from './form'\nimport type { FieldMessage, FieldMeta, FieldProps, FieldSnapshot, UseFieldResult } from './types'\n\nconst NO_SNAPSHOT: FieldSnapshot = { entry: undefined, server: undefined, meta: undefined, submitted: false }\nconst noopSubscribe = () => () => {}\nconst NO_MESSAGES: FieldMessage[] = []\n\nfunction isEmpty(v: string | undefined): boolean {\n    return v == null || String(v).trim() === ''\n}\n\nfunction firstDefined<T>(...values: (T | undefined | null)[]): T | undefined {\n    for (const v of values) if (v !== undefined && v !== null) return v\n    return undefined\n}\n\n/**\n * The field contract. Resolves, in order: explicit props → form context (values, script\n * overrides, server states) → dictionary metadata (cached by the GraphQL utility).\n *\n *   useField('short_description')                  // bound to the nearest FormProvider\n *   useField({ name: 'x', value, onChange, ... })  // standalone, controlled\n *   useField({ name: 'x', table: 'incident' })     // standalone, uncontrolled, dictionary metadata\n *\n * Always controlled through the hook: setValue commits (fires onChange / form listeners),\n * stage records keystrokes. Errors show after the field was touched or the form validated.\n */\nexport function useField(input: string | FieldProps): UseFieldResult {\n    const props: FieldProps = typeof input === 'string' ? { name: input } : input\n    const { name } = props\n    const ctx = useFormContext()\n    const form = props.standalone ? null : ctx\n    const bound = !!form && props.value === undefined\n\n    // This field's slice of the form (one memoised snapshot per field).\n    const snap = useSyncExternalStore(\n        bound ? form!.subscribe : noopSubscribe,\n        () => (bound ? form!.fieldSnapshot(name) : NO_SNAPSHOT),\n        () => NO_SNAPSHOT,\n    )\n    useEffect(() => (bound ? form!.registerField(name) : undefined), [bound, form, name])\n\n    const table = props.table || (form ? form.table : undefined) || undefined\n    // Dictionary metadata: from the form when it has it, else from the table's cached metadata.\n    const needMeta = !snap.meta && !!table && !(props.meta && props.meta.type && props.meta.label)\n    const dict = useFieldMeta(table, name, { enabled: needMeta })\n    const baseMeta = snap.meta || dict.meta\n\n    // Dependent value: explicit, or the form value of the dictionary dependent field.\n    const dependsOn = props.dependsOn || (baseMeta && baseMeta.dependsOn) || undefined\n    const formDependent = useSyncExternalStore(\n        bound && dependsOn ? form!.subscribe : noopSubscribe,\n        () => (bound && dependsOn ? form!.getValue(dependsOn) : undefined),\n        () => undefined,\n    )\n\n    // Standalone, uncontrolled value lives here.\n    const [local, setLocal] = useState(() => ({\n        value: props.defaultValue ?? '',\n        displayValue: props.defaultDisplayValue ?? props.defaultValue ?? '',\n        staged: undefined as string | undefined,\n        touched: false,\n    }))\n    const initial = useRef<string | null>(null)\n    if (initial.current === null) initial.current = props.value ?? props.defaultValue ?? ''\n\n    const entry = snap.entry\n    const ov = (entry && entry.overrides) || {}\n    const server = snap.server\n\n    const meta: FieldMeta = useMemo(\n        () => ({\n            table: table || '',\n            name,\n            label: name,\n            type: 'string',\n            mandatory: false,\n            readOnly: false,\n            attributes: {},\n            source: 'props',\n            ...(baseMeta || {}),\n            ...(props.meta || {}),\n            ...(props.type ? { type: props.type } : {}),\n        }),\n        [baseMeta, props.meta, props.type, table, name],\n    )\n\n    const value = props.value ?? (bound ? (entry ? entry.value : '') : local.value)\n    const displayValue = props.value !== undefined ? props.displayValue ?? props.value : bound ? (entry ? entry.displayValue || entry.value : '') : local.displayValue || local.value\n    const originalValue = bound ? (entry ? entry.originalValue : '') : (initial.current as string)\n    const staged = bound ? entry && entry.staged : local.staged\n    const touched = bound ? !!(entry && entry.touched) : local.touched\n\n    const readOnly = !!firstDefined(props.readOnly, ov.readOnly, server && server.readonly, meta.readOnly || meta.canWrite === false)\n    const mandatoryRaw = !!firstDefined(props.mandatory, ov.mandatory, server && server.mandatory, meta.mandatory)\n    const visible = firstDefined(props.visible, ov.visible, server ? !server.hidden : undefined, meta.canRead === false ? false : undefined) ?? true\n    const disabled = !!firstDefined(props.disabled, ov.disabled)\n    // The platform's rule: a read-only field is never required.\n    const mandatory = mandatoryRaw && !readOnly\n    const label = firstDefined(props.label, ov.label, meta.label) || name\n    const placeholder = firstDefined(props.placeholder, ov.placeholder, meta.attributes && meta.attributes.placeholder)\n    const hint = firstDefined(props.hint, ov.hint, meta.hint)\n    const maxLength = firstDefined(props.maxLength, meta.maxLength)\n\n    const current = staged !== undefined ? staged : value\n    const missing = mandatory && !disabled && isEmpty(current)\n    const showErrors = touched || snap.submitted\n\n    const messages = useMemo(() => {\n        const list: FieldMessage[] = []\n        if (props.error) list.push({ kind: 'error', text: props.error, id: 'prop-error' })\n        for (const m of props.messages || NO_MESSAGES) list.push(m)\n        for (const m of (entry && entry.messages) || NO_MESSAGES) list.push(m)\n        if (showErrors && missing) list.push({ kind: 'error', text: `${label} is required`, id: 'required' })\n        if (maxLength && maxLength > 0 && String(current || '').length > maxLength)\n            list.push({ kind: 'error', text: `Use ${maxLength} characters or fewer (${String(current).length} now)`, id: 'max-length' })\n        if (props.validate && showErrors && !isEmpty(current)) {\n            const msg = props.validate(String(current))\n            if (msg) list.push({ kind: 'error', text: msg, id: 'validate' })\n        }\n        return list\n    }, [props.error, props.messages, entry, showErrors, missing, label, maxLength, current, props.validate])\n    const error = messages.find((m) => m.kind === 'error')\n\n    const onChangeRef = useRef(props.onChange)\n    onChangeRef.current = props.onChange\n    const onStageRef = useRef(props.onStage)\n    onStageRef.current = props.onStage\n    const controlled = props.value !== undefined\n\n    const setValue = useCallback(\n        (v: string, dv?: string) => {\n            const nextValue = v == null ? '' : String(v)\n            const nextDisplay = dv == null ? nextValue : String(dv)\n            if (bound) form!.setValue(name, nextValue, nextDisplay)\n            else setLocal((s) => ({ ...s, value: controlled ? s.value : nextValue, displayValue: controlled ? s.displayValue : nextDisplay, staged: undefined }))\n            if (onChangeRef.current) onChangeRef.current(nextValue, nextDisplay)\n        },\n        [bound, form, name, controlled],\n    )\n    const stage = useCallback(\n        (v: string) => {\n            if (bound) form!.stage(name, v)\n            else setLocal((s) => (s.staged === v ? s : { ...s, staged: v }))\n            if (onStageRef.current) onStageRef.current(v)\n        },\n        [bound, form, name],\n    )\n    const blur = useCallback(() => {\n        if (bound) form!.touch(name)\n        else setLocal((s) => (s.touched ? s : { ...s, touched: true }))\n    }, [bound, form, name])\n\n    const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')\n    const base = props.id || `rpf-${name}-${uid}`\n    const ids = useMemo(() => ({ input: base, label: `${base}-label`, hint: `${base}-hint`, messages: `${base}-messages` }), [base])\n    const describedBy = [hint ? ids.hint : '', messages.length ? ids.messages : ''].filter(Boolean).join(' ') || undefined\n\n    const lookup = useMemo(\n        () => ({\n            sysId: form ? form.sysId || '-1' : '-1',\n            encodedRecord: form ? form.encodedRecord : '',\n            getChanges: () => (form ? form.serialize() : {}),\n        }),\n        [form, snap],\n    )\n\n    return {\n        name,\n        table,\n        meta,\n        label,\n        placeholder,\n        hint,\n        maxLength,\n        value,\n        displayValue,\n        originalValue,\n        staged,\n        dirty: value !== originalValue,\n        touched,\n        state: { mandatory, readOnly, visible, disabled },\n        missing,\n        messages,\n        error,\n        invalid: !!error,\n        loading: needMeta && dict.isLoading,\n        bound,\n        dependentValue: firstDefined(props.dependentValue, formDependent),\n        setValue,\n        stage,\n        blur,\n        ids,\n        describedBy,\n        lookup,\n        autoFocus: props.autoFocus,\n    }\n}\n"
+    "content": "import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'\nimport { useFieldMeta } from 'utilities:app/graphql'\nimport { useFormContext } from './form'\nimport type { FieldMessage, FieldMeta, FieldProps, FieldSnapshot, UseFieldResult } from './types'\n\nconst NO_SNAPSHOT: FieldSnapshot = { entry: undefined, server: undefined, meta: undefined, submitted: false }\nconst noopSubscribe = () => () => {}\nconst NO_MESSAGES: FieldMessage[] = []\n\nfunction isEmpty(v: string | undefined): boolean {\n    return v == null || String(v).trim() === ''\n}\n\nfunction firstDefined<T>(...values: (T | undefined | null)[]): T | undefined {\n    for (const v of values) if (v !== undefined && v !== null) return v\n    return undefined\n}\n\n/**\n * The field contract. Resolves, in order: explicit props → form context (values, script\n * overrides, server states) → dictionary metadata (cached by the GraphQL utility).\n *\n *   useField('short_description')                  // bound to the nearest FormProvider\n *   useField({ name: 'x', value, onChange, ... })  // standalone, controlled\n *   useField({ name: 'x', table: 'incident' })     // standalone, uncontrolled, dictionary metadata\n *\n * Always controlled through the hook: setValue commits (fires onChange / form listeners),\n * stage records keystrokes. Errors show after the field was touched or the form validated.\n */\nexport function useField(input: string | FieldProps): UseFieldResult {\n    const props: FieldProps = typeof input === 'string' ? { name: input } : input\n    const { name } = props\n    const ctx = useFormContext()\n    const form = props.standalone ? null : ctx\n    const bound = !!form && props.value === undefined\n\n    // This field's slice of the form (one memoised snapshot per field).\n    const snap = useSyncExternalStore(\n        bound ? form!.subscribe : noopSubscribe,\n        () => (bound ? form!.fieldSnapshot(name) : NO_SNAPSHOT),\n        () => NO_SNAPSHOT,\n    )\n    useEffect(() => (bound ? form!.registerField(name) : undefined), [bound, form, name])\n\n    const table = props.table || (form ? form.table : undefined) || undefined\n    // Dictionary metadata: from the form when it has it, else from the table's cached metadata.\n    const needMeta = !snap.meta && !!table && !(props.meta && props.meta.type && props.meta.label)\n    const dict = useFieldMeta(table, name, { enabled: needMeta })\n    const baseMeta = snap.meta || dict.meta\n\n    // Dependent value: explicit, or the form value of the dictionary dependent field.\n    const dependsOn = props.dependsOn || (baseMeta && baseMeta.dependsOn) || undefined\n    const formDependent = useSyncExternalStore(\n        bound && dependsOn ? form!.subscribe : noopSubscribe,\n        () => (bound && dependsOn ? form!.getValue(dependsOn) : undefined),\n        () => undefined,\n    )\n\n    // Standalone, uncontrolled value lives here.\n    const [local, setLocal] = useState(() => ({\n        value: props.defaultValue ?? '',\n        displayValue: props.defaultDisplayValue ?? props.defaultValue ?? '',\n        staged: undefined as string | undefined,\n        touched: false,\n    }))\n    const initial = useRef<string | null>(null)\n    if (initial.current === null) initial.current = props.value ?? props.defaultValue ?? ''\n\n    const entry = snap.entry\n    const ov = (entry && entry.overrides) || {}\n    const server = snap.server\n\n    const meta: FieldMeta = useMemo(\n        () => ({\n            table: table || '',\n            name,\n            label: name,\n            type: 'string',\n            mandatory: false,\n            readOnly: false,\n            attributes: {},\n            source: 'props',\n            ...(baseMeta || {}),\n            ...(props.meta || {}),\n            ...(props.type ? { type: props.type } : {}),\n        }),\n        [baseMeta, props.meta, props.type, table, name],\n    )\n\n    const value = props.value ?? (bound ? (entry ? entry.value : '') : local.value)\n    const displayValue = props.value !== undefined ? props.displayValue ?? props.value : bound ? (entry ? entry.displayValue || entry.value : '') : local.displayValue || local.value\n    const originalValue = bound ? (entry ? entry.originalValue : '') : (initial.current as string)\n    const staged = bound ? entry && entry.staged : local.staged\n    const touched = bound ? !!(entry && entry.touched) : local.touched\n\n    const readOnly = !!firstDefined(props.readOnly, ov.readOnly, server && server.readonly, meta.readOnly || meta.canWrite === false)\n    const mandatoryRaw = !!firstDefined(props.mandatory, ov.mandatory, server && server.mandatory, meta.mandatory)\n    const visible = firstDefined(props.visible, ov.visible, server ? !server.hidden : undefined, meta.canRead === false ? false : undefined) ?? true\n    const disabled = !!firstDefined(props.disabled, ov.disabled)\n    // The platform's rule: a read-only field is never required.\n    const mandatory = mandatoryRaw && !readOnly\n    const label = firstDefined(props.label, ov.label, meta.label) || name\n    const placeholder = firstDefined(props.placeholder, ov.placeholder, meta.attributes && meta.attributes.placeholder)\n    const hint = firstDefined(props.hint, ov.hint, meta.hint)\n    const maxLength = firstDefined(props.maxLength, meta.maxLength)\n\n    const current = staged !== undefined ? staged : value\n    const missing = mandatory && !disabled && isEmpty(current)\n    const showErrors = touched || snap.submitted\n\n    const messages = useMemo(() => {\n        const list: FieldMessage[] = []\n        if (props.error) list.push({ kind: 'error', text: props.error, id: 'prop-error' })\n        for (const m of props.messages || NO_MESSAGES) list.push(m)\n        for (const m of (entry && entry.messages) || NO_MESSAGES) list.push(m)\n        // \"Required\" appears after a submit/validate, or once the user changed the value and left it\n        // empty: never just for tabbing through an empty field (no error flash, no layout shift).\n        if (missing && (snap.submitted || (touched && value !== originalValue))) list.push({ kind: 'error', text: `${label} is required`, id: 'required' })\n        if (maxLength && maxLength > 0 && String(current || '').length > maxLength)\n            list.push({ kind: 'error', text: `Use ${maxLength} characters or fewer (${String(current).length} now)`, id: 'max-length' })\n        if (props.validate && showErrors && !isEmpty(current)) {\n            const msg = props.validate(String(current))\n            if (msg) list.push({ kind: 'error', text: msg, id: 'validate' })\n        }\n        return list\n    }, [props.error, props.messages, entry, showErrors, missing, label, maxLength, current, props.validate, snap.submitted, touched, value, originalValue])\n    const error = messages.find((m) => m.kind === 'error')\n\n    const onChangeRef = useRef(props.onChange)\n    onChangeRef.current = props.onChange\n    const onStageRef = useRef(props.onStage)\n    onStageRef.current = props.onStage\n    const controlled = props.value !== undefined\n\n    const setValue = useCallback(\n        (v: string, dv?: string) => {\n            const nextValue = v == null ? '' : String(v)\n            const nextDisplay = dv == null ? nextValue : String(dv)\n            if (bound) form!.setValue(name, nextValue, nextDisplay)\n            else setLocal((s) => ({ ...s, value: controlled ? s.value : nextValue, displayValue: controlled ? s.displayValue : nextDisplay, staged: undefined }))\n            if (onChangeRef.current) onChangeRef.current(nextValue, nextDisplay)\n        },\n        [bound, form, name, controlled],\n    )\n    const stage = useCallback(\n        (v: string) => {\n            if (bound) form!.stage(name, v)\n            else setLocal((s) => (s.staged === v ? s : { ...s, staged: v }))\n            if (onStageRef.current) onStageRef.current(v)\n        },\n        [bound, form, name],\n    )\n    const blur = useCallback(() => {\n        if (bound) form!.touch(name)\n        else setLocal((s) => (s.touched ? s : { ...s, touched: true }))\n    }, [bound, form, name])\n\n    const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')\n    const base = props.id || `rpf-${name}-${uid}`\n    const ids = useMemo(() => ({ input: base, label: `${base}-label`, hint: `${base}-hint`, messages: `${base}-messages` }), [base])\n    const describedBy = [hint ? ids.hint : '', messages.length ? ids.messages : ''].filter(Boolean).join(' ') || undefined\n\n    const lookup = useMemo(\n        () => ({\n            sysId: form ? form.sysId || '-1' : '-1',\n            encodedRecord: form ? form.encodedRecord : '',\n            getChanges: () => (form ? form.serialize() : {}),\n        }),\n        [form, snap],\n    )\n\n    return {\n        name,\n        table,\n        meta,\n        label,\n        placeholder,\n        hint,\n        maxLength,\n        value,\n        displayValue,\n        originalValue,\n        staged,\n        dirty: value !== originalValue,\n        touched,\n        state: { mandatory, readOnly, visible, disabled },\n        missing,\n        messages,\n        error,\n        invalid: !!error,\n        loading: needMeta && dict.isLoading,\n        bound,\n        dependentValue: firstDefined(props.dependentValue, formDependent),\n        setValue,\n        stage,\n        blur,\n        ids,\n        describedBy,\n        lookup,\n        autoFocus: props.autoFocus,\n    }\n}\n"
    }
   ],
   "imports": [
    "graphql"
+  ]
+ },
+ "attachment-variable": {
+  "meta": {
+   "name": "Attachment Variable",
+   "kind": "primitive",
+   "tailwind": true
+  },
+  "clientScript": "/**\n * components:app/attachment-variable: a single-file attachment variable.\n *\n * Choosing (or dropping) a file uploads it to the catalog form's draft record (the table the\n * platform reserved for this form, prefixed ZZ_YY as the platform does for variable\n * attachments); the value is the attachment sys_id, the display value the file name. Allowed\n * extensions and the size limit are checked before uploading. Keyboard: the drop zone is a\n * button that opens the file picker; Remove clears the value.\n */\nimport { useRef, useState } from 'react'\nimport { useField, FieldShell, cx, adornmentButtonClass, IconX, Spinner } from 'components:app/field'\nimport type { FieldProps, FieldLayout } from 'components:app/field'\nimport { uploadVariableAttachment } from 'utilities:app/catalog'\n\nexport type AttachmentVariableProps = FieldProps & {\n    draftTable: string\n    draftSysId: string\n    /** 'pdf,jpeg' or 'pdf;jpeg'. */\n    allowedExtensions?: string\n    maxBytes?: number\n    layout?: FieldLayout\n}\n\nfunction fmtBytes(n: number) {\n    return n >= 1024 ** 2 ? `${(n / 1024 ** 2).toFixed(n % 1024 ** 2 ? 1 : 0)} MB` : `${Math.ceil(n / 1024)} KB`\n}\n\nexport function AttachmentVariable(props: AttachmentVariableProps) {\n    const field = useField(props)\n    const input = useRef<HTMLInputElement | null>(null)\n    const [busy, setBusy] = useState(false)\n    const [error, setError] = useState('')\n    const [over, setOver] = useState(false)\n    const exts = String(props.allowedExtensions || '')\n        .split(/[,;]/)\n        .map((s) => s.trim().toLowerCase().replace(/^\\./, ''))\n        .filter(Boolean)\n    const accept = exts.length ? exts.map((e) => `.${e}`).join(',') : undefined\n    const limits = [exts.length ? exts.join(', ') : '', props.maxBytes ? `up to ${fmtBytes(props.maxBytes)}` : ''].filter(Boolean).join(' · ')\n\n    const upload = async (file: File | undefined) => {\n        if (!file) return\n        setError('')\n        const ext = (file.name.split('.').pop() || '').toLowerCase()\n        if (exts.length && exts.indexOf(ext) < 0) return setError(`Use a ${exts.join(', ')} file`)\n        if (props.maxBytes && file.size > props.maxBytes) return setError(`The file is larger than ${fmtBytes(props.maxBytes)}`)\n        if (!props.draftTable || !props.draftSysId) return setError('This form has no draft record to attach to')\n        setBusy(true)\n        try {\n            const r = await uploadVariableAttachment({ file, draftTable: props.draftTable, draftSysId: props.draftSysId })\n            field.setValue(r.sysId, r.fileName)\n            field.blur()\n        } catch (e) {\n            setError((e as Error).message)\n        } finally {\n            setBusy(false)\n        }\n    }\n\n    const shellField = error ? { ...field, messages: [{ kind: 'error' as const, text: error, id: 'upload' }].concat(field.messages), invalid: true } : field\n    return (\n        <FieldShell field={shellField} layout={props.layout} readOnlyValue={field.displayValue || undefined}>\n            <input ref={input} type=\"file\" className=\"sr-only\" tabIndex={-1} aria-hidden=\"true\" accept={accept} onChange={(e: any) => upload(e.target.files && e.target.files[0])} />\n            {field.value ? (\n                <div className=\"rpf-control flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm\">\n                    <span className=\"truncate\" id={field.ids.input}>\n                        {field.displayValue || field.value}\n                    </span>\n                    <button type=\"button\" className={cx(adornmentButtonClass, 'ml-auto')} aria-label={`Remove ${field.displayValue || 'attachment'}`} onClick={() => field.setValue('', '')}>\n                        <IconX size={14} />\n                    </button>\n                </div>\n            ) : (\n                <button\n                    type=\"button\"\n                    id={field.ids.input}\n                    aria-describedby={field.describedBy}\n                    aria-invalid={shellField.invalid || undefined}\n                    aria-required={field.state.mandatory || undefined}\n                    disabled={field.state.disabled || busy}\n                    className={cx(\n                        'rpf-control flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed bg-background px-3 py-3 text-sm text-muted-foreground outline-none',\n                        'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',\n                        over ? 'border-primary bg-accent' : shellField.invalid ? 'border-destructive' : 'border-input',\n                    )}\n                    onClick={() => input.current && input.current.click()}\n                    onDragOver={(e: any) => {\n                        e.preventDefault()\n                        setOver(true)\n                    }}\n                    onDragLeave={() => setOver(false)}\n                    onDrop={(e: any) => {\n                        e.preventDefault()\n                        setOver(false)\n                        upload(e.dataTransfer.files && e.dataTransfer.files[0])\n                    }}\n                >\n                    {busy ? <Spinner label=\"Uploading\" /> : <span className=\"text-foreground\">Choose a file or drop it here</span>}\n                    {limits ? <span className=\"text-xs\">{limits}</span> : null}\n                </button>\n            )}\n        </FieldShell>\n    )\n}\n\nexport default function AttachmentVariablePreview() {\n    return (\n        <div className=\"max-w-md p-4\">\n            <AttachmentVariable name=\"doc\" label=\"Document\" draftTable=\"\" draftSysId=\"\" allowedExtensions=\"pdf,jpeg\" maxBytes={2 * 1024 * 1024} />\n        </div>\n    )\n}\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [],
+  "imports": [
+   "catalog",
+   "field"
   ]
  },
  "boolean-field": {
@@ -203,32 +243,6 @@
   "imports": [
    "field"
   ]
- },
- "centered-layout": {
-  "meta": {
-   "name": "Centered Layout",
-   "kind": "layout",
-   "tailwind": false,
-   "regions": [
-    {
-     "name": "header",
-     "acceptsContributions": true
-    },
-    {
-     "name": "main",
-     "acceptsContributions": false
-    },
-    {
-     "name": "footer",
-     "acceptsContributions": true
-    }
-   ]
-  },
-  "clientScript": "import { Region } from '@portal/runtime'\n\n/** Header / main / footer with a centered content column. Main still fills and scrolls. */\nexport default function CenteredLayout() {\n    return (\n        <div className=\"rp-ctr\">\n            <header className=\"rp-ctr__header\">\n                <Region name=\"header\" />\n            </header>\n            <main className=\"rp-ctr__main\">\n                <Region name=\"main\" />\n            </main>\n            <footer className=\"rp-ctr__footer\">\n                <Region name=\"footer\" />\n            </footer>\n        </div>\n    )\n}\n",
-  "css": "/* Same contract: main fills what header/footer leave and scrolls; only its content column is centered. */\n.rp-ctr { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; width: 100%; min-height: 0; overflow: hidden; background: var(--muted); color: var(--foreground); }\n.rp-ctr__header { border-bottom: 1px solid var(--border); background: var(--background); }\n.rp-ctr__main { min-width: 0; min-height: 0; overflow: auto; }\n.rp-ctr__main > [data-rp-region] { display: grid; gap: 16px; align-content: start; width: min(760px, 100%); margin: 0 auto; padding: 32px 16px; box-sizing: border-box; }\n.rp-ctr__footer { padding: 12px; text-align: center; color: var(--muted-foreground); font-size: 12px; }\n.rp-ctr__header:not(:has([data-rp-widget])), .rp-ctr__footer:not(:has([data-rp-widget])) { display: none; }\n",
-  "serverScript": "",
-  "extraFiles": [],
-  "imports": []
  },
  "combobox": {
   "meta": {
@@ -270,207 +284,6 @@
    "field",
    "graphql"
   ]
- },
- "columns": {
-  "meta": {
-   "name": "Columns",
-   "kind": "block",
-   "tailwind": false,
-   "regions": [
-    {
-     "repeat": "tracks",
-     "name": "col-{n}",
-     "label": "Column {n}"
-    }
-   ],
-   "defaults": {
-    "tracks": [
-     {
-      "size": "minmax(0, 1fr)"
-     },
-     {
-      "size": "minmax(0, 2fr)"
-     }
-    ],
-    "gap": "1.5rem",
-    "align": "start",
-    "mobile": {
-     "tracks": [
-      {
-       "size": "minmax(0, 1fr)"
-      }
-     ]
-    }
-   }
-  },
-  "clientScript": "import { Region, useBlock } from '@portal/runtime'\n\n/**\n * Columns: one drop zone per track (½+½, ⅓+⅔, ⅓×3, ¼×4, or custom sizes). Widgets stack inside\n * each column. On mobile the default tracks collapse to one column, so the columns stack.\n */\nexport default function Columns() {\n    const { rootProps, regions } = useBlock()\n    return (\n        <div {...rootProps} className={['rp-cols', rootProps.className].filter(Boolean).join(' ')}>\n            {regions.map((r) => (\n                <Region key={r.name} name={r.name} className=\"rp-cols__col\" />\n            ))}\n        </div>\n    )\n}\n",
-  "css": ".rp-cols {\n    display: grid;\n    grid-template-columns: var(--rp-cols, minmax(0, 1fr) minmax(0, 1fr));\n    gap: var(--rp-cols-gap, 1.5rem);\n    align-items: var(--rp-cols-align, start);\n}\n\n.rp-cols__col {\n    display: flex;\n    flex-direction: column;\n    gap: var(--rp-cols-gap, 1.5rem);\n    min-width: 0;\n}\n",
-  "serverScript": "",
-  "extraFiles": [],
-  "optionsSchema": {
-   "type": "object",
-   "properties": {
-    "tracks": {
-     "type": "array",
-     "title": "Columns",
-     "description": "One drop zone per column; size is a grid track (1fr, 2fr, 18rem, minmax(0, 1fr) …)",
-     "x-css-var": "--rp-cols",
-     "x-presets": [
-      {
-       "label": "½ + ½",
-       "value": [
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        }
-       ]
-      },
-      {
-       "label": "⅓ + ⅔",
-       "value": [
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 2fr)"
-        }
-       ]
-      },
-      {
-       "label": "⅔ + ⅓",
-       "value": [
-        {
-         "size": "minmax(0, 2fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        }
-       ]
-      },
-      {
-       "label": "⅓ × 3",
-       "value": [
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        }
-       ]
-      },
-      {
-       "label": "¼ × 4",
-       "value": [
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        }
-       ]
-      },
-      {
-       "label": "Sidebar + main",
-       "value": [
-        {
-         "size": "18rem"
-        },
-        {
-         "size": "minmax(0, 1fr)"
-        }
-       ]
-      }
-     ],
-     "items": {
-      "type": "object",
-      "properties": {
-       "size": {
-        "type": "string",
-        "title": "Size"
-       }
-      }
-     }
-    },
-    "gap": {
-     "type": "string",
-     "title": "Gap",
-     "x-css-var": "--rp-cols-gap"
-    },
-    "align": {
-     "type": "string",
-     "title": "Align columns",
-     "enum": [
-      "start",
-      "center",
-      "end",
-      "stretch"
-     ],
-     "x-css-var": "--rp-cols-align"
-    }
-   }
-  },
-  "imports": []
- },
- "container": {
-  "meta": {
-   "name": "Container",
-   "kind": "block",
-   "tailwind": false,
-   "regions": [
-    {
-     "name": "content",
-     "label": "Content"
-    }
-   ],
-   "defaults": {
-    "maxWidth": "72rem",
-    "paddingX": "1rem",
-    "gap": "1.5rem"
-   }
-  },
-  "clientScript": "import { Region, useBlock } from '@portal/runtime'\n\n/** A centred, max-width container; its items stack with a gap. */\nexport default function Container() {\n    const { rootProps } = useBlock()\n    return (\n        <div {...rootProps} className={['rp-container', rootProps.className].filter(Boolean).join(' ')}>\n            <Region name=\"content\" contents />\n        </div>\n    )\n}\n",
-  "css": ".rp-container {\n    display: flex;\n    flex-direction: column;\n    gap: var(--rp-container-gap, 1.5rem);\n    width: 100%;\n    max-width: var(--rp-container-max, 72rem);\n    margin-inline: auto;\n    padding-inline: var(--rp-container-px, 1rem);\n    box-sizing: border-box;\n}\n",
-  "serverScript": "",
-  "extraFiles": [],
-  "optionsSchema": {
-   "type": "object",
-   "properties": {
-    "maxWidth": {
-     "type": "string",
-     "title": "Max width",
-     "x-css-var": "--rp-container-max",
-     "x-presets": [
-      "48rem",
-      "64rem",
-      "72rem",
-      "80rem",
-      "none"
-     ]
-    },
-    "paddingX": {
-     "type": "string",
-     "title": "Side padding",
-     "x-css-var": "--rp-container-px"
-    },
-    "gap": {
-     "type": "string",
-     "title": "Gap between items",
-     "x-css-var": "--rp-container-gap"
-    }
-   }
-  },
-  "imports": []
  },
  "number-field": {
   "meta": {
@@ -692,6 +505,341 @@
    "textarea-field",
    "url-field"
   ]
+ },
+ "variable": {
+  "meta": {
+   "name": "Variable",
+   "kind": "primitive",
+   "tailwind": true
+  },
+  "clientScript": "/**\n * components:app/variable: catalog variables on the shared field model.\n *\n *   variableSpec(variable)            AppCatalog variable → render kind + FieldMeta (+ field-control type/props)\n *   createCatalogForm(item) / useCatalogForm(item)   FormStore with catalog names and aliases\n *   <CatalogFormProvider form>        provides it to variables and field primitives\n *   <Variable spec />                 one variable (fields via app/field-control; label, rich text,\n *                                     break, attachment, custom here)\n *   sanitizeHtml, QUESTION_TYPES, validateIp\n */\nimport { Variable } from './variable'\nimport { variableSpec } from './meta'\nimport { CatalogFormProvider, createCatalogForm } from './catalog-form'\n\nexport { variableSpec, QUESTION_TYPES, validateIp } from './meta'\nexport type { VariableSpec, VariableKind } from './meta'\nexport { createCatalogForm, useCatalogForm, CatalogFormProvider, useCatalogFormContext } from './catalog-form'\nexport type { CatalogForm } from './catalog-form'\nexport { Variable, VariableLabel, RichTextLabel, VariableBreak, CustomVariable, sanitizeHtml } from './variable'\nexport type { VariableProps } from './variable'\n\n/** Preview (Studio): a few variables of different kinds on a local catalog form. */\nexport default function VariablePreview() {\n    const item: any = {\n        sysId: 'preview', name: 'Preview', shortDescription: '', description: '', picture: '', type: 'catalog_item', requestMethod: 'order',\n        mandatoryAttachment: false, hideQuantity: true, hideAttachment: true, quantity: [], targetRecordTable: '', targetRecordSysId: '', pricing: null, layout: [], values: {},\n        variables: [\n            { __typename: 'AppCatalog_StandardQuestionElementType', type: 'label', id: 'l1', name: 'variables.l1', variableName: 'l1', label: 'About you' },\n            { __typename: 'AppCatalog_StandardQuestionElementType', type: 'string', id: 'v1', name: 'variables.topic', variableName: 'topic', label: 'Topic', mandatory: true },\n            { __typename: 'AppCatalog_ChoiceQuestionElementType', type: 'yes_no', id: 'v2', name: 'variables.urgent', variableName: 'urgent', label: 'Urgent?', includeNone: true },\n            { __typename: 'AppCatalog_ChoiceQuestionElementType', type: 'numeric_scale', id: 'v3', name: 'variables.rating', variableName: 'rating', label: 'Rating', choices: ['1', '2', '3', '4', '5'].map((n) => ({ value: n, displayValue: n })) },\n            { __typename: 'AppCatalog_StandardQuestionElementType', type: 'rich_text_label', id: 'v4', name: 'variables.note', variableName: 'note', label: '<p><strong>Note:</strong> rich text label</p>' },\n        ],\n    }\n    const form = createCatalogForm(item)\n    return (\n        <CatalogFormProvider form={form}>\n            <div className=\"flex max-w-md flex-col gap-4 p-4\">\n                {item.variables.map((v: any) => (\n                    <Variable key={v.id} spec={variableSpec(v, { table: 'sc_cat_item' })} />\n                ))}\n            </div>\n        </CatalogFormProvider>\n    )\n}\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [
+   {
+    "path": "catalog-form.tsx",
+    "target": "client",
+    "content": "import { createContext, useContext, useMemo, useState } from 'react'\nimport { createFormStore, FormProvider } from 'components:app/field'\nimport type { Form, FormStore } from 'components:app/field'\nimport type { CatalogItem, CatalogVariable } from 'utilities:app/catalog'\nimport { variableSpec } from './meta'\nimport type { VariableSpec } from './meta'\n\n/**\n * Catalog form: the same FormStore that record forms use (so useField, FieldControl and every\n * field primitive work unchanged), plus catalog semantics:\n *\n * - fields are named 'variables.<name>' (the AppCatalog names); every method that takes a field\n *   name also accepts the variable name, 'IO:<question sys_id>' and the question sys_id\n *   (g_form compatibility for catalog client scripts);\n * - specs: each variable's render kind + FieldMeta, from one mapping (meta.ts);\n * - serializeVariables(): { variableName: value } for price and submit (MRVS as row JSON);\n * - the store's override layer (setMandatory, setReadOnly, setDisplay, showFieldMessage, …) is\n *   where catalog UI policies and client scripts plug in later.\n */\nexport type CatalogForm = Form & {\n    item: CatalogItem\n    specs: VariableSpec[]\n    specByName: Record<string, VariableSpec>\n    /** Any alias → store name ('variables.<name>'). */\n    resolve: (nameOrAlias: string) => string\n    getVariable: (nameOrAlias: string) => CatalogVariable | undefined\n    serializeVariables: () => Record<string, string>\n    /** Variables whose change affects the price. */\n    priceAffecting: string[]\n}\n\nconst NAME_METHODS = [\n    'getValue', 'getDisplayValue', 'setValue', 'stage', 'touch', 'clearValue', 'setMandatory', 'setReadOnly', 'setVisible',\n    'setDisplay', 'setDisabled', 'setLabel', 'setPlaceholder', 'setHint', 'clearOverrides', 'showFieldMessage', 'hideFieldMessage',\n    'reset', 'isDirty', 'onChange', 'registerField', 'fieldSnapshot',\n]\n\nexport function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): CatalogForm {\n    const specs = item.variables.map((v) => variableSpec(v, { table }))\n    const specByName: Record<string, VariableSpec> = {}\n    const alias: Record<string, string> = {}\n    for (const s of specs) {\n        specByName[s.name] = s\n        alias[s.name] = s.name\n        if (s.variable.variableName) alias[s.variable.variableName] = s.name\n        if (s.variable.id) {\n            alias[s.variable.id] = s.name\n            alias[`IO:${s.variable.id}`] = s.name\n        }\n    }\n    const resolve = (n: string) => alias[n] || (alias[`variables.${n}`] ? `variables.${n}` : n)\n\n    const store: FormStore = createFormStore({ table, sysId: item.sysId })\n    const values: Record<string, { value: string; displayValue: string }> = {}\n    for (const s of specs) {\n        if (s.kind === 'container' || s.kind === 'variable_set' || s.kind === 'label' || s.kind === 'rich_text_label' || s.kind === 'break') continue\n        const v = item.values[s.name]\n        if (s.kind === 'mrvs') {\n            values[s.name] = mrvsInitial(s.variable)\n            continue\n        }\n        values[s.name] = v ? v : { value: s.variable.defaultValue || '', displayValue: s.variable.defaultValue || '' }\n    }\n    const meta: Record<string, any> = {}\n    for (const s of specs) if (s.meta) meta[s.name] = s.meta\n    store.load({ values, meta, table, sysId: item.sysId })\n    // Server-evaluated visibility (variables the platform hides up front).\n    for (const s of specs) if (s.variable.visible === false) store.setVisible(s.name, false)\n\n    const form = Object.create(store) as CatalogForm\n    for (const m of NAME_METHODS) {\n        const base = (store as any)[m]\n        ;(form as any)[m] = (name: string, ...rest: unknown[]) => base(typeof name === 'string' && name !== '*' ? resolve(name) : name, ...rest)\n    }\n    form.item = item\n    form.specs = specs\n    form.specByName = specByName\n    form.resolve = resolve\n    form.getVariable = (n) => {\n        const s = specByName[resolve(n)]\n        return s ? s.variable : undefined\n    }\n    form.priceAffecting = specs.filter((s) => s.variable.hasPriceImplecations).map((s) => s.name)\n    form.serializeVariables = () => {\n        const out: Record<string, string> = {}\n        for (const s of specs) {\n            if (!s.submitName || s.kind === 'container' || s.kind === 'variable_set') continue\n            out[s.submitName] = store.getValue(s.name)\n        }\n        return out\n    }\n    form.status = { isLoading: false, isFetching: false, error: null, loaded: true }\n    form.refetch = () => {}\n    return form\n}\n\n/** MRVS initial value: rows as JSON (value and display value per column). */\nfunction mrvsInitial(v: CatalogVariable): { value: string; displayValue: string } {\n    const cols = (v.fields || []).map((f) => f.name)\n    const rows = (v.rowData || []).map((r) => {\n        const value: Record<string, string> = {}\n        const display: Record<string, string> = {}\n        r.row.forEach((cell, i) => {\n            const col = (v.fields || []).find((f) => f.id === cell.id)\n            const key = col ? col.name : cols[i]\n            value[key] = cell.value\n            display[key] = cell.displayValue\n        })\n        return { value, display }\n    })\n    return { value: JSON.stringify(rows.map((r) => r.value)), displayValue: JSON.stringify(rows.map((r) => r.display)) }\n}\n\nconst CatalogContext = createContext<CatalogForm | null>(null)\n\n/** A catalog form for a loaded item (created once per item draft). */\nexport function useCatalogForm(item: CatalogItem | undefined, table = 'sc_cat_item'): CatalogForm | null {\n    const [cache] = useState(() => new Map<string, CatalogForm>())\n    return useMemo(() => {\n        if (!item) return null\n        const key = `${item.sysId}|${item.targetRecordSysId}`\n        if (!cache.has(key)) cache.set(key, createCatalogForm(item, table))\n        return cache.get(key) as CatalogForm\n    }, [item, table, cache])\n}\n\n/** Provides the catalog form to variables and to every field primitive (as their form). */\nexport function CatalogFormProvider({ form, children }: { form: CatalogForm; children?: any }) {\n    return (\n        <CatalogContext.Provider value={form}>\n            <FormProvider form={form}>{children}</FormProvider>\n        </CatalogContext.Provider>\n    )\n}\n\nexport function useCatalogFormContext(): CatalogForm | null {\n    return useContext(CatalogContext)\n}\n"
+   },
+   {
+    "path": "meta.ts",
+    "target": "client",
+    "content": "import { parseAttributes } from 'utilities:app/graphql'\nimport type { FieldMeta } from 'utilities:app/graphql'\nimport type { CatalogVariable } from 'utilities:app/catalog'\n\n/** How a variable renders. */\nexport type VariableKind =\n    | 'field' // through app/field-control (fieldType + fieldProps)\n    | 'label'\n    | 'rich_text_label'\n    | 'break'\n    | 'container'\n    | 'variable_set'\n    | 'mrvs'\n    | 'attachment'\n    | 'custom'\n\nexport type VariableSpec = {\n    variable: CatalogVariable\n    kind: VariableKind\n    /** Store field name ('variables.<name>'). */\n    name: string\n    /** Name the platform submits (variable name; containers have none). */\n    submitName: string | null\n    /** Glide type for app/field-control (kind 'field'). */\n    fieldType?: string\n    /** Extra props for the chosen field primitive (variant, confirm, choices, validate…). */\n    fieldProps?: Record<string, unknown>\n    meta?: FieldMeta\n}\n\nconst IPV4 = /^(25[0-5]|2[0-4]\\d|1?\\d?\\d)(\\.(25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}$/\nconst IPV6 = /^[0-9a-f:]+$/i\nexport function validateIp(v: string): string | undefined {\n    const t = String(v).trim()\n    return IPV4.test(t) || (t.includes(':') && IPV6.test(t)) ? undefined : 'Enter an IPv4 or IPv6 address'\n}\n\n/** Variable type (AppCatalog UI type, or the numeric question.type) → field-control type and props. */\nconst TYPE_MAP: Record<string, { type: string; props?: Record<string, unknown> }> = {\n    string: { type: 'string' },\n    single_line_text: { type: 'string' },\n    wide_single_line_text: { type: 'string' },\n    multi_two_lines: { type: 'multi_two_lines' },\n    multi_line_text: { type: 'multi_two_lines' },\n    html: { type: 'html' },\n    choice: { type: 'choice' },\n    select_box: { type: 'choice' },\n    lookup_select_box: { type: 'choice' },\n    multiple_choice: { type: 'choice', props: { variant: 'radio' } },\n    lookup_multiple_choice: { type: 'choice', props: { variant: 'radio' } },\n    numeric_scale: { type: 'choice', props: { variant: 'scale' } },\n    yes_no: { type: 'choice' },\n    reference: { type: 'reference' },\n    requested_for: { type: 'reference' },\n    glide_list: { type: 'glide_list' },\n    list_collector: { type: 'glide_list' },\n    boolean: { type: 'boolean' },\n    checkbox: { type: 'boolean' },\n    glide_date: { type: 'glide_date' },\n    date: { type: 'glide_date' },\n    glide_date_time: { type: 'glide_date_time' },\n    date_time: { type: 'glide_date_time' },\n    masked: { type: 'masked' },\n    email: { type: 'email' },\n    url: { type: 'url' },\n    ip_address: { type: 'string', props: { validate: validateIp } },\n    glide_duration: { type: 'glide_duration' },\n    duration: { type: 'glide_duration' },\n    integer: { type: 'integer' },\n}\n\n/** question.type numbers (sys_choice question/type) → AppCatalog UI type names. */\nexport const QUESTION_TYPES: Record<string, string> = {\n    '1': 'yes_no', '2': 'multi_two_lines', '3': 'multiple_choice', '4': 'numeric_scale', '5': 'choice', '6': 'string',\n    '7': 'boolean', '8': 'reference', '9': 'glide_date', '10': 'glide_date_time', '11': 'label', '12': 'break',\n    '14': 'macro', '15': 'ui_page', '16': 'string', '17': 'macro_with_label', '18': 'lookup_select_box',\n    '19': 'container_start', '20': 'container_end', '21': 'glide_list', '22': 'lookup_multiple_choice',\n    '23': 'html', '24': 'container_split', '25': 'masked', '26': 'email', '27': 'url', '28': 'ip_address',\n    '29': 'glide_duration', '31': 'requested_for', '32': 'rich_text_label', '33': 'attachment',\n}\n\nconst YES_NO = [\n    { value: 'Yes', label: 'Yes' },\n    { value: 'No', label: 'No' },\n]\n\nfunction hintOf(v: CatalogVariable): string | undefined {\n    const parts = [v.showHelp && v.helpText ? v.helpText : '', v.instructions || ''].map((s) => String(s || '').replace(/<[^>]+>/g, '').trim()).filter(Boolean)\n    return parts.length ? parts.join(' ') : undefined\n}\n\n/** One variable → how to render it and its FieldMeta (shared field model, no parallel pipeline). */\nexport function variableSpec(v: CatalogVariable, ctx: { table: string }): VariableSpec {\n    const rawType = QUESTION_TYPES[String(v.type)] || String(v.type || 'string')\n    const name = v.name || `variables.${v.variableName || v.id}`\n    const submitName = v.variableName || null\n    const base = { variable: v, name, submitName }\n    if (v.__typename === 'AppCatalog_MultiRowVariableSetType' || v.containerType === 'one_to_many') return { ...base, kind: 'mrvs' }\n    if (v.__typename === 'AppCatalog_SingleRowVariableSetType' || v.containerType === 'one_to_one') return { ...base, kind: 'variable_set', submitName: null }\n    if (rawType === 'container' || rawType.indexOf('container_') === 0 || v.__typename === 'AppCatalog_ContainerQuestionElementType') return { ...base, kind: 'container', submitName: null }\n    if (rawType === 'label') return { ...base, kind: 'label', submitName: null }\n    if (rawType === 'rich_text_label') return { ...base, kind: 'rich_text_label', submitName: null }\n    if (rawType === 'break') return { ...base, kind: 'break', submitName: null }\n    if (rawType === 'macro' || rawType === 'macro_with_label' || rawType === 'ui_page' || rawType === 'custom' || rawType === 'custom_with_label') return { ...base, kind: 'custom' }\n\n    const attributes = parseAttributes(v.variableAttributes || '')\n    const map = TYPE_MAP[rawType] || { type: rawType }\n    const choices =\n        rawType === 'yes_no' && !(v.choices && v.choices.length)\n            ? YES_NO\n            : v.choices\n              ? v.choices.map((c) => ({ value: String(c.value ?? ''), label: String(c.displayValue ?? c.value ?? '') }))\n              : undefined\n    const meta: FieldMeta = {\n        table: v.referringTable || ctx.table,\n        name,\n        label: String(v.label || v.variableName || '').trim(),\n        type: map.type,\n        internalType: rawType,\n        mandatory: !!v.mandatory,\n        // A read-only variable without a default isn't mandatory (platform rule; useField also applies it).\n        readOnly: !!v.readOnly,\n        hint: hintOf(v),\n        maxLength: attributes.max_length ? Number(attributes.max_length) : undefined,\n        defaultValue: v.defaultValue || undefined,\n        dependsOn: v.dependentField ? (v.dependentField.indexOf('variables.') === 0 ? v.dependentField : `variables.${v.dependentField}`) : undefined,\n        attributes,\n        choices,\n        choiceType: choices ? (v.includeNone ? 1 : 3) : undefined,\n        reference:\n            map.type === 'reference' || map.type === 'glide_list'\n                ? {\n                      table: v.reference || v.listTable || (rawType === 'requested_for' ? 'sys_user' : ''),\n                      qualifier: v.referenceQual || undefined,\n                      useQualifier: v.useReferenceQualifier || undefined,\n                      orderBy: v.refAcOrderBy || undefined,\n                      displayColumns: attributes.ref_ac_columns ? attributes.ref_ac_columns.split(';').filter(Boolean) : undefined,\n                  }\n                : undefined,\n        source: 'layout',\n    }\n    if (v.exampleText) meta.attributes = { ...meta.attributes, placeholder: v.exampleText }\n    if (rawType === 'attachment') return { ...base, kind: 'attachment', meta }\n\n    const fieldProps: Record<string, unknown> = { ...(map.props || {}) }\n    if (choices && !meta.dependsOn) fieldProps.choices = choices\n    if ((rawType === 'multiple_choice' || rawType === 'lookup_multiple_choice') && v.choiceDirection === 'across') fieldProps.direction = 'horizontal'\n    if (rawType === 'masked' && v.useConfirmation) fieldProps.confirm = true\n    if (rawType === 'yes_no' || (rawType === 'choice' && v.includeNone)) fieldProps.includeNone = !!v.includeNone\n    return { ...base, kind: 'field', fieldType: map.type, fieldProps, meta }\n}\n"
+   },
+   {
+    "path": "variable.tsx",
+    "target": "client",
+    "content": "import { useEffect, useRef } from 'react'\r\nimport { useField, FieldShell, cx } from 'components:app/field'\r\nimport type { FieldLayout } from 'components:app/field'\r\nimport { FieldControl } from 'components:app/field-control'\r\nimport { validateVariableRegex } from 'utilities:app/catalog'\r\nimport { AttachmentVariable } from 'components:app/attachment-variable'\r\nimport { useCatalogFormContext } from './catalog-form'\r\nimport type { VariableSpec } from './meta'\r\n\r\n/**\r\n * One catalog variable. Field-like variables render through app/field-control with metadata\r\n * from the catalog (the same field primitives as record forms); the rest render here:\r\n * label, rich text label, break, attachment (app/attachment-variable) and custom (macro / UI\r\n * page) variables. Containers, variable sets and MRVS are rendered by app/variable-container.\r\n */\r\nexport type VariableProps = {\r\n    spec: VariableSpec\r\n    layout?: FieldLayout\r\n    /** Render custom (macro / UI page) variables: return a node, or undefined for the notice. */\r\n    renderCustom?: (spec: VariableSpec) => any\r\n}\r\n\r\nexport function Variable({ spec, layout, renderCustom }: VariableProps) {\r\n    switch (spec.kind) {\r\n        case 'field':\r\n            return <FieldVariable spec={spec} layout={layout} />\r\n        case 'label':\r\n            return <VariableLabel spec={spec} />\r\n        case 'rich_text_label':\r\n            return <RichTextLabel html={spec.variable.label} />\r\n        case 'break':\r\n            return <VariableBreak />\r\n        case 'attachment':\r\n            return <AttachmentFor spec={spec} layout={layout} />\r\n        case 'custom':\r\n            return renderCustom && renderCustom(spec) !== undefined ? renderCustom(spec) : <CustomVariable spec={spec} />\r\n        default:\r\n            return null\r\n    }\r\n}\r\n\r\nfunction AttachmentFor({ spec, layout }: { spec: VariableSpec; layout?: FieldLayout }) {\r\n    const form = useCatalogFormContext()\r\n    return (\r\n        <AttachmentVariable\r\n            name={spec.name}\r\n            layout={layout}\r\n            draftTable={form ? form.item.targetRecordTable : ''}\r\n            draftSysId={form ? form.item.targetRecordSysId : ''}\r\n            allowedExtensions={spec.variable.allowedFileExtensions || ''}\r\n            maxBytes={parseSize(spec.meta && spec.meta.attributes ? spec.meta.attributes.max_file_size : '')}\r\n        />\r\n    )\r\n}\r\n\r\n/** '2MB' / '500KB' / '1GB' → bytes (undefined when absent). */\r\nfunction parseSize(text: string): number | undefined {\r\n    const m = /^\\s*(\\d+(?:\\.\\d+)?)\\s*(KB|MB|GB)?\\s*$/i.exec(String(text || ''))\r\n    if (!m) return undefined\r\n    const unit = (m[2] || 'MB').toUpperCase()\r\n    return Number(m[1]) * (unit === 'KB' ? 1024 : unit === 'GB' ? 1024 ** 3 : 1024 ** 2)\r\n}\r\n\r\nfunction FieldVariable({ spec, layout }: { spec: VariableSpec; layout?: FieldLayout }) {\r\n    const form = useCatalogFormContext()\r\n    const regExp = spec.variable.regExp\r\n    // Question regex: validated by the platform when the value is committed.\r\n    const last = useRef('')\r\n    useEffect(() => {\r\n        if (!form || !regExp) return undefined\r\n        return form.onChange(spec.name, (_n, value) => {\r\n            last.current = value\r\n            form.hideFieldMessage(spec.name, 'error')\r\n            if (!value) return\r\n            validateVariableRegex(spec.variable.id, value)\r\n                .then((msg) => {\r\n                    if (msg && last.current === value) form.showFieldMessage(spec.name, msg, 'error')\r\n                })\r\n                .catch(() => {})\r\n        })\r\n    }, [form, regExp, spec.name, spec.variable.id])\r\n    return <FieldControl name={spec.name} type={spec.fieldType} layout={layout} {...(spec.fieldProps || {})} />\r\n}\r\n\r\n/** Label variable: a heading for the variables after it (announced as a heading). */\r\nexport function VariableLabel({ spec }: { spec: VariableSpec }) {\r\n    const field = useField({ name: spec.name, standalone: true, label: spec.variable.label })\r\n    if (spec.variable.visible === false) return null\r\n    return (\r\n        <div className=\"rpv-label flex flex-col gap-1 pt-2\" data-rpv-kind=\"label\">\r\n            <h3 className=\"text-sm font-semibold text-foreground\">{field.label}</h3>\r\n            {field.hint ? <p className=\"text-xs text-muted-foreground\">{field.hint}</p> : null}\r\n        </div>\r\n    )\r\n}\r\n\r\n/**\r\n * Rich text label: the variable's HTML, sanitised (no scripts, event handlers, styles that\r\n * fight the theme, or javascript: URLs). Theme colours replace inline colours.\r\n */\r\nexport function RichTextLabel({ html, className }: { html: string; className?: string }) {\r\n    return <div className={cx('rpv-rich text-sm text-foreground', className)} data-rpv-kind=\"rich_text_label\" dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />\r\n}\r\n\r\nexport function sanitizeHtml(html: string): string {\r\n    if (typeof DOMParser === 'undefined') return ''\r\n    const doc = new DOMParser().parseFromString(`<div>${html || ''}</div>`, 'text/html')\r\n    const root = doc.body.firstElementChild as HTMLElement\r\n    const ALLOWED = /^(a|b|strong|i|em|u|s|p|br|span|div|ul|ol|li|h1|h2|h3|h4|h5|h6|blockquote|code|pre|small|sub|sup|hr|table|thead|tbody|tr|td|th|img)$/i\r\n    const walk = (el: Element) => {\r\n        for (const child of Array.from(el.children)) {\r\n            if (!ALLOWED.test(child.tagName)) {\r\n                child.replaceWith(...Array.from(child.childNodes))\r\n                continue\r\n            }\r\n            for (const attr of Array.from(child.attributes)) {\r\n                const n = attr.name.toLowerCase()\r\n                const keep = n === 'href' || n === 'src' || n === 'alt' || n === 'title' || n === 'colspan' || n === 'rowspan'\r\n                if (!keep) child.removeAttribute(attr.name)\r\n                else if ((n === 'href' || n === 'src') && !/^(https?:|mailto:|\\/|#)/i.test(attr.value.trim())) child.removeAttribute(attr.name)\r\n            }\r\n            if (child.tagName === 'A') {\r\n                child.setAttribute('rel', 'noopener noreferrer')\r\n                child.setAttribute('target', '_blank')\r\n            }\r\n            walk(child)\r\n        }\r\n    }\r\n    walk(root)\r\n    return root.innerHTML\r\n}\r\n\r\nexport function VariableBreak() {\r\n    return <hr className=\"rpv-break my-2 border-border\" data-rpv-kind=\"break\" />\r\n}\r\n\r\n/**\r\n * Custom (macro / UI page) variables render a platform macroponent or Jelly macro, which a portal\r\n * can't run. A portal maps them to its own components with renderCustom; otherwise this notice.\r\n */\r\nexport function CustomVariable({ spec }: { spec: VariableSpec }) {\r\n    const field = useField({ name: spec.name, standalone: true, label: spec.variable.label || spec.variable.variableName || 'Custom variable', readOnly: true })\r\n    if (!spec.variable.label) return null\r\n    return (\r\n        <FieldShell field={field} readOnlyValue={<span className=\"text-muted-foreground\">Custom variable: shown in the platform catalog only.</span>} />\r\n    )\r\n}\r\n"
+   }
+  ],
+  "imports": [
+   "attachment-variable",
+   "catalog",
+   "field",
+   "field-control",
+   "graphql"
+  ]
+ },
+ "mrvs": {
+  "meta": {
+   "name": "Multi-Row Variable Set",
+   "kind": "primitive",
+   "tailwind": true
+  },
+  "clientScript": "/**\r\n * components:app/mrvs: multi-row variable sets.\r\n *\r\n * A grid of rows (columns = the set's variables not hidden on the grid) with Add, Edit and Remove.\r\n * Rows are edited in a modal dialog (native <dialog>: top layer, inert background, Escape closes,\r\n * focus returns to the button that opened it). Each row editor is its own form store, with the\r\n * row form metadata the platform evaluates for the set (fetched once per set and cached), so the\r\n * same field primitives render the row's variables.\r\n *\r\n * Value: the platform's MRVS format, a JSON array of rows keyed by the set's variable names,\r\n * stored on the parent form's 'variables.<set>' field; display values ride along in the display\r\n * value. maxRows disables Add; unique columns are enforced on save.\r\n */\r\nimport { useEffect, useMemo, useRef, useState } from 'react'\r\nimport { useField, FieldShell, FormProvider, createFormStore, cx, adornmentButtonClass, IconPlus, IconX, Spinner } from 'components:app/field'\r\nimport type { FieldLayout } from 'components:app/field'\r\nimport { FieldControl } from 'components:app/field-control'\r\nimport { Button } from 'components:button'\r\nimport { useMrvsRowForm } from 'utilities:app/catalog'\r\nimport type { CatalogVariable, MrvsRowField } from 'utilities:app/catalog'\r\nimport { variableSpec } from 'components:app/variable'\r\n\r\nexport type MrvsProps = {\r\n    /** Parent form field ('variables.<set name>'). */\r\n    name: string\r\n    variable: CatalogVariable\r\n    itemId: string\r\n    sourceTable?: string\r\n    layout?: FieldLayout\r\n}\r\n\r\ntype Row = { value: Record<string, string>; display: Record<string, string> }\r\n\r\nfunction parseRows(value: string, displayValue: string): Row[] {\r\n    let values: Record<string, string>[] = []\r\n    let displays: Record<string, string>[] = []\r\n    try {\r\n        values = JSON.parse(value || '[]') || []\r\n    } catch (e) {\r\n        values = []\r\n    }\r\n    try {\r\n        displays = JSON.parse(displayValue || '[]') || []\r\n    } catch (e) {\r\n        displays = []\r\n    }\r\n    return values.map((v, i) => ({ value: v || {}, display: (Array.isArray(displays) && displays[i]) || {} }))\r\n}\r\n\r\n/** Row form field → a catalog variable for app/variable's mapping. */\r\nfunction rowVariable(f: MrvsRowField, itemId: string, setId: string): CatalogVariable {\r\n    const isChoice = !!(f.choices && f.choices.length)\r\n    return {\r\n        __typename: isChoice ? 'AppCatalog_ChoiceQuestionElementType' : f.reference ? 'AppCatalog_ReferenceQuestionElementType' : 'AppCatalog_StandardQuestionElementType',\r\n        type: f.type,\r\n        id: f.sysId,\r\n        name: `variables.${f.name}`,\r\n        variableName: f.name,\r\n        label: f.label,\r\n        mandatory: f.mandatory,\r\n        readOnly: f.readOnly,\r\n        visible: f.visible,\r\n        variableAttributes: f.attributes,\r\n        defaultValue: f.value,\r\n        showHelp: !!f.helpText,\r\n        helpText: f.helpText,\r\n        exampleText: f.placeholder,\r\n        choices: isChoice ? (f.choices || []).map((c) => ({ value: c.value, displayValue: c.label })) : undefined,\r\n        includeNone: isChoice && (f.choices || []).some((c) => c.value === ''),\r\n        reference: f.reference,\r\n        referenceQual: f.referenceQual,\r\n        referringTable: 'sc_cat_item',\r\n        referringRecordId: `${itemId}${setId}`,\r\n    }\r\n}\r\n\r\nexport function Mrvs(props: MrvsProps) {\r\n    const { variable } = props\r\n    const field = useField({ name: props.name, label: variable.label })\r\n    const rows = useMemo(() => parseRows(field.value, field.displayValue), [field.value, field.displayValue])\r\n    const columns = (variable.fields || []).filter((f) => !f.hideOnGrid)\r\n    const max = variable.maxRows || 0\r\n    const full = max > 0 && rows.length >= max\r\n    const [editing, setEditing] = useState<{ index: number; opener: HTMLElement | null } | null>(null)\r\n    const readOnly = field.state.readOnly || field.state.disabled\r\n    const captionId = `${field.ids.input}-caption`\r\n\r\n    const write = (next: Row[]) => {\r\n        field.setValue(JSON.stringify(next.map((r) => r.value)), JSON.stringify(next.map((r) => r.display)))\r\n        field.blur()\r\n    }\r\n\r\n    return (\r\n        <FieldShell field={field} layout={props.layout} keepControlWhenReadOnly group labelAside={max ? `${rows.length} of ${max} rows` : `${rows.length} row${rows.length === 1 ? '' : 's'}`}>\r\n            <div className=\"flex flex-col gap-2\" data-rpv-mrvs={variable.variableName || ''}>\r\n                <div className=\"overflow-x-auto rounded-md border border-border\">\r\n                    <table className=\"w-full text-left text-sm\" aria-describedby={field.describedBy}>\r\n                        <caption id={captionId} className=\"sr-only\">\r\n                            {field.label}\r\n                        </caption>\r\n                        <thead className=\"bg-muted text-xs text-muted-foreground\">\r\n                            <tr>\r\n                                {columns.map((c) => (\r\n                                    <th key={c.name} scope=\"col\" className=\"px-3 py-2 font-medium\">\r\n                                        {c.label}\r\n                                    </th>\r\n                                ))}\r\n                                {!readOnly ? (\r\n                                    <th scope=\"col\" className=\"w-24 px-3 py-2 text-right font-medium\">\r\n                                        <span className=\"sr-only\">Actions</span>\r\n                                    </th>\r\n                                ) : null}\r\n                            </tr>\r\n                        </thead>\r\n                        <tbody>\r\n                            {rows.length ? (\r\n                                rows.map((r, i) => (\r\n                                    <tr key={i} className=\"border-t border-border\" data-rpv-row={i}>\r\n                                        {columns.map((c) => (\r\n                                            <td key={c.name} className=\"px-3 py-2\">\r\n                                                {r.display[c.name] || r.value[c.name] || <span className=\"text-muted-foreground\">—</span>}\r\n                                            </td>\r\n                                        ))}\r\n                                        {!readOnly ? (\r\n                                            <td className=\"px-2 py-1 text-right whitespace-nowrap\">\r\n                                                <button\r\n                                                    type=\"button\"\r\n                                                    className=\"rounded-sm px-2 py-1 text-xs text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60\"\r\n                                                    aria-label={`Edit row ${i + 1}`}\r\n                                                    onClick={(e: any) => setEditing({ index: i, opener: e.currentTarget })}\r\n                                                >\r\n                                                    Edit\r\n                                                </button>\r\n                                                <button type=\"button\" className={adornmentButtonClass} aria-label={`Remove row ${i + 1}`} onClick={() => write(rows.filter((_, j) => j !== i))}>\r\n                                                    <IconX size={14} />\r\n                                                </button>\r\n                                            </td>\r\n                                        ) : null}\r\n                                    </tr>\r\n                                ))\r\n                            ) : (\r\n                                <tr>\r\n                                    <td colSpan={columns.length + (readOnly ? 0 : 1)} className=\"px-3 py-4 text-center text-sm text-muted-foreground\">\r\n                                        No rows yet\r\n                                    </td>\r\n                                </tr>\r\n                            )}\r\n                        </tbody>\r\n                    </table>\r\n                </div>\r\n                {!readOnly ? (\r\n                    <div>\r\n                        <Button type=\"button\" variant=\"outline\" size=\"sm\" disabled={full} onClick={(e: any) => setEditing({ index: -1, opener: e.currentTarget })}>\r\n                            <IconPlus size={14} /> Add row\r\n                        </Button>\r\n                        {full ? <span className=\"ml-2 text-xs text-muted-foreground\">Maximum of {max} rows reached</span> : null}\r\n                    </div>\r\n                ) : null}\r\n            </div>\r\n            {editing ? (\r\n                <RowDialog\r\n                    title={`${editing.index < 0 ? 'Add' : 'Edit'} ${variable.label} row`}\r\n                    setId={variable.id}\r\n                    itemId={props.itemId}\r\n                    sourceTable={props.sourceTable}\r\n                    row={editing.index >= 0 ? rows[editing.index] : undefined}\r\n                    uniqueColumns={(variable.fields || []).filter((f) => f.unique).map((f) => f.name)}\r\n                    otherRows={rows.filter((_, j) => j !== editing.index)}\r\n                    onCancel={() => {\r\n                        const opener = editing.opener\r\n                        setEditing(null)\r\n                        if (opener) setTimeout(() => opener.focus(), 0)\r\n                    }}\r\n                    onSave={(row) => {\r\n                        const next = rows.slice()\r\n                        if (editing.index < 0) next.push(row)\r\n                        else next[editing.index] = row\r\n                        write(next)\r\n                        const opener = editing.opener\r\n                        setEditing(null)\r\n                        if (opener) setTimeout(() => opener.focus(), 0)\r\n                    }}\r\n                />\r\n            ) : null}\r\n        </FieldShell>\r\n    )\r\n}\r\n\r\nfunction RowDialog(props: {\r\n    title: string\r\n    setId: string\r\n    itemId: string\r\n    sourceTable?: string\r\n    row?: Row\r\n    uniqueColumns: string[]\r\n    otherRows: Row[]\r\n    onCancel: () => void\r\n    onSave: (row: Row) => void\r\n}) {\r\n    const ref = useRef<HTMLDialogElement | null>(null)\r\n    const meta = useMrvsRowForm(props.setId, props.itemId, props.sourceTable)\r\n    const [error, setError] = useState('')\r\n    const titleId = `rpv-mrvs-${props.setId}-title`\r\n\r\n    useEffect(() => {\r\n        const d = ref.current as any\r\n        if (d && !d.open && typeof d.showModal === 'function') d.showModal()\r\n    }, [])\r\n\r\n    // One child form store per row editor, loaded with the row form metadata and the row's values.\r\n    const child = useMemo(() => {\r\n        if (!meta.data) return null\r\n        const store = createFormStore({ table: 'sc_cat_item', sysId: props.itemId })\r\n        const specs = meta.data.fields.map((f) => variableSpec(rowVariable(f, props.itemId, props.setId), { table: 'sc_cat_item' }))\r\n        const values: Record<string, { value: string; displayValue: string }> = {}\r\n        const metas: Record<string, any> = {}\r\n        specs.forEach((s, i) => {\r\n            const f = meta.data!.fields[i]\r\n            const col = s.variable.variableName as string\r\n            const v = props.row ? props.row.value[col] : undefined\r\n            values[s.name] = v !== undefined ? { value: v, displayValue: (props.row && props.row.display[col]) || v } : { value: f.value, displayValue: f.displayValue || f.value }\r\n            if (s.meta) metas[s.name] = s.meta\r\n        })\r\n        store.load({ values, meta: metas })\r\n        for (const s of specs) if (s.variable.visible === false) store.setVisible(s.name, false)\r\n        const form = Object.create(store)\r\n        form.status = { isLoading: false, isFetching: false, error: null, loaded: true }\r\n        form.refetch = () => {}\r\n        return { form, specs }\r\n    }, [meta.data])\r\n\r\n    const save = () => {\r\n        if (!child) return\r\n        const result = child.form.validate()\r\n        if (!result.valid) {\r\n            setError(result.errors.map((e: any) => e.message).join(' · '))\r\n            return\r\n        }\r\n        const row: Row = { value: {}, display: {} }\r\n        for (const s of child.specs) {\r\n            const col = s.variable.variableName as string\r\n            row.value[col] = child.form.getValue(s.name)\r\n            row.display[col] = child.form.getDisplayValue(s.name) || row.value[col]\r\n        }\r\n        const dupes = props.uniqueColumns.filter((c) => row.value[c] && props.otherRows.some((r) => r.value[c] === row.value[c]))\r\n        if (dupes.length) {\r\n            setError(`These values must be unique across rows: ${dupes.join(', ')}`)\r\n            return\r\n        }\r\n        props.onSave(row)\r\n    }\r\n\r\n    return (\r\n        <dialog\r\n            ref={ref}\r\n            aria-labelledby={titleId}\r\n            className=\"rpf-popup m-auto w-[min(40rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/50\"\r\n            onCancel={(e: any) => {\r\n                e.preventDefault()\r\n                props.onCancel()\r\n            }}\r\n        >\r\n            <form\r\n                method=\"dialog\"\r\n                className=\"flex max-h-[85vh] flex-col\"\r\n                onSubmit={(e: any) => {\r\n                    e.preventDefault()\r\n                    save()\r\n                }}\r\n            >\r\n                <div className=\"flex items-center justify-between border-b border-border px-5 py-3\">\r\n                    <h2 id={titleId} className=\"text-base font-semibold\">\r\n                        {props.title}\r\n                    </h2>\r\n                    <button type=\"button\" className={adornmentButtonClass} aria-label=\"Close\" onClick={props.onCancel}>\r\n                        <IconX size={16} />\r\n                    </button>\r\n                </div>\r\n                <div className=\"flex-1 overflow-y-auto px-5 py-4\">\r\n                    {meta.error ? (\r\n                        <p role=\"alert\" className=\"text-sm text-destructive\">\r\n                            {(meta.error as Error).message}\r\n                        </p>\r\n                    ) : !child ? (\r\n                        <Spinner label=\"Loading the row form\" />\r\n                    ) : (\r\n                        <FormProvider form={child.form}>\r\n                            <div className=\"grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2\">\r\n                                {child.specs.map((s: any, i: number) =>\r\n                                    s.kind === 'field' ? <FieldControl key={s.name} name={s.name} type={s.fieldType} autoFocus={i === 0} {...(s.fieldProps || {})} /> : null,\r\n                                )}\r\n                            </div>\r\n                        </FormProvider>\r\n                    )}\r\n                    {error ? (\r\n                        <p role=\"alert\" className=\"mt-4 text-sm text-destructive\">\r\n                            {error}\r\n                        </p>\r\n                    ) : null}\r\n                </div>\r\n                <div className=\"flex justify-end gap-2 border-t border-border px-5 py-3\">\r\n                    <Button type=\"button\" variant=\"outline\" onClick={props.onCancel}>\r\n                        Cancel\r\n                    </Button>\r\n                    <Button type=\"button\" disabled={!child} onClick={save}>\r\n                        {props.row ? 'Save row' : 'Add row'}\r\n                    </Button>\r\n                </div>\r\n            </form>\r\n        </dialog>\r\n    )\r\n}\r\n\r\nexport default function MrvsPreview() {\r\n    return <div className=\"p-4 text-sm text-muted-foreground\">MRVS renders inside a catalog form (app/catalog-item).</div>\r\n}\r\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [],
+  "imports": [
+   "catalog",
+   "field",
+   "field-control",
+   "variable"
+  ]
+ },
+ "variable-container": {
+  "meta": {
+   "name": "Variable Container",
+   "kind": "primitive",
+   "tailwind": true
+  },
+  "clientScript": "/**\r\n * components:app/variable-container: renders a catalog form's variable layout.\r\n *\r\n * The platform resolves containers (start / split / end), single-row variable sets, checkbox\r\n * groups and MRVS into a layout tree (variablesLayout); this walks it: fields → <Variable>,\r\n * containers and sets → titled sections with responsive columns, MRVS → <Mrvs>. Sections are\r\n * labelled regions for screen readers when they have a title.\r\n */\r\nimport { useCatalogFormContext, Variable } from 'components:app/variable'\r\nimport type { VariableSpec } from 'components:app/variable'\r\nimport type { CatalogLayoutNode } from 'utilities:app/catalog'\r\nimport { Mrvs } from 'components:app/mrvs'\r\nimport { cx } from 'components:app/field'\r\nimport type { FieldLayout } from 'components:app/field'\r\n\r\nexport type VariableLayoutProps = {\r\n    /** Field layout for every variable (vertical labels by default). */\r\n    fieldLayout?: FieldLayout\r\n    renderCustom?: (spec: VariableSpec) => any\r\n    className?: string\r\n}\r\n\r\nexport function VariableLayout(props: VariableLayoutProps) {\r\n    const form = useCatalogFormContext()\r\n    if (!form) return null\r\n    const nodes = form.item.layout\r\n    const byName: Record<string, CatalogLayoutNode> = {}\r\n    for (const n of nodes) byName[n.name] = n\r\n    const top = nodes.filter((n) => !n.parent)\r\n    // Items without a layout (rare): render every variable in order.\r\n    const list = top.length ? top : form.specs.map((s) => ({ name: s.name, type: 'field', parent: '' }) as CatalogLayoutNode)\r\n    return (\r\n        <div className={cx('rpv-layout flex flex-col gap-5', props.className)}>\r\n            {list.map((n) => (\r\n                <LayoutNode key={n.name} node={n} byName={byName} {...props} depth={0} />\r\n            ))}\r\n        </div>\r\n    )\r\n}\r\n\r\nfunction LayoutNode(props: VariableLayoutProps & { node: CatalogLayoutNode; byName: Record<string, CatalogLayoutNode>; depth: number }) {\r\n    const form = useCatalogFormContext()!\r\n    const { node, byName } = props\r\n    const spec = form.specByName[node.name]\r\n    if (spec && spec.variable.visible === false && spec.kind !== 'field') return null\r\n\r\n    if (node.type === 'multi_row_container' || (spec && spec.kind === 'mrvs')) {\r\n        return spec ? <Mrvs name={spec.name} variable={spec.variable} itemId={form.item.sysId} layout={props.fieldLayout} /> : null\r\n    }\r\n    if (node.type === 'field' || !node.columns) {\r\n        return spec ? <Variable spec={spec} layout={props.fieldLayout} renderCustom={props.renderCustom} /> : null\r\n    }\r\n\r\n    // Container / variable set / checkbox group.\r\n    // Sets show a title only when the layout carries one (display_title); containers when displayTitle is set.\r\n    const title = (spec && spec.kind !== 'variable_set' && spec.variable.displayTitle ? spec.variable.label : '') || node.captionDisplay || ''\r\n    const cols = node.columns.filter((c) => c.fields.length)\r\n    const checkboxGroup = node.type === 'checkbox_container'\r\n    const titleId = `rpv-c-${(spec && spec.variable.id) || node.name.replace(/[^a-zA-Z0-9_-]/g, '')}`\r\n    const Tag: any = checkboxGroup ? 'fieldset' : 'section'\r\n    return (\r\n        <Tag\r\n            className={cx('rpv-container m-0 flex min-w-0 flex-col gap-3 border-0 p-0', props.depth > 0 ? 'rounded-md border border-border p-3' : '')}\r\n            aria-labelledby={title && !checkboxGroup ? titleId : undefined}\r\n            data-rpv-container={node.type}\r\n        >\r\n            {title ? (\r\n                checkboxGroup ? (\r\n                    <legend className=\"float-left mb-1 w-full p-0 text-sm font-medium text-foreground\">{title}</legend>\r\n                ) : (\r\n                    <h3 id={titleId} className=\"border-b border-border pb-1 text-sm font-semibold text-foreground\">\r\n                        {title}\r\n                    </h3>\r\n                )\r\n            ) : null}\r\n            <div\r\n                className={cx('grid grid-cols-1 gap-x-6', checkboxGroup ? 'gap-y-2' : 'gap-y-5', cols.length > 1 ? 'md:grid-cols-2' : '', cols.length > 2 ? 'lg:grid-cols-3' : '')}\r\n            >\r\n                {cols.map((c, i) => (\r\n                    <div key={i} className={cx('flex min-w-0 flex-col', checkboxGroup ? 'gap-2' : 'gap-5')}>\r\n                        {c.fields.map((f) => {\r\n                            const child = byName[f.name] || ({ name: f.name, type: f.type, parent: node.name } as CatalogLayoutNode)\r\n                            return <LayoutNode key={f.name} {...props} node={child} depth={props.depth + 1} />\r\n                        })}\r\n                    </div>\r\n                ))}\r\n            </div>\r\n        </Tag>\r\n    )\r\n}\r\n\r\nexport default function VariableContainerPreview() {\r\n    return <div className=\"p-4 text-sm text-muted-foreground\">The variable layout renders inside a catalog form (app/catalog-item).</div>\r\n}\r\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [],
+  "imports": [
+   "field",
+   "mrvs",
+   "variable"
+  ]
+ },
+ "catalog-item": {
+  "meta": {
+   "name": "Catalog Item",
+   "kind": "widget",
+   "tailwind": true,
+   "defaults": {
+    "itemId": "",
+    "table": "sc_cat_item"
+   }
+  },
+  "clientScript": "import { useMemo, useRef, useState, useSyncExternalStore } from 'react'\r\nimport { usePortalLocation } from '@portal/runtime'\r\nimport { useQueryClient } from 'utilities:react-query'\r\nimport { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'\r\nimport { Button } from 'components:button'\r\nimport { useCatalogItem, useItemPrice, submitCatalogItem } from 'utilities:app/catalog'\r\nimport type { CatalogItem as CatalogItemData, SubmitResult } from 'utilities:app/catalog'\r\nimport { useCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable'\r\nimport type { CatalogForm, VariableSpec } from 'components:app/variable'\r\nimport { VariableLayout } from 'components:app/variable-container'\r\nimport { cx, Spinner, IconAlert, IconCheck } from 'components:app/field'\r\nimport type { FieldLayout } from 'components:app/field'\r\n\r\n/**\r\n * components:app/catalog-item: a catalog item or record producer, end to end.\r\n *\r\n * One GraphQL request loads the item (header, pricing, variables, layout, defaults); variables\r\n * render through app/variable-container on the shared field primitives; price follows variables\r\n * with price implications; Order now / Submit runs client validation (with an error summary that\r\n * links to each field), then the platform's own submit (order_now / submit_producer), and shows\r\n * the created request or record with a link.\r\n *\r\n * Widget options: { itemId, table } (or the page query: ?item=<sys_id>). Also exported as\r\n * <CatalogItem itemId /> for other widgets.\r\n */\r\nexport type CatalogItemProps = {\r\n    itemId: string\r\n    table?: string\r\n    fieldLayout?: FieldLayout\r\n    renderCustom?: (spec: VariableSpec) => any\r\n    onSubmitted?: (result: SubmitResult) => void\r\n    /** Link for the created record (default: the platform form). */\r\n    recordHref?: (table: string, sysId: string) => string\r\n}\r\n\r\ntype Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldLayout } }\r\n\r\nexport default function CatalogItemWidget({ options = {} }: Props) {\r\n    const location = usePortalLocation() as any\r\n    const query = (location && location.query) || {}\r\n    const itemId = String(query.item || options.itemId || '')\r\n    const table = String(query.table || options.table || 'sc_cat_item')\r\n    if (!itemId)\r\n        return (\r\n            <Card>\r\n                <CardContent className=\"text-sm text-muted-foreground\">Choose a catalog item.</CardContent>\r\n            </Card>\r\n        )\r\n    return <CatalogItem key={itemId} itemId={itemId} table={table} fieldLayout={options.fieldLayout} />\r\n}\r\n\r\nexport function CatalogItem(props: CatalogItemProps) {\r\n    const [round, setRound] = useState(0)\r\n    return <CatalogItemRound key={round} {...props} onRestart={() => setRound((r) => r + 1)} />\r\n}\r\n\r\nfunction CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {\r\n    const qc = useQueryClient()\r\n    const item = useCatalogItem(props.itemId, props.table || 'sc_cat_item')\r\n    const form = useCatalogForm(item.data, props.table || 'sc_cat_item')\r\n    const [result, setResult] = useState<SubmitResult | null>(null)\r\n    const restart = () => {\r\n        // A new round gets a fresh draft record from the platform.\r\n        qc.removeQueries({ queryKey: ['rp-catalog', 'item', props.table || 'sc_cat_item', props.itemId] })\r\n        props.onRestart()\r\n    }\r\n    if (item.isLoading)\r\n        return (\r\n            <Card aria-busy=\"true\">\r\n                <CardContent className=\"flex items-center gap-2 text-sm text-muted-foreground\">\r\n                    <Spinner label=\"Loading the item\" /> Loading the item…\r\n                </CardContent>\r\n            </Card>\r\n        )\r\n    if (item.error || !item.data || !form)\r\n        return (\r\n            <Card>\r\n                <CardContent role=\"alert\" className=\"text-sm text-destructive\">\r\n                    {(item.error as Error | null)?.message || 'This item is not available.'}\r\n                </CardContent>\r\n            </Card>\r\n        )\r\n    if (result) return <Submitted item={item.data} result={result} href={props.recordHref} onAgain={restart} />\r\n    return (\r\n        <CatalogFormProvider form={form}>\r\n            <ItemForm\r\n                item={item.data}\r\n                form={form}\r\n                fieldLayout={props.fieldLayout}\r\n                renderCustom={props.renderCustom}\r\n                onSubmitted={(r) => {\r\n                    setResult(r)\r\n                    if (props.onSubmitted) props.onSubmitted(r)\r\n                }}\r\n            />\r\n        </CatalogFormProvider>\r\n    )\r\n}\r\n\r\nfunction usePriceVariables(form: CatalogForm): Record<string, string> {\r\n    const key = useSyncExternalStore(\r\n        form.subscribe,\r\n        () => JSON.stringify(form.priceAffecting.map((n) => form.getValue(n))),\r\n        () => '',\r\n    )\r\n    return useMemo(() => (form.priceAffecting.length ? form.serializeVariables() : {}), [key, form])\r\n}\r\n\r\nfunction actionLabel(item: CatalogItemData) {\r\n    if (item.type === 'record_producer') return 'Submit'\r\n    if (item.requestMethod === 'request') return 'Request'\r\n    if (item.requestMethod === 'submit') return 'Submit'\r\n    return 'Order now'\r\n}\r\n\r\nfunction ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout?: FieldLayout; renderCustom?: (s: VariableSpec) => any; onSubmitted: (r: SubmitResult) => void }) {\r\n    const { item, form } = props\r\n    const isProducer = item.type === 'record_producer'\r\n    const [quantity, setQuantity] = useState(item.quantity[0] ? item.quantity[0].value : '1')\r\n    const [errors, setErrors] = useState<{ name: string; label: string; message: string }[]>([])\r\n    const [submitting, setSubmitting] = useState(false)\r\n    const [failure, setFailure] = useState('')\r\n    const root = useRef<HTMLDivElement | null>(null)\r\n    const summary = useRef<HTMLDivElement | null>(null)\r\n    const priceVars = usePriceVariables(form)\r\n    const showPrices = !!(item.pricing && item.pricing.showPrices) && !isProducer\r\n    const price = useItemPrice(item.sysId, priceVars, quantity, showPrices && (form.priceAffecting.length > 0 || quantity !== '1'))\r\n    const displayPrice = price.data ? price.data.price : item.pricing && item.pricing.price ? item.pricing.displayPrice : ''\r\n    const recurring = price.data\r\n        ? price.data.recurringPrice\r\n        : item.pricing && item.pricing.recurringPrice\r\n          ? `${item.pricing.recurringDisplayPrice} ${item.pricing.recurringFrequencyDisplay || ''}`.trim()\r\n          : ''\r\n    const picture = item.picture ? `/${item.picture}` : ''\r\n\r\n    const focusField = (name: string) => {\r\n        const el = root.current && (root.current.querySelector(`[data-rpf-field=\"${name}\"] input, [data-rpf-field=\"${name}\"] textarea, [data-rpf-field=\"${name}\"] [role=combobox], [data-rpf-field=\"${name}\"] button, [data-rpf-field=\"${name}\"] [tabindex]`) as HTMLElement | null)\r\n        if (el) el.focus()\r\n    }\r\n    const submit = async () => {\r\n        setFailure('')\r\n        const r = form.validate()\r\n        if (!r.valid) {\r\n            setErrors(r.errors)\r\n            setTimeout(() => summary.current && summary.current.focus(), 0)\r\n            return\r\n        }\r\n        setErrors([])\r\n        setSubmitting(true)\r\n        try {\r\n            const res = await submitCatalogItem({\r\n                itemId: item.sysId,\r\n                kind: isProducer ? 'submit_producer' : 'order_now',\r\n                variables: form.serializeVariables(),\r\n                quantity,\r\n                itemGuid: item.targetRecordSysId,\r\n            })\r\n            props.onSubmitted(res)\r\n        } catch (e) {\r\n            setFailure((e as Error).message)\r\n        } finally {\r\n            setSubmitting(false)\r\n        }\r\n    }\r\n\r\n    return (\r\n        <Card ref={root} data-rp-catalog-item={item.sysId}>\r\n            <CardHeader>\r\n                <div className=\"flex items-start gap-4\">\r\n                    {picture ? <img src={picture} alt=\"\" className=\"size-14 shrink-0 rounded-md border border-border object-contain\" /> : null}\r\n                    <div className=\"min-w-0 flex-1\">\r\n                        <CardTitle className=\"text-lg\">{item.name}</CardTitle>\r\n                        {item.shortDescription ? <CardDescription>{item.shortDescription}</CardDescription> : null}\r\n                    </div>\r\n                    {showPrices && displayPrice ? (\r\n                        <div className=\"text-right\" aria-live=\"polite\">\r\n                            <div className=\"text-lg font-semibold tabular-nums\">{displayPrice}</div>\r\n                            {recurring ? <div className=\"text-xs text-muted-foreground\">+ {recurring}</div> : null}\r\n                            {quantity !== '1' && price.data && price.data.subtotal ? (\r\n                                <div className=\"text-xs text-muted-foreground\" data-rp-subtotal=\"\">\r\n                                    Subtotal ×{quantity}: <span className=\"font-medium text-foreground tabular-nums\">{price.data.subtotal}</span>\r\n                                    {price.data.recurringSubtotal ? ` + ${price.data.recurringSubtotal}` : ''}\r\n                                </div>\r\n                            ) : null}\r\n                            {price.isFetching ? <Spinner className=\"text-muted-foreground\" label=\"Updating price\" /> : null}\r\n                        </div>\r\n                    ) : null}\r\n                </div>\r\n                {item.description ? <div className=\"rpv-rich mt-3 text-sm text-muted-foreground\" dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.description) }} /> : null}\r\n            </CardHeader>\r\n            <CardContent>\r\n                <form\r\n                    noValidate\r\n                    onSubmit={(e: any) => {\r\n                        e.preventDefault()\r\n                        submit()\r\n                    }}\r\n                    className=\"flex flex-col gap-6\"\r\n                >\r\n                    {errors.length ? (\r\n                        <div ref={summary} tabIndex={-1} role=\"alert\" className=\"rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-destructive/30\" data-rp-error-summary=\"\">\r\n                            <p className=\"flex items-center gap-2 font-medium text-destructive\">\r\n                                <IconAlert size={16} /> Fix {errors.length} field{errors.length === 1 ? '' : 's'} to continue\r\n                            </p>\r\n                            <ul className=\"mt-2 ml-6 list-disc\">\r\n                                {errors.map((e) => (\r\n                                    <li key={e.name + e.message}>\r\n                                        <button type=\"button\" className=\"text-left text-destructive underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none\" onClick={() => focusField(e.name)}>\r\n                                            {e.message}\r\n                                        </button>\r\n                                    </li>\r\n                                ))}\r\n                            </ul>\r\n                        </div>\r\n                    ) : null}\r\n                    <VariableLayout fieldLayout={props.fieldLayout} renderCustom={props.renderCustom} />\r\n                    {item.mandatoryAttachment ? (\r\n                        <p className=\"text-sm text-muted-foreground\">This item requires an attachment on the request; add it from the platform after submitting.</p>\r\n                    ) : null}\r\n                    <div className=\"flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4\">\r\n                        {failure ? (\r\n                            <p role=\"alert\" className=\"mr-auto text-sm text-destructive\">\r\n                                {failure}\r\n                            </p>\r\n                        ) : null}\r\n                        {!isProducer && !item.hideQuantity && item.quantity.length ? (\r\n                            <label className=\"flex items-center gap-2 text-sm\">\r\n                                Quantity\r\n                                <select\r\n                                    value={quantity}\r\n                                    onChange={(e: any) => setQuantity(e.target.value)}\r\n                                    className=\"h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50\"\r\n                                >\r\n                                    {item.quantity.map((q) => (\r\n                                        <option key={q.value} value={q.value}>\r\n                                            {q.label}\r\n                                        </option>\r\n                                    ))}\r\n                                </select>\r\n                            </label>\r\n                        ) : null}\r\n                        <Button type=\"button\" disabled={submitting} data-rp-submit=\"\" onClick={submit}>\r\n                            {submitting ? <Spinner label=\"Submitting\" /> : null}\r\n                            {actionLabel(item)}\r\n                        </Button>\r\n                    </div>\r\n                </form>\r\n            </CardContent>\r\n        </Card>\r\n    )\r\n}\r\n\r\nfunction Submitted(props: { item: CatalogItemData; result: SubmitResult; href?: (table: string, sysId: string) => string; onAgain: () => void }) {\r\n    const { result } = props\r\n    const table = result.table || (props.item.type === 'record_producer' ? '' : 'sc_request')\r\n    const link = result.sysId && table ? (props.href ? props.href(table, result.sysId) : `/${table}.do?sys_id=${encodeURIComponent(result.sysId)}`) : ''\r\n    return (\r\n        <Card data-rp-submitted={result.number}>\r\n            <CardContent className=\"flex flex-col items-start gap-3\">\r\n                <p className=\"flex items-center gap-2 text-base font-semibold\" role=\"status\">\r\n                    <span className=\"inline-flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground\">\r\n                        <IconCheck size={14} />\r\n                    </span>\r\n                    {props.item.type === 'record_producer' ? 'Submitted' : 'Request submitted'}\r\n                </p>\r\n                <p className=\"text-sm text-muted-foreground\">\r\n                    {props.item.name}:{' '}\r\n                    {link ? (\r\n                        <a href={link} target=\"_blank\" rel=\"noopener noreferrer\" className=\"font-medium text-primary underline-offset-4 hover:underline\">\r\n                            {result.number || result.sysId}\r\n                            <span className=\"sr-only\"> (opens in a new tab)</span>\r\n                        </a>\r\n                    ) : (\r\n                        <span className=\"font-medium text-foreground\">{result.number || result.sysId}</span>\r\n                    )}\r\n                </p>\r\n                <Button variant=\"outline\" size=\"sm\" onClick={props.onAgain} className={cx('')}>\r\n                    Start another\r\n                </Button>\r\n            </CardContent>\r\n        </Card>\r\n    )\r\n}\r\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [],
+  "imports": [
+   "catalog",
+   "field",
+   "variable",
+   "variable-container"
+  ]
+ },
+ "catalog-picker": {
+  "meta": {
+   "name": "Catalog Picker",
+   "kind": "widget",
+   "tailwind": true,
+   "defaults": {
+    "title": "Catalog",
+    "items": [],
+    "search": true
+   }
+  },
+  "clientScript": "import { useState } from 'react'\nimport { Link, usePortalLocation } from '@portal/runtime'\nimport { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'\nimport { useGraphQL, useDebouncedValue } from 'utilities:app/graphql'\nimport { cx, controlClass, bareInputClass, IconSearch, Spinner } from 'components:app/field'\n\ntype PickItem = { sysId: string; label: string; note?: string }\ntype Props = { options?: { title?: string; items?: PickItem[]; search?: boolean } }\n\nconst SEARCH = `query rpCatalogSearch($q: String) {\n  GlideRecord_Query { sc_cat_item(queryConditions: $q, pagination: { limit: 8 }) { _results { sys_id { value } name { displayValue } sys_class_name { displayValue } short_description { displayValue } } } }\n}`\n\n/**\n * components:app/catalog-picker: picks the item a catalog-item widget on the same page shows\n * (through the page query, ?item=<sys_id>): featured items from options plus a live search of\n * active catalog items and record producers.\n */\nexport default function CatalogPicker({ options = {} }: Props) {\n    const location = usePortalLocation() as any\n    const current = String(((location && location.query) || {}).item || '')\n    const [text, setText] = useState('')\n    const term = useDebouncedValue(text.trim(), 250)\n    const search = useGraphQL(SEARCH, { q: `active=true^nameLIKE${term.replace(/\\^/g, '')}^ORDERBYname` }, { enabled: options.search !== false && term.length >= 2, keepPrevious: true })\n    const results: PickItem[] =\n        term.length >= 2 && search.data\n            ? search.data.GlideRecord_Query.sc_cat_item._results.map((r: any) => ({ sysId: r.sys_id.value, label: r.name.displayValue, note: r.sys_class_name.displayValue }))\n            : []\n    const item = (it: PickItem) => {\n        const active = it.sysId === current\n        return (\n            <li key={it.sysId}>\n                <Link\n                    to={String((location && location.page) || \"catalog\")}\n                    q={`item=${it.sysId}`}\n                    aria-current={active ? 'true' : undefined}\n                    className={cx('flex flex-col rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50', active ? 'bg-primary text-primary-foreground' : 'hover:bg-accent hover:text-accent-foreground')}\n                >\n                    <span className=\"font-medium\">{it.label}</span>\n                    {it.note ? <span className={cx('text-xs', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{it.note}</span> : null}\n                </Link>\n            </li>\n        )\n    }\n    return (\n        <Card data-rp-catalog-picker=\"\">\n            <CardHeader>\n                <CardTitle>{options.title || 'Catalog'}</CardTitle>\n                <CardDescription>Pick an item or search the catalog.</CardDescription>\n            </CardHeader>\n            <CardContent className=\"flex flex-col gap-3\">\n                {options.search !== false ? (\n                    <div className={controlClass({ className: 'gap-2' })}>\n                        <IconSearch size={14} className=\"text-muted-foreground\" />\n                        <input type=\"search\" aria-label=\"Search the catalog\" placeholder=\"Search items…\" value={text} className={bareInputClass} onChange={(e: any) => setText(e.target.value)} />\n                        {search.isFetching ? <Spinner label=\"Searching\" /> : null}\n                    </div>\n                ) : null}\n                {results.length ? (\n                    <nav aria-label=\"Search results\">\n                        <ul className=\"flex flex-col gap-1\">{results.map(item)}</ul>\n                    </nav>\n                ) : term.length >= 2 && !search.isFetching ? (\n                    <p className=\"text-sm text-muted-foreground\">No items match.</p>\n                ) : null}\n                {options.items && options.items.length ? (\n                    <nav aria-label=\"Featured items\">\n                        <ul className=\"flex flex-col gap-1\">{options.items.map(item)}</ul>\n                    </nav>\n                ) : null}\n            </CardContent>\n        </Card>\n    )\n}\n",
+  "css": "",
+  "serverScript": "",
+  "extraFiles": [],
+  "imports": [
+   "field",
+   "graphql"
+  ]
+ },
+ "centered-layout": {
+  "meta": {
+   "name": "Centered Layout",
+   "kind": "layout",
+   "tailwind": false,
+   "regions": [
+    {
+     "name": "header",
+     "acceptsContributions": true
+    },
+    {
+     "name": "main",
+     "acceptsContributions": false
+    },
+    {
+     "name": "footer",
+     "acceptsContributions": true
+    }
+   ]
+  },
+  "clientScript": "import { Region } from '@portal/runtime'\n\n/** Header / main / footer with a centered content column. Main still fills and scrolls. */\nexport default function CenteredLayout() {\n    return (\n        <div className=\"rp-ctr\">\n            <header className=\"rp-ctr__header\">\n                <Region name=\"header\" />\n            </header>\n            <main className=\"rp-ctr__main\">\n                <Region name=\"main\" />\n            </main>\n            <footer className=\"rp-ctr__footer\">\n                <Region name=\"footer\" />\n            </footer>\n        </div>\n    )\n}\n",
+  "css": "/* Same contract: main fills what header/footer leave and scrolls; only its content column is centered. */\n.rp-ctr { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; width: 100%; min-height: 0; overflow: hidden; background: var(--muted); color: var(--foreground); }\n.rp-ctr__header { border-bottom: 1px solid var(--border); background: var(--background); }\n.rp-ctr__main { min-width: 0; min-height: 0; overflow: auto; }\n.rp-ctr__main > [data-rp-region] { display: grid; gap: 16px; align-content: start; width: min(760px, 100%); margin: 0 auto; padding: 32px 16px; box-sizing: border-box; }\n.rp-ctr__footer { padding: 12px; text-align: center; color: var(--muted-foreground); font-size: 12px; }\n.rp-ctr__header:not(:has([data-rp-widget])), .rp-ctr__footer:not(:has([data-rp-widget])) { display: none; }\n",
+  "serverScript": "",
+  "extraFiles": [],
+  "imports": []
+ },
+ "columns": {
+  "meta": {
+   "name": "Columns",
+   "kind": "block",
+   "tailwind": false,
+   "regions": [
+    {
+     "repeat": "tracks",
+     "name": "col-{n}",
+     "label": "Column {n}"
+    }
+   ],
+   "defaults": {
+    "tracks": [
+     {
+      "size": "minmax(0, 1fr)"
+     },
+     {
+      "size": "minmax(0, 2fr)"
+     }
+    ],
+    "gap": "1.5rem",
+    "align": "start",
+    "mobile": {
+     "tracks": [
+      {
+       "size": "minmax(0, 1fr)"
+      }
+     ]
+    }
+   }
+  },
+  "clientScript": "import { Region, useBlock } from '@portal/runtime'\n\n/**\n * Columns: one drop zone per track (½+½, ⅓+⅔, ⅓×3, ¼×4, or custom sizes). Widgets stack inside\n * each column. On mobile the default tracks collapse to one column, so the columns stack.\n */\nexport default function Columns() {\n    const { rootProps, regions } = useBlock()\n    return (\n        <div {...rootProps} className={['rp-cols', rootProps.className].filter(Boolean).join(' ')}>\n            {regions.map((r) => (\n                <Region key={r.name} name={r.name} className=\"rp-cols__col\" />\n            ))}\n        </div>\n    )\n}\n",
+  "css": ".rp-cols {\n    display: grid;\n    grid-template-columns: var(--rp-cols, minmax(0, 1fr) minmax(0, 1fr));\n    gap: var(--rp-cols-gap, 1.5rem);\n    align-items: var(--rp-cols-align, start);\n}\n\n.rp-cols__col {\n    display: flex;\n    flex-direction: column;\n    gap: var(--rp-cols-gap, 1.5rem);\n    min-width: 0;\n}\n",
+  "serverScript": "",
+  "extraFiles": [],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "tracks": {
+     "type": "array",
+     "title": "Columns",
+     "description": "One drop zone per column; size is a grid track (1fr, 2fr, 18rem, minmax(0, 1fr) …)",
+     "x-css-var": "--rp-cols",
+     "x-presets": [
+      {
+       "label": "½ + ½",
+       "value": [
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        }
+       ]
+      },
+      {
+       "label": "⅓ + ⅔",
+       "value": [
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 2fr)"
+        }
+       ]
+      },
+      {
+       "label": "⅔ + ⅓",
+       "value": [
+        {
+         "size": "minmax(0, 2fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        }
+       ]
+      },
+      {
+       "label": "⅓ × 3",
+       "value": [
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        }
+       ]
+      },
+      {
+       "label": "¼ × 4",
+       "value": [
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        }
+       ]
+      },
+      {
+       "label": "Sidebar + main",
+       "value": [
+        {
+         "size": "18rem"
+        },
+        {
+         "size": "minmax(0, 1fr)"
+        }
+       ]
+      }
+     ],
+     "items": {
+      "type": "object",
+      "properties": {
+       "size": {
+        "type": "string",
+        "title": "Size"
+       }
+      }
+     }
+    },
+    "gap": {
+     "type": "string",
+     "title": "Gap",
+     "x-css-var": "--rp-cols-gap"
+    },
+    "align": {
+     "type": "string",
+     "title": "Align columns",
+     "enum": [
+      "start",
+      "center",
+      "end",
+      "stretch"
+     ],
+     "x-css-var": "--rp-cols-align"
+    }
+   }
+  },
+  "imports": []
+ },
+ "container": {
+  "meta": {
+   "name": "Container",
+   "kind": "block",
+   "tailwind": false,
+   "regions": [
+    {
+     "name": "content",
+     "label": "Content"
+    }
+   ],
+   "defaults": {
+    "maxWidth": "72rem",
+    "paddingX": "1rem",
+    "gap": "1.5rem"
+   }
+  },
+  "clientScript": "import { Region, useBlock } from '@portal/runtime'\n\n/** A centred, max-width container; its items stack with a gap. */\nexport default function Container() {\n    const { rootProps } = useBlock()\n    return (\n        <div {...rootProps} className={['rp-container', rootProps.className].filter(Boolean).join(' ')}>\n            <Region name=\"content\" contents />\n        </div>\n    )\n}\n",
+  "css": ".rp-container {\n    display: flex;\n    flex-direction: column;\n    gap: var(--rp-container-gap, 1.5rem);\n    width: 100%;\n    max-width: var(--rp-container-max, 72rem);\n    margin-inline: auto;\n    padding-inline: var(--rp-container-px, 1rem);\n    box-sizing: border-box;\n}\n",
+  "serverScript": "",
+  "extraFiles": [],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "maxWidth": {
+     "type": "string",
+     "title": "Max width",
+     "x-css-var": "--rp-container-max",
+     "x-presets": [
+      "48rem",
+      "64rem",
+      "72rem",
+      "80rem",
+      "none"
+     ]
+    },
+    "paddingX": {
+     "type": "string",
+     "title": "Side padding",
+     "x-css-var": "--rp-container-px"
+    },
+    "gap": {
+     "type": "string",
+     "title": "Gap between items",
+     "x-css-var": "--rp-container-gap"
+    }
+   }
+  },
+  "imports": []
  },
  "field-demo": {
   "meta": {
@@ -1473,7 +1621,7 @@
 
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home',
-        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'Layouts', to: 'layouts' }, { label: 'Fields', to: 'fields' }, { label: 'About', to: 'about' }],
+        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'Layouts', to: 'layouts' }, { label: 'Fields', to: 'fields' }, { label: 'Catalog', to: 'catalog' }, { label: 'About', to: 'about' }],
         pages: [
             { route: 'home', name: 'Home', widgets: [
                 { c: 'hello-card', options: { title: 'Welcome to the Service Portal', body: 'Rendered by React 19 from records: layout, theme and widgets are all compiled builds.', links: [{ label: 'Orders', to: 'orders' }, { label: 'Order 42', to: 'orders/42' }, { label: 'About (other layout)', to: 'about' }] } },
@@ -1519,6 +1667,24 @@
             // Field primitives (app/field + app/*-field): standalone and bound to a real incident.
             { route: 'fields', name: 'Fields', widgets: [
                 { c: 'field-demo', options: { table: 'incident' } },
+            ] },
+            // Catalog variables (app/variable, app/mrvs, app/catalog-item): picker + item, chosen via ?item=<sys_id>.
+            { route: 'catalog', name: 'Catalog', widgets: [
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] }, children: {
+                    'col-1': [
+                        { c: 'catalog-picker', options: { title: 'Catalog', search: true, items: [
+                            { sysId: '54c9ead947dec110f53d37d2846d43ea', label: 'Request zoom webinar', note: 'Item · text, date/time, checkbox, masked, list collector' },
+                            { sysId: 'e56a7ffe41011300964ff05369414ebd', label: 'Corporate Mobile Devices - Bulk Orders', note: 'Item · reference, multi-row variable set' },
+                            { sysId: '575274511d830010f8776f77b927f284', label: 'Parking Sticker Request', note: 'Item · requested for, rich text, attachments' },
+                            { sysId: '04b7e94b4f7b4200086eeed18110c7fd', label: 'Standard Laptop', note: 'Item · checkbox group, price' },
+                            { sysId: '67e2f2da4fff0200086eeed18110c7dd', label: 'Firewall Rule Change', note: 'Item · variable set, IP address, radio' },
+                            { sysId: '38c1fc840a0a0b2700285921c2bf5fc8', label: 'Report Outage', note: 'Record producer · incident' },
+                        ] } },
+                    ],
+                    'col-2': [
+                        { c: 'catalog-item', options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' } },
+                    ],
+                } },
             ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },

@@ -2,6 +2,64 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.7.0] - 2026-11-19
+
+Primitives, wave 2: catalog variables. Catalog items and record producers render from the
+platform's own catalog GraphQL, reuse the field primitives for their variables, and submit through
+the platform's order-now and submit-producer APIs.
+
+### Added
+- **`utilities:app/catalog`:**
+  - Fetchers:
+    - `fetchCatalogItem`: one GraphQL query, `AppCatalogView_Query.itemViewLayout`. It returns header, pricing, variables, the layout tree, defaults and a draft record for attachments.
+    - `fetchItemPrice`: `/api/sn_sc/servicecatalog/items/{id}/price`.
+    - `submitCatalogItem`: `order_now` / `submit_producer`.
+    - `fetchMrvsRowForm`: the platform's MRVS row-form call.
+    - `validateVariableRegex`, `checkDelegation`, `uploadVariableAttachment`.
+  - Hooks: `useCatalogItem`, `useItemPrice`, `useMrvsRowForm`.
+- **`components:app/variable`:**
+  - `variableSpec()` maps all 32 `item_option_new` types onto field metadata and renders them through
+    `app/field-control`, so variables reuse the field primitives.
+  - `createCatalogForm` / `useCatalogForm` / `CatalogFormProvider`:
+    - built on the form store, with fields named `variables.<name>`;
+    - any method accepts `<name>`, `IO:<sys_id>` or the sys_id, so g_form-style catalog scripts can plug in later;
+    - `serializeVariables()`.
+  - Renders labels, sanitised rich-text labels, breaks, and attachment and macro variables.
+- **`components:app/attachment-variable`:** an accessible drop zone with extension and size checks.
+- **`components:app/mrvs`:** a multi-row variable set grid.
+  - Add, edit and remove rows in a native modal dialog with its own form store per row, using the platform's row
+    form metadata.
+  - Max-row and unique-column rules; the value is the platform's MRVS JSON.
+- **`components:app/variable-container`:** `<VariableLayout>` renders containers as titled column sections,
+  checkbox groups as named fieldsets, variable sets, and MRVS.
+- **Widgets:**
+  - `app/catalog-item`: header with picture, description and price; variables; quantity.
+    - Submitting validates first: an error summary takes focus and links to each field.
+    - Then order now or submit producer; it shows the number with a link and offers "Start another".
+  - `app/catalog-picker`: featured items and live search.
+- **The `sp` page `catalog`:** the picker and item in a ⅓ + ⅔ Columns block, with six demo items: zoom webinar,
+  bulk mobile devices (MRVS), parking sticker, Standard Laptop, Firewall Rule Change, and Report Outage (record
+  producer).
+
+### Changed
+- **Required-field errors** now appear after Validate/Submit, or after the user clears a value they changed. They
+  no longer appear just from tabbing through an empty field, which shifted the layout under the pointer.
+
+### Notes
+- Verified live on dev189813:
+  - all six items render;
+  - list collector and reference search; the requested-for qualifier is applied by the server;
+  - MRVS add/edit/remove; price follows quantity;
+  - the error summary; keyboard use; light and dark.
+- Two real test submissions were made and kept: **REQ0010002 / RITM0010002** (bulk mobile devices, with one MRVS
+  row) and **INC0020811** (Report Outage).
+- Not yet built:
+  - catalog UI policies and client scripts (e.g. a field that should show only when a checkbox is ticked still
+    shows);
+  - delegation and requested-for in the UI; inline MRVS editing; MRVS row prices in the total.
+  - Dependent variable choices and references inside MRVS rows are untested, because no demo item has them.
+  - Cart, checkout and order guides stay in the backlog.
+
 ## [1.6.0] - 2026-11-19
 
 Primitives, wave 1: a shared GraphQL utility, the `app/field` base, and 15 field primitives built on
