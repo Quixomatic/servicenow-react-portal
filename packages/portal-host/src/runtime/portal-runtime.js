@@ -1,7 +1,10 @@
 // The '@portal/runtime' module that compiled widgets import through the registry.
 // Exports are additive: widgets deployed on the instance depend on every name here.
 import { Link, useNavigate } from './navigation';
-import { usePortal, usePortalLocation } from './contexts';
+import { usePortal, usePortalLocation, useLayoutInfo } from './contexts';
+import { useSidebar } from './sidebar';
+import { useNavigation } from './use-navigation';
+import { usePortalContainer } from '@servicenow/ui-renderer-react';
 import { Region, RegionPortal, useBlock, useComponent } from './widgets';
 import { useTheme } from './theme-mode';
 import {
@@ -43,7 +46,11 @@ export {
 	useRecord,
 	useTableQuery,
 	toast,
-	format
+	format,
+	useSidebar,
+	useNavigation,
+	useLayoutInfo as useLayout,
+	usePortalContainer
 };
 
 /** Names exported above, for Studio autocomplete. */
@@ -67,5 +74,9 @@ export const RUNTIME_EXPORTS = [
 	'useRecord',
 	'useTableQuery',
 	'toast',
-	'format'
+	'format',
+	'useSidebar',
+	'useNavigation',
+	'useLayout',
+	'usePortalContainer'
 ];

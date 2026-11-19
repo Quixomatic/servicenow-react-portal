@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "string",
+      "title": "Header placement",
+      "enum": ["full", "beside-sidebar"],
+      "enumNames": ["Full width, over the sidebar", "Beside the sidebar (full-height sidebar)"],
+      "description": "Mobile always stacks: the sidebar becomes an overlay sheet."
+    },
+    "contentPadding": {
+      "type": "string",
+      "title": "Main content padding",
+      "enum": ["none", "sm", "md", "lg"],
+      "enumNames": ["None", "Small (12px)", "Medium (24px)", "Large (40px)"]
+    }
+  }
+}

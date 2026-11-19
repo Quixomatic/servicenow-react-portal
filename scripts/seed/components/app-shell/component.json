@@ -1,0 +1,13 @@
+{
+    "name": "App Shell Layout",
+    "kind": "layout",
+    "tailwind": false,
+    "regions": [
+        { "name": "sidebar", "acceptsContributions": true },
+        { "name": "header", "acceptsContributions": true },
+        { "name": "subheader", "acceptsContributions": true },
+        { "name": "main", "acceptsContributions": false },
+        { "name": "footer", "acceptsContributions": true }
+    ],
+    "defaults": { "texture": "noise", "contentPadding": "md" }
+}

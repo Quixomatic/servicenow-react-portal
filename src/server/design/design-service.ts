@@ -117,6 +117,7 @@ function pageDto(pg: GR) {
         active: bool(pg, 'active'),
         layoutOverride: str(pg, 'layout_override') || null,
         contentWidth: str(pg, 'content_width') || 'inherit',
+        layoutOptions: parseJson<Record<string, unknown> | null>(str(pg, 'layout_options_json'), null),
         access: parseJson<Record<string, unknown>>(str(pg, 'access_config_json'), {}),
         portalId: str(pg, 'portal'),
     }
@@ -139,7 +140,14 @@ function portalDto(p: GR) {
 
 function layoutDto(c: GR) {
     const regions = normalizeRegions(parseJson<unknown>(str(c, 'regions_json'), null))
-    return { id: c.getUniqueValue(), uniqueId: str(c, 'unique_id'), name: str(c, 'name'), regions: regions.length ? regions : DEFAULT_REGIONS }
+    return {
+        id: c.getUniqueValue(),
+        uniqueId: str(c, 'unique_id'),
+        name: str(c, 'name'),
+        regions: regions.length ? regions : DEFAULT_REGIONS,
+        optionsSchema: parseJson<unknown>(str(c, 'options_schema_json'), null),
+        defaultOptions: parseJson<Record<string, unknown>>(str(c, 'default_options_json'), {}),
+    }
 }
 
 /* ---------------- Reads ---------------- */
@@ -477,6 +485,8 @@ type PageReq = {
     route?: string
     layoutOverride?: string | null
     contentWidth?: string | null
+    /** null/{} = use the portal default. */
+    layoutOptions?: Record<string, unknown> | null
     order?: number
     active?: boolean
     access?: Record<string, unknown>
@@ -489,6 +499,10 @@ function applyPage(pg: GR, req: PageReq): void {
     if (req.title !== undefined) pg.setValue('title', String(req.title))
     if (req.route !== undefined) pg.setValue('route_pattern', String(req.route))
     if (req.layoutOverride !== undefined) pg.setValue('layout_override', req.layoutOverride || '')
+    if (req.layoutOptions !== undefined) {
+        const o = isPlainObject(req.layoutOptions) ? req.layoutOptions : null
+        pg.setValue('layout_options_json', o && Object.keys(o).length ? JSON.stringify(o) : '')
+    }
     if (req.contentWidth !== undefined) {
         const w = req.contentWidth || 'inherit'
         if (PAGE_WIDTHS.indexOf(w) < 0) throw badRequest(`contentWidth must be one of ${PAGE_WIDTHS.join(', ')}`)

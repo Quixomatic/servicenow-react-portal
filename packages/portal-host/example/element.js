@@ -12,8 +12,9 @@ createCustomElement('x-312987-portal-host-harness', {
 	renderer: { type: snabbdom },
 	initialState: {
 		mode: 'portal',
-		portalSlug: 'sp',
-		page: '',
+		// ?portal=<slug>&page=<path> pick the starting location (dev only).
+		portalSlug: new URLSearchParams(window.location.search).get('portal') || 'sp',
+		page: new URLSearchParams(window.location.search).get('page') || '',
 		recordId: '',
 		q: '',
 		generation: 1,

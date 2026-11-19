@@ -627,6 +627,7 @@ function PageSettings({ designer, studio, state }) {
 					))}
 				</select>
 			</label>
+			<PageLayoutOptions designer={designer} page={page} design={design} busy={busy} />
 			<label className="rpd-field">
 				<span className="rpd-label">Content width</span>
 				<select value={page.contentWidth || 'inherit'} onChange={(e) => designer.updatePage(page.id, { contentWidth: e.target.value })} disabled={busy} data-rpd-content-width="">
@@ -670,6 +671,81 @@ function PageSettings({ designer, studio, state }) {
 				</button>
 			</div>
 			<div className="rpd-hint">Select a widget on the canvas to edit its options.</div>
+		</div>
+	);
+}
+
+function layoutById(design, id) {
+	return (design.layouts || []).find((l) => l.id === id) || null;
+}
+
+const hasKeys = (o) => !!o && typeof o === 'object' && Object.keys(o).length > 0;
+
+/** The portal default layout's options (settings.layoutOptions), as a schema-driven form. */
+function PortalLayoutOptions({ designer, portal, design, busy }) {
+	const layout = layoutById(design, portal.defaultLayout);
+	if (!layout) return null;
+	const settings = portal.settings || {};
+	const value = hasKeys(settings.layoutOptions) ? settings.layoutOptions : {};
+	const apply = (next) => {
+		const merged = { ...settings };
+		if (hasKeys(next)) merged.layoutOptions = next;
+		else delete merged.layoutOptions;
+		designer.updatePortal({ settings: merged });
+	};
+	return (
+		<div className="rpd-field" data-rpd-portal-layout-options="">
+			<span className="rpd-label">Layout options ({layout.name})</span>
+			<OptionsForm key={'portal-lo:' + layout.id + ':' + JSON.stringify(value)} schema={layout.optionsSchema} value={value} defaults={layout.defaultOptions || {}} onApply={apply} disabled={busy} />
+		</div>
+	);
+}
+
+/**
+ * The page's layout options: "Portal default" (null: layout defaults → portal settings) or
+ * "Custom" (layout_options_json, merged over them). Custom with nothing set yet stays custom in
+ * the panel until a value is applied.
+ */
+function PageLayoutOptions({ designer, page, design, busy }) {
+	const portal = design.portal || {};
+	const layoutId = page.layoutOverride || portal.defaultLayout;
+	const layout = layoutById(design, layoutId);
+	const [customFor, setCustomFor] = useState(null);
+	if (!layout) return null;
+	const own = hasKeys(page.layoutOptions) ? page.layoutOptions : null;
+	const custom = !!own || customFor === page.id;
+	const usesDefault = layoutId === portal.defaultLayout;
+	const portalOpts = usesDefault && portal.settings && hasKeys(portal.settings.layoutOptions) ? portal.settings.layoutOptions : {};
+	const inherited = { ...(layout.defaultOptions || {}), ...portalOpts };
+	return (
+		<div className="rpd-field" data-rpd-page-layout-options="">
+			<span className="rpd-label">Layout options ({layout.name})</span>
+			<select
+				value={custom ? 'custom' : 'default'}
+				onChange={(e) => {
+					if (e.target.value === 'custom') setCustomFor(page.id);
+					else {
+						setCustomFor(null);
+						if (own) designer.updatePage(page.id, { layoutOptions: null });
+					}
+				}}
+				disabled={busy}
+				aria-label="Layout options source"
+				data-rpd-page-layout-options-mode=""
+			>
+				<option value="default">{usesDefault ? 'Portal default' : 'Layout defaults'}</option>
+				<option value="custom">Custom</option>
+			</select>
+			{custom ? (
+				<OptionsForm
+					key={'page-lo:' + page.id + ':' + layout.id + ':' + JSON.stringify(own || {})}
+					schema={layout.optionsSchema}
+					value={own || {}}
+					defaults={inherited}
+					onApply={(next) => designer.updatePage(page.id, { layoutOptions: hasKeys(next) ? next : null })}
+					disabled={busy}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -731,6 +807,7 @@ function PortalSettings({ designer, state }) {
 					))}
 				</select>
 			</label>
+			<PortalLayoutOptions designer={designer} portal={portal} design={design} busy={busy} />
 			<label className="rpd-field">
 				<span className="rpd-label">Default content width</span>
 				<select

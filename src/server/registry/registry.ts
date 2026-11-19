@@ -105,6 +105,8 @@ export function componentRef(component: GR, build?: GR | null): ComponentRef {
     if (kind === 'layout') {
         const regions = regionsOf(component)
         ref.regions = regions.length ? regions : DEFAULT_REGIONS
+        const defaults = parseJson<Record<string, unknown>>(str(component, 'default_options_json'), {})
+        ref.defaultOptions = isPlainObject(defaults) ? defaults : {}
     }
     const imports = pinned ? componentImports(pinned.getUniqueValue()) : []
     if (imports.length) ref.imports = imports

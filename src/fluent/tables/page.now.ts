@@ -52,6 +52,11 @@ export const x_312987_portal_page = Table({
                 '3xl': { label: '3xl (48rem)', sequence: 6 },
             },
         }),
+        layout_options_json: JsonColumn({
+            label: 'Layout options',
+            maxLength: 4000,
+            hint: 'Overrides the layout options for this page (empty = the portal default, settings.layoutOptions)',
+        }),
         order: IntegerColumn({ label: 'Order', default: 100 }),
         active: BooleanColumn({ label: 'Active', default: true }),
     },
@@ -76,6 +81,7 @@ Form({
                     rightElements: [
                         { field: 'layout_override', type: 'table_field' },
                         { field: 'content_width', type: 'table_field' },
+                        { field: 'layout_options_json', type: 'table_field' },
                         { field: 'order', type: 'table_field' },
                         { field: 'active', type: 'table_field' },
                     ],

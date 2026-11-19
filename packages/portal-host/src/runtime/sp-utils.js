@@ -156,9 +156,13 @@ export function usePortalUtils() {
 	}, [portal]);
 }
 
-/** useServer(): the current component's server calls and data (same as useComponent()). */
-export function useServer() {
-	return useComponent();
+/**
+ * useServer(options?): the current component's server calls and data (same as useComponent()).
+ * Server errors toast automatically; opt out with useServer({ toastErrors: false }) or per call
+ * with server.get(input, { toast: false }).
+ */
+export function useServer(options) {
+	return useComponent(options);
 }
 
 // ---- Table API ------------------------------------------------------------------------------

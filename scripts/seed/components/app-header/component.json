@@ -1,0 +1,1 @@
+{ "name": "App Header", "kind": "widget", "tailwind": true, "defaults": { "menu": "primary", "sidebarTrigger": true, "center": "" } }

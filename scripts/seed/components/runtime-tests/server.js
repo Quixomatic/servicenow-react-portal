@@ -1,5 +1,6 @@
 (function () {
     // Exercises the $sp helper so the client can assert on the results.
+    var startKeys = Object.keys(data).length // update() must not resend the widget's data
     var me = $sp.getUser()
     data.sp = {
         user: me.name,
@@ -13,4 +14,6 @@
         hasAdmin: $sp.hasRole('admin'),
     }
     data.action = context.action
+    data.input = input
+    data.startKeys = startKeys
 })()

@@ -42,8 +42,22 @@ export default function RuntimeTests() {
 
     const [ping, setPing] = useState<any>(null)
     const [fetched, setFetched] = useState<any>(null)
+    const [inputs, setInputs] = useState<any>(null)
+    const [updated, setUpdated] = useState<any>(null)
     useEffect(() => {
         server.get({ ping: 'pong' }).then(setPing, (e: Error) => setPing({ error: e.message }))
+        // Staged inputs go with the next call only; pinned ones (static or read at call time) with every call.
+        server.pinInputs({ pinned: 'P', live: () => 'L' })
+        server.setInputs({ staged: 'S' })
+        server
+            .get({ call: 'C' })
+            .then((first: any) => server.get().then((second: any) => ({ first: first.input, second: second.input })))
+            .then((r: any) => {
+                setInputs(r)
+                // update() sends inputs only: the server script starts with empty data.
+                return server.update({ upd: 1 }).then((d: any) => setUpdated({ startKeys: d.startKeys, upd: d.input?.upd, pinned: d.input?.pinned, action: d.action }))
+            })
+            .catch((e: Error) => setInputs({ error: e.message }))
         utils
             .fetchJson('/api/now/table/sys_user?sysparm_limit=1&sysparm_fields=sys_id')
             .then((r: any) => setFetched({ ok: Array.isArray(r.result), count: r.result?.length }), (e: Error) => setFetched({ error: e.message }))
@@ -66,6 +80,12 @@ export default function RuntimeTests() {
         check('usePortalUtils.fetchJson', fetched ? !!fetched.ok : null, fetched),
         check('useServer: on-load data ($sp)', pending ? null : !!sp && sp.userIsSelf && sp.canReadSelf, sp),
         check('useServer: server.get(input)', ping ? ping.sp?.parameter === 'pong' && ping.action === 'get' : null, ping ? { parameter: ping.sp?.parameter, action: ping.action } : '…'),
+        check(
+            'useServer: staged inputs consumed, pinned kept',
+            inputs ? !inputs.error && inputs.first?.staged === 'S' && inputs.first?.call === 'C' && inputs.first?.pinned === 'P' && inputs.first?.live === 'L' && !inputs.second?.staged && !inputs.second?.call && inputs.second?.pinned === 'P' : null,
+            inputs || '…',
+        ),
+        check('useServer: update(input) sends no data back', updated ? updated.startKeys === 0 && updated.upd === 1 && updated.pinned === 'P' && updated.action === 'update' : null, updated || '…'),
         check('$sp.getProperty', sp ? sp.property === 'Hello from a system property' : null, sp?.property),
         check('$sp.getValue (option)', sp ? sp.option === 'from placement options' : null, sp?.option),
     ]

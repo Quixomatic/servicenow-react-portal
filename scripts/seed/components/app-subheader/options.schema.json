@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "menu": { "type": "string", "title": "Menu", "default": "primary" },
+    "showTitle": { "type": "boolean", "title": "Show the page title", "default": true },
+    "note": { "type": "string", "title": "Right-hand note" }
+  }
+}

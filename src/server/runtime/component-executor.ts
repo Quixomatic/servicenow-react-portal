@@ -73,7 +73,8 @@ function runOne(prep: PreparedPortal, p: ExecuteParams): ExecuteResult {
     if (!build || !isUsableBuild(build)) throw rpError(409, 'no_build', 'Component build is not available')
 
     const options = { ...placement.options }
-    const data: Record<string, unknown> = p.action === 'update' && isPlainObject(p.data) ? { ...p.data } : {}
+    // Every action starts from empty data: the client's data is never sent back to the server.
+    const data: Record<string, unknown> = {}
     const input: Record<string, unknown> = isPlainObject(p.input) ? p.input : {}
 
     const script = str(build, 'server_script')
@@ -109,6 +110,7 @@ function runOne(prep: PreparedPortal, p: ExecuteParams): ExecuteResult {
             portal: { id: prep.manifest.portal.id, slug: prep.manifest.portal.slug, name: prep.manifest.portal.name, settings: prep.manifest.portal.settings },
             page: found.page ? { route: found.page.route, params: prep.params } : null,
             component: { id: placement.component.id, uniqueId: placement.component.uniqueId, instanceId: placement.id },
+            manifest: prep.manifest,
         })
         evaluator.putVariable('$rp', api)
         evaluator.putVariable('$sp', api)

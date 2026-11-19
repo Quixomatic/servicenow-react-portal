@@ -13,7 +13,7 @@ import { PortalRouterHost, bootstrapQuery, toRouterPath } from './portal-router'
 // tablet/mobile container queries, so in the designer the device-width frame renders exactly.
 const PAGE_CONTAINER = Object.freeze({ containerType: 'inline-size', containerName: 'rp-page' });
 
-const KNOWN_PORTALS = ['sp', 'crm'];
+const KNOWN_PORTALS = ['sp', 'crm', 'app'];
 
 /**
  * Portal mode. Memoized on (portalSlug, hostId): property changes within a portal never

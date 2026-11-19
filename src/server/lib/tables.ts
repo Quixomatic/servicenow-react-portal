@@ -12,6 +12,8 @@ export const T = {
     release: 'x_312987_portal_release',
     releaseEntry: 'x_312987_portal_release_entry',
     executionLog: 'x_312987_portal_execution_log',
+    menu: 'x_312987_portal_menu',
+    menuItem: 'x_312987_portal_menu_item',
 } as const
 
 export const SCOPE = 'x_312987_portal'

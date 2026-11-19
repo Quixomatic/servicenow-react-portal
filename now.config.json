@@ -21,6 +21,8 @@
         "x_312987_portal_build_asset",
         "x_312987_portal_build_dep",
         "x_312987_portal_release",
-        "x_312987_portal_release_entry"
+        "x_312987_portal_release_entry",
+        "x_312987_portal_menu",
+        "x_312987_portal_menu_item"
     ]
 }

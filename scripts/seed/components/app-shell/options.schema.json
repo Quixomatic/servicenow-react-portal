@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "texture": {
+      "type": "string",
+      "title": "Page background",
+      "enum": ["noise", "plain"],
+      "enumNames": ["Textured (the theme's --rp-noise)", "Plain sidebar colour"]
+    },
+    "contentPadding": {
+      "type": "string",
+      "title": "Main content padding",
+      "enum": ["none", "sm", "md", "lg"],
+      "enumNames": ["None (full bleed)", "Small (12px)", "Medium (24px)", "Large (40px)"]
+    }
+  }
+}

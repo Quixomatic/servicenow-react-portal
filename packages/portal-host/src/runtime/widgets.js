@@ -1,12 +1,13 @@
 import React, { memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, useRouterState } from '@tanstack/react-router';
-import { BlockContext, LayoutContext, PortalContext, WidgetInstanceContext, useBlockContext, useInstanceInit, useLayout, useWidgetInstance } from './contexts';
+import { BlockContext, LayoutContext, PortalContext, WidgetInstanceContext, useBlockContext, useInstanceInit, useLayout, useLayoutOptions, useWidgetInstance } from './contexts';
 import { loadComponent, peekComponent } from './loader';
 import { acquireStyle, ensureStyle, styleTarget } from './styles';
 import { executeInstance } from './api';
 import { useInstanceRecord } from './instance-init';
 import { useDiagCounter } from './diag-hooks';
+import { toast } from 'sonner';
 import { EMPTY_LIST, leafData } from './page-state';
 
 // ---- error boundary -------------------------------------------------------------------------
@@ -34,6 +35,49 @@ export class WidgetErrorBoundary extends React.Component {
 		}
 		return this.props.children;
 	}
+}
+
+// ---- server error reporting -----------------------------------------------------------------
+
+/** Roles that see real error details (message, script line, code); everyone else sees a generic message + reference. */
+const DETAIL_ROLES = ['admin', 'x_312987_portal.admin', 'x_312987_portal.developer', 'x_312987_portal.designer'];
+
+export function canSeeErrorDetails(portal) {
+	const roles = (portal && portal.user && portal.user.roles) || [];
+	return roles.some((r) => DETAIL_ROLES.indexOf(r) >= 0);
+}
+
+/** { title, description } for an error, shaped for the viewer. */
+export function describeServerError(error, label, detailed) {
+	const ref = error && error.correlationId ? `Reference ${error.correlationId}` : '';
+	if (!detailed) return { title: 'Something went wrong', description: ref || undefined };
+	const line = error && error.details && error.details.line ? ` · line ${error.details.line}` : '';
+	const code = error && error.code ? error.code : 'error';
+	return { title: `${label}: ${(error && error.message) || String(error)}`, description: `${code}${line}${ref ? ' · ' + ref : ''}` };
+}
+
+const toasted = new Set();
+/** Toast a server error (deduped per key for load errors) and log it. */
+export function reportServerError(error, { portal, label, key }) {
+	if (key) {
+		if (toasted.has(key)) return;
+		toasted.add(key);
+	}
+	const { title, description } = describeServerError(error, label, canSeeErrorDetails(portal));
+	toast.error(title, description ? { description } : undefined);
+	console.error(`[react-portal] ${label} server error`, error);
+}
+
+/** In-place notice above a widget whose on-load server script failed. */
+function ServerErrorBanner({ error, label }) {
+	const portal = useContext(PortalContext);
+	const { title, description } = describeServerError(error, label, canSeeErrorDetails(portal));
+	return (
+		<div role="alert" className="border-destructive/40 bg-destructive/5 text-destructive mb-2 rounded-lg border p-2.5 text-xs" data-rp-server-error="">
+			<div className="font-semibold break-words">{title}</div>
+			{description ? <div className="mt-0.5 font-mono break-all opacity-80">{description}</div> : null}
+		</div>
+	);
 }
 
 export function WidgetPlaceholder({ label, error, onRetry }) {
@@ -142,7 +186,7 @@ export const WidgetSlot = memo(function WidgetSlot({ placement, scope, parentId,
  *   useBlock().rootProps, so a nested Grid is a direct grid child of its parent grid;
  * - a layout's wrapper is display: contents.
  */
-function WidgetSlotInner({ placement, component, scope, label, parentId, zone }) {
+function WidgetSlotInner({ placement, component, scope, label, parentId, zone, layoutOptions }) {
 	const isLayout = component.kind === 'layout';
 	const isBlock = component.kind === 'block';
 	useDiagCounter(isLayout ? 'layout' : `slot:${placement.id}`, { placement, scope });
@@ -169,9 +213,15 @@ function WidgetSlotInner({ placement, component, scope, label, parentId, zone })
 
 	const initStore = useInstanceInit();
 	const record = useInstanceRecord(isLayout || isBlock ? null : initStore, placement.id);
-	const options = (record.entry && record.entry.options) || placement.options || EMPTY_OPTIONS;
+	const options = isLayout ? layoutOptions || EMPTY_OPTIONS : (record.entry && record.entry.options) || placement.options || EMPTY_OPTIONS;
 	const instance = useMemo(() => ({ placement, component, options, scope }), [placement, component, options, scope]);
 	const Rendered = useCountedComponent(loaded.Component, isLayout ? 'layout:component' : `widget:${placement.id}`);
+	const portalCtx = useContext(PortalContext);
+	const initError = !isLayout && !isBlock && record.entry && record.entry.ok === false ? toError(record.entry.error || 'Initialization failed') : null;
+	useEffect(() => {
+		if (initError) reportServerError(initError, { portal: portalCtx, label: component.name || label, key: `init:${placement.id}:${initError.message}` });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [initError && initError.message, placement.id]);
 	const classes = placement.classes || '';
 
 	// Markers the page designer measures; the block root gets them through rootProps.
@@ -197,12 +247,16 @@ function WidgetSlotInner({ placement, component, scope, label, parentId, zone })
 
 	let body;
 	if (loaded.status === 'ready') {
-		// Runtime contract: widgets get { instanceId, options, region }; layouts get { regions }
-		// (the region definitions) and render <Region name=… /> for each; blocks read useBlock().
+		// Runtime contract: widgets get { instanceId, options, region }; layouts get { regions, options }
+		// (the region definitions and the effective layout options) and render <Region name=… />
+		// for each; blocks read useBlock().
 		body = isLayout ? (
-			<Rendered regions={component.regions || EMPTY_LIST} />
+			<Rendered regions={component.regions || EMPTY_LIST} options={options} />
 		) : (
-			<Rendered instanceId={placement.id} options={options} region={placement.region} />
+			<>
+				{initError ? <ServerErrorBanner error={initError} label={component.name || label} /> : null}
+				<Rendered instanceId={placement.id} options={options} region={placement.region} />
+			</>
 		);
 	} else if (loaded.status === 'error') {
 		body = <WidgetPlaceholder label={label} error={loaded.error} />;
@@ -421,10 +475,13 @@ export const LayoutHost = memo(function LayoutHost({ value }) {
 
 function LayoutSlot({ placement }) {
 	const loaded = useComponentModule(placement.component);
+	// Only the layout reads the options context: an options change re-renders the layout, never
+	// remounts it, and never re-renders regions or widgets (they are memoized).
+	const layoutOptions = useLayoutOptions();
 	if (loaded.status === 'error' || loaded.status === 'empty') {
 		return <LayoutFailure error={loaded.error || 'Layout has no build'} />;
 	}
-	return <WidgetSlotInner placement={placement} component={placement.component || {}} scope="layout" label="layout" />;
+	return <WidgetSlotInner placement={placement} component={placement.component || {}} scope="layout" label="layout" layoutOptions={layoutOptions} />;
 }
 
 function LayoutFailure({ error }) {
@@ -446,16 +503,44 @@ function toError(value) {
 	const error = new Error(value.message || String(value));
 	error.status = value.status;
 	error.code = value.code;
+	error.details = value.details;
+	error.correlationId = value.correlationId || null;
 	return error;
+}
+
+/** Resolve input values: functions are read at call time (pinned "variables"). */
+function resolveInputs(values) {
+	const out = {};
+	if (!values) return out;
+	Object.keys(values).forEach((k) => {
+		const v = values[k];
+		out[k] = typeof v === 'function' ? v() : v;
+	});
+	return out;
 }
 
 /**
  * Per-instance data and server calls (spec §8.5), runtime contract:
- * { instanceId, options, data, pending, error, server: { get, update, refresh } }.
+ * { instanceId, options, data, pending, error, server }.
  * on-load placements get their initial data from the page's batch initialize call.
- * get(input) returns data without replacing it; update(data?) and refresh() replace it.
+ *
+ * server.get(input?, opts?)     → resolves with the server's data; local data unchanged
+ * server.update(input?, opts?)  → the server's data replaces local data
+ * server.refresh(opts?)         → re-initialize; replaces local data
+ * Every call sends `input` = pinned ← staged ← the call's own input (later wins). The widget's
+ * data is never sent back to the server.
+ * server.setInputs(obj | prev => obj), server.setInput(k, v): staged; sent with the next call, then cleared
+ * server.pinInputs(obj): sent with every call until unpinned (function values are read at call time)
+ * server.unpinInputs(keys?): remove some (or all) imperative pins
+ * server.inputs → { pinned, staged }
+ * useServer({ pinned: { k: value } }): reactive pins (latest render's values); { toastErrors: false } opts out of error toasts.
  */
-export function useComponent() {
+export function useComponent(hookOptions) {
+	const toastErrors = !(hookOptions && hookOptions.toastErrors === false);
+	const hookPinnedRef = useRef(null);
+	hookPinnedRef.current = (hookOptions && hookOptions.pinned) || null;
+	const stagedRef = useRef({});
+	const pinnedRef = useRef({});
 	const instance = useWidgetInstance();
 	const portal = useContext(PortalContext);
 	const initStore = useInstanceInit();
@@ -475,7 +560,14 @@ export function useComponent() {
 		portal: portal ? portal.slug : '',
 		page: portal && portal.getPath ? portal.getPath() : ''
 	});
-	const run = (action, extra) => executeInstance(instanceId, { ...context(), action, ...extra });
+	// Action errors toast automatically (detailed for developers), unless the widget opted out
+	// (useServer({ toastErrors: false })) or the call did ({ toast: false }). The promise still rejects.
+	const label = component.name || component.uniqueId || 'Widget';
+	const run = (action, extra, callOptions) =>
+		executeInstance(instanceId, { ...context(), action, ...extra }).catch((error) => {
+			if (toastErrors && !(callOptions && callOptions.toast === false)) reportServerError(error, { portal, label });
+			throw error;
+		});
 	const replace = (promise) =>
 		promise.then(
 			(next) => {
@@ -488,10 +580,42 @@ export function useComponent() {
 			}
 		);
 
+	// pinned (hook, then imperative) ← staged ← the call's own input; staged inputs are consumed.
+	const buildInput = (input) => {
+		const staged = stagedRef.current;
+		stagedRef.current = {};
+		return {
+			...resolveInputs(hookPinnedRef.current),
+			...resolveInputs(pinnedRef.current),
+			...staged,
+			...(input && typeof input === 'object' ? input : {})
+		};
+	};
 	const server = {
-		get: (input) => run('get', { input }),
-		update: (next) => replace(run('update', { data: next === undefined ? dataRef.current : next })),
-		refresh: () => replace(run('initialize', {}))
+		get: (input, callOptions) => run('get', { input: buildInput(input) }, callOptions),
+		update: (input, callOptions) => replace(run('update', { input: buildInput(input) }, callOptions)),
+		refresh: (callOptions) => replace(run('initialize', { input: buildInput(null) }, callOptions)),
+		setInputs: (next) => {
+			const value = typeof next === 'function' ? next({ ...stagedRef.current }) : next;
+			stagedRef.current = { ...stagedRef.current, ...(value || {}) };
+		},
+		setInput: (key, value) => {
+			stagedRef.current = { ...stagedRef.current, [key]: value };
+		},
+		pinInputs: (values) => {
+			pinnedRef.current = { ...pinnedRef.current, ...(values || {}) };
+		},
+		unpinInputs: (keys) => {
+			if (!keys) pinnedRef.current = {};
+			else {
+				const next = { ...pinnedRef.current };
+				[].concat(keys).forEach((k) => delete next[k]);
+				pinnedRef.current = next;
+			}
+		},
+		get inputs() {
+			return { pinned: { ...resolveInputs(hookPinnedRef.current), ...resolveInputs(pinnedRef.current) }, staged: { ...stagedRef.current } };
+		}
 	};
 
 	const onLoad = component.serverMode === 'on-load';

@@ -32,6 +32,16 @@ Record({
     data: { title: 'Placements', application: reactPortalMenu, link_type: 'LIST', name: 'x_312987_portal_placement', roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'], active: true, order: 130 },
 })
 Record({
+    $id: Now.ID['module-menus'],
+    table: 'sys_app_module',
+    data: { title: 'Menus', application: reactPortalMenu, link_type: 'LIST', name: 'x_312987_portal_menu', roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'], active: true, order: 134 },
+})
+Record({
+    $id: Now.ID['module-menu-items'],
+    table: 'sys_app_module',
+    data: { title: 'Menu Items', application: reactPortalMenu, link_type: 'LIST', name: 'x_312987_portal_menu_item', roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'], active: true, order: 136 },
+})
+Record({
     $id: Now.ID['module-themes'],
     table: 'sys_app_module',
     data: { title: 'Themes', application: reactPortalMenu, link_type: 'LIST', name: 'x_312987_portal_theme', roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'], active: true, order: 140 },

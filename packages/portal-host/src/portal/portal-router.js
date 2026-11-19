@@ -19,7 +19,8 @@ import {
 } from '@tanstack/react-router';
 import { queryClient } from '#/runtime/query-client';
 import { getBootstrap, resolvePage } from '#/runtime/api';
-import { InstanceInitContext, LocationStoreContext, PortalContext, useLayout } from '#/runtime/contexts';
+import { InstanceInitContext, LayoutOptionsContext, LocationStoreContext, PortalContext, useLayout } from '#/runtime/contexts';
+import { SidebarShell, createSidebarStore } from '#/runtime/sidebar';
 import { useNavigate } from '#/runtime/navigation';
 import { createInstanceInitStore, onLoadIds } from '#/runtime/instance-init';
 import { loadCss } from '#/runtime/loader';
@@ -125,12 +126,16 @@ function placementsOf(regions) {
 
 export function createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref, embedded }) {
 	const initStore = createInstanceInitStore(queryClient);
+	// useSidebar(): one shell state per portal, shared by every widget and the layout.
+	const sidebarStore = createSidebarStore(slug);
 	let routerRef = null;
 
 	const portalValue = {
 		slug,
 		portal: boot.portal,
 		pages: boot.pages,
+		/** Menu records by key (useNavigation); absent until the backend ships them. */
+		menus: boot.menus || null,
 		theme: boot.theme,
 		release: boot.release,
 		navigate,
@@ -184,10 +189,12 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 		return (
 			<PortalContext.Provider value={portalValue}>
 				<InstanceInitContext.Provider value={initStore}>
-					<RouterProgress />
-					{themeReady ? <LayoutSwitch /> : <ShellSkeleton />}
+					<SidebarShell store={sidebarStore} shortcut={!embedded}>
+						<RouterProgress />
+						{themeReady ? <LayoutSwitch /> : <ShellSkeleton />}
+					</SidebarShell>
 					{/* usePortalUtils().addInfoMessage & co.: one toaster per portal, in the overlay layer. */}
-					{embedded ? null : <Toaster position="top-right" richColors={false} closeButton />}
+					{embedded ? null : <Toaster position="bottom-center" richColors closeButton />}
 
 				</InstanceInitContext.Provider>
 			</PortalContext.Provider>
@@ -219,9 +226,22 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 				return (data && data.page && data.page.contentWidth) || '';
 			}
 		});
+		// Effective layout options: the page's (resolve) once a page is loaded, else the portal
+		// default layout's (bootstrap). Selected as a JSON key so equal options keep one identity
+		// and a change re-renders only the layout (LayoutOptionsContext), never remounting it.
+		const optionsKey = useRouterState({
+			select: (state) => {
+				const data = leafData(state);
+				const opts = data && data.layoutOptions ? data.layoutOptions : boot.layoutOptions;
+				return JSON.stringify(opts && typeof opts === 'object' ? opts : {});
+			}
+		});
+		const layoutOptions = useMemo(() => Object.freeze(JSON.parse(optionsKey)), [optionsKey]);
 		return (
 			<div style={{ display: 'contents', '--rp-content-max': contentMax(contentWidth) }} data-rp-content-width={contentWidth || 'none'}>
-				<LayoutHost value={value} />
+				<LayoutOptionsContext.Provider value={layoutOptions}>
+					<LayoutHost value={value} />
+				</LayoutOptionsContext.Provider>
 			</div>
 		);
 	}

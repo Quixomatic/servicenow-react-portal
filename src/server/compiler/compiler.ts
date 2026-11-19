@@ -14,7 +14,7 @@ import { compile as tailwindCompile, sheets as tailwindSheets, version as tailwi
  * Output (one build): index.js (default export = the component) and index.css.
  */
 
-export const COMPILER_VERSION = `rp-server-compiler/3 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
+export const COMPILER_VERSION = `rp-server-compiler/4 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
 export const ENTRY = 'main.tsx'
 
 export interface CompilerFile {
@@ -263,19 +263,43 @@ export const TAILWIND_INPUT = [
  * Candidate class names from source text (Tailwind's own extractor is native Rust; this
  * over-collects on purpose — build() silently ignores anything that isn't a utility).
  */
+/**
+ * Split on JSX/JS punctuation that can't occur in a class name, but only OUTSIDE square brackets:
+ * arbitrary variants/values keep their contents (group-data-[collapsible=icon]:hidden,
+ * [&>[data-slot=x]]:p-0, data-[side=left]:border-r).
+ */
+const SPLIT_CHARS = '{}<>=;' + String.fromCharCode(92) // 92 = backslash
+
+function splitOutsideBrackets(raw: string): string[] {
+    const parts: string[] = []
+    let depth = 0
+    let current = ''
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw.charAt(i)
+        if (ch === '[') depth++
+        else if (ch === ']' && depth > 0) depth--
+        if (depth === 0 && SPLIT_CHARS.indexOf(ch) >= 0) {
+            if (current) parts.push(current)
+            current = ''
+        } else current += ch
+    }
+    if (current) parts.push(current)
+    return parts
+}
+
 export function extractCandidates(sources: string[]): string[] {
     const set: Record<string, boolean> = {}
     const add = (t: string) => {
         if (t.length < 2 || t.length > 160) return
-        if (!/^[!-]?[a-z@\[*][\w\-:/.\[\]#%!&@*+,'">~^$|()]*$/i.test(t)) return
+        if (!/^[!-]?[a-z@\[*][\w\-:/.\[\]#%!&@*+,'">=~^$|()]*$/i.test(t)) return
         set[t] = true
     }
     for (const src of sources) {
         // Split on whitespace and quotes only, so arbitrary values keep their parentheses and
-        // commas (grid-cols-[7rem_minmax(0,1fr)_auto], bg-[rgb(0,0,0)]); then also on JSX/JS
-        // punctuation that can't occur inside a class name.
+        // commas (grid-cols-[7rem_minmax(0,1fr)_auto], bg-[rgb(0,0,0)]); then on JSX/JS punctuation
+        // outside brackets.
         for (const raw of src.split(/[\s"'`]+/)) {
-            for (const part of raw.split(/[{}<>=;\\]+/)) {
+            for (const part of splitOutsideBrackets(raw)) {
                 add(part)
                 add(part.replace(/^[.,:()!?]+/, '').replace(/[.,:;)]+$/, ''))
             }

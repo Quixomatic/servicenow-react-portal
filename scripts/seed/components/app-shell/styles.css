@@ -1,0 +1,40 @@
+/* Structure only. The canvas is the theme's sidebar colour with its texture (--rp-noise, a theme
+   stylesheet variable); slots are bare and stretch their widgets. */
+/* --rp-shell-header: the one top-band height; the header widget and the sidebar's header row both
+   use it, so they line up as one band. */
+.rp-app {
+    --rp-shell-header: 3.5rem;
+    display: flex; height: 100%; width: 100%; min-height: 0; overflow: hidden;
+    background-color: var(--sidebar, var(--muted)); color: var(--foreground);
+}
+.rp-app[data-texture="noise"] { background-image: var(--rp-noise, none); }
+
+.rp-app__slot { min-width: 0; display: flex; flex-direction: column; }
+.rp-app__slot > [data-rp-widget] { flex: 0 0 auto; min-width: 0; }
+.rp-app__slot:not(:has([data-rp-widget])) { display: none; }
+
+/* Sidebar: full height; its widget fills it and sets its own width. */
+.rp-app__sidebar { flex: 0 0 auto; min-height: 0; }
+.rp-app__sidebar > [data-rp-widget] { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.rp-app__sidebar > [data-rp-widget] > * { flex: 1 1 auto; min-height: 0; }
+
+.rp-app__column { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; }
+.rp-app__row { display: flex; flex: 1 1 auto; min-height: 0; padding: 0 4px 4px 0; }
+
+/* The inset card: bg-background m-2 mt-0 ml-0 rounded-md border shadow-sm. */
+.rp-app__card {
+    display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+    margin: 0 8px 8px 0; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px);
+    background: var(--background); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+/* No sidebar beside the card (none placed, slid off canvas, or a mobile sheet): keep a left margin. */
+.rp-app:not(:has(.rp-app__sidebar [data-rp-widget])) .rp-app__card,
+.rp-app:has([data-slot="sidebar"][data-collapsible="offcanvas"]) .rp-app__card { margin-left: 8px; }
+@container rp-page (max-width: 767px) { .rp-app__card { margin-left: 8px; } }
+
+.rp-app__scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.rp-app__content { --rp-pad: 24px; display: grid; gap: 16px; align-content: start; box-sizing: border-box; width: 100%; max-width: var(--rp-content-max, none); margin-inline: auto; padding: var(--rp-pad); }
+.rp-app[data-pad="none"] .rp-app__content { --rp-pad: 0; }
+.rp-app[data-pad="sm"] .rp-app__content { --rp-pad: 12px; }
+.rp-app[data-pad="lg"] .rp-app__content { --rp-pad: 40px; }
+@container rp-page (max-width: 767px) { .rp-app__content { --rp-pad: 16px; } .rp-app[data-pad="none"] .rp-app__content { --rp-pad: 0; } }

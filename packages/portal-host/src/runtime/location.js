@@ -72,7 +72,8 @@ export function rawProperties(properties) {
 		portalSlug: props.portalSlug,
 		page: props.page,
 		recordId: props.recordId,
-		q: props.q
+		q: props.q,
+		view: props.view
 	};
 }
 
@@ -101,6 +102,8 @@ export function normalizeLocation(properties, initialSearch) {
 	const portalSlug = safeDecode(present(raw.portalSlug));
 	const page = normalizePage(raw.page);
 	const recordId = safeDecode(present(raw.recordId));
+	// Studio's initial view hint (code | pages | menus); portals ignore it.
+	const view = safeDecode(present(raw.view)).toLowerCase();
 
 	// Direct-link ?query first, so the bound q property wins on duplicate keys.
 	const search = toSearchParams(initialSearch || '');
@@ -117,6 +120,7 @@ export function normalizeLocation(properties, initialSearch) {
 		page,
 		isHome: page === '',
 		recordId,
+		view,
 		q: search.toString(),
 		query: searchParamsToObject(search),
 		initialSearch: initialSearch || '',

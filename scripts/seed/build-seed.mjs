@@ -6,6 +6,7 @@
 //   server.js        → script (server)
 //   options.schema.json → options_schema_json (drives the page designer's options form)
 //   anything else    → extra source_file rows (path relative to the folder)
+// scripts/seed/assets/<file> → inlined as a data URI wherever the template says __ASSET_DATA_URI:<file>__
 // Run:  node scripts/seed/build-seed.mjs   then   now-sdk exec --file scripts/seed-demo.js
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, sep, dirname } from 'node:path'
@@ -54,7 +55,14 @@ const visit = (key, trail) => {
 }
 for (const key of Object.keys(components)) visit(key, [])
 
-const template = readFileSync(join(here, 'seed-template.js'), 'utf8')
+// Binary assets (scripts/seed/assets/<file>) inlined as data URIs where the template says
+// __ASSET_DATA_URI:<file>__ (e.g. the app-neutral theme's noise textures).
+const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', webp: 'image/webp' }
+const assetUri = (_, file) => {
+    const ext = file.split('.').pop().toLowerCase()
+    return `data:${MIME[ext] || 'application/octet-stream'};base64,${readFileSync(join(here, 'assets', file)).toString('base64')}`
+}
+const template = readFileSync(join(here, 'seed-template.js'), 'utf8').replace(/__ASSET_DATA_URI:([\w.-]+)__/g, assetUri)
 const out = template.replace('__COMPONENTS_JSON__', JSON.stringify(ordered, null, 1))
 writeFileSync(join(here, '..', 'seed-demo.js'), out)
 console.log(`seed-demo.js: ${Object.keys(components).length} components, ${(out.length / 1024).toFixed(0)} KB`)

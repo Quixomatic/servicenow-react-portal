@@ -16,6 +16,11 @@ import * as Card from '#/components/ui/card';
 import * as DropdownMenu from '#/components/ui/dropdown-menu';
 import * as Popover from '#/components/ui/popover';
 import * as Separator from '#/components/ui/separator';
+import * as Sheet from '#/components/ui/sheet';
+import * as Sidebar from '#/components/ui/sidebar';
+import * as Tooltip from '#/components/ui/tooltip';
+import * as Collapsible from '#/components/ui/collapsible';
+import * as Icon from '#/components/ui/icon';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -42,6 +47,13 @@ const modules = {
 	'components:dropdown-menu': DropdownMenu,
 	'components:popover': Popover,
 	'components:separator': Separator,
+	'components:sheet': Sheet,
+	// shadcn Sidebar wired to the portal shell's useSidebar() (header trigger + sidebar widget).
+	'components:sidebar': Sidebar,
+	'components:tooltip': Tooltip,
+	'components:collapsible': Collapsible,
+	// Curated lucide icons by name: <Icon name="layout-dashboard" />.
+	'components:icon': Icon,
 	'utilities:cn': cnModule,
 	// TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
 	// build data hooks on it: import { useQuery } from 'utilities:react-query'.

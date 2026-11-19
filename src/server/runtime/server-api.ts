@@ -1,6 +1,9 @@
 import { gs, GlideRecordSecure } from '@servicenow/glide'
 import { currentUser } from '../security/user.ts'
 import { isPlainObject } from '../lib/util.ts'
+import { resolveMenu, resolveMenus, findNavItem } from './menu-service.ts'
+import type { Manifest } from './portal-service.ts'
+import type { MenuMap, NavItem } from '../../shared/contracts'
 
 /**
  * `$rp` — the server-side helper injected into every component server script, modeled on Service
@@ -11,6 +14,7 @@ import { isPlainObject } from '../lib/util.ts'
  *       var gr = $sp.getRecord('incident', input.id)   // ACL-checked
  *       data.number = gr ? gr.getDisplayValue('number') : null
  *       data.me = $sp.getUser().name
+ *       data.nav = $sp.getMenu('primary')              // the user's resolved menu tree
  *   })()
  */
 
@@ -21,6 +25,8 @@ export interface ServerApiContext {
     portal: { id: string; slug: string; name: string; settings: Record<string, unknown> }
     page: { route: string | null; params: Record<string, string> } | null
     component: { id: string; uniqueId: string; instanceId: string }
+    /** The portal's served manifest (menus come from it). */
+    manifest?: Manifest | null
 }
 
 export function createServerApi(ctx: ServerApiContext): Record<string, unknown> {
@@ -60,7 +66,24 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
         }
     }
 
-    return {
+    // Menus resolve lazily, once per helper (one server call), with this helper as the conditions' $sp.
+    let api: Record<string, unknown> = {}
+    let allMenus: MenuMap | null = null
+    const menuCtx = () => ({
+        pages: ctx.manifest ? ctx.manifest.pages : [],
+        portal: { id: ctx.portal.id, slug: ctx.portal.slug, name: ctx.portal.name },
+        api,
+    })
+    const getMenus = (): MenuMap => {
+        if (!allMenus) allMenus = ctx.manifest ? resolveMenus(ctx.manifest.menus, menuCtx()) : {}
+        return allMenus
+    }
+    const getMenu = (key?: string): NavItem[] => {
+        if (allMenus) return allMenus[String(key || 'primary')] || []
+        return ctx.manifest ? resolveMenu(ctx.manifest.menus, String(key || 'primary'), menuCtx()) : []
+    }
+
+    api = {
         getValue,
         getDisplayValue: (name: string) => {
             const v = getValue(name)
@@ -91,5 +114,12 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
         getComponent: () => ctx.component,
         translate: (message: string, args?: unknown) => (args === undefined ? gs.getMessage(message) : gs.getMessage(message, args as any)),
         log: (message: unknown) => gs.info(`[React Portal ${ctx.component.uniqueId}] ${typeof message === 'string' ? message : JSON.stringify(message)}`),
+        /** One menu (primary, footer, …) as the current user sees it: NavItem[] (same tree as bootstrap.menus). */
+        getMenu,
+        /** Every menu of the portal for the current user, by key. */
+        getMenus,
+        /** One resolved item (any menu, any depth) by sys_id, or null when hidden/missing. */
+        getMenuItem: (id: string) => findNavItem(getMenus(), String(id || '')),
     }
+    return api
 }

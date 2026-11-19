@@ -72,6 +72,8 @@ export interface ComponentRef {
     build: BuildRef | null
     /** Layouts only. */
     regions?: RegionDef[]
+    /** Layouts only: the layout's default options (default_options_json). */
+    defaultOptions?: Record<string, unknown>
     /**
      * Other component records this build imports (components:<ns>/<key>, utilities:<ns>/<key>),
      * transitively, dependencies first. The host loads each build and registers its module under
@@ -161,9 +163,87 @@ export interface BootstrapData {
     release: { id: string; version: number } | null
     theme: ThemeRef | null
     layout: ComponentRef | null
+    /** Effective options for the portal's default layout: layout defaults → portal settings.layoutOptions. */
+    layoutOptions: Record<string, unknown>
     /** Portal-level placements (header, sidebar, footer…); stay mounted across navigation. */
     regions: RegionMap
     pages: PageSummary[]
+    /**
+     * The portal's menus by key (primary, footer, account…), already filtered for this user: inactive
+     * items, items the user lacks roles for, items whose condition returned false, page items the user
+     * can't open, and empty groups are gone. portal.navigation (navigation_json) is the deprecated
+     * fallback for portals without menu records.
+     */
+    menus: MenuMap
+}
+
+/* ---------------- Menus ---------------- */
+
+export type NavItemType = 'page' | 'route' | 'url' | 'group' | 'separator' | 'dynamic'
+
+/** One resolved menu entry. The client computes `active` from the current path. */
+export interface NavItem {
+    id: string
+    type: NavItemType
+    label: string
+    /** lucide icon name (kebab-case). */
+    icon?: string
+    badge?: string
+    tooltip?: string
+    /** page / route items: the portal-relative path ('' = home), page route params already filled in. */
+    to?: string
+    /** page / route items: query parameters (<Link q={…}>). */
+    q?: Record<string, string>
+    /** url items: the external URL (http(s): or mailto:). */
+    href?: string
+    target?: '_self' | '_blank'
+    /** Active-state matching for page / route items: exact path, or path prefix (default). */
+    match?: 'exact' | 'prefix'
+    /** Groups: initially expanded (!collapsed). */
+    open?: boolean
+    children: NavItem[]
+}
+
+/** Menus by key. */
+export type MenuMap = Record<string, NavItem[]>
+
+/** Studio: a menu record with its full (unfiltered) item tree. */
+export interface MenuDto {
+    id: string
+    portalId: string
+    key: string
+    name: string
+    description: string
+    active: boolean
+    items: MenuItemDto[]
+}
+
+/** Studio: a menu item record (every field, scripts included). */
+export interface MenuItemDto {
+    id: string
+    menuId: string
+    parentId: string | null
+    order: number
+    type: NavItemType
+    label: string
+    active: boolean
+    pageId: string | null
+    /** Display only: the referenced page's route and title. */
+    page: { id: string; route: string; title: string } | null
+    params: { params?: Record<string, string>; query?: Record<string, string> } | null
+    route: string
+    url: string
+    icon: string
+    target: '' | '_self' | '_blank'
+    match: 'exact' | 'prefix'
+    tooltip: string
+    collapsed: boolean
+    roles: string[]
+    condition: string
+    badge: string
+    badgeScript: string
+    script: string
+    children: MenuItemDto[]
 }
 
 export interface ResolvePageRequest {
@@ -179,6 +259,11 @@ export interface ResolvePageData {
     /** contentWidth is the effective width: the page's own, else the portal default (settings.contentWidth), else 7xl. */
     page: PageSummary & { params: Record<string, string>; contentWidth: ContentWidth }
     layout: ComponentRef | null
+    /**
+     * Effective options for the page's layout: layout defaults → portal settings.layoutOptions (when the page
+     * uses the portal's default layout) → the page's own layout_options_json.
+     */
+    layoutOptions: Record<string, unknown>
     regions: RegionMap
 }
 

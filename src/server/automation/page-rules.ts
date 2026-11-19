@@ -32,6 +32,11 @@ export function validatePage(current: any, previous: any): void {
     const cfg = parseJson<unknown>(access, {})
     if (cfg !== null && !isPlainObject(cfg)) return abort(current, 'access_config_json must be an object, e.g. {"roles":["itil"]}.')
 
+    const layoutOptions = str(current, 'layout_options_json')
+    if (!isValidJson(layoutOptions)) return abort(current, 'layout_options_json is not valid JSON.')
+    const lo = parseJson<unknown>(layoutOptions, {})
+    if (lo !== null && !isPlainObject(lo)) return abort(current, 'layout_options_json must be an object, e.g. {"headerPlacement":"inset"}.')
+
     if (!str(current, 'title')) current.setValue('title', str(current, 'name'))
 }
 

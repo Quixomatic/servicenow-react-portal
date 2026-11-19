@@ -7,6 +7,8 @@ import { notFound, rpError } from '../lib/errors.ts'
 import { componentRef, themeRef, DEFAULT_REGIONS } from '../registry/registry.ts'
 import { parseRegionSpec, resolveRegions, RegionSpecEntry } from '../registry/block-regions.ts'
 import { currentUser } from '../security/user.ts'
+import { assembleMenus, resolveMenus, ManifestMenu, MenuResolveContext } from './menu-service.ts'
+import { createServerApi } from './server-api.ts'
 import { requirePortalAccess, canAccessPageConfig, PageAccessConfig, pageAccessConfig } from '../security/access.ts'
 import type {
     BootstrapData,
@@ -30,7 +32,8 @@ import type {
 
 // v2: blocks — placements nest under their parent block (children by drop zone), plus
 // layout / classes / instance css per placement.
-export const MANIFEST_VERSION = 2
+// v3: menus — menu definitions by key (x_312987_portal_menu / _menu_item).
+export const MANIFEST_VERSION = 3
 
 /** Maximum block nesting depth (a block inside a block inside …). */
 export const MAX_BLOCK_DEPTH = 6
@@ -44,6 +47,8 @@ export interface ManifestPage {
     access: PageAccessConfig
     /** The page's own setting: 'inherit' or a ContentWidth. */
     contentWidth: string
+    /** The page's own layout options override ({} = portal default). */
+    layoutOptions: Record<string, unknown>
     regions: RegionMap
 }
 
@@ -55,6 +60,8 @@ export interface Manifest {
     layouts: Record<string, ComponentRef>
     regions: RegionMap
     pages: ManifestPage[]
+    /** Active menus by key, unfiltered; bootstrap and $sp.getMenu() resolve them per user. */
+    menus: Record<string, ManifestMenu>
 }
 
 export function findPortalBySlug(slug: string): GR | null {
@@ -189,6 +196,7 @@ export function assembleManifest(portal: GR): Manifest {
                 layoutId,
                 access: pageAccessConfig(pg),
                 contentWidth: str(pg, 'content_width') || 'inherit',
+                layoutOptions: plainObject(parseJson<unknown>(str(pg, 'layout_options_json'), {})),
                 regions: placementsFor(`page=${pg.getUniqueValue()}`, layouts),
             })
         },
@@ -211,6 +219,7 @@ export function assembleManifest(portal: GR): Manifest {
         layouts,
         regions: placementsFor(`portal=${portalId}^pageISEMPTY`, layouts),
         pages,
+        menus: assembleMenus(portalId),
     }
 }
 
@@ -245,15 +254,56 @@ export function bootstrap(slug: string): { data: BootstrapData; release: Resolve
             release,
             theme: manifest.theme,
             layout: manifest.defaultLayoutId ? manifest.layouts[manifest.defaultLayoutId] || null : null,
+            layoutOptions: effectiveLayoutOptions(manifest, manifest.defaultLayoutId, null),
             regions: manifest.regions,
             pages: manifest.pages
                 .filter((p) => canAccessPageConfig(p.access))
                 .map((p) => ({ id: p.id, route: p.route, title: p.title })),
+            menus: resolveMenus(manifest.menus, menuContext(manifest, null)),
         },
     }
 }
 
+/**
+ * Context for resolving a manifest's menus for the current user. Condition scripts get `api` as
+ * $sp / $rp; without one (bootstrap) a portal-scoped helper is created.
+ */
+export function menuContext(manifest: Manifest, api: Record<string, unknown> | null): MenuResolveContext {
+    const portal = manifest.portal
+    return {
+        pages: manifest.pages,
+        portal: { id: portal.id, slug: portal.slug, name: portal.name },
+        api:
+            api ||
+            createServerApi({
+                input: {},
+                options: {},
+                params: {},
+                portal: { id: portal.id, slug: portal.slug, name: portal.name, settings: portal.settings },
+                page: null,
+                component: { id: '', uniqueId: 'menu', instanceId: '' },
+                manifest,
+            }),
+    }
+}
+
 export const CONTENT_WIDTHS = ['full', '7xl', '6xl', '5xl', '4xl', '3xl']
+
+function plainObject(v: unknown): Record<string, unknown> {
+    return isPlainObject(v) ? v : {}
+}
+
+/**
+ * Effective layout options: the layout's defaults, then the portal default (settings.layoutOptions,
+ * only when the layout is the portal's default layout), then the page's own override.
+ */
+export function effectiveLayoutOptions(manifest: Manifest, layoutId: string | null, page: ManifestPage | null): Record<string, unknown> {
+    const layout = layoutId ? manifest.layouts[layoutId] : null
+    const out: Record<string, unknown> = { ...plainObject(layout ? layout.defaultOptions : null) }
+    if (layoutId && layoutId === manifest.defaultLayoutId) Object.assign(out, plainObject((manifest.portal.settings || {}).layoutOptions))
+    if (page) Object.assign(out, plainObject(page.layoutOptions))
+    return out
+}
 
 /** Effective content width: the page's own, else the portal default, else 7xl. */
 export function effectiveContentWidth(manifest: Manifest, page: ManifestPage): ContentWidth {
@@ -292,6 +342,7 @@ export function resolvePage(slug: string, path: string): { data: ResolvePageData
                 contentWidth: effectiveContentWidth(manifest, match.page),
             },
             layout: layoutId ? manifest.layouts[layoutId] || null : null,
+            layoutOptions: effectiveLayoutOptions(manifest, layoutId, match.page),
             regions: match.page.regions,
         },
     }

@@ -1,0 +1,1 @@
+{ "name": "App Sub-header", "kind": "widget", "tailwind": true, "defaults": { "menu": "primary", "showTitle": true, "note": "" } }

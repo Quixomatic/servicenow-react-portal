@@ -98,6 +98,8 @@ export async function requestAt(base, method, path, body) {
 		const apiError = new ApiError(message, (err && err.status) || response.status, json);
 		apiError.code = err && err.code;
 		apiError.details = err && err.details;
+		const meta = (envelope && envelope.meta) || (json && json.meta) || null;
+		apiError.correlationId = (meta && meta.correlationId) || null;
 		throw apiError;
 	}
 	if (!envelope || typeof envelope !== 'object' || !('data' in envelope)) {

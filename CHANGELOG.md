@@ -2,6 +2,83 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.9.0] - 2026-11-19
+
+The app shell. Layouts only place slots; header, sidebar and footer widgets own their look. Adds a
+collapsible shadcn-style sidebar, layout options, navigation menus as records (backend), a
+ChannelGuide-style Dashboard portal, server-error toasts, and staged/pinned server inputs.
+
+### Added
+- **Layout options:**
+  - Layouts declare an options schema and defaults; the portal default lives in `settings.layoutOptions`, and pages
+    override it with a new `layout_options_json`.
+  - Bootstrap and resolve return the effective `layoutOptions`. Layouts receive an `options` prop and
+    `useLayout()`, and option changes don't remount widgets.
+  - The designer has a layout-options form in portal settings and a page-level "Portal default / Custom" override.
+- **Slot-only layouts:**
+  - Standard Layout (option `header: full | beside-sidebar`, `contentPadding`) and Centered Layout only place
+    regions.
+  - `site-header`, `nav-sidebar` and `site-footer` own their height, borders, width and styling.
+- **Collapsible sidebar:**
+  - `useSidebar()`: expanded/collapsed, persisted per portal, Ctrl/⌘+B, an overlay sheet on mobile (by frame
+    width), and an `available` flag.
+  - New registry modules `components:sidebar|sheet|tooltip|collapsible|icon`.
+- **`useNavigation(key = 'primary')`:** items, `activePath` (breadcrumbs) and the active item. It reads menu records
+  first, then the legacy `portal.navigation`.
+- **Dashboard portal (`/site/app`)** in the style of the ChannelGuide dashboard:
+  - new `app/app-shell` layout (inset main card, textured background, one shared header-band height);
+  - `app/app-sidebar` (collapsible groups, icon rail, user menu), `app/app-header` (breadcrumbs, sidebar trigger)
+    and `app/app-subheader`;
+  - `app-neutral` theme.
+- **Navigation menus (backend):**
+  - `x_312987_portal_menu` (per portal, unique key) and `x_312987_portal_menu_item` (page / route / url / group /
+    separator / dynamic; parent groups, icon, target, match, tooltip, roles, condition), with validation, a
+    syntax check on scripts at save, and reprocessing.
+  - Bootstrap `menus` is resolved per user: roles, conditions, page access, empty groups dropped.
+  - `$sp.getMenu(key)`, `getMenus()`, `getMenuItem(id)`. Manifest version 3.
+  - Studio APIs for menus, items (move, reorder, delete with lift/cascade) and icon search.
+  - A Lucide icon-picker formatter on the classic menu-item form, using the full Lucide set served from
+    `/rp/icons/lucide`.
+- **Scope awareness:** `GET /rp_studio/context` returns the current application, whether it's in scope, and the
+  update set. Studio writes reject with 409 `wrong_scope` when the current application isn't React Portal. (The
+  rejection itself is not yet exercised live.)
+- **Server errors reach the user:**
+  - Action errors (`server.get/update/refresh`) toast automatically; opt out per call (`{ toast: false }`) or per
+    widget (`useServer({ toastErrors: false })`).
+  - On-load script errors show a banner above the widget.
+  - Developers and admins see the message, script line and a reference ID; other users see a generic message
+    plus the reference.
+- **Staged and pinned server inputs:**
+  - `server.setInputs()` / `setInput()` are sent with the next call, then cleared.
+  - `server.pinInputs()` / `unpinInputs()` are sent with every call (function values are read at call time), and
+    `useServer({ pinned })` pins reactive values.
+  - Merge order: pinned → staged → the call's own input. `server.inputs`.
+- **Studio `view` URL parameter** (`code` | `pages`), via a new `view` host property.
+- **Runtime Tests:** two new checks (staged/pinned inputs; `update` sends no data), 18 in total.
+
+### Changed
+- **`server.update(input?)` sends inputs only.** The widget's data is never sent back to the server, and the server
+  ignores client data: every action starts from empty `data`.
+- **Toasts:** bottom-centre, with colours by type (success / error / warning / info) tinted from theme tokens in
+  light and dark.
+- **The seed** sets per-portal settings, layout and portal widgets (it no longer resets `settings_json`), and
+  recompiles every component.
+- **Compiler `rp-server-compiler/4`.**
+
+### Fixed
+- **Widget responsive utilities lost to the host's Tailwind** (`hidden md:block` stayed hidden). The host's
+  framework CSS was an adopted stylesheet, which sorts after every widget `<style>`. It's now injected in the
+  framework slot, before widget CSS.
+- **Tailwind classes with `=` inside brackets were dropped** (`group-data-[collapsible=icon]:hidden`,
+  `data-[side=left]:…`). The class extractor now splits only outside square brackets.
+- **Menu condition evaluation** produced a trailing "SyntaxError" at the end of transactions for scripts that
+  throw.
+
+### Known gaps
+- No Studio Menus editor yet; the designer's legacy navigation editor only understands `{label, page}`.
+- Each portal's `navigation_json` hasn't been migrated to `primary` menu records yet.
+- `components:icon` resolves a curated set, not every Lucide name.
+
 ## [1.8.0] - 2026-11-19
 
 Content width: pages no longer stretch edge to edge. Each page picks a max width for its main

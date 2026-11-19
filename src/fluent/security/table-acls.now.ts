@@ -558,3 +558,87 @@ Acl({
     adminOverrides: true,
     description: 'React Portal: delete on execution_log',
 })
+
+/* ---- x_312987_portal_menu ---- */
+
+Acl({
+    $id: Now.ID['acl-menu-read'],
+    type: 'record',
+    table: 'x_312987_portal_menu',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on menu',
+})
+
+Acl({
+    $id: Now.ID['acl-menu-write'],
+    type: 'record',
+    table: 'x_312987_portal_menu',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on menu',
+})
+
+Acl({
+    $id: Now.ID['acl-menu-create'],
+    type: 'record',
+    table: 'x_312987_portal_menu',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on menu',
+})
+
+Acl({
+    $id: Now.ID['acl-menu-delete'],
+    type: 'record',
+    table: 'x_312987_portal_menu',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on menu',
+})
+
+/* ---- x_312987_portal_menu_item ---- */
+
+Acl({
+    $id: Now.ID['acl-menu-item-read'],
+    type: 'record',
+    table: 'x_312987_portal_menu_item',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on menu_item',
+})
+
+Acl({
+    $id: Now.ID['acl-menu-item-write'],
+    type: 'record',
+    table: 'x_312987_portal_menu_item',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on menu_item',
+})
+
+Acl({
+    $id: Now.ID['acl-menu-item-create'],
+    type: 'record',
+    table: 'x_312987_portal_menu_item',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on menu_item',
+})
+
+Acl({
+    $id: Now.ID['acl-menu-item-delete'],
+    type: 'record',
+    table: 'x_312987_portal_menu_item',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on menu_item',
+})

@@ -4,7 +4,8 @@
 //
 // Load order inside the shadow root:
 //   theme     theme stylesheet(s): base styles for the portal          (first)
-//   framework the host's own CSS (Tailwind + shadcn), added by ui-core
+//   framework the host's own CSS (Tailwind + shadcn), a <style> injected by the host view
+//             (runtime/framework-css.js), so widget utilities win equal-specificity ties
 //   widget    one sheet per component build, scoped by [data-rp-widget]
 //   instance  one sheet per placement (placement.css: classes, style tokens, grid layout,
 //             responsive option variables), unlayered, so it wins over Tailwind utilities
@@ -12,7 +13,7 @@
 
 import { recordStyle } from './diagnostics';
 
-const SLOT_ORDER = ['theme', 'widget', 'instance', 'tokens'];
+const SLOT_ORDER = ['theme', 'framework', 'widget', 'instance', 'tokens'];
 
 // Reference counts for shared sheets (a placement's instance CSS), per style target.
 const refCounts = new WeakMap(); // target -> Map(key -> count)

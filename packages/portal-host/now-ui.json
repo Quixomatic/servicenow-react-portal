@@ -14,7 +14,8 @@
         { "name": "portalSlug", "label": "Portal slug", "fieldType": "string", "defaultValue": "" },
         { "name": "page", "label": "Page", "fieldType": "string", "defaultValue": "" },
         { "name": "recordId", "label": "Record id", "fieldType": "string", "defaultValue": "" },
-        { "name": "q", "label": "Query", "fieldType": "string", "defaultValue": "" }
+        { "name": "q", "label": "Query", "fieldType": "string", "defaultValue": "" },
+        { "name": "view", "label": "View", "description": "Studio mode: code | pages | menus", "fieldType": "string", "defaultValue": "" }
       ],
       "actions": [
         {

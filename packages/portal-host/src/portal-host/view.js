@@ -7,6 +7,8 @@ import { LocationStoreContext } from '#/runtime/contexts';
 import { rawKey } from '#/runtime/location';
 import { createStore } from '#/runtime/store';
 import { useTheme } from '#/runtime/theme-mode';
+import { ensureStyle } from '#/runtime/styles';
+import { frameworkCssText } from '#/runtime/framework-css';
 import { useDiagCounter } from '#/runtime/diag-hooks';
 import { nextInstanceId, recordMount, recordProperties, recordUnmount } from '#/runtime/diagnostics';
 import PortalApp from '#/portal/portal-app';
@@ -78,6 +80,12 @@ export default function PortalHostView({ properties, dispatch }) {
 	}, [location, locationStore]);
 
 	const rootRef = useRef(null);
+
+	// The host's Tailwind sheet, as the first non-theme <style> (framework slot): before paint.
+	useLayoutEffect(() => {
+		const root = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode();
+		if (frameworkCssText && root && root !== document) ensureStyle(root, 'framework', frameworkCssText, 'framework');
+	}, []);
 
 	// Light/dark: the `dark` class on the host element (mirrored to the overlay layer by the
 	// renderer). A layout effect, so the first paint already has the right mode.

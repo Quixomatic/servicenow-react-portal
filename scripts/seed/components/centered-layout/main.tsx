@@ -1,18 +1,16 @@
 import { Region } from '@portal/runtime'
 
-/** Header / main / footer with a centered content column. Main still fills and scrolls. */
-export default function CenteredLayout() {
+type Options = { canvas?: 'muted' | 'background' }
+
+/** Header / main / footer with a centered content column. Structure only: the widgets own their look. */
+export default function CenteredLayout({ options = {} }: { options?: Options }) {
     return (
-        <div className="rp-ctr">
-            <header className="rp-ctr__header">
-                <Region name="header" />
-            </header>
+        <div className="rp-ctr" data-canvas={options.canvas === 'background' ? 'background' : 'muted'}>
+            <Region name="header" as="header" className="rp-ctr__header rp-ctr__slot" />
             <main className="rp-ctr__main">
-                <Region name="main" />
+                <Region name="main" className="rp-ctr__content" />
             </main>
-            <footer className="rp-ctr__footer">
-                <Region name="footer" />
-            </footer>
+            <Region name="footer" as="footer" className="rp-ctr__footer rp-ctr__slot" />
         </div>
     )
 }

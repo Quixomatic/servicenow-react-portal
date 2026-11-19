@@ -483,3 +483,92 @@ export default function MockImports() {
 		'Record imports: ', h(MockBadge, null, 'primitive'), ' ', shout('utility'));
 }
 `;
+
+// ---- app shell (layout options, useSidebar, useNavigation, components:sidebar) --------------
+
+export const LAYOUT_SHELL_JS = PRELUDE + `
+// Structure only: places the regions and scrolls main. The widgets own their look.
+export default function ShellLayout({ options }) {
+	const header = options && options.header === 'beside-sidebar' ? 'beside-sidebar' : 'full';
+	return h('div', { className: 'rp-shell', 'data-header': header },
+		h(Region, { name: 'header', className: 'rp-shell__header' }),
+		h(Region, { name: 'sidebar', className: 'rp-shell__sidebar' }),
+		h('main', { className: 'rp-shell__main' }, h(Region, { name: 'main', className: 'rp-shell__content' })),
+		h(Region, { name: 'footer', className: 'rp-shell__footer' })
+	);
+}
+`;
+
+export const LAYOUT_SHELL_CSS = `
+.rp-shell { display: grid; height: 100%; width: 100%; min-height: 0; overflow: hidden; background: var(--background); color: var(--foreground);
+	grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+	grid-template-areas: "header header" "sidebar main" "sidebar footer"; }
+.rp-shell[data-header="beside-sidebar"] { grid-template-areas: "sidebar header" "sidebar main" "sidebar footer"; }
+.rp-shell__header { grid-area: header; min-width: 0; }
+.rp-shell__sidebar { grid-area: sidebar; display: flex; flex-direction: column; min-height: 0; }
+.rp-shell__sidebar > [data-rp-widget] { flex: 1 1 auto; min-height: 0; }
+.rp-shell__main { grid-area: main; min-width: 0; min-height: 0; overflow: auto; }
+.rp-shell__content { display: grid; gap: 16px; align-content: start; padding: 24px; box-sizing: border-box; width: 100%; max-width: var(--rp-content-max, none); margin-inline: auto; }
+.rp-shell__footer { grid-area: footer; min-width: 0; }
+.rp-shell__header:not(:has([data-rp-widget])), .rp-shell__sidebar:not(:has([data-rp-widget])), .rp-shell__footer:not(:has([data-rp-widget])) { display: none; }
+`;
+
+export const SHELL_SIDEBAR_JS = PRELUDE + `
+const S = M['components:sidebar'];
+const { Icon } = M['components:icon'];
+const { useNavigation, useSidebar } = M['@portal/runtime'];
+
+function Item({ item }) {
+	const { setOpenMobile } = useSidebar();
+	if (item.type === 'separator') return h(S.SidebarSeparator, null);
+	const icon = h(Icon, { name: item.icon || (item.type === 'url' ? 'external-link' : 'circle') });
+	const render = item.type === 'url'
+		? h('a', { href: item.href, target: item.target, rel: 'noreferrer' })
+		: h(Link, Object.assign({}, item.link, { onClick: () => setOpenMobile(false) }));
+	return h(S.SidebarMenuItem, null,
+		h(S.SidebarMenuButton, { isActive: item.active, tooltip: item.label, render }, icon, h('span', null, item.label)),
+		item.badge ? h(S.SidebarMenuBadge, null, item.badge) : null);
+}
+
+export default function ShellSidebar({ options }) {
+	const nav = useNavigation(options.menu || 'primary');
+	const { portal } = usePortal();
+	const loose = nav.items.filter((it) => it.type !== 'group');
+	return h(S.Sidebar, { collapsible: options.collapsible || 'icon', variant: options.variant || 'sidebar', 'data-rp-probe': 'shell-sidebar' },
+		h(S.SidebarHeader, null,
+			h('div', { className: 'flex h-8 items-center gap-2 px-1.5 font-semibold' },
+				h(Icon, { name: 'layers', className: 'size-4 shrink-0' }),
+				h('span', { className: 'truncate group-data-[collapsible=icon]:hidden' }, portal.name))),
+		h(S.SidebarContent, null,
+			loose.length ? h(S.SidebarGroup, null, h(S.SidebarMenu, null, loose.map((it) => h(Item, { key: it.id, item: it })))) : null,
+			nav.items.filter((it) => it.type === 'group').map((g) => h(S.SidebarGroup, { key: g.id },
+				h(S.SidebarGroupLabel, null, g.label),
+				h(S.SidebarMenu, null, g.children.map((c) => h(Item, { key: c.id, item: c }))))
+			)),
+		h(S.SidebarRail, null));
+}
+`;
+
+export const SHELL_TOPBAR_JS = PRELUDE + `
+const { SidebarTrigger } = M['components:sidebar'];
+const { useNavigation, useSidebar, useLayout } = M['@portal/runtime'];
+
+export default function ShellTopbar({ options }) {
+	const nav = useNavigation(options.menu || 'primary');
+	const { page } = usePortal();
+	const sidebar = useSidebar();
+	const layout = useLayout();
+	const crumbs = nav.activePath.map((i) => ({ label: i.label, link: i.link }));
+	if (page && page.title && (!crumbs.length || crumbs[crumbs.length - 1].label !== page.title)) crumbs.push({ label: page.title });
+	return h('header', { className: 'flex h-14 items-center gap-3 border-b bg-background px-3' },
+		h(SidebarTrigger, null),
+		h('nav', { 'aria-label': 'Breadcrumb', className: 'flex min-w-0 flex-1 items-center gap-1.5 text-sm' },
+			crumbs.map((c, i) => h(Fragment, { key: i },
+				i > 0 ? h('span', { 'aria-hidden': 'true', className: 'text-muted-foreground' }, '/') : null,
+				i < crumbs.length - 1 && c.link
+					? h(Link, Object.assign({ className: 'text-muted-foreground no-underline hover:text-foreground' }, c.link), c.label)
+					: h('span', { className: i === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground', 'aria-current': i === crumbs.length - 1 ? 'page' : undefined }, c.label)))),
+		h('span', { className: 'text-xs text-muted-foreground', 'data-rp-probe': 'shell-state' },
+			'sidebar ' + sidebar.state + (sidebar.isMobile ? ' · mobile' + (sidebar.openMobile ? ' (open)' : '') : '') + ' · header ' + (layout.options.header || 'full')));
+}
+`;

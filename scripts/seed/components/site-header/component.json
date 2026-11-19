@@ -1,1 +1,1 @@
-{ "name": "Site Header", "kind": "widget", "tailwind": true, "defaults": { "brand": "" } }
+{ "name": "Site Header", "kind": "widget", "tailwind": true, "defaults": { "brand": "", "menu": "primary", "showNav": true, "sidebarTrigger": true } }

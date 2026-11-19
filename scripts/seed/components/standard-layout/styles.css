@@ -1,11 +1,33 @@
-/* Fills the frame the host gives it; main takes all remaining space and is the only scroller. */
-.rp-std { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; width: 100%; min-height: 0; overflow: hidden; background: var(--background); color: var(--foreground); }
-.rp-std__header { border-bottom: 1px solid var(--border); }
-.rp-std__body { display: grid; grid-template-columns: auto minmax(0, 1fr); min-height: 0; }
-.rp-std__sidebar { width: 220px; overflow-y: auto; border-right: 1px solid var(--border); padding: 16px 12px; box-sizing: border-box; }
-.rp-std__main { min-width: 0; min-height: 0; overflow: auto; }
+/* Structure only. Fills the frame the host gives it; main takes the remaining space and is the only
+   scroller. Slots are bare: no size, border, background or font of their own. Each slot stretches its
+   widgets (a sidebar widget gets the full slot height); the widgets size and style themselves. */
+.rp-std {
+    display: grid; height: 100%; width: 100%; min-height: 0; overflow: hidden;
+    background: var(--background); color: var(--foreground);
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "header header" "sidebar main" "footer footer";
+}
+/* Full-height sidebar: the header (and footer) only span the main column. */
+.rp-std[data-header="beside-sidebar"] { grid-template-areas: "sidebar header" "sidebar main" "sidebar footer"; }
+
+.rp-std__slot { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.rp-std__slot > [data-rp-widget] { flex: 0 0 auto; min-width: 0; }
+.rp-std__header { grid-area: header; }
+.rp-std__footer { grid-area: footer; }
+.rp-std__sidebar { grid-area: sidebar; }
+.rp-std__sidebar > [data-rp-widget] { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.rp-std__sidebar > [data-rp-widget] > * { flex: 1 1 auto; min-height: 0; }
+.rp-std__header:not(:has([data-rp-widget])), .rp-std__sidebar:not(:has([data-rp-widget])), .rp-std__footer:not(:has([data-rp-widget])) { display: none; }
+
+.rp-std__main { grid-area: main; min-width: 0; min-height: 0; overflow: auto; }
 /* Content is centred and capped at the page's content width (--rp-content-max, set by the host from the
    page setting / portal default; none = full bleed). */
-.rp-std__main > [data-rp-region] { display: grid; gap: 16px; align-content: start; padding: 24px; min-height: 100%; box-sizing: border-box; width: 100%; max-width: var(--rp-content-max, none); margin-inline: auto; }
-.rp-std__footer { border-top: 1px solid var(--border); padding: 12px 24px; color: var(--muted-foreground); font-size: 12px; }
-.rp-std__header:not(:has([data-rp-widget])), .rp-std__sidebar:not(:has([data-rp-widget])), .rp-std__footer:not(:has([data-rp-widget])) { display: none; }
+.rp-std__content { --rp-pad: 24px; display: grid; gap: 16px; align-content: start; padding: var(--rp-pad); min-height: 100%; box-sizing: border-box; width: 100%; max-width: var(--rp-content-max, none); margin-inline: auto; }
+.rp-std[data-pad="none"] .rp-std__content { --rp-pad: 0; }
+.rp-std[data-pad="sm"] .rp-std__content { --rp-pad: 12px; }
+.rp-std[data-pad="lg"] .rp-std__content { --rp-pad: 40px; }
+@container rp-page (max-width: 767px) {
+    .rp-std__content { --rp-pad: 16px; }
+    .rp-std[data-pad="none"] .rp-std__content { --rp-pad: 0; }
+}

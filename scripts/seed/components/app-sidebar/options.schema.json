@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "menu": { "type": "string", "title": "Menu", "description": "Menu key (useNavigation)", "default": "primary" },
+    "collapsible": {
+      "type": "string",
+      "title": "Collapse mode",
+      "enum": ["icon", "offcanvas", "none"],
+      "enumNames": ["Icon rail with tooltips", "Slide out (offcanvas)", "Never collapses"]
+    },
+    "variant": {
+      "type": "string",
+      "title": "Variant",
+      "enum": ["inset", "sidebar", "floating"],
+      "enumNames": ["Inset (on the page background)", "Sidebar (own background + border)", "Floating (card)"]
+    },
+    "userMenu": {
+      "type": "string",
+      "title": "User menu",
+      "enum": ["footer", "header", "none"],
+      "enumNames": ["In the footer", "In the header", "Hidden"]
+    },
+    "brand": { "type": "string", "title": "Brand text", "description": "Defaults to the portal name" }
+  }
+}

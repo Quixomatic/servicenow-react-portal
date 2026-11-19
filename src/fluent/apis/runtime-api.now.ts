@@ -9,6 +9,7 @@ import {
     propertiesRoute,
     messagesRoute,
 } from '../../server/api/runtime-api'
+import { iconSpriteRoute } from '../../server/api/icon-api'
 
 /**
  * Runtime API: /api/x_312987_portal/rp/...  (v1 is the default, so no version prefix needed)
@@ -105,6 +106,15 @@ export const runtimeApi = RestApi({
             version: 1,
             produces: 'text/javascript,text/css,application/json,*/*',
             shortDescription: 'Immutable compiled build asset (JS/CSS)',
+        },
+        {
+            $id: Now.ID['rest-runtime-icons-lucide'],
+            name: 'lucide icons',
+            method: 'GET',
+            path: '/icons/lucide',
+            script: iconSpriteRoute,
+            version: 1,
+            shortDescription: 'Lucide icon sprite (inner SVG markup by name) for the classic-form icon picker',
         },
     ],
 })

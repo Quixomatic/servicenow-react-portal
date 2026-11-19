@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "menu": { "type": "string", "title": "Menu", "description": "Menu key for the breadcrumbs (useNavigation)", "default": "primary" },
+    "sidebarTrigger": { "type": "boolean", "title": "Sidebar toggle button", "description": "Shown only on pages with a collapsible sidebar", "default": true },
+    "center": { "type": "string", "title": "Centre text" },
+    "actions": {
+      "type": "array",
+      "title": "Action buttons",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "title": "Label" },
+          "to": { "type": "string", "title": "Portal page" },
+          "href": { "type": "string", "title": "External URL" },
+          "icon": { "type": "string", "title": "Icon (lucide name)" }
+        }
+      }
+    }
+  }
+}

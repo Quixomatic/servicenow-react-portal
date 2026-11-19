@@ -101,6 +101,18 @@ export default function StudioApp({ locationStore, navigate }) {
 		designer.loadPortals();
 	}, [studio, designer]);
 
+	// `view` property (studio page URL param): an initial-mode hint only, applied once. code → the
+	// Components activity, pages → the Pages activity; menus waits for the Menus view. An id
+	// (recordId, below) still picks what to open and can switch the activity as before.
+	const viewHint = location ? location.view : '';
+	const hintApplied = useRef(false);
+	useEffect(() => {
+		if (hintApplied.current || !viewHint) return;
+		hintApplied.current = true;
+		if (viewHint === 'code' || viewHint === 'components') studio.set({ view: 'components' });
+		else if (viewHint === 'pages') studio.set({ view: 'pages' });
+	}, [viewHint, studio]);
+
 	// recordId → what it is: a component or theme opens the editor; a portal or page opens the
 	// designer. Studio's own navigation dispatches the id it already has open (no-op here).
 	const recordId = location ? location.recordId : '';

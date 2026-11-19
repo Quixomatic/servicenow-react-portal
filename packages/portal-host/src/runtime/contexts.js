@@ -68,6 +68,28 @@ export function useLayout() {
 	return useContext(LayoutContext);
 }
 
+// The effective layout options (layout defaults → portal settings.layoutOptions → the page's own),
+// kept apart from LayoutContext so an options change re-renders only the layout and the readers
+// of useLayoutInfo(), never the regions or their widgets.
+const EMPTY_OPTIONS = Object.freeze({});
+export const LayoutOptionsContext = createContext(EMPTY_OPTIONS);
+export function useLayoutOptions() {
+	return useContext(LayoutOptionsContext);
+}
+
+/** Public useLayout() (@portal/runtime): { layout, options, mainRegion, regions: RegionDef[] }. */
+export function useLayoutInfo() {
+	const value = useContext(LayoutContext);
+	const options = useContext(LayoutOptionsContext);
+	const layout = value ? value.layout : null;
+	return {
+		layout,
+		options: options || EMPTY_OPTIONS,
+		mainRegion: value ? value.mainRegion : 'main',
+		regions: (layout && layout.regions) || []
+	};
+}
+
 // The widget instance being rendered: { placement, component, options, scope }.
 export const WidgetInstanceContext = createContext(null);
 export function useWidgetInstance() {

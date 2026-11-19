@@ -67,6 +67,19 @@ const DEFINITIONS = {
 			{ name: 'footer', acceptsContributions: false }
 		]
 	},
+	'layout-shell': {
+		kind: 'layout',
+		js: S.LAYOUT_SHELL_JS,
+		css: S.LAYOUT_SHELL_CSS,
+		regions: [
+			{ name: 'header', acceptsContributions: true },
+			{ name: 'sidebar', acceptsContributions: true },
+			{ name: 'main', acceptsContributions: false },
+			{ name: 'footer', acceptsContributions: true }
+		]
+	},
+	'shell-sidebar': { kind: 'widget', js: S.SHELL_SIDEBAR_JS, css: null },
+	'shell-topbar': { kind: 'widget', js: S.SHELL_TOPBAR_JS, css: null },
 	header: { kind: 'widget', js: S.HEADER_JS, css: S.HEADER_CSS },
 	nav: { kind: 'widget', js: S.NAV_JS, css: S.NAV_CSS },
 	counter: { kind: 'widget', js: S.COUNTER_JS, css: S.COUNTER_CSS, serverMode: 'on-load' },
@@ -110,6 +123,7 @@ function component(key) {
 			serverMode: def.serverMode || 'none'
 		};
 		if (def.regions) ref.regions = def.regions;
+		if (def.kind === 'layout') ref.defaultOptions = clone((DESIGN_META[key] || {}).defaults || {});
 		if (def.imports) ref.imports = importRefs(def.imports);
 		refs.set(key, ref);
 	}
@@ -396,7 +410,8 @@ function themeRef(key) {
 
 const PORTAL_LIST = [
 	{ slug: 'sp', name: 'Service Portal' },
-	{ slug: 'crm', name: 'CRM' }
+	{ slug: 'crm', name: 'CRM' },
+	{ slug: 'app', name: 'Dashboard' }
 ];
 
 const PORTALS = {
@@ -565,6 +580,55 @@ const PORTALS = {
 	}
 };
 
+// The app shell portal: layout options (portal default beside-sidebar, one page overrides it),
+// useSidebar (icon-collapsible sidebar + trigger in another region) and useNavigation (groups, icons).
+PORTALS.app = {
+	portal: {
+		id: 'portal-app',
+		slug: 'app',
+		name: 'Dashboard',
+		homeRoute: 'home',
+		settings: { layoutOptions: { header: 'beside-sidebar' } },
+		navigation: [
+			{ label: 'Home', to: '', icon: 'house' },
+			{ label: 'Work', children: [
+				{ label: 'Orders', to: 'orders', icon: 'shopping-cart', badge: '3' },
+				{ label: 'Order 42', to: 'orders/42', recordId: '42', icon: 'receipt' }
+			] },
+			{ label: 'Design', children: [
+				{ label: 'Layouts', to: 'layouts', icon: 'layout-grid' },
+				{ label: 'Full header', to: 'wide', icon: 'panel-left' },
+				{ label: 'Docs', href: 'https://www.servicenow.com', icon: 'book-open' }
+			] }
+		]
+	},
+	theme: 'sp-light',
+	layout: 'layout-shell',
+	placements: [
+		placement('pl-app-sidebar', 'sidebar', 'shell-sidebar', { collapsible: 'icon' }),
+		placement('pl-app-topbar', 'header', 'shell-topbar', {})
+	],
+	pages: [
+		{ id: 'page-app-home', route: 'home', title: 'Home', placements: [
+			placement('pl-app-home-text', 'main', 'text', { title: 'App shell', text: 'Ctrl+B toggles the sidebar. The header sits beside the sidebar (portal layout option).' }),
+			placement('pl-app-home-counter', 'main', 'counter', { label: 'Survives sidebar toggles' })
+		] },
+		{ id: 'page-app-orders', route: 'orders', title: 'Orders', placements: [placement('pl-app-orders', 'main', 'text', { title: 'Orders', links: [{ label: 'Order 42', page: 'orders/42', recordId: '42' }] })] },
+		{ id: 'page-app-order', route: 'orders/:id', title: 'Order', placements: [placement('pl-app-order', 'main', 'record', { entity: 'Order', listPage: 'orders' })] },
+		{ id: 'page-app-layouts', route: 'layouts', title: 'Layouts', placements: [placement('pl-app-layouts', 'main', 'text', { title: 'Layouts', text: 'Portal default layout options.' })] },
+		{ id: 'page-app-wide', route: 'wide', title: 'Full header', layoutOptions: { header: 'full' }, placements: [placement('pl-app-wide', 'main', 'text', { title: 'Full-width header', text: 'This page overrides the layout option: header full width over the sidebar.' })] }
+	]
+};
+
+/** Layout defaults → portal settings.layoutOptions (default layout only) → the page's own. */
+function layoutOptionsOf(entry, page) {
+	const key = (page && page.layout) || entry.layout;
+	const out = clone((DESIGN_META[key] || {}).defaults || {});
+	if (key === entry.layout) Object.assign(out, clone((entry.portal.settings || {}).layoutOptions || {}));
+	if (page && page.layoutOptions) Object.assign(out, clone(page.layoutOptions));
+	return out;
+}
+
 function findPortal(slug) {
 	const entry = PORTALS[slug];
 	if (!entry) throw new MockError(`Portal "${slug}" not found (mock has: ${Object.keys(PORTALS).join(', ')})`, 404);
@@ -593,6 +657,7 @@ export function getBootstrap(slug) {
 			release: { id: `release-${slug}-mock`, version: '0.0.0-mock' },
 			theme: themeRef(entry.theme),
 			layout: component(entry.layout),
+			layoutOptions: layoutOptionsOf(entry, null),
 			regions: groupByRegion(entry.placements),
 			pages: entry.pages.map((p) => ({ id: p.id, route: p.route, title: p.title })),
 			user: clone(MOCK_USER)
@@ -619,6 +684,7 @@ export function resolvePage(slug, pagePath) {
 		return delay({
 			page: { id: page.id, route: page.route, title: page.title, params },
 			layout: component(page.layout || entry.layout),
+			layoutOptions: layoutOptionsOf(entry, page),
 			regions: groupByRegion(page.placements)
 		});
 	} catch (error) {
@@ -745,6 +811,23 @@ export function tableApi(table, sysId, params) {
 const DESIGN_META = {
 	'layout-classic': { name: 'Classic Layout' },
 	'layout-split': { name: 'Split Layout' },
+	'layout-shell': {
+		name: 'Shell Layout',
+		schema: {
+			type: 'object',
+			properties: {
+				header: { type: 'string', title: 'Header placement', enum: ['full', 'beside-sidebar'], enumNames: ['Full width, over the sidebar', 'Beside the sidebar (full-height sidebar)'] }
+			}
+		},
+		defaults: { header: 'full' }
+	},
+	'shell-sidebar': {
+		name: 'Shell Sidebar',
+		description: 'Collapsible sidebar (components:sidebar)',
+		schema: { type: 'object', properties: { collapsible: { type: 'string', title: 'Collapsible', enum: ['icon', 'offcanvas', 'none'] }, variant: { type: 'string', title: 'Variant', enum: ['sidebar', 'floating', 'inset'] }, menu: { type: 'string', title: 'Menu' } } },
+		defaults: { collapsible: 'icon', menu: 'primary' }
+	},
+	'shell-topbar': { name: 'Shell Topbar', description: 'Sidebar trigger and breadcrumbs', schema: { type: 'object', properties: { menu: { type: 'string', title: 'Menu' } } }, defaults: { menu: 'primary' } },
 	header: {
 		name: 'Portal Header',
 		description: 'Brand, navigation and the portal switcher',
@@ -892,7 +975,8 @@ function findPlacementRecord(placementId) {
 
 function layoutRef(key) {
 	const def = DEFINITIONS[key];
-	return { id: 'cmp-' + key, uniqueId: 'rp.' + key, name: (DESIGN_META[key] || {}).name || key, regions: clone(def.regions || []) };
+	const meta = DESIGN_META[key] || {};
+	return { id: 'cmp-' + key, uniqueId: 'rp.' + key, name: meta.name || key, regions: clone(def.regions || []), optionsSchema: clone(meta.schema || null), defaultOptions: clone(meta.defaults || {}) };
 }
 
 function designPlacement(raw, scope) {
@@ -942,6 +1026,7 @@ function pageSummary(entry, page, index) {
 		order: page.order !== undefined ? page.order : (index + 1) * 10,
 		active: page.active !== false,
 		layoutOverride: page.layout ? 'cmp-' + page.layout : null,
+		layoutOptions: page.layoutOptions && Object.keys(page.layoutOptions).length ? clone(page.layoutOptions) : null,
 		access: page.access || null
 	};
 }
@@ -1217,6 +1302,10 @@ export const designApi = {
 			if (body[k] !== undefined) page[k] = body[k];
 		});
 		if (body.active !== undefined) page.active = !!body.active;
+		if (body.layoutOptions !== undefined) {
+			const o = body.layoutOptions && typeof body.layoutOptions === 'object' && !Array.isArray(body.layoutOptions) ? body.layoutOptions : null;
+			page.layoutOptions = o && Object.keys(o).length ? clone(o) : undefined;
+		}
 		if (body.layoutOverride !== undefined) {
 			const key = body.layoutOverride ? keyOfComponentId(body.layoutOverride) : undefined;
 			// Page placements must fit the new layout's regions.
