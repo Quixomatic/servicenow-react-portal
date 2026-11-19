@@ -1,5 +1,6 @@
 import { gs } from '@servicenow/glide'
 import { getById, str } from '../lib/gr.ts'
+import { impersonatingUserName } from '../lib/global-helpers.ts'
 
 /** The current user as the runtime exposes it (bootstrap `user`, `$rp.getUser()`). */
 export interface PortalUser {
@@ -15,6 +16,7 @@ export interface PortalUser {
     timeZone: string
     language: string
     isImpersonating: boolean
+    impersonatedBy: string | null
 }
 
 function rolesOf(user: any): string[] {
@@ -50,12 +52,20 @@ export function currentUser(): PortalUser {
     } catch (e) {
         /* not available in this context */
     }
-    // gs.getImpersonatingUserName() is not allowed in scoped apps; the session API may be.
+    // gs.getImpersonatingUserName() is blocked in scoped apps: ask the global helper app, else fall
+    // back to the session API (which may also be unavailable).
     let impersonating = false
-    try {
-        impersonating = !!session.isImpersonating()
-    } catch (e) {
-        impersonating = false
+    let impersonatedBy: string | null = null
+    const viaHelper = impersonatingUserName()
+    if (viaHelper !== undefined) {
+        impersonatedBy = viaHelper
+        impersonating = !!viaHelper
+    } else {
+        try {
+            impersonating = !!session.isImpersonating()
+        } catch (e) {
+            impersonating = false
+        }
     }
     return {
         sysId: gs.getUserID(),
@@ -70,5 +80,6 @@ export function currentUser(): PortalUser {
         timeZone,
         language,
         isImpersonating: impersonating,
+        impersonatedBy,
     }
 }

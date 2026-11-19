@@ -1,0 +1,8 @@
+{
+    "scope": "global",
+    "scopeId": "e4be8f1e4dc34cd2af5c421050ecce8b",
+    "name": "React Portal Global Helpers",
+    "description": "Global-scope helpers for the React Portal scoped app (x_312987_portal): session message drain and other scope-fenced session APIs.",
+    "packageResolverVersion": "2.0.0",
+    "clientDir": ""
+}

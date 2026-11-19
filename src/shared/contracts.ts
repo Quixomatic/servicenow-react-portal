@@ -142,6 +142,8 @@ export interface PortalUser {
     timeZone: string
     language: string
     isImpersonating: boolean
+    /** User name of the impersonator, when impersonating and the global helper app is installed. */
+    impersonatedBy?: string | null
 }
 
 export interface PageSummary {

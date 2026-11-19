@@ -365,6 +365,10 @@ declare global {
                         table: 'sys_script'
                         id: 'cd319d8c8ee04a77901adc5ae12d300a'
                     }
+                    'csp-react-portal-global': {
+                        table: 'sys_scope_privilege'
+                        id: '03bbad5f83205310e8fbc9a6feaad3e8'
+                    }
                     'formatter-menu-icon-picker': {
                         table: 'sys_ui_formatter'
                         id: 'f8e1398f05a540fdb8bb39d111d911bb'
@@ -804,6 +808,10 @@ declare global {
                     src_server_lib_errors_ts: {
                         table: 'sys_module'
                         id: '189dccb60f084c5396dc2a521145d0ba'
+                    }
+                    'src_server_lib_global-helpers_ts': {
+                        table: 'sys_module'
+                        id: '3ed1e2a5554948d5865d441da55f14c1'
                     }
                     src_server_lib_gr_ts: {
                         table: 'sys_module'

@@ -7,6 +7,7 @@ import { normalizeRegions, buildOf } from '../registry/registry.ts'
 import { requireStudio } from '../security/access.ts'
 import { loadOwner, Owner, OwnerType } from './owner.ts'
 import { gs } from '@servicenow/glide'
+import { clearSessionFlag } from '../lib/session-flags.ts'
 import { compileOwner, buildSummary, runtimeAbiVersion } from '../build/build-service.ts'
 import { compileComponent, CompilerFile } from '../compiler/compiler.ts'
 import { virtualMapFor, VirtualFile, RESERVED_VIRTUAL_PATHS, virtualFiles, listExtraFiles, compilerInputs } from './project-files.ts'
@@ -120,7 +121,7 @@ export const SKIP_COMPILE_KEY = 'x_312987_portal.skip_compile'
 function setSkipCompile(on: boolean): void {
     const session: any = gs.getSession()
     if (on) session.putClientData(SKIP_COMPILE_KEY, 'true')
-    else session.putClientData(SKIP_COMPILE_KEY, '') // scoped GlideSession has no clearClientData
+    else clearSessionFlag(SKIP_COMPILE_KEY)
 }
 
 export function compileSuppressed(): boolean {

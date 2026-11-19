@@ -34,6 +34,7 @@ const die = (msg) => {
 const TARGETS = [
     { path: 'package.json', kind: 'json' },
     { path: 'packages/portal-host/package.json', kind: 'json' },
+    { path: 'packages/global-helpers/package.json', kind: 'json' },
     { path: 'src/fluent/script-includes/ReactPortal.server.js', kind: 'modulePath' },
     { path: 'scripts/seed/seed-template.js', kind: 'modulePath' },
 ]

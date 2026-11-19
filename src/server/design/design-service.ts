@@ -9,7 +9,8 @@ import { processPortal } from '../release/release-service.ts'
 import { effectiveRegionNames, blockRegionsOf } from '../runtime/portal-service.ts'
 import { refreshInstanceCss } from './instance-style.ts'
 import type { RegionDef } from '../../shared/contracts'
-import { SKIP_REPROCESS_KEY, reprocessSuppressed } from '../lib/session-flags.ts'
+import { SKIP_REPROCESS_KEY, reprocessSuppressed, clearSessionFlag } from '../lib/session-flags.ts'
+import { abortMessageFromSession } from '../automation/guards.ts'
 
 /**
  * RPDesignService: the page designer's API (pages, placements, and blocks with nested drop
@@ -28,7 +29,7 @@ function batch<R>(portalId: string, fn: () => R): R {
     try {
         return fn()
     } finally {
-        session.putClientData(SKIP_REPROCESS_KEY, '')
+        clearSessionFlag(SKIP_REPROCESS_KEY)
         if (portalId) processPortal(portalId)
     }
 }
@@ -298,14 +299,9 @@ function descendantsOf(id: string): GR[] {
     return out
 }
 
+/** The business rule's abort message (drains the session queue so it doesn't resurface as a classic banner). */
 function abortedMessage(fallback: string): string {
-    try {
-        const msgs: any = gs.getErrorMessages()
-        const list = msgs && typeof msgs.size === 'function' ? Array.from({ length: msgs.size() }, (_, i) => String(msgs.get(i))) : []
-        return list.length ? list.join(' ') : fallback
-    } catch (e) {
-        return fallback
-    }
+    return abortMessageFromSession('', fallback)
 }
 
 /** Recompile instance CSS for the given placements, reprocess once if any changed, then return `value()`. */

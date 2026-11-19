@@ -2,6 +2,38 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.9.2] - 2026-11-19
+
+A global helper app gets past scope fencing: server messages now behave exactly like Service Portal's.
+
+### Added
+- **React Portal Global Helpers** (`packages/global-helpers/`): a separate global-scope Fluent application
+  (`sys_app` `e4be8f1e…`, built and installed from its own folder) with the Script Include
+  `global.ReactPortalGlobal`:
+  - `drainSessionMessages()`, `getImpersonatingUserName()`, `currentApplication()`, `version()`;
+  - `getPreference()` (allowlisted) and `clearClientData()` (our keys only).
+
+  It acts only on the current user's own session and preferences. Caller access is left unset (caller tracking blocks
+  scoped callers); access is through a cross-scope privilege.
+- **Cross-scope privilege** in the main app's Fluent (`src/fluent/security/cross-scope.now.ts`, adopting record
+  `03bbad5f…`), so other instances get the grant on install.
+- **`src/server/lib/global-helpers.ts`:** a bridge that imports `global` from `@servicenow/glide/global` (types in
+  `@types/`) and returns null when the helper app isn't installed.
+
+### Changed
+- **Server messages are drained after every widget call, like Service Portal:** read, toasted and flushed. Repeated
+  identical messages always show, and nothing is left as a banner on the next classic page. Without the helper
+  app, the previous read-only behaviour remains.
+- **Impersonation:** `useUser()` / `$sp.getUser()` gain `impersonatedBy`.
+- **Designer and menu rejection messages** are drained instead of leaking as banners.
+- **Session flags** are cleared through the helper, else blanked.
+- **The version bump** includes `packages/global-helpers/package.json` (lockstep).
+
+### Notes
+- Inside scripted REST, global `gs.getInfoMessages()` reads empty while scoped reads see the queue, so the drain is
+  a scoped read followed by the helper's flush.
+- Release flow: also run `cd packages/global-helpers && now-sdk build && now-sdk install`.
+
 ## [1.9.1] - 2026-11-19
 
 Server-script messages reach the portal.

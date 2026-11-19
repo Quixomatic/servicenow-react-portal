@@ -8,6 +8,7 @@ import { canAccessPageConfig, requirePortalAccess } from '../security/access.ts'
 import { currentManifest, findPortalBySlug, placementIndex, matchPage, Manifest } from './portal-service.ts'
 import { logExecution } from './diagnostics.ts'
 import { createServerApi } from './server-api.ts'
+import { drainSessionMessages } from '../lib/global-helpers.ts'
 import type { ExecuteAction, InstanceResult, PlacementRef, ServerMessage } from '../../shared/contracts'
 
 /**
@@ -55,8 +56,15 @@ function sessionMessages(): { info: string[]; error: string[] } {
         return { info: [], error: [] }
     }
 }
-/** Messages the script added to the session (gs.addInfoMessage / addErrorMessage) since `before`. */
+/**
+ * Messages queued on the session after a script ran. With the global helper app installed, the
+ * whole queue is drained and flushed (Service Portal behaviour: anything queued, also before the
+ * script, reaches the portal once and never resurfaces as a classic-UI banner). Without it, only
+ * the messages the script added since `before` (the queue can't be flushed from this scope).
+ */
 function newSessionMessages(before: { info: string[]; error: string[] }): ServerMessage[] {
+    const drained = drainSessionMessages()
+    if (drained) return drained
     const after = sessionMessages()
     const out: ServerMessage[] = []
     after.info.slice(before.info.length).forEach((m) => out.push({ type: 'info', message: m }))

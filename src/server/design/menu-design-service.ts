@@ -5,8 +5,8 @@ import { badRequest, notFound, rpError } from '../lib/errors.ts'
 import { parseJson, isPlainObject, splitList } from '../lib/util.ts'
 import { requireStudio } from '../security/access.ts'
 import { processPortal } from '../release/release-service.ts'
-import { SKIP_REPROCESS_KEY } from '../lib/session-flags.ts'
-import { takeAbortMessage } from '../automation/guards.ts'
+import { SKIP_REPROCESS_KEY, clearSessionFlag } from '../lib/session-flags.ts'
+import { takeAbortMessage, abortMessageFromSession } from '../automation/guards.ts'
 import { MENU_ITEM_TYPES } from '../runtime/menu-service.ts'
 import { searchIcons, LUCIDE_VERSION } from '../icons/icons.ts'
 import type { MenuDto, MenuItemDto, NavItemType } from '../../shared/contracts'
@@ -24,7 +24,7 @@ function batch<R>(portalId: string, fn: () => R): R {
     try {
         return fn()
     } finally {
-        session.putClientData(SKIP_REPROCESS_KEY, '')
+        clearSessionFlag(SKIP_REPROCESS_KEY)
         if (portalId) processPortal(portalId)
     }
 }
@@ -32,22 +32,11 @@ function batch<R>(portalId: string, fn: () => R): R {
 /**
  * The business rule's abort message for the API error. The rule also queued it with
  * gs.addErrorMessage, which would otherwise show up as a banner on the user's next classic page,
- * so the queue is flushed (the message travels in the API response instead).
+ * so the queue is drained through the global helper app (the message travels in the API response
+ * instead). Without the helper the queue can't be flushed from this scope.
  */
 function abortedMessage(fallback: string): string {
-    const recorded = takeAbortMessage()
-    let message = recorded || fallback
-    try {
-        if (!recorded) {
-            const msgs: any = gs.getErrorMessages()
-            const list = msgs && typeof msgs.size === 'function' ? Array.from({ length: msgs.size() }, (_, i) => String(msgs.get(i))) : []
-            if (list.length) message = list.join(' ')
-        }
-        gs.flushMessages()
-    } catch (e) {
-        // keep the message we have
-    }
-    return message
+    return abortMessageFromSession(takeAbortMessage(), fallback)
 }
 
 /* ---------------- DTOs ---------------- */
