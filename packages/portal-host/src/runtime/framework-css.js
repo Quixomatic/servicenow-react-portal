@@ -3,6 +3,10 @@
 // `styles` makes it an adopted stylesheet, and adopted sheets always sort after every <style> in
 // the shadow root: within the shared `utilities` layer the host's `.hidden` then beat a widget's
 // `sm:block`. As a <style> in the framework slot, widget utilities win ties, as documented.
+// Being first, it also fixes the layer order for the whole shadow root: build:css moves variant
+// rules into `@layer rp-variants` right after `utilities` (scripts/variant-layer.mjs, the same
+// pass the server compiler runs on every component build), so variants from any sheet beat base
+// utilities from any sheet.
 import styles from '../styles/tailwind.generated.css';
 
 function asText(value) {

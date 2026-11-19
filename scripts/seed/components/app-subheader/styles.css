@@ -5,7 +5,30 @@
 
 /* Narrow frames wrap the bar (left row, then right row); an unfilled right side takes no row. */
 @media (max-width: 639px) {
-	.rp-subheader > .rp-sub-right:not(:has([data-rp-hslot][data-filled])) {
+	.rp-subheader .rp-sub-right:not(:has([data-rp-hslot][data-filled])) {
 		display: none;
 	}
+}
+
+/* Banner: a soft wash of the tint (a theme token, so it follows light/dark) fading into the
+   background. The inner grid is capped at the page's content width and padded like main
+   (--rp-pad comes from app-shell; at least 16px when main is full bleed). */
+.rp-subheader[data-variant="banner"] {
+	--rp-sub-tint: var(--primary);
+	background: linear-gradient(120deg, color-mix(in oklab, var(--rp-sub-tint) 11%, var(--background)) 0%, var(--background) 75%);
+}
+.rp-subheader[data-variant="banner"][data-tint="chart-1"] { --rp-sub-tint: var(--chart-1); }
+.rp-subheader[data-variant="banner"][data-tint="chart-2"] { --rp-sub-tint: var(--chart-2); }
+.rp-subheader[data-variant="banner"][data-tint="chart-3"] { --rp-sub-tint: var(--chart-3); }
+.rp-subheader[data-variant="banner"][data-tint="chart-4"] { --rp-sub-tint: var(--chart-4); }
+.rp-subheader[data-variant="banner"][data-tint="chart-5"] { --rp-sub-tint: var(--chart-5); }
+.rp-subheader[data-variant="banner"][data-tint="none"] { --rp-sub-tint: var(--muted-foreground); background: none; }
+.rp-subheader[data-variant="banner"] .rp-sub-inner {
+	max-width: var(--rp-content-max, none);
+	padding-inline: max(1rem, var(--rp-pad, 1.5rem));
+}
+.rp-subheader[data-variant="banner"] .rp-sub-icon {
+	background: color-mix(in oklab, var(--rp-sub-tint) 14%, transparent);
+	color: var(--rp-sub-tint);
+	box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--rp-sub-tint) 22%, transparent);
 }

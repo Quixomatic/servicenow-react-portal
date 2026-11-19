@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.11.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.12.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -456,7 +456,8 @@
             { c: 'app-subheader', region: 'subheader', options: { note: 'Service Portal' } },
         ],
         pages: [
-            { route: 'home', name: 'Home', widgets: [
+            // Banner sub-header (app-shell layout option subheader): a hero band over the home page.
+            { route: 'home', name: 'Home', layoutOptions: { subheader: 'banner', subheaderTitle: 'How can we help?', subheaderSubtitle: 'Report an issue, request something from the catalog, or check on your open incidents.', subheaderIcon: 'life-buoy' }, widgets: [
                 { c: 'hello-card', options: { title: 'Welcome to the Service Portal', body: 'Rendered by React 19 from records: layout, theme and widgets are all compiled builds.', links: [{ label: 'Orders', to: 'orders' }, { label: 'Order 42', to: 'orders/42' }, { label: 'About (other layout)', to: 'about' }] } },
                 { c: 'server-clock' },
             ] },
@@ -483,7 +484,8 @@
                     ],
                 } },
             ] },
-            { route: 'tests', name: 'Runtime Tests', widgets: [
+            // No sub-header (its card has its own title): main reclaims the band.
+            { route: 'tests', name: 'Runtime Tests', layoutOptions: { subheader: 'hidden' }, widgets: [
                 { c: 'runtime-tests', options: { label: 'from placement options' } },
             ] },
             // Embedded widgets: Server Clock imported by app/embed-demo and rendered as its own
@@ -528,7 +530,7 @@
             // Generic record form (app/form, app/record-form) for any table: explicit params table / sys-id /
             // view (sys_id=-1 = new); no table → incident. Title, state and actions go to the sub-header
             // slots, the record picker to its centre (a demo convenience); back goes to the list page.
-            { route: 'form', name: 'Record form', contentWidth: 'full', layoutOptions: { texture: 'plain', contentPadding: 'sm' }, widgets: [
+            { route: 'form', name: 'Record form', layoutOptions: { texture: 'plain', contentPadding: 'sm', subheader: 'banner' }, widgets: [
                 { c: 'record-form', options: { picker: true, showViews: true, listPage: 'list' } },
             ] },
             // Catalog variables (app/variable, app/mrvs, app/catalog-item): picker + item, chosen via ?item=<sys_id>.
@@ -659,7 +661,7 @@
             ] },
             // The list's rows open this generic form (explicit table / sys-id / view params): title, state
             // and actions in the sub-header slots; back returns to the incident list.
-            { route: 'form', name: 'Record form', contentWidth: 'full', layoutOptions: { contentPadding: 'sm' }, widgets: [
+            { route: 'form', name: 'Record form', layoutOptions: { contentPadding: 'sm', subheader: 'banner' }, widgets: [
                 { c: 'record-form', options: { picker: true, showViews: true, listPage: 'incidents-list' } },
             ] },
             { route: 'fields', name: 'Fields', widgets: [

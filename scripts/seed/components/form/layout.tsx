@@ -1,5 +1,7 @@
+import { useSyncExternalStore } from 'react'
 import { FieldControl } from 'components:app/field-control'
-import { cx } from 'components:app/field'
+import { cx, useFormContext, isFieldVisible } from 'components:app/field'
+import { FormSectionFrame, sectionName, sectionElements } from 'components:app/form-section'
 import type { FieldLayout } from 'components:app/field'
 import type { FormBootstrap, FormSection as FormSectionData } from 'utilities:app/graphql'
 
@@ -10,6 +12,13 @@ import type { FormBootstrap, FormSection as FormSectionData } from 'utilities:ap
  * Elements: dictionary fields render through app/field-control; formatters (activity.xml,
  * attached_knowledge, …) render a labelled placeholder until they get their own primitives;
  * split markers are already resolved into columns.
+ *
+ * Sections:
+ * - each titled section has a collapsible heading (a button with aria-expanded / aria-controls);
+ *   collapsed content stays mounted (field state, validation) but isn't displayed;
+ * - a section disappears when a script hid it (g_form.setSectionDisplay) or every field in it is
+ *   hidden (and it shows no formatter);
+ * - names: the section caption in lower case ('' for the first, untitled section).
  */
 
 export type FormLayoutProps = {
@@ -21,6 +30,13 @@ export type FormLayoutProps = {
     hideFormatters?: boolean
     /** Custom element renderer: return undefined to fall back to the default. */
     renderElement?: (name: string, ctx: { bootstrap: FormBootstrap; readOnly: boolean }) => any
+    /** Collapsible section headings (default true). */
+    collapsible?: boolean
+    /** Collapsed sections (by section name). */
+    isCollapsed?: (name: string) => boolean
+    onToggleSection?: (name: string, collapsed: boolean) => void
+    /** Per-section counts shown on the heading (fields needing attention after a failed save). */
+    sectionBadges?: Record<string, number>
     className?: string
 }
 
@@ -39,6 +55,46 @@ export function isSplitMarker(name: string) {
 export function isFormatter(name: string, bootstrap: FormBootstrap) {
     if (bootstrap.meta[name]) return false
     return bootstrap.formatters.indexOf(name) >= 0 || /\.xml$/.test(name) || !!FORMATTER_LABELS[name]
+}
+
+export { sectionName, sectionElements }
+
+/** Section name → the field names in it (for error badges and "reveal the field"). */
+export function sectionOfField(bootstrap: FormBootstrap): Record<string, string> {
+    const map: Record<string, string> = {}
+    bootstrap.sections.forEach((s) => sectionElements(s).forEach((n) => (map[n] = sectionName(s))))
+    return map
+}
+
+const noopSubscribe = () => () => {}
+
+/**
+ * Which sections are displayed now: not hidden by script, and not "every field hidden". Subscribes
+ * to the form store; returns a stable string key so re-renders happen only when it changes.
+ */
+export function useVisibleSections(bootstrap: FormBootstrap, hideFormatters?: boolean): Set<string> {
+    const form = useFormContext()
+    const key = useSyncExternalStore(
+        form ? form.subscribe : noopSubscribe,
+        () => {
+            if (!form) return bootstrap.sections.map(sectionName).join('|')
+            const state = form.getState()
+            return bootstrap.sections
+                .filter((s) => {
+                    const name = sectionName(s)
+                    if (form.getSectionDisplay(name) === false) return false
+                    const elements = sectionElements(s).filter((n) => !isSplitMarker(n))
+                    const fields = elements.filter((n) => !!bootstrap.meta[n])
+                    const shownFormatter = !hideFormatters && elements.some((n) => isFormatter(n, bootstrap))
+                    if (!fields.length) return shownFormatter || !elements.length
+                    return shownFormatter || fields.some((n) => isFieldVisible(state, n))
+                })
+                .map(sectionName)
+                .join('|')
+        },
+        () => '',
+    )
+    return new Set(key.split('|'))
 }
 
 function FormatterPlaceholder({ name }: { name: string }) {
@@ -62,19 +118,11 @@ export function FormElement(props: { name: string } & Omit<FormLayoutProps, 'cla
     return null
 }
 
-/** One section: an optional heading, then its rows (1 column, or 2 side by side from md up). */
-export function FormSection(props: { section: FormSectionData; index: number; showHeading?: boolean } & Omit<FormLayoutProps, 'className'>) {
-    const { section, index } = props
-    const headingId = `rp-form-section-${section.id || index}`
-    const heading = props.showHeading !== false && (index > 0 || section.caption)
+/** A section's rows (1 column, or 2 side by side from md up). */
+export function SectionRows(props: { section: FormSectionData } & Omit<FormLayoutProps, 'className'>) {
     return (
-        <section aria-labelledby={heading ? headingId : undefined} className="flex flex-col gap-4" data-rp-form-section={section.caption || 'main'}>
-            {heading ? (
-                <h3 id={headingId} className="border-b border-border pb-2 text-sm font-semibold tracking-tight text-foreground">
-                    {section.label || section.caption}
-                </h3>
-            ) : null}
-            {section.rows.map((row, ri) => (
+        <>
+            {props.section.rows.map((row, ri) => (
                 <div key={ri} className={cx('grid gap-x-6 gap-y-4', row.length > 1 ? 'md:grid-cols-2' : '')}>
                     {row.map((col, ci) => (
                         <div key={ci} className="flex min-w-0 flex-col gap-4">
@@ -85,18 +133,46 @@ export function FormSection(props: { section: FormSectionData; index: number; sh
                     ))}
                 </div>
             ))}
-        </section>
+        </>
     )
 }
 
-/** Every section of the view, stacked. */
+/** One section: a (collapsible) heading (components:app/form-section), then its rows. */
+export function FormSection(props: { section: FormSectionData; index: number; showHeading?: boolean; divider?: boolean } & Omit<FormLayoutProps, 'className'>) {
+    const { section, index } = props
+    const name = sectionName(section)
+    const heading = props.showHeading !== false && (index > 0 || !!section.caption)
+    return (
+        <FormSectionFrame
+            id={section.id || String(index)}
+            name={name}
+            label={section.label || section.caption}
+            heading={heading}
+            divider={props.divider}
+            collapsible={props.collapsible !== false}
+            collapsed={!!(props.isCollapsed && props.isCollapsed(name))}
+            onCollapsedChange={(c) => props.onToggleSection && props.onToggleSection(name, c)}
+            badge={props.sectionBadges ? props.sectionBadges[name] || 0 : 0}
+        >
+            <SectionRows {...props} />
+        </FormSectionFrame>
+    )
+}
+
+/** Every displayed section of the view, stacked. */
 export function FormLayout(props: FormLayoutProps) {
     const { bootstrap, className, ...rest } = props
+    const visible = useVisibleSections(bootstrap, props.hideFormatters)
+    const first = bootstrap.sections.find((s) => visible.has(sectionName(s)))
+    const firstShown = first ? sectionName(first) : ''
     return (
-        <div className={cx('flex flex-col gap-8', className)}>
-            {bootstrap.sections.map((s, i) => (
-                <FormSection key={s.id || i} section={s} index={i} bootstrap={bootstrap} {...rest} />
-            ))}
+        <div className={cx('flex flex-col gap-6', className)}>
+            {bootstrap.sections.map((s, i) =>
+                visible.has(sectionName(s)) ? (
+                    // A divider between displayed sections (not above the first one shown).
+                    <FormSection key={s.id || i} section={s} index={i} bootstrap={bootstrap} divider={sectionName(s) !== firstShown} {...rest} />
+                ) : null,
+            )}
         </div>
     )
 }

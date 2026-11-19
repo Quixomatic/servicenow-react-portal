@@ -1,6 +1,13 @@
 import { Region } from '@portal/runtime'
 
-type Options = { texture?: 'noise' | 'plain'; contentPadding?: 'none' | 'sm' | 'md' | 'lg' }
+type Options = {
+    texture?: 'noise' | 'plain'
+    contentPadding?: 'none' | 'sm' | 'md' | 'lg'
+    /** The sub-header region: 'bar' (40px), 'banner' (hero band) or 'hidden' (region gone). The
+     *  sub-header widget reads it (and subheaderTitle / subheaderSubtitle / subheaderIcon /
+     *  subheaderTint) through useLayout().options. */
+    subheader?: 'bar' | 'banner' | 'hidden'
+}
 
 /**
  * Dashboard shell (shadcn sidebar variant="inset"): the sidebar and the top header sit directly on
@@ -18,8 +25,9 @@ type Options = { texture?: 'noise' | 'plain'; contentPadding?: 'none' | 'sm' | '
  */
 export default function AppShell({ options = {} }: { options?: Options }) {
     const pad = ['none', 'sm', 'md', 'lg'].includes(options.contentPadding as string) ? options.contentPadding : 'md'
+    const sub = options.subheader === 'banner' || options.subheader === 'hidden' ? options.subheader : 'bar'
     return (
-        <div className="rp-app" data-texture={options.texture === 'plain' ? 'plain' : 'noise'} data-pad={pad}>
+        <div className="rp-app" data-texture={options.texture === 'plain' ? 'plain' : 'noise'} data-pad={pad} data-subheader={sub}>
             <Region name="sidebar" as="aside" className="rp-app__sidebar rp-app__slot" />
             <div className="rp-app__column">
                 <Region name="header" as="header" className="rp-app__header rp-app__slot" />

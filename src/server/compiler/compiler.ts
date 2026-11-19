@@ -1,5 +1,6 @@
 import { transform, version as sucraseVersion } from './vendor/sucrase.js'
 import { compile as tailwindCompile, sheets as tailwindSheets, version as tailwindVersion } from './vendor/tailwind.js'
+import { moveVariantsToLayer, LAYER_ORDER } from './variant-layer.ts'
 
 /**
  * RPCompiler: server-side component compiler (runs in the instance's JavaScript engine, no
@@ -14,7 +15,7 @@ import { compile as tailwindCompile, sheets as tailwindSheets, version as tailwi
  * Output (one build): index.js (default export = the component) and index.css.
  */
 
-export const COMPILER_VERSION = `rp-server-compiler/4 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
+export const COMPILER_VERSION = `rp-server-compiler/5 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
 export const ENTRY = 'main.tsx'
 
 export interface CompilerFile {
@@ -245,7 +246,9 @@ export const SHADCN_COLORS = [
 ]
 
 export const TAILWIND_INPUT = [
-    '@layer theme, base, components, utilities;',
+    // rp-variants: variant rules move there after the build (variant-layer.ts), so a variant from
+    // any sheet in the shadow root beats a base utility from any other sheet.
+    `@layer ${LAYER_ORDER};`,
     '@import "tailwindcss/theme" layer(theme);',
     '@import "tailwindcss/utilities" layer(utilities);',
     // Widgets render inside the host's shadow root; dark mode keys off the host's .dark class.
@@ -316,7 +319,7 @@ export function compileTailwind(candidates: string[]): Promise<string> {
             if (content === undefined) return Promise.reject(new Error(`Unknown stylesheet ${id}`))
             return Promise.resolve({ content, base, path: id })
         },
-    }).then((c) => c.build(candidates))
+    }).then((c) => moveVariantsToLayer(c.build(candidates)))
 }
 
 /* ---------------- Entry point ---------------- */

@@ -171,7 +171,12 @@ record, raw }`.
 
 `components:badge`, `components:button`, `components:card`, `components:dropdown-menu`,
 `components:popover`, `components:separator`, `components:sheet`, `components:tooltip`,
-`components:collapsible` (shadcn/ui on Base UI) and `utilities:cn`.
+`components:collapsible`, `components:tabs` (shadcn/ui on Base UI) and `utilities:cn`.
+
+`components:tabs`: `Tabs` (`value` / `defaultValue` / `onValueChange`, `orientation`), `TabsList`
+(`variant` default|line), `TabsTrigger` (`value`, `disabled`), `TabsContent` / `TabsPanel` (`value`,
+`keepMounted`). Base UI supplies roving focus with arrow keys, Home / End, `aria-selected`,
+`aria-controls` / `aria-labelledby` and `data-active` on the selected tab.
 
 `components:sidebar` is shadcn's Sidebar wired to `useSidebar()` (no provider to render):
 `Sidebar` (`variant` sidebar|floating|inset, `collapsible` offcanvas|icon|none, `width`), `SidebarTrigger`

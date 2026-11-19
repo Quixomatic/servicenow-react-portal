@@ -320,6 +320,23 @@ export async function fetchPreference(userSysId: string, key: string, signal?: A
     }
 }
 
+/**
+ * Any of OUR user preferences by full name (raw string value), on the same read / save path as list
+ * personalization. Callers keep to the x_312987_portal.* namespace: never a platform preference
+ * the classic UI or Workspace reads.
+ */
+export async function fetchUserPreferenceValue(userSysId: string, name: string, signal?: AbortSignal): Promise<string | null> {
+    if (!userSysId || !/^x_312987_portal\./.test(name)) return null
+    const q = encodeURIComponent(`user=${userSysId}^name=${name}`)
+    const rows = await restGet<any[]>(`/api/now/table/sys_user_preference?sysparm_query=${q}&sysparm_fields=value&sysparm_limit=1`, signal)
+    return rows && rows.length ? String(rows[0].value ?? '') : null
+}
+
+export async function saveUserPreferenceValue(name: string, value: string): Promise<void> {
+    if (!/^x_312987_portal\./.test(name)) throw new Error(`Refusing to write a non-portal preference: ${name}`)
+    await graphql(`mutation rpSetPref($name: String!, $value: String!) { GlideLayoutDomain_Mutation { user { setPreference(name: $name, value: $value) { name } } } }`, { name, value })
+}
+
 export async function savePreference(key: string, prefs: ListPreferences): Promise<void> {
     await graphql(
         `mutation rpSetPref($name: String!, $value: String!) { GlideLayoutDomain_Mutation { user { setPreference(name: $name, value: $value) { name } } } }`,

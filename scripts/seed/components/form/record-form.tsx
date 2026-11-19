@@ -1,17 +1,32 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useLayout } from '@portal/runtime'
 import { Card, CardHeader, CardContent } from 'components:card'
 import { Button } from 'components:button'
 import { Badge } from 'components:badge'
 import { useFormViews } from 'utilities:app/graphql'
 import { FormProvider, useFormMeta, cx, Spinner, IconAlert, IconChevronDown } from 'components:app/field'
 import type { FieldLayout, ValidationResult } from 'components:app/field'
-import { Select } from 'components:app/combobox'
 import { sanitizeHtml } from 'components:app/variable'
 import { useRecordForm, SAVE_ACTIONS } from './use-record-form'
 import type { RecordForm as RecordFormModel, UseRecordFormOptions, SaveOutcome } from './use-record-form'
 import type { UiAction } from 'utilities:app/graphql'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'components:dropdown-menu'
-import { FormLayout } from './layout'
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
+} from 'components:dropdown-menu'
+import { FormLayout, SectionRows, sectionOfField, sectionName, useVisibleSections } from './layout'
+import type { FormLayoutProps } from './layout'
+import { useCollapsedSections, usePresentationPreference } from './preferences'
+import type { FormPresentation } from './preferences'
+import { FormTabs, useFormTabState, tabValue } from 'components:app/form-tabs'
+import { Icon } from 'components:icon'
 
 export type RecordFormProps = {
     /** A form from useRecordForm (else table / sysId / view build one). */
@@ -38,6 +53,11 @@ export type RecordFormProps = {
      * `right` the UI actions, view switcher and headerActions. Each function wraps its node.
      */
     headerSlots?: { left?: (node: any) => any; right?: (node: any) => any }
+    /**
+     * Default presentation: 'stacked' sections (collapsible) or 'tabs' (one tab per section). The
+     * user's own choice (the toggle on the form, x_312987_portal.form.presentation) wins.
+     */
+    presentation?: FormPresentation
 }
 
 /** A record form with header, view switcher, sections, dirty tracking and save. */
@@ -65,7 +85,7 @@ function useValue(form: RecordFormModel, name: string) {
     )
 }
 
-function RecordHeader({ form, actions, viewSwitcher, actionBar }: { form: RecordFormModel; actions?: any; viewSwitcher?: any; actionBar?: any }) {
+function RecordHeader({ form, actions, actionBar }: { form: RecordFormModel; actions?: any; actionBar?: any }) {
     const boot = form.bootstrap!
     const titleField = HEADER_FIELDS.find((f) => f in boot.values) || ''
     const title = useValue(form, titleField)
@@ -73,7 +93,7 @@ function RecordHeader({ form, actions, viewSwitcher, actionBar }: { form: Record
     const state = useValue(form, 'state')
     return (
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 basis-56">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                     {form.isNew ? `New ${boot.tableLabel}` : boot.tableLabel}
                 </p>
@@ -90,9 +110,39 @@ function RecordHeader({ form, actions, viewSwitcher, actionBar }: { form: Record
             </div>
             <div className="flex flex-wrap items-center gap-2">
                 {actionBar}
-                {viewSwitcher}
                 {actions}
             </div>
+        </div>
+    )
+}
+
+/**
+ * The record's title block for a tall page header (app-subheader banner): table label, a large
+ * title (number / name), state and read-only badges, the short description as a subtitle.
+ */
+function BannerTitle({ form }: { form: RecordFormModel }) {
+    const boot = form.bootstrap!
+    const titleField = HEADER_FIELDS.find((f) => f in boot.values) || ''
+    const title = useValue(form, titleField)
+    const subtitle = useValue(form, titleField === 'number' ? 'short_description' : '')
+    const state = useValue(form, 'state')
+    return (
+        <div className="min-w-0" data-rp-record-title="" data-rp-banner-title="">
+            <p className="m-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">{form.isNew ? `New ${boot.tableLabel}` : boot.tableLabel}</p>
+            <h1 className="m-0 mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-2xl leading-tight font-semibold tracking-tight max-sm:text-xl">
+                <span className="min-w-0 truncate">{title || (form.isNew ? 'New record' : boot.sysId)}</span>
+                {state ? (
+                    <Badge variant="secondary" className="shrink-0" data-rp-record-state="">
+                        {state}
+                    </Badge>
+                ) : null}
+                {form.readOnly ? (
+                    <Badge variant="outline" className="shrink-0">
+                        Read only
+                    </Badge>
+                ) : null}
+            </h1>
+            {subtitle ? <p className="m-0 mt-1 truncate text-sm text-muted-foreground">{subtitle}</p> : null}
         </div>
     )
 }
@@ -123,15 +173,92 @@ function SlotTitle({ form }: { form: RecordFormModel }) {
     )
 }
 
-function ViewSwitcher({ table, sysId, view, onChange, compact }: { table: string; sysId: string; view: string; onChange?: (v: string) => void; compact?: boolean }) {
-    const views = useFormViews(table, sysId)
+/** Narrow frame (phone): header controls collapse (UI actions into More, Discard to an icon). */
+function useNarrow(max = 639) {
+    const query = `(max-width: ${max}px)`
+    const get = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(query).matches
+    const [narrow, setNarrow] = useState(get)
+    useEffect(() => {
+        if (!window.matchMedia) return
+        const mq = window.matchMedia(query)
+        const on = () => setNarrow(mq.matches)
+        on()
+        mq.addEventListener('change', on)
+        return () => mq.removeEventListener('change', on)
+    }, [query])
+    return narrow
+}
+
+/** Can the sections show as tabs? (named sections to put in tabs; the untitled first one stays on top). */
+export function canUseTabs(sections: { caption: string }[]): boolean {
+    return sections.filter((s) => !!s.caption).length >= 1 && sections.length >= 2
+}
+
+/**
+ * Form settings (cog), in the page header or the card's own header: one submenu per setting, each
+ * trigger showing its current value — View ▸ (the table's form views) and Layout ▸ (Stacked / Tabs,
+ * the user's own choice). Submenus open with → / Enter, close with ←; they open towards the page
+ * (the cog sits at the right edge) and flip if there's no room. Per-user choices only, never platform
+ * preferences.
+ */
+function FormSettingsMenu(props: {
+    table: string
+    sysId: string
+    view: string
+    showViews?: boolean
+    onViewChange?: (v: string) => void
+    presentation: FormPresentation
+    onPresentationChange: (p: FormPresentation) => void
+    canTab: boolean
+}) {
+    const views = useFormViews(props.table, props.showViews ? props.sysId : '-1')
     const list = (views.data && views.data.views) || []
-    const items = list.length ? list.map((v) => ({ value: v.name, label: v.label })) : [{ value: view, label: view || 'Default view' }]
-    if (items.every((i) => i.value !== view)) items.unshift({ value: view, label: view })
+    const items = list.length ? list.map((v) => ({ value: v.name, label: v.label })) : [{ value: props.view, label: props.view || 'Default view' }]
+    if (items.every((i) => i.value !== props.view)) items.unshift({ value: props.view, label: props.view })
+    const currentView = (items.find((i) => i.value === props.view) || { label: props.view || 'Default view' }).label
+    if (!props.canTab && !props.showViews) return null
+    const value = (text: string) => <span className="ml-auto max-w-32 truncate pl-3 text-xs text-muted-foreground">{text}</span>
     return (
-        <div className={compact ? 'w-40 max-md:hidden' : 'w-56'} data-rp-view-switcher="">
-            <Select aria-label="Form view" size="sm" value={view} items={items} loading={views.isFetching} onChange={(i) => onChange && onChange(i.value === 'Default view' ? '' : i.value)} />
-        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger render={<Button type="button" size="icon-sm" variant="ghost" aria-label="Form settings" title="Form settings" className="shrink-0" data-rp-form-settings="" />}>
+                <Icon name="settings" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+                {props.showViews ? (
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger data-rp-settings-sub="view">
+                            <Icon name="eye" aria-hidden="true" /> View {value(currentView)}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent side="left" className="max-w-[min(18rem,calc(100vw-1rem))] min-w-48">
+                            <DropdownMenuRadioGroup value={props.view} onValueChange={(v: string) => props.onViewChange && props.onViewChange(v === 'Default view' ? '' : String(v))}>
+                                {items.map((i) => (
+                                    <DropdownMenuRadioItem key={i.value} value={i.value} data-rp-view-option={i.value}>
+                                        {i.label}
+                                    </DropdownMenuRadioItem>
+                                ))}
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                ) : null}
+                {props.canTab ? (
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger data-rp-settings-sub="layout">
+                            <Icon name={props.presentation === 'tabs' ? 'panels-top-left' : 'rows-3'} aria-hidden="true" /> Layout {value(props.presentation === 'tabs' ? 'Tabs' : 'Stacked')}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent side="left" className="min-w-40">
+                            <DropdownMenuRadioGroup value={props.presentation} onValueChange={(v: string) => props.onPresentationChange(v === 'tabs' ? 'tabs' : 'stacked')}>
+                                <DropdownMenuRadioItem value="stacked" data-rp-presentation="stacked">
+                                    <Icon name="rows-3" aria-hidden="true" /> Stacked
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="tabs" data-rp-presentation="tabs">
+                                    <Icon name="panels-top-left" aria-hidden="true" /> Tabs
+                                </DropdownMenuRadioItem>
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                ) : null}
+            </DropdownMenuContent>
+        </DropdownMenu>
     )
 }
 
@@ -143,6 +270,49 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     const root = useRef<HTMLDivElement | null>(null)
     const summary = useRef<HTMLDivElement | null>(null)
     const failure = form.saveError
+    const narrow = useNarrow()
+    const layout = useLayout() as any
+    // Ctrl/⌘+S anywhere on the page (Save may live in the page header, outside the form).
+    const saveShortcut = useRef<() => void>(() => {})
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault()
+                saveShortcut.current()
+            }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [])
+
+    // Collapsible sections: remembered per user + table; sections holding fields to fix open up
+    // (for this visit only, not saved) so the error summary links can reach them.
+    // Collapse state per user + table: x_312987_portal.form.<table>.collapsed (never a platform preference).
+    const sectionPrefs = useCollapsedSections(form.table)
+    const [userPresentation, setUserPresentation] = usePresentationPreference()
+    const presentation: FormPresentation = userPresentation || props.presentation || 'stacked'
+    // Tabs mode: FormBody registers how to show a section's tab (error summary links, validation).
+    const revealTab = useRef<((section: string) => void) | null>(null)
+    const [revealed, setRevealed] = useState<Set<string>>(() => new Set())
+    const fieldSection = useMemo(() => (boot ? sectionOfField(boot) : {}), [boot])
+    const sectionBadges = useMemo(() => {
+        const out: Record<string, number> = {}
+        if (form.validation) for (const e of form.validation.errors) if (e.name in fieldSection) out[fieldSection[e.name]] = (out[fieldSection[e.name]] || 0) + 1
+        return out
+    }, [form.validation, fieldSection])
+    useEffect(() => {
+        const names = Object.keys(sectionBadges)
+        if (names.length) setRevealed((r) => new Set(Array.from(r).concat(names)))
+    }, [sectionBadges])
+    const isCollapsed = (name: string) => sectionPrefs.isCollapsed(name) && !revealed.has(name)
+    const toggleSection = (name: string, collapsed: boolean) => {
+        setRevealed((r) => {
+            const next = new Set(r)
+            next.delete(name)
+            return next
+        })
+        sectionPrefs.setCollapsed(name, collapsed)
+    }
 
     // Warn before leaving with unsaved changes.
     useEffect(() => {
@@ -156,12 +326,24 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     }, [meta.isDirty])
 
     const focusField = (name: string) => {
-        const scope = root.current
-        if (!scope) return
-        const el = scope.querySelector(
-            `[data-rpf-field="${name}"] input, [data-rpf-field="${name}"] textarea, [data-rpf-field="${name}"] [role=combobox], [data-rpf-field="${name}"] button, [data-rpf-field="${name}"] [tabindex]`,
-        ) as HTMLElement | null
-        if (el) el.focus()
+        // Open the field's section first (collapsed sections keep their fields mounted but hidden).
+        const section = fieldSection[name]
+        if (section !== undefined && isCollapsed(section)) setRevealed((r) => new Set(Array.from(r).concat(section)))
+        if (section !== undefined && presentation === 'tabs' && revealTab.current) revealTab.current(section)
+        // The section / tab opens on the next render: retry briefly until the control is displayed.
+        let tries = 0
+        const attempt = () => {
+            const scope = root.current
+            if (!scope) return
+            const el = scope.querySelector(
+                `[data-rpf-field="${name}"] input, [data-rpf-field="${name}"] textarea, [data-rpf-field="${name}"] [role=combobox], [data-rpf-field="${name}"] button, [data-rpf-field="${name}"] [tabindex]`,
+            ) as HTMLElement | null
+            if (el && el.getClientRects().length) {
+                el.focus()
+                el.scrollIntoView({ block: 'nearest' })
+            } else if (++tries < 20) setTimeout(attempt, 50)
+        }
+        setTimeout(attempt, 0)
     }
 
     // Focus the error summary whenever a submit (button, Ctrl+S, UI action, script) fails validation.
@@ -192,27 +374,106 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
 
     const dirtyCount = meta.dirtyFields.length
     const canSave = !form.readOnly && (form.isNew || dirtyCount > 0) && !form.saving
-    const actionBar = props.hideActions ? null : <UiActionBar form={form} onRun={run} maxButtons={props.headerSlots ? 2 : undefined} />
-    const viewSwitcher = props.showViews ? <ViewSwitcher table={boot.table} sysId={form.isNew ? '-1' : boot.sysId} view={boot.view} onChange={props.onViewChange} compact={!!props.headerSlots} /> : null
+    saveShortcut.current = () => {
+        if (canSave) save()
+    }
     const slots = props.headerSlots
+    // Tall sub-header (app-subheader `subheader: 'banner'`): the full record header goes into its slots.
+    const banner = !!slots && !!layout && !!layout.options && layout.options.subheader === 'banner'
+    // Header bar on a phone: every UI action goes into More, so Save always fits.
+    const actionBar = props.hideActions ? null : <UiActionBar form={form} onRun={run} maxButtons={narrow ? 0 : slots && !banner ? 2 : 3} />
+    const tabsPossible = canUseTabs(boot.sections)
+    const discard = () => {
+        form.reset()
+        form.clearValidation()
+    }
+    // Discard / Save (+ unsaved count, Ctrl/⌘+S) in the page header when it has slots.
+    const headerSave = form.readOnly ? null : (
+        <div className="flex shrink-0 items-center gap-1.5" data-rp-header-save="">
+            {narrow ? (
+                <Button type="button" size="icon-sm" variant="ghost" aria-label="Discard changes" title="Discard changes" disabled={!dirtyCount || form.saving} onClick={discard} data-rp-discard="">
+                    <Icon name="undo-2" aria-hidden="true" />
+                </Button>
+            ) : (
+                <Button type="button" size="sm" variant="ghost" disabled={!dirtyCount || form.saving} onClick={discard} data-rp-discard="">
+                    Discard
+                </Button>
+            )}
+            <Button type="button" size="sm" disabled={!canSave} onClick={() => save()} data-rp-save="" aria-keyshortcuts="Control+S Meta+S" title="Save (Ctrl+S)">
+                {form.saving ? <Spinner label="Saving" /> : null}
+                {form.isNew ? 'Create' : 'Save'}
+            </Button>
+        </div>
+    )
+    // Unsaved-changes indicator: quiet, the leftmost item of the right-hand cluster (nothing when clean).
+    const unsavedText = form.isNew ? 'New record, not saved yet' : dirtyCount ? `${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}` : ''
+    const unsaved = form.readOnly ? null : (
+        <span className="mr-1 inline-flex shrink-0 items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground" role="status" aria-live="polite" data-rp-unsaved="">
+            {unsavedText ? (
+                <>
+                    <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
+                    {narrow ? (
+                        <>
+                            <span aria-hidden="true" title={unsavedText}>
+                                {form.isNew ? 'New' : dirtyCount}
+                            </span>
+                            <span className="sr-only">{unsavedText}</span>
+                        </>
+                    ) : (
+                        unsavedText
+                    )}
+                </>
+            ) : null}
+        </span>
+    )
+    const settingsMenu = (
+        <FormSettingsMenu
+            table={boot.table}
+            sysId={form.isNew ? '-1' : boot.sysId}
+            view={boot.view}
+            showViews={props.showViews}
+            onViewChange={props.onViewChange}
+            presentation={presentation}
+            onPresentationChange={setUserPresentation}
+            canTab={tabsPossible}
+        />
+    )
     return (
         <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`}>
             {slots ? (
                 <>
-                    {slots.left ? slots.left(<SlotTitle form={form} />) : null}
+                    {slots.left ? slots.left(banner ? <BannerTitle form={form} /> : <SlotTitle form={form} />) : null}
                     {slots.right
                         ? slots.right(
                               <>
+                                  {unsaved}
                                   {actionBar}
-                                  {viewSwitcher}
                                   {props.headerActions}
+                                  {headerSave}
+                                  {settingsMenu}
                               </>,
                           )
                         : null}
                 </>
             ) : (
-                <CardHeader>
-                    <RecordHeader form={form} actions={props.headerActions} actionBar={actionBar} viewSwitcher={viewSwitcher} />
+                // Inline (no page-header slots): the card's own header row, with the same controls.
+                <CardHeader className="border-b border-border">
+                    <RecordHeader
+                        form={form}
+                        actions={
+                            <>
+                                {props.headerActions}
+                                {headerSave}
+                                {settingsMenu}
+                            </>
+                        }
+                        actionBar={
+                            <>
+                                {unsaved}
+                                {actionBar}
+                            </>
+                        }
+                    />
                 </CardHeader>
             )}
             <CardContent>
@@ -224,13 +485,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                             e.preventDefault()
                             if (canSave) save()
                         }}
-                        onKeyDown={(e: any) => {
-                            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-                                e.preventDefault()
-                                if (canSave) save()
-                            }
-                        }}
-                        className="flex flex-col gap-6"
+                        className="flex flex-col gap-6 pb-4"
                     >
                         {errors.length ? (
                             <div
@@ -304,7 +559,20 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                                 <span>{failure.message}</span>
                             </div>
                         ) : null}
-                        <FormLayout bootstrap={boot} readOnly={form.readOnly} fieldLayout={props.fieldLayout} hideFormatters={props.hideFormatters} renderElement={props.renderElement} />
+                        <FormBody
+                            presentation={presentation}
+                            revealTab={revealTab}
+                            firstInvalidSection={errors.length && errors[0].name in fieldSection ? fieldSection[errors[0].name] : undefined}
+                            validation={form.validation}
+                            bootstrap={boot}
+                            readOnly={form.readOnly}
+                            fieldLayout={props.fieldLayout}
+                            hideFormatters={props.hideFormatters}
+                            renderElement={props.renderElement}
+                            isCollapsed={isCollapsed}
+                            onToggleSection={toggleSection}
+                            sectionBadges={sectionBadges}
+                        />
                         {form.scriptErrors.length ? (
                             <details className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-rp-script-errors="">
                                 <summary className="cursor-pointer">
@@ -319,32 +587,69 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                                 </ul>
                             </details>
                         ) : null}
-                        {form.readOnly ? null : (
-                            <div className="sticky bottom-0 z-10 -mx-6 -mb-6 flex flex-wrap items-center justify-end gap-3 rounded-b-xl border-t border-border bg-card/95 px-6 py-3 backdrop-blur" data-rp-save-bar="">
-                                <p className={cx('mr-auto text-sm', dirtyCount ? 'text-foreground' : 'text-muted-foreground')} aria-live="polite">
-                                    {form.isNew ? 'New record, not saved yet' : dirtyCount ? `${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}` : 'No changes'}
-                                </p>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={!dirtyCount || form.saving}
-                                    onClick={() => {
-                                        form.reset()
-                                        form.clearValidation()
-                                    }}
-                                >
-                                    Discard
-                                </Button>
-                                <Button type="submit" disabled={!canSave} data-rp-save="" aria-keyshortcuts="Control+S Meta+S">
-                                    {form.saving ? <Spinner label="Saving" /> : null}
-                                    {form.isNew ? 'Create' : 'Save'}
-                                </Button>
-                            </div>
-                        )}
                     </form>
                 </FormProvider>
             </CardContent>
         </Card>
+    )
+}
+
+/**
+ * The form's sections, stacked (collapsible headings, components:app/form-section) or as tabs
+ * (components:app/form-tabs), with the user's presentation toggle. Rendered inside FormProvider:
+ * section visibility follows the store (g_form.setSectionDisplay, hidden fields).
+ */
+function FormBody(
+    props: FormLayoutProps & {
+        presentation: FormPresentation
+        revealTab: { current: ((section: string) => void) | null }
+        firstInvalidSection?: string
+        validation: unknown
+    },
+) {
+    const { bootstrap, presentation, revealTab, firstInvalidSection, validation, ...layout } = props
+    const visible = useVisibleSections(bootstrap, props.hideFormatters)
+    // The first section without a caption (incident's main fields) is never a tab: it stays on top,
+    // always open; the tabs hold the named sections.
+    const first = bootstrap.sections[0]
+    const lead = first && !first.caption ? first : null
+    const named = lead ? bootstrap.sections.slice(1) : bootstrap.sections
+    const tabsPossible = canUseTabs(bootstrap.sections)
+    const namedShown = named.filter((s) => visible.has(sectionName(s)))
+    const asTabs = presentation === 'tabs' && tabsPossible && namedShown.length > 0
+    const tabs = useFormTabState({ sections: named, visible, syncUrl: asTabs })
+    const byName: Record<string, any> = {}
+    named.forEach((s) => (byName[sectionName(s)] = s))
+    revealTab.current = (section: string) => {
+        const s = byName[section]
+        if (s && tabs.value !== tabValue(s)) tabs.select(tabValue(s))
+    }
+    // A failed save shows the tab holding the first field to fix.
+    useEffect(() => {
+        if (asTabs && validation && firstInvalidSection !== undefined && revealTab.current) revealTab.current(firstInvalidSection)
+    }, [validation])
+    return (
+        <div className="flex flex-col gap-6">
+            {asTabs ? (
+                <>
+                    {lead && visible.has(sectionName(lead)) ? (
+                        <div className="flex flex-col gap-4" data-rp-form-section="main">
+                            <SectionRows section={lead} bootstrap={bootstrap} {...layout} />
+                        </div>
+                    ) : null}
+                    <FormTabs
+                        sections={named}
+                        visible={visible}
+                        value={tabs.value}
+                        onValueChange={tabs.select}
+                        errors={layout.sectionBadges}
+                        renderSection={(s: any) => <SectionRows section={s} bootstrap={bootstrap} {...layout} />}
+                    />
+                </>
+            ) : (
+                <FormLayout bootstrap={bootstrap} {...layout} />
+            )}
+        </div>
     )
 }
 
@@ -360,8 +665,9 @@ export function UiActionBar({ form, onRun, maxButtons }: { form: RecordFormModel
     if (!all.length) return null
     // maxButtons (a header bar): the first N form buttons stay buttons, the rest join the More menu.
     const allButtons = all.filter((a) => a.type === 'button')
-    const buttons = maxButtons ? allButtons.slice(0, maxButtons) : allButtons
-    const menu = (maxButtons ? allButtons.slice(maxButtons) : []).concat(all.filter((a) => a.type !== 'button'))
+    const capped = maxButtons !== undefined
+    const buttons = capped ? allButtons.slice(0, maxButtons) : allButtons
+    const menu = (capped ? allButtons.slice(maxButtons) : []).concat(all.filter((a) => a.type !== 'button'))
     const go = (a: UiAction) => {
         if (running) return
         setRunning(a.sysId)
@@ -369,7 +675,7 @@ export function UiActionBar({ form, onRun, maxButtons }: { form: RecordFormModel
     }
     const busy = !!running || form.saving
     return (
-        <div className={cx('flex items-center gap-2', maxButtons ? 'flex-nowrap' : 'flex-wrap')} role="toolbar" aria-label="Record actions" data-rp-action-bar="">
+        <div className={cx('flex items-center gap-2', capped ? 'flex-nowrap' : 'flex-wrap')} role="toolbar" aria-label="Record actions" data-rp-action-bar="">
             {buttons.map((a) => (
                 <Button
                     key={a.sysId}

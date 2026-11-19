@@ -24,6 +24,8 @@ export type FormState = {
     meta: Record<string, FieldMeta>
     submitted: boolean
     formMessages: FormMessage[]
+    /** Section display overrides by section name (g_form.setSectionDisplay): false = hidden. */
+    sections: Record<string, boolean>
     table: string
     sysId: string
     encodedRecord: string
@@ -74,6 +76,13 @@ export interface FormStore {
     addErrorMessage(text: string): void
     clearMessages(): void
 
+    // sections (g_form.setSectionDisplay)
+    setSectionDisplay(name: string, on: boolean): void
+    /** Script override for a section: true / false, or undefined (not set). */
+    getSectionDisplay(name: string): boolean | undefined
+    /** Drop every section override (a client-script restart). */
+    clearSectionDisplay(): void
+
     // lifecycle
     load(input: { values?: Record<string, ValueInput>; server?: Record<string, ServerFieldState>; meta?: Record<string, FieldMeta>; table?: string; sysId?: string; encodedRecord?: string; replace?: boolean }): void
     mergeMeta(meta: Record<string, FieldMeta>, overwrite?: boolean): void
@@ -108,6 +117,32 @@ function norm(v: ValueInput, dv?: string): { value: string; displayValue: string
 
 let seq = 0
 
+/** Mandatory, writable, visible and empty: what a save would reject (same layers as useField). */
+export function isFieldMissing(state: FormState, name: string): boolean {
+    if (!isFieldVisible(state, name)) return false
+    const e = state.fields[name]
+    const m = state.meta[name]
+    const ov = (e && e.overrides) || {}
+    const p = (e && e.policy) || {}
+    const s = state.server[name]
+    const readOnly = !!(ov.readOnly ?? p.readOnly ?? (s && s.readonly) ?? (m && (m.readOnly || m.canWrite === false)))
+    const mandatory = !!(ov.mandatory ?? p.mandatory ?? (s && s.mandatory) ?? (m && m.mandatory))
+    const value = e ? (e.staged !== undefined ? e.staged : e.value) : ''
+    return mandatory && !readOnly && String(value || '').trim() === ''
+}
+
+/** Is a field visible, by the same layers useField resolves (script → policy → server → dictionary)? */
+export function isFieldVisible(state: FormState, name: string): boolean {
+    const e = state.fields[name]
+    const m = state.meta[name]
+    if (m && m.canRead === false) return false
+    const ov = (e && e.overrides) || {}
+    const p = (e && e.policy) || {}
+    const s = state.server[name]
+    const v = ov.visible ?? p.visible ?? (s ? !s.hidden : undefined)
+    return v === undefined ? true : !!v
+}
+
 function samePolicy(a: PolicyState | undefined, b: PolicyState | undefined): boolean {
     if (a === b) return true
     if (!a || !b) return false
@@ -130,6 +165,7 @@ export function createFormStore(init: { table?: string; sysId?: string; values?:
         sysId: init.sysId || '',
         encodedRecord: '',
         loaded: false,
+        sections: {},
     }
     const listeners = new Set<() => void>()
     const changeListeners = new Map<string, Set<ChangeListener>>()
@@ -256,6 +292,15 @@ export function createFormStore(init: { table?: string; sysId?: string; values?:
         },
         addErrorMessage(text) {
             set({ ...state, formMessages: state.formMessages.concat({ kind: 'error', text, id: `f${++seq}` }) })
+        },
+        setSectionDisplay(name, on) {
+            const key = String(name || '').toLowerCase()
+            if (state.sections[key] === !!on) return
+            set({ ...state, sections: { ...state.sections, [key]: !!on } })
+        },
+        getSectionDisplay: (name) => state.sections[String(name || '').toLowerCase()],
+        clearSectionDisplay() {
+            if (Object.keys(state.sections).length) set({ ...state, sections: {} })
         },
         clearMessages() {
             set({ ...state, formMessages: [] })

@@ -9,5 +9,5 @@
         { "name": "main", "acceptsContributions": false },
         { "name": "footer", "acceptsContributions": true }
     ],
-    "defaults": { "texture": "noise", "contentPadding": "md" }
+    "defaults": { "texture": "noise", "contentPadding": "md", "subheader": "bar", "subheaderTint": "primary" }
 }

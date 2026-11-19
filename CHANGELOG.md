@@ -2,6 +2,60 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.12.0] - 2026-11-19
+
+Record forms get collapsible sections, a tabbed mode and a proper page header. The app-shell
+sub-header gains bar, banner and hidden variants. A compiler change fixes the recurring
+`hidden sm:block` cascade bug at its root.
+
+### Fixed
+- **Tailwind variants no longer lose to other components' base utilities.**
+  - Responsive and state variants (`sm:block`, `max-sm:flex`, `hover:`, `dark:`, `data-[…]:`, `group-*`, `@container`…) used to lose to `.hidden`, `.flex` or `.grid` emitted by a stylesheet loaded later on the page.
+  - Every Tailwind sheet (component builds, placement classes, the host's framework CSS) now moves variant rules into a new `@layer rp-variants` after `utilities`. Layer order: `theme, base, components, utilities, rp-variants`.
+  - Rules whose declarations are all `!important` stay in `utilities`, so important overrides behave as before.
+  - Widget `styles.css` stays unlayered.
+- **Removed** the temporary `max-sm:…!` workarounds from `app/app-subheader`.
+- **Sticky save bar** was sized for the wrong card padding (8px too wide each side). It's gone in header modes, and correct in the fallback.
+
+### Added
+- **Collapsible form sections:**
+  - new primitive `app/form-section`, built on the host kit's `components:collapsible`;
+  - clear headings with dividers;
+  - collapse state remembered per user and table (`x_312987_portal.form.<table>.collapsed`);
+  - a collapsed section opens when a save finds fields to fix in it.
+- **Tabbed form mode:** host kit `components:tabs` (shadcn on Base UI), plus the new primitive `app/form-tabs`, which owns the form behaviour.
+  - An untitled first section (e.g. incident's main fields) always stays on top, never collapsible or a tab.
+  - Tabs show error and required badges.
+  - Validation and error-summary links switch to the right tab.
+  - `tab=` is kept in `q` for Back and deep links.
+  - The tab strip scrolls on its own on phones.
+- **Form settings (cog) menu** with **View ▸** and **Layout ▸** (Stacked / Tabs) submenus. The user's choice is stored in `x_312987_portal.form.presentation`; we never write platform preferences.
+- **Form header:**
+  - the unsaved indicator (leftmost), UI actions, Discard/Save (Ctrl/⌘+S) and the cog live in the page header;
+  - in a banner sub-header (the sp and app `form` pages), the full record header: back, table, large title, badges, short description;
+  - compact in a bar sub-header;
+  - without header slots, or with `headerPlacement: 'inline'`, the card's own header row;
+  - on phones the UI actions move into More, and Save stays visible.
+- **`g_form.setSectionDisplay` / `getSectionNames`** now work. A section hidden by script, or with every field hidden, disappears in both modes.
+- **App-shell sub-header variants:** layout option `subheader`:
+  - `bar` (unchanged);
+  - `banner`: a hero band with `subheaderTitle` (default: page title), `subheaderSubtitle`, `subheaderIcon` and `subheaderTint` (`primary`, `chart-1…5`, `none`), aligned to the content width;
+  - `hidden`: main reclaims the space, and `HeaderSlot` users fall back inline.
+
+  It can be set portal-wide or per page, and the designer's layout-options forms edit it. Switching never remounts widgets.
+- **`utilities:app/list-data`:** `fetchUserPreferenceValue` / `saveUserPreferenceValue`, limited to `x_312987_portal.*` names.
+- **`app/record-form` option `presentation`** (`stacked` | `tabs`): a default only; the user's choice wins.
+
+### Changed
+- **Record form pages** (sp, app) use the portal content width (6xl) instead of full bleed, and the banner sub-header.
+- **The demo "+ New"** shows only when the picker is on and no record is open.
+- **Seed demo:** sp home uses a banner ("How can we help?"); Runtime Tests hides the sub-header.
+- **Compiler `rp-server-compiler/5`** (`src/server/compiler/variant-layer.ts`); builds recompile. The host's `build:css` runs the same pass (`packages/portal-host/scripts/variant-layer.mjs`).
+
+### Notes
+- A variant in one sheet can still lose to a conflicting *variant* in a later sheet (e.g. `md:hidden` vs `sm:flex`). One sheet per portal stays on the backlog.
+- Runtime Tests: 28/28 live. The Runtime Tests card's toast buttons still overflow sideways at 390px; this was already the case before this release.
+
 ## [1.11.0] - 2026-11-19
 
 Service Portal on the app shell, generic list and form pages with explicit URL params, and a

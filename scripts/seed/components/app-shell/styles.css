@@ -32,9 +32,19 @@
 .rp-app:has([data-slot="sidebar"][data-collapsible="offcanvas"]) .rp-app__card { margin-left: 8px; }
 @container rp-page (max-width: 767px) { .rp-app__card { margin-left: 8px; } }
 
+/* subheader: hidden: the region takes no space (its widget renders nothing, so no header-slot
+   outlets exist and slot contributions fall back inline). */
+.rp-app[data-subheader="hidden"] .rp-app__subheader { display: none; }
+
 .rp-app__scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .rp-app__content { --rp-pad: 24px; display: grid; gap: 16px; align-content: start; box-sizing: border-box; width: 100%; max-width: var(--rp-content-max, none); margin-inline: auto; padding: var(--rp-pad); }
 .rp-app[data-pad="none"] .rp-app__content { --rp-pad: 0; }
 .rp-app[data-pad="sm"] .rp-app__content { --rp-pad: 12px; }
 .rp-app[data-pad="lg"] .rp-app__content { --rp-pad: 40px; }
 @container rp-page (max-width: 767px) { .rp-app__content { --rp-pad: 16px; } .rp-app[data-pad="none"] .rp-app__content { --rp-pad: 0; } }
+/* The same --rp-pad on the sub-header region, so a banner sub-header can line up with main. */
+.rp-app__subheader { --rp-pad: 24px; }
+.rp-app[data-pad="none"] .rp-app__subheader { --rp-pad: 0; }
+.rp-app[data-pad="sm"] .rp-app__subheader { --rp-pad: 12px; }
+.rp-app[data-pad="lg"] .rp-app__subheader { --rp-pad: 40px; }
+@container rp-page (max-width: 767px) { .rp-app__subheader { --rp-pad: 16px; } .rp-app[data-pad="none"] .rp-app__subheader { --rp-pad: 0; } }

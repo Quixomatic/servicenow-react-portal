@@ -171,6 +171,7 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
                     displayValue: () => store.getDisplayValue('number') || store.getDisplayValue('name') || '',
                     // The view's elements (+ values the record shipped): not every column of the table.
                     hasField: (name: string) => name in data.meta || name in data.values,
+                    sectionNames: () => data.sections.map((s) => String(s.caption || '').toLowerCase()),
                     submit: (name?: string) => submitRef.current(name),
                     openRecord: (t, id, params) => openRecord(t, id, params),
                 },
@@ -192,6 +193,7 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
             const s = store.getState()
             for (const n of Object.keys(s.fields)) if (Object.keys(s.fields[n].overrides).length) store.clearOverrides(n)
             store.clearMessages()
+            store.clearSectionDisplay()
         }
     }, [boot.data, userReady])
 

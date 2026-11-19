@@ -769,6 +769,10 @@ declare global {
                         table: 'sys_module'
                         id: 'cc60548c79ad47bab7da2b55749d78db'
                     }
+                    'src_server_compiler_variant-layer_ts': {
+                        table: 'sys_module'
+                        id: 'eecc22f14c704d85a8980a302b5c3ce0'
+                    }
                     src_server_compiler_vendor_sucrase_js: {
                         table: 'sys_module'
                         id: '74abcbbc1479414e8833c22babffd054'

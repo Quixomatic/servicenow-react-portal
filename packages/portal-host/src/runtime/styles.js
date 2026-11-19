@@ -10,6 +10,11 @@
 //   instance  one sheet per placement (placement.css: classes, style tokens, grid layout,
 //             responsive option variables), unlayered, so it wins over Tailwind utilities
 //   tokens    theme token variables (:host { --primary: … })            (last)
+//
+// Cascade layers (merged across all sheets): theme, base, components, utilities, rp-variants.
+// Every Tailwind sheet (framework, widget builds, instance classes) has its variant rules (sm:,
+// hover:, dark:, data-[…]:, …) in rp-variants, so a variant in any sheet beats a base utility in
+// any other sheet regardless of load order. Widget styles.css stays unlayered (beats all layers).
 
 import { recordStyle } from './diagnostics';
 

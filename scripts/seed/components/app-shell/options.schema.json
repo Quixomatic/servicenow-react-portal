@@ -12,6 +12,33 @@
       "title": "Main content padding",
       "enum": ["none", "sm", "md", "lg"],
       "enumNames": ["None (full bleed)", "Small (12px)", "Medium (24px)", "Large (40px)"]
+    },
+    "subheader": {
+      "type": "string",
+      "title": "Sub-header",
+      "enum": ["bar", "banner", "hidden"],
+      "enumNames": ["Bar (40px, page title and toolbars)", "Banner (large title and subtitle)", "Hidden (no sub-header)"]
+    },
+    "subheaderTitle": {
+      "type": "string",
+      "title": "Banner title",
+      "description": "Empty = the page's title."
+    },
+    "subheaderSubtitle": {
+      "type": "string",
+      "title": "Banner subtitle",
+      "format": "textarea"
+    },
+    "subheaderIcon": {
+      "type": "string",
+      "title": "Banner icon",
+      "description": "A Lucide icon name, e.g. life-buoy. Empty = no icon."
+    },
+    "subheaderTint": {
+      "type": "string",
+      "title": "Banner tint",
+      "enum": ["primary", "chart-1", "chart-2", "chart-3", "chart-4", "chart-5", "none"],
+      "enumNames": ["Primary", "Chart 1", "Chart 2", "Chart 3", "Chart 4", "Chart 5", "None"]
     }
   }
 }

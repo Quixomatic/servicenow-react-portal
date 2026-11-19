@@ -6,6 +6,10 @@
  *                                                    header (label, number, state), view switcher,
  *                                                    sections, dirty tracking, Save / Discard
  *   <FormLayout bootstrap readOnly />, <FormSection>, <FormElement>   the view's layout only
+ *                                                    (collapsible section headings; sections hidden
+ *                                                    by g_form.setSectionDisplay or with every field
+ *                                                    hidden disappear)
+ *   useCollapsedSections(table) / usePresentationPreference()   per-user state in x_312987_portal.form.*
  *   SAVE_ACTIONS, notify(notifications)
  *
  * Platform calls: GraphQL GlideViewQuery_Query.uiView (layout, values, states, UI policies, form
@@ -19,7 +23,9 @@ export { useRecordForm, SAVE_ACTIONS, notify } from './use-record-form'
 export type { RecordForm as RecordFormModel, UseRecordFormOptions, SaveOutcome } from './use-record-form'
 export { RecordForm } from './record-form'
 export type { RecordFormProps } from './record-form'
-export { FormLayout, FormSection, FormElement, isFormatter, isSplitMarker } from './layout'
+export { FormLayout, FormSection, FormElement, SectionRows, isFormatter, isSplitMarker, sectionName, sectionElements, sectionOfField, useVisibleSections } from './layout'
+export { useOwnPreference, useCollapsedSections, usePresentationPreference, formPreferenceName } from './preferences'
+export type { FormPresentation } from './preferences'
 export type { FormLayoutProps } from './layout'
 
 /** Preview (Studio): the most recently updated active incident (a new record would reserve a number). */

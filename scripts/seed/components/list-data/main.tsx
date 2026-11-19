@@ -22,7 +22,7 @@
  * ListArgs: { table, columns?, query? (filter), fixedQuery?, orderBy?: [{ field, desc }], keywords?,
  *             limit?, offset?, view?, relatedListName?, parentTable?, parentRecordSysId? }
  */
-export { fetchList, fetchListCount, fetchCrumbs, fetchFilterFields, fetchEditability, writeCells, fetchPreference, savePreference, preferenceName, effectiveQuery, columnsParam, LIST_QUERY } from './documents'
+export { fetchList, fetchListCount, fetchCrumbs, fetchFilterFields, fetchEditability, writeCells, fetchPreference, savePreference, preferenceName, fetchUserPreferenceValue, saveUserPreferenceValue, effectiveQuery, columnsParam, LIST_QUERY } from './documents'
 export { useList, useInfiniteList, useCrumbs, useFilterFields, useFieldPath, useEditability, useCellWrite, useListInvalidate, useListPreferences, listKeys } from './hooks'
 export type { ResolvedPath } from './hooks'
 export {

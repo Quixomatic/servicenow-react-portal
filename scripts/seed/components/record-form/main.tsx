@@ -23,7 +23,8 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
  * slot, the UI actions, view switcher and New to the right (the picker shows only with no record open)
  * (headerPlacement: 'auto' | 'header' | 'inline'). `listPage` adds a back button to a list page.
  *
- * Options: { table, sysId, view, picker, showViews, pickerQuery, headerPlacement, listPage }
+ * Options: { table, sysId, view, picker, showViews, pickerQuery, headerPlacement, listPage, presentation }
+ * presentation: 'stacked' (default) | 'tabs', the default only: the user's toggle on the form wins.
  */
 type Options = {
     table?: string
@@ -33,6 +34,8 @@ type Options = {
     showViews?: boolean
     pickerQuery?: string
     headerPlacement?: 'auto' | 'header' | 'inline'
+    /** Default section presentation; the user's own toggle (x_312987_portal.form.presentation) wins. */
+    presentation?: 'stacked' | 'tabs'
     /** Portal page with the list (back button; gets the table param). '' = none. */
     listPage?: string
 }
@@ -140,7 +143,8 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                         <CardContent className="flex flex-wrap items-center gap-3">
                             {back}
                             {picker}
-                            {newButton}
+                            {/* The demo New only while no record is open: an open record's New / Insert come from its UI actions. */}
+                            {!sysId ? newButton : null}
                         </CardContent>
                     </Card>
                 )
@@ -159,7 +163,7 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     query={presetQuery}
                     showViews={options.showViews !== false}
                     headerSlots={headerSlots}
-                    headerActions={toHeader && options.picker !== false ? newButton : undefined}
+                    presentation={options.presentation === 'tabs' ? 'tabs' : options.presentation === 'stacked' ? 'stacked' : undefined}
                     onDirty={setDirty}
                     onViewChange={(v) => confirmDiscard(dirty) && go({ view: v })}
                     onCreated={(id) => go({ sysId: id })}
@@ -182,6 +186,7 @@ function FormFor(props: {
     showViews: boolean
     headerSlots?: { left?: (node: any) => any; right?: (node: any) => any }
     headerActions?: any
+    presentation?: 'stacked' | 'tabs'
     onDirty: (d: boolean) => void
     onViewChange: (v: string) => void
     onCreated: (id: string) => void
@@ -200,7 +205,7 @@ function FormFor(props: {
     const meta = useFormMeta(form)
     const { onDirty } = props
     useEffect(() => onDirty(meta.isDirty), [meta.isDirty, onDirty])
-    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} />
+    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} presentation={props.presentation} />
 }
 
 /** Columns the picker searches and shows, when the table has them (first = label). */

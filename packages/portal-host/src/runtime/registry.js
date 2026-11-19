@@ -20,6 +20,7 @@ import * as Sheet from '#/components/ui/sheet';
 import * as Sidebar from '#/components/ui/sidebar';
 import * as Tooltip from '#/components/ui/tooltip';
 import * as Collapsible from '#/components/ui/collapsible';
+import * as Tabs from '#/components/ui/tabs';
 import * as Icon from '#/components/ui/icon';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
@@ -54,6 +55,8 @@ const modules = {
 	'components:sidebar': Sidebar,
 	'components:tooltip': Tooltip,
 	'components:collapsible': Collapsible,
+	// shadcn Tabs on Base UI (tablist, roving focus, arrow/Home/End keys, aria wiring).
+	'components:tabs': Tabs,
 	// Curated lucide icons by name: <Icon name="layout-dashboard" />.
 	'components:icon': Icon,
 	'utilities:cn': cnModule,

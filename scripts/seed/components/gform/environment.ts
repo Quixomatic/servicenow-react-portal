@@ -39,6 +39,8 @@ export type ScriptHost = {
     encodedRecord: () => string
     /** Is the field on the form (g_form.hasField)? Default: any field the store knows. */
     hasField?: (name: string) => boolean
+    /** The form's section names (g_form.getSectionNames); the first, untitled section answers to ''. */
+    sectionNames?: () => string[]
     /** Record display value (header title). */
     displayValue?: () => string
     /** g_form.submit / save: run a UI action by name or sys_id (default: Save). False = blocked. */
@@ -322,8 +324,22 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         save: () => (host.submit ? host.submit() : false),
         submit: (actionName?: string) => (host.submit ? host.submit(actionName || action || undefined) : false),
         // no-ops: sections, related lists, attachments, decorations (not rendered yet)
-        setSectionDisplay: () => {},
-        getSectionNames: () => [],
+        // Sections: names as the platform uses them (the section caption, lower case; '' or the table
+        // name for the first, untitled section). A hidden section disappears in stacked and tab modes.
+        setSectionDisplay: (name: string, on: unknown) => {
+            const key = String(name || '').toLowerCase()
+            const names = host.sectionNames ? host.sectionNames() : []
+            const target = key === String(host.table()).toLowerCase() && names.indexOf(key) < 0 ? '' : key
+            if (host.sectionNames && names.indexOf(target) < 0) {
+                // eslint-disable-next-line no-console
+                console.warn(`(g_form) setSectionDisplay: no section "${name}" on this form (${names.map((n) => n || "''").join(', ')})`)
+                return false
+            }
+            store.setSectionDisplay(target, !!on)
+            return true
+        },
+        getSectionNames: () => (host.sectionNames ? host.sectionNames() : []),
+        isSectionVisible: (name: string) => store.getSectionDisplay(String(name || '').toLowerCase()) !== false,
         showRelatedList: () => {},
         hideRelatedList: () => {},
         showRelatedLists: () => {},
