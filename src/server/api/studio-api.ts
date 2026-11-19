@@ -1,4 +1,16 @@
 import { handle, requiredParam } from './http.ts'
+import {
+    resolveDesignTarget,
+    portalDesign,
+    pageDesign,
+    createPlacement,
+    updatePlacement,
+    deletePlacement,
+    createPage,
+    updatePage,
+    deletePage,
+    updatePortal,
+} from '../design/design-service.ts'
 import { getProject, save, check, createComponent } from '../source/source-service.ts'
 import { completeBuild, previewContext } from '../build/build-service.ts'
 import { reprocess } from '../release/release-service.ts'
@@ -71,4 +83,56 @@ export function componentCheckRoute(request: any, response: any): void {
         const files = Array.isArray(req.body.files) ? (req.body.files as { path: string; content: string }[]) : []
         return check('component', requiredParam(req, 'id'), files).then((data) => ({ data }))
     })
+}
+
+/* ---------------- Page designer ---------------- */
+
+/** GET /design/{id}: what a record id is (portal, page, component, theme). */
+export function designTargetRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: resolveDesignTarget(requiredParam(req, 'id')) }))
+}
+
+/** GET /portals/{id}/design */
+export function portalDesignRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: portalDesign(requiredParam(req, 'id')) }))
+}
+
+/** GET /pages/{id}/design */
+export function pageDesignRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: pageDesign(requiredParam(req, 'id')) }))
+}
+
+/** POST /placements { portal, page?, region, component, index?, options? } */
+export function createPlacementRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: createPlacement(req.body as any), status: 201 }))
+}
+
+/** PATCH /placements/{id} { region?, index?, page?, options?, active? } */
+export function updatePlacementRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: updatePlacement(requiredParam(req, 'id'), req.body as any) }))
+}
+
+/** DELETE /placements/{id} */
+export function deletePlacementRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: deletePlacement(requiredParam(req, 'id')) }))
+}
+
+/** POST /pages { portal, name, title?, route, layoutOverride? } */
+export function createPageRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: createPage(req.body as any), status: 201 }))
+}
+
+/** PATCH /pages/{id} */
+export function updatePageRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: updatePage(requiredParam(req, 'id'), req.body as any) }))
+}
+
+/** DELETE /pages/{id} */
+export function deletePageRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: deletePage(requiredParam(req, 'id')) }))
+}
+
+/** PATCH /portals/{id} */
+export function updatePortalRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: updatePortal(requiredParam(req, 'id'), req.body as any) }))
 }

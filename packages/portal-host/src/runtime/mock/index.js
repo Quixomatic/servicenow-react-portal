@@ -107,6 +107,7 @@ function materialize(p) {
 function groupByRegion(list) {
 	const regions = {};
 	list.forEach((p) => {
+		if (p.active === false) return; // inactive placements don't render (the designer still lists them)
 		const m = materialize(p);
 		(regions[m.region] = regions[m.region] || []).push(m);
 	});
@@ -570,3 +571,367 @@ export function tableApi(table, sysId, params) {
 	if (p.sysparm_limit) rows = rows.slice(0, Number(p.sysparm_limit));
 	return delay(rows.map(pick));
 }
+
+// ---- page designer (Studio "Pages"): mock of /rp_studio design endpoints -------------------
+// Mutates the same PORTALS data the mock bootstrap/resolve read, so the designer's canvas (the
+// real runtime) shows every change.
+
+const DESIGN_META = {
+	'layout-classic': { name: 'Classic Layout' },
+	'layout-split': { name: 'Split Layout' },
+	header: {
+		name: 'Portal Header',
+		description: 'Brand, navigation and the portal switcher',
+		schema: {
+			type: 'object',
+			properties: {
+				tagline: { type: 'string', title: 'Tagline' },
+				portals: { type: 'array', title: 'Switchable portals', items: { type: 'object', properties: { slug: { type: 'string', title: 'Slug' }, name: { type: 'string', title: 'Name' } } } }
+			}
+		},
+		defaults: { tagline: '' }
+	},
+	nav: { name: 'Portal Nav', description: 'Page list for the sidebar', schema: { type: 'object', properties: { title: { type: 'string', title: 'Title', default: 'Pages' } } }, defaults: { title: 'Pages' } },
+	counter: {
+		name: 'Counter',
+		description: 'Local state plus an on-load server script',
+		schema: { type: 'object', properties: { label: { type: 'string', title: 'Label' }, start: { type: 'integer', title: 'Start value', default: 0 } }, required: ['label'] },
+		defaults: { label: 'Counter', start: 0 }
+	},
+	record: {
+		name: 'Record Detail',
+		description: 'Shows the current record and contributes to the header',
+		schema: { type: 'object', properties: { entity: { type: 'string', title: 'Entity label' }, listPage: { type: 'string', title: 'List page route' } } },
+		defaults: { entity: 'Record', listPage: '' }
+	},
+	text: {
+		name: 'Text Block',
+		description: 'Title, text and a row of links',
+		schema: {
+			type: 'object',
+			properties: {
+				title: { type: 'string', title: 'Title' },
+				text: { type: 'string', title: 'Text', format: 'textarea' },
+				variant: { type: 'string', title: 'Variant', enum: ['card', 'footer'], enumNames: ['Card', 'Footer'], default: 'card' },
+				links: {
+					type: 'array',
+					title: 'Links',
+					items: { type: 'object', properties: { label: { type: 'string', title: 'Label' }, page: { type: 'string', title: 'Page' }, primary: { type: 'boolean', title: 'Primary' } } }
+				}
+			}
+		},
+		defaults: { title: 'Text', text: '', variant: 'card', links: [] }
+	},
+	broken: { name: 'Broken (throws)', description: 'Fails on render (error boundary demo)', schema: { type: 'object', properties: { message: { type: 'string', title: 'Error message' } } }, defaults: {} },
+	utils: { name: 'Utilities Demo', description: 'Service Portal-style hooks', schema: null, defaults: {} }
+};
+
+const keyOfComponentId = (id) => (id && id.indexOf('cmp-') === 0 ? id.slice(4) : id);
+
+function designError(message, status) {
+	return new MockError(message, status || 400);
+}
+
+function portalEntryById(portalId) {
+	const slug = Object.keys(PORTALS).find((s) => PORTALS[s].portal.id === portalId || s === portalId);
+	if (!slug) throw designError('Portal ' + portalId + ' not found', 404);
+	return PORTALS[slug];
+}
+
+function findPage(pageId) {
+	for (const slug of Object.keys(PORTALS)) {
+		const page = PORTALS[slug].pages.find((p) => p.id === pageId);
+		if (page) return { entry: PORTALS[slug], page };
+	}
+	return null;
+}
+
+function findPlacementRecord(placementId) {
+	for (const slug of Object.keys(PORTALS)) {
+		const entry = PORTALS[slug];
+		const i = entry.placements.findIndex((p) => p.id === placementId);
+		if (i !== -1) return { entry, list: entry.placements, index: i, page: null };
+		for (const page of entry.pages) {
+			const j = page.placements.findIndex((p) => p.id === placementId);
+			if (j !== -1) return { entry, list: page.placements, index: j, page };
+		}
+	}
+	return null;
+}
+
+function layoutRef(key) {
+	const def = DEFINITIONS[key];
+	return { id: 'cmp-' + key, uniqueId: 'rp.' + key, name: (DESIGN_META[key] || {}).name || key, regions: clone(def.regions || []) };
+}
+
+function designPlacement(raw, scope) {
+	const meta = DESIGN_META[raw.componentKey] || {};
+	return {
+		id: raw.id,
+		region: raw.region,
+		order: raw.order,
+		active: raw.active !== false,
+		component: { id: 'cmp-' + raw.componentKey, uniqueId: 'rp.' + raw.componentKey, name: meta.name || raw.componentKey },
+		options: clone(raw.options || {}),
+		effectiveOptions: Object.assign({}, clone(meta.defaults || {}), clone(raw.options || {})),
+		scope
+	};
+}
+
+function groupDesign(list, scope) {
+	const out = {};
+	list.slice()
+		.sort((a, b) => a.order - b.order)
+		.forEach((p) => (out[p.region] = out[p.region] || []).push(designPlacement(p, scope)));
+	return out;
+}
+
+function pageSummary(entry, page, index) {
+	return {
+		id: page.id,
+		name: page.name || page.title,
+		title: page.title,
+		route: page.route,
+		order: page.order !== undefined ? page.order : (index + 1) * 10,
+		active: page.active !== false,
+		layoutOverride: page.layout ? 'cmp-' + page.layout : null,
+		access: page.access || null
+	};
+}
+
+function portalSummary(entry) {
+	const home = entry.pages.find((p) => p.route === entry.portal.homeRoute);
+	const slug = entry.portal.slug;
+	return {
+		id: entry.portal.id,
+		slug,
+		name: entry.portal.name,
+		active: entry.portal.active !== false,
+		isDefault: slug === 'sp',
+		theme: THEMES[entry.theme].id,
+		defaultLayout: 'cmp-' + entry.layout,
+		homePage: home ? home.id : null,
+		navigation: clone(entry.portal.navigation || []),
+		settings: clone(entry.portal.settings || {})
+	};
+}
+
+function effectiveLayoutKey(entry, page) {
+	return (page && page.layout) || entry.layout;
+}
+
+/** Renumber orders in `list` for one region (10, 20, 30…) after an insert or move. */
+function renumber(list, region) {
+	list.filter((p) => p.region === region)
+		.sort((a, b) => a.order - b.order)
+		.forEach((p, i) => (p.order = (i + 1) * 10));
+}
+
+function insertAt(list, raw, index) {
+	const same = list.filter((p) => p.region === raw.region && p !== raw).sort((a, b) => a.order - b.order);
+	const at = index === undefined || index === null || index < 0 || index > same.length ? same.length : index;
+	same.splice(at, 0, raw);
+	same.forEach((p, i) => (p.order = (i + 1) * 10));
+	if (!list.includes(raw)) list.push(raw);
+}
+
+function assertRegion(entry, page, region) {
+	const key = effectiveLayoutKey(entry, page);
+	const regions = (DEFINITIONS[key].regions || []).map((r) => r.name);
+	if (!regions.includes(region)) {
+		throw designError('Region "' + region + '" is not on layout ' + ((DESIGN_META[key] || {}).name || key) + ' (regions: ' + regions.join(', ') + ')', 400);
+	}
+}
+
+let designSeq = 0;
+
+export const designApi = {
+	resolve(id) {
+		if (Object.keys(PORTALS).some((s) => PORTALS[s].portal.id === id)) return delay({ kind: 'portal', portalId: id, pageId: null });
+		const found = findPage(id);
+		if (found) return delay({ kind: 'page', portalId: found.entry.portal.id, pageId: id });
+		return delay({ kind: 'unknown', portalId: null, pageId: null });
+	},
+	listPortals() {
+		return delay(Object.keys(PORTALS).map((s) => ({ id: PORTALS[s].portal.id, slug: s, name: PORTALS[s].portal.name })));
+	},
+	portalDesign(portalId) {
+		try {
+			const entry = portalEntryById(portalId);
+			return delay({
+				portal: portalSummary(entry),
+				themes: Object.keys(THEMES).map((k) => ({ id: THEMES[k].id, key: k, name: k })),
+				layouts: Object.keys(DEFINITIONS)
+					.filter((k) => DEFINITIONS[k].kind === 'layout')
+					.map(layoutRef),
+				palette: Object.keys(DEFINITIONS)
+					.filter((k) => DEFINITIONS[k].kind === 'widget')
+					.map((k) => ({
+						id: 'cmp-' + k,
+						uniqueId: 'rp.' + k,
+						name: (DESIGN_META[k] || {}).name || k,
+						description: (DESIGN_META[k] || {}).description || '',
+						serverMode: DEFINITIONS[k].serverMode || 'none',
+						optionsSchema: clone((DESIGN_META[k] || {}).schema || null),
+						defaultOptions: clone((DESIGN_META[k] || {}).defaults || {})
+					})),
+				pages: entry.pages.map((p, i) => pageSummary(entry, p, i)),
+				portalPlacements: groupDesign(entry.placements, 'portal')
+			});
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	},
+	pageDesign(pageId) {
+		const found = findPage(pageId);
+		if (!found) return Promise.reject(designError('Page ' + pageId + ' not found', 404));
+		const entry = found.entry;
+		const page = found.page;
+		return delay({
+			page: pageSummary(entry, page, entry.pages.indexOf(page)),
+			layout: layoutRef(effectiveLayoutKey(entry, page)),
+			placements: groupDesign(page.placements, 'page'),
+			portalPlacements: groupDesign(entry.placements, 'portal')
+		});
+	},
+	createPlacement(body) {
+		try {
+			const entry = portalEntryById(body.portal);
+			const found = body.page ? findPage(body.page) : null;
+			if (body.page && !found) throw designError('Page ' + body.page + ' not found', 404);
+			const key = keyOfComponentId(body.component);
+			if (!DEFINITIONS[key] || DEFINITIONS[key].kind !== 'widget') throw designError('Component ' + body.component + ' is not a placeable widget', 400);
+			// Checked against the effective layout (portal-wide placements: the portal default layout).
+			assertRegion(entry, found ? found.page : null, body.region);
+			designSeq += 1;
+			const raw = { id: 'pl-new-' + Date.now().toString(36) + '-' + designSeq, region: body.region, order: 0, componentKey: key, options: clone(body.options || {}), active: true };
+			insertAt(found ? found.page.placements : entry.placements, raw, body.index);
+			return delay(designPlacement(raw, found ? 'page' : 'portal'), 180);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	},
+	patchPlacement(id, body) {
+		try {
+			const rec = findPlacementRecord(id);
+			if (!rec) throw designError('Placement ' + id + ' not found', 404);
+			const raw = rec.list[rec.index];
+			let targetList = rec.list;
+			let targetPage = rec.page;
+			if (body.page !== undefined) {
+				targetPage = body.page ? (findPage(body.page) || {}).page : null;
+				if (body.page && !targetPage) throw designError('Page ' + body.page + ' not found', 404);
+				targetList = targetPage ? targetPage.placements : rec.entry.placements;
+			}
+			const region = body.region || raw.region;
+			if (body.region !== undefined || body.page !== undefined) assertRegion(rec.entry, targetPage, region);
+			if (body.options !== undefined) raw.options = clone(body.options || {});
+			if (body.active !== undefined) raw.active = !!body.active;
+			if (body.region !== undefined || body.page !== undefined || body.index !== undefined) {
+				const oldRegion = raw.region;
+				rec.list.splice(rec.index, 1);
+				renumber(rec.list, oldRegion);
+				raw.region = region;
+				insertAt(targetList, raw, body.index);
+			}
+			return delay(designPlacement(raw, targetPage ? 'page' : 'portal'), 150);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	},
+	deletePlacement(id) {
+		const rec = findPlacementRecord(id);
+		if (!rec) return Promise.reject(designError('Placement ' + id + ' not found', 404));
+		const raw = rec.list[rec.index];
+		const placement = Object.assign(designPlacement(raw, rec.page ? 'page' : 'portal'), { page: rec.page ? rec.page.id : null, portal: rec.entry.portal.id });
+		rec.list.splice(rec.index, 1);
+		renumber(rec.list, raw.region);
+		return delay({ deleted: true, placement }, 150);
+	},
+	createPage(body) {
+		try {
+			const entry = portalEntryById(body.portal);
+			const route = String(body.route || '').replace(/^\/+|\/+$/g, '');
+			if (!route) throw designError('A route is required', 400);
+			if (entry.pages.some((p) => p.route === route)) throw designError('Route "' + route + '" already exists in ' + entry.portal.name, 400);
+			designSeq += 1;
+			const page = {
+				id: 'page-new-' + Date.now().toString(36) + '-' + designSeq,
+				name: body.name || body.title || route,
+				route,
+				title: body.title || body.name || route,
+				placements: [],
+				layout: body.layoutOverride ? keyOfComponentId(body.layoutOverride) : undefined
+			};
+			entry.pages.push(page);
+			return delay(pageSummary(entry, page, entry.pages.length - 1), 150);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	},
+	patchPage(id, body) {
+		const found = findPage(id);
+		if (!found) return Promise.reject(designError('Page ' + id + ' not found', 404));
+		const entry = found.entry;
+		const page = found.page;
+		if (body.route !== undefined) {
+			const route = String(body.route || '').replace(/^\/+|\/+$/g, '');
+			if (!route) return Promise.reject(designError('A route is required', 400));
+			if (entry.pages.some((p) => p !== page && p.route === route)) return Promise.reject(designError('Route "' + route + '" already exists', 400));
+			if (entry.portal.homeRoute === page.route) entry.portal.homeRoute = route;
+			page.route = route;
+		}
+		['name', 'title', 'order', 'access'].forEach((k) => {
+			if (body[k] !== undefined) page[k] = body[k];
+		});
+		if (body.active !== undefined) page.active = !!body.active;
+		if (body.layoutOverride !== undefined) {
+			const key = body.layoutOverride ? keyOfComponentId(body.layoutOverride) : undefined;
+			// Page placements must fit the new layout's regions.
+			const regions = ((DEFINITIONS[key || entry.layout] || {}).regions || []).map((r) => r.name);
+			const misfit = page.placements.find((p) => !regions.includes(p.region));
+			if (misfit) return Promise.reject(designError('A placement in region "' + misfit.region + '" does not fit that layout (regions: ' + regions.join(', ') + ')', 400));
+			page.layout = key;
+		}
+		return delay(pageSummary(entry, page, entry.pages.indexOf(page)), 150);
+	},
+	deletePage(id) {
+		const found = findPage(id);
+		if (!found) return Promise.reject(designError('Page ' + id + ' not found', 404));
+		const entry = found.entry;
+		const page = found.page;
+		if (entry.portal.homeRoute === page.route) return Promise.reject(designError('The home page cannot be deleted: choose another home page first', 400));
+		entry.pages.splice(entry.pages.indexOf(page), 1);
+		return delay({ deleted: true }, 150);
+	},
+	patchPortal(id, body) {
+		try {
+			const entry = portalEntryById(id);
+			if (body.name !== undefined) entry.portal.name = body.name;
+			if (body.active !== undefined) entry.portal.active = !!body.active;
+			if (body.navigation !== undefined) entry.portal.navigation = clone(body.navigation || []);
+			if (body.settings !== undefined) entry.portal.settings = clone(body.settings || {});
+			if (body.theme !== undefined) {
+				const key = Object.keys(THEMES).find((k) => THEMES[k].id === body.theme);
+				if (!key) throw designError('Theme ' + body.theme + ' not found', 400);
+				entry.theme = key;
+			}
+			if (body.defaultLayout !== undefined) {
+				const key = keyOfComponentId(body.defaultLayout);
+				if (!DEFINITIONS[key] || DEFINITIONS[key].kind !== 'layout') throw designError(body.defaultLayout + ' is not a layout', 400);
+				const regions = DEFINITIONS[key].regions.map((r) => r.name);
+				const misfit = entry.placements.find((p) => !regions.includes(p.region));
+				if (misfit) throw designError('A portal-wide placement in "' + misfit.region + '" does not fit that layout (regions: ' + regions.join(', ') + ')', 400);
+				entry.layout = key;
+			}
+			if (body.homePage !== undefined) {
+				const page = entry.pages.find((p) => p.id === body.homePage);
+				if (!page) throw designError('Page ' + body.homePage + ' not found', 400);
+				entry.portal.homeRoute = page.route;
+			}
+			return delay(portalSummary(entry), 150);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	}
+};

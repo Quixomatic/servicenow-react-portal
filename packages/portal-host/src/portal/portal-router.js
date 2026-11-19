@@ -123,7 +123,7 @@ function placementsOf(regions) {
 	return list;
 }
 
-export function createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref }) {
+export function createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref, embedded }) {
 	const initStore = createInstanceInitStore(queryClient);
 	let routerRef = null;
 
@@ -187,7 +187,7 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 					<RouterProgress />
 					{themeReady ? <LayoutSwitch /> : <ShellSkeleton />}
 					{/* usePortalUtils().addInfoMessage & co.: one toaster per portal, in the overlay layer. */}
-					<Toaster position="top-right" richColors={false} closeButton />
+					{embedded ? null : <Toaster position="top-right" richColors={false} closeButton />}
 
 				</InstanceInitContext.Provider>
 			</PortalContext.Provider>
@@ -270,12 +270,12 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
  * Builds the router for one portal, loads the first location before mounting (no blank first
  * paint), then mirrors the host's location store into it.
  */
-export function PortalRouterHost({ slug, boot, target }) {
+export function PortalRouterHost({ slug, boot, target, embedded }) {
 	const locationStore = useContext(LocationStoreContext);
 	const navigate = useNavigate();
 	useDiagCounter('PortalRouterHost', { slug, boot, target });
 	const [router] = useState(() =>
-		createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref: targetOf(locationStore.get()).key })
+		createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref: targetOf(locationStore.get()).key, embedded })
 	);
 	const [ready, setReady] = useState(false);
 

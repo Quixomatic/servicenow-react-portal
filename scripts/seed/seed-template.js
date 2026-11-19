@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.3.1/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.4.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -134,6 +134,7 @@
             script: c.serverScript || '',
             regions_json: c.meta.regions || '',
             default_options_json: c.meta.defaults || {},
+            options_schema_json: c.optionsSchema || '',
         })
         // Extra files (each insert/update also recompiles the component).
         var keepPaths = {}

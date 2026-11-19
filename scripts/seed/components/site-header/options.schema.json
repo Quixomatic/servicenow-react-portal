@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "brand": {
+      "type": "string",
+      "title": "Brand text",
+      "description": "Defaults to the portal name"
+    }
+  }
+}

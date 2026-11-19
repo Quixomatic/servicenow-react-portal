@@ -90,6 +90,7 @@ export function createStudio({ navigate }) {
 		busy: null,
 		checking: false,
 		conflict: null,
+		view: ui.view === 'pages' ? 'pages' : 'components',
 		panelOpen: ui.panelOpen !== false,
 		panelTab: ui.panelTab || 'problems',
 		explorerOpen: ui.explorerOpen !== false,
@@ -114,8 +115,8 @@ export function createStudio({ navigate }) {
 		state = { ...state, ...next };
 		listeners.forEach((l) => l());
 		if ('layout' in next || 'activeGroup' in next) persistLayout();
-		if ('panelOpen' in next || 'panelTab' in next || 'explorerOpen' in next) {
-			writeJson(UI_KEY, { panelOpen: state.panelOpen, panelTab: state.panelTab, explorerOpen: state.explorerOpen });
+		if ('panelOpen' in next || 'panelTab' in next || 'explorerOpen' in next || 'view' in next) {
+			writeJson(UI_KEY, { panelOpen: state.panelOpen, panelTab: state.panelTab, explorerOpen: state.explorerOpen, view: state.view });
 		}
 	}
 

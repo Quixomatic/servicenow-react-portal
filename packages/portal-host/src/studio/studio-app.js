@@ -5,13 +5,17 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Allotment, LayoutPriority } from 'allotment';
 import allotmentStyles from 'allotment/dist/style.css';
-import { Code2, Plus } from 'lucide-react';
+import { Code2, LayoutTemplate, Plus } from 'lucide-react';
 import { isMock } from '#/runtime/api';
 import { ensureStyle, styleTarget } from '#/runtime/styles';
 import { useAvailableHeight } from '#/runtime/use-available-height';
 import { createStudio, useStudio } from './store';
 import { STUDIO_CSS } from './studio-css';
 import { useStudioTheme } from './theme';
+import { Toaster, toast } from 'sonner';
+import { createDesigner } from './designer/designer-store';
+import Designer from './designer/designer';
+import { designApi } from './designer/designer-api';
 import EditorGroups from './groups';
 import Explorer from './explorer';
 import { ConflictBanner, Panel, Properties, QuickOpen, StatusBar, Titlebar, guardedOpen } from './chrome';
@@ -50,6 +54,13 @@ export default function StudioApp({ locationStore, navigate }) {
 			navigate: (to, opts) => navigateRef.current(to, opts)
 		})
 	);
+	const [designer] = useState(() =>
+		createDesigner({
+			navigate: (to, opts) => navigateRef.current(to, opts),
+			log: (level, text) => studio.log(level, text)
+		})
+	);
+	const view = useStudio(studio, (s) => s.view);
 	// One light/dark/system preference for the portal and Studio (the host's store).
 	const { resolvedTheme } = useStudioTheme();
 	const dark = resolvedTheme === 'dark';
@@ -87,15 +98,44 @@ export default function StudioApp({ locationStore, navigate }) {
 	// Catalog once; the recordId property picks the open component.
 	useEffect(() => {
 		studio.loadCatalog();
-	}, [studio]);
+		designer.loadPortals();
+	}, [studio, designer]);
 
+	// recordId → what it is: a component or theme opens the editor; a portal or page opens the
+	// designer. Studio's own navigation dispatches the id it already has open (no-op here).
 	const recordId = location ? location.recordId : '';
 	const handling = useRef(false);
 	useEffect(() => {
 		const current = studio.get().owner;
-		if (!recordId || (current && current.id === recordId) || handling.current) return;
+		const d = designer.get();
+		if (!recordId || handling.current) return;
+		if ((current && current.id === recordId) || d.pageId === recordId || (d.portalId === recordId && d.node === 'portal')) return;
 		handling.current = true;
 		(async () => {
+			let catalog = studio.get().catalog;
+			if (!catalog.components) await studio.loadCatalog();
+			catalog = studio.get().catalog;
+			const isOwner = (catalog.components || []).some((c) => c.id === recordId) || (catalog.themes || []).some((t) => t.id === recordId);
+			let kind = isOwner ? 'component' : null;
+			let resolved = null;
+			if (!kind) {
+				try {
+					resolved = await designApi.resolve(recordId);
+					kind = resolved.kind;
+				} catch (error) {
+					kind = 'component'; // older backends: try it as a component
+				}
+			}
+			if (kind === 'portal' || kind === 'page') {
+				studio.set({ view: 'pages' });
+				await designer.openPortal(resolved.portalId, { pageId: resolved.pageId, node: kind === 'portal' ? 'portal' : 'page', navigate: false });
+				return;
+			}
+			if (kind === 'unknown') {
+				toast.error('Nothing in React Portal has the id ' + recordId);
+				return;
+			}
+			studio.set({ view: 'components' });
 			if (current && studio.anyDirty()) {
 				const choice = await confirmDiscard(studio, current.name);
 				if (choice === null) {
@@ -108,7 +148,16 @@ export default function StudioApp({ locationStore, navigate }) {
 		})().finally(() => {
 			handling.current = false;
 		});
-	}, [recordId, studio]);
+	}, [recordId, studio, designer]);
+
+	// Opening the Pages view without a portal: open the default (or first) one.
+	const designerPortals = useSyncExternalStore(designer.subscribe, () => designer.get().portals);
+	const designerPortalId = useSyncExternalStore(designer.subscribe, () => designer.get().portalId);
+	useEffect(() => {
+		if (view !== 'pages' || designerPortalId || !designerPortals || !designerPortals.length || handling.current) return;
+		const def = designerPortals.find((p) => p.isDefault) || designerPortals[0];
+		designer.openPortal(def.id, { navigate: false });
+	}, [view, designerPortals, designerPortalId, designer]);
 
 	// Warn before leaving the page with unsaved work.
 	useEffect(() => {
@@ -128,6 +177,14 @@ export default function StudioApp({ locationStore, navigate }) {
 		const mod = e.ctrlKey || e.metaKey;
 		const key = e.key.toLowerCase();
 		let handled = true;
+		if (studio.get().view === 'pages') {
+			// The designer saves every change as it happens; it handles its own keys (undo, delete).
+			if (mod && !e.shiftKey && key === 's') {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+			return;
+		}
 		if (mod && !e.shiftKey && key === 's') studio.save();
 		else if (mod && !e.shiftKey && key === 'p') studio.set((s) => ({ quickOpen: !s.quickOpen }));
 		else if (mod && key === 'o' && !e.shiftKey) {
@@ -151,10 +208,20 @@ export default function StudioApp({ locationStore, navigate }) {
 
 	return (
 		<div ref={setRoot} className={'rps' + (dark ? '' : ' rps-light')} style={{ height }} onKeyDownCapture={onKeyDown} data-rps-root="">
-			<Titlebar studio={studio} />
-			<ConflictBanner studio={studio} />
+			<Titlebar studio={studio} designer={designer} />
+			{view === 'components' ? <ConflictBanner studio={studio} /> : null}
+			<div className="rps-main">
+			<div className="rps-activity" role="tablist" aria-label="Views">
+				<button role="tab" aria-pressed={view === 'components'} title="Components: the code editor" onClick={() => studio.set({ view: 'components' })} data-rps-activity="components">
+					<Code2 size={22} strokeWidth={1.6} />
+				</button>
+				<button role="tab" aria-pressed={view === 'pages'} title="Pages: the page designer" onClick={() => studio.set({ view: 'pages' })} data-rps-activity="pages">
+					<LayoutTemplate size={22} strokeWidth={1.6} />
+				</button>
+			</div>
 			<div className="rps-body" ref={setBodyEl}>
-				{target && bodySized ? (
+				{target && bodySized && view === 'pages' ? <Designer designer={designer} studio={studio} root={target} /> : null}
+				{target && bodySized && view === 'components' ? (
 					<Allotment proportionalLayout={false} separator>
 						<Allotment.Pane preferredSize={260} minSize={170} maxSize={600} visible={explorerOpen} snap priority={LayoutPriority.Low}>
 							<Explorer studio={studio} onMenu={setMenu} />
@@ -179,7 +246,9 @@ export default function StudioApp({ locationStore, navigate }) {
 					</Allotment>
 				) : null}
 			</div>
-			<StatusBar studio={studio} dark={dark} mock={isMock()} />
+			</div>
+			<StatusBar studio={studio} designer={designer} dark={dark} mock={isMock()} />
+			<Toaster theme={dark ? 'dark' : 'light'} position="bottom-right" closeButton richColors />
 			<QuickOpen studio={studio} />
 			<Dialogs studio={studio} />
 			<ContextMenu menu={menu} onClose={closeMenu} />

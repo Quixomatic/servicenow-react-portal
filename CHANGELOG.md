@@ -2,6 +2,53 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.4.0] - 2026-11-19
+
+A drag-and-drop page designer in Portal Studio: lay out pages on a live canvas that renders the
+real portal, backed by a new design API that edits pages and placements in place.
+
+### Added
+- **Page designer** (Studio activity bar → Pages; `packages/portal-host/src/studio/designer/`).
+  - Left column: the portal picker, portal settings, the page list (create, delete, set as home page) and an
+    outline of every region and its widgets.
+  - Centre: a live canvas that renders the page through the real portal runtime: same router, layout, loader,
+    theme and light/dark mode.
+  - Right column: a widget palette with search and "+" to add, plus a properties panel.
+  - Drag and drop with dnd-kit:
+    - palette → region creates a placement;
+    - placements move within and between regions, and between page and portal-wide scope;
+    - the keyboard sensor supports Space, the arrow keys and Space again.
+  - Undo and redo of every write (Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y), Delete to remove, Escape to deselect.
+  - Desktop, tablet (820px) and mobile (390px) canvas widths, plus an interact/preview toggle.
+- **Schema-driven widget options.** Components with an `options_schema_json` get a generated form in the
+  properties panel (raw JSON as a fallback). The demo widgets now ship `options.schema.json`, which the seed
+  generator maps to `options_schema_json`.
+- **`PortalPreview`** (`src/portal/portal-preview.js`): the portal runtime driven by props instead of UI
+  Builder, exposed through registry internals for the canvas.
+- **Design API** (`src/server/design/design-service.ts`, new `rp_studio` routes):
+  - `GET /design/{id}` (resolve a portal or page id), `GET /portals/{id}/design`, `GET /pages/{id}/design`;
+  - `POST/PATCH/DELETE /placements[/{id}]`, `POST/PATCH/DELETE /pages[/{id}]`, `PATCH /portals/{id}`.
+  - Placements are renumbered on move, and target regions are validated against the layout's `regions_json`
+    before any write.
+- **Session summaries:** `.claude/skills/session-summary` writes a dated summary to `.docs/summaries/` and
+  refreshes the resume prompt's state block before a compaction.
+
+### Changed
+- **Batched reprocessing.** Designer writes set the `x_312987_portal.skip_reprocess` session flag, so the
+  reprocess business rules skip and the portal's release is processed once per batch instead of once per
+  record.
+- **Standing rules moved from `CLAUDE.md` to Claude memories**; `CLAUDE.md` is removed.
+
+### Fixed
+- **Unstyled buttons in Studio previews.** Studio's `<button>` reset sat outside any cascade layer, so it beat
+  Tailwind's layered utilities and stripped shadcn Button styling in the canvas and the component Preview tab.
+  The resets now live in Tailwind's `base` layer. Previews also take the host's font instead of Studio's 13px
+  chrome font (`src/studio/host-text.js`).
+
+### Internal
+- dnd-kit (`@dnd-kit/core`, `sortable`, `utilities`) added to the host. The mock runtime gained design data
+  for local designer development (`?rpmock=1`).
+
 ## [1.3.1] - 2026-11-19
 
 Two demo components that exercise the new runtime end to end, and a Tailwind extraction fix they

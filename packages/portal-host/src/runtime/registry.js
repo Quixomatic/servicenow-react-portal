@@ -25,6 +25,8 @@ import { ensureStyle } from './styles';
 import { themeStore } from './theme-mode';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
+import { PortalPreview, invalidatePortal } from '#/portal/portal-preview';
+import { designApi as mockDesignApi } from './mock';
 
 const modules = {
 	react: React,
@@ -62,7 +64,12 @@ registry.internals = {
 	themeStore,
 	// The page-level query cache, for previews of widgets that use data hooks.
 	QueryClientProvider,
-	queryClient
+	queryClient,
+	// Page designer: the real portal runtime as a component, plus cache invalidation.
+	PortalPreview,
+	invalidatePortal,
+	// Mock design API, so mock writes reach the same mock data the host runtime reads.
+	mockDesignApi
 };
 
 /** Register more modules at runtime (e.g. 'components:<widget>' for widgets other widgets use). */

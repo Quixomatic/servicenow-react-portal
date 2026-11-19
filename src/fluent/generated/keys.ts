@@ -497,6 +497,46 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '1ca038e1821845bc993198aa4b1c29ec'
                     }
+                    'rest-studio-design-target': {
+                        table: 'sys_ws_operation'
+                        id: 'e7acd31cea8e4f16a5f50708cd62b2ca'
+                    }
+                    'rest-studio-page-create': {
+                        table: 'sys_ws_operation'
+                        id: 'a6248644ecce4ef78a882f3f222152fd'
+                    }
+                    'rest-studio-page-delete': {
+                        table: 'sys_ws_operation'
+                        id: '1bfb0385ea0945acba8aea60b634e5c8'
+                    }
+                    'rest-studio-page-design': {
+                        table: 'sys_ws_operation'
+                        id: '780a22356b0b449f8ee0cbabf24c202d'
+                    }
+                    'rest-studio-page-update': {
+                        table: 'sys_ws_operation'
+                        id: 'e8c59d64aaee4a768949d4512328c395'
+                    }
+                    'rest-studio-placement-create': {
+                        table: 'sys_ws_operation'
+                        id: '5fe8938016234ab980a99486092d9ddf'
+                    }
+                    'rest-studio-placement-delete': {
+                        table: 'sys_ws_operation'
+                        id: '0f8af23756f84ba0a15826b39269d29e'
+                    }
+                    'rest-studio-placement-update': {
+                        table: 'sys_ws_operation'
+                        id: '1c065d0b8c1141b7a5640b084e253f0c'
+                    }
+                    'rest-studio-portal-design': {
+                        table: 'sys_ws_operation'
+                        id: '7451eaa5f30547f3ba95fb99f536bec0'
+                    }
+                    'rest-studio-portal-update': {
+                        table: 'sys_ws_operation'
+                        id: 'e256b7b4dbe842ae9d8c25ce10bec2a0'
+                    }
                     'rest-studio-portals': {
                         table: 'sys_ws_operation'
                         id: '0cdcf9aeafaa445fa5c74d94a8e89b10'
@@ -592,6 +632,10 @@ declare global {
                     src_server_compiler_vendor_tailwind_js: {
                         table: 'sys_module'
                         id: '10c615a8d3884fc39c6f7ba3540bc446'
+                    }
+                    'src_server_design_design-service_ts': {
+                        table: 'sys_module'
+                        id: '3b7b2fd8ad8442439ee73a308df35660'
                     }
                     src_server_lib_errors_ts: {
                         table: 'sys_module'

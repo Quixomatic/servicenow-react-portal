@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "title": "Label (read by $sp.getValue)"
+    }
+  }
+}

@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.3.1/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.4.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -151,7 +151,46 @@
     "target": "client",
     "content": "// An extra source file, imported from main.tsx with a relative path.\nimport { Link } from '@portal/runtime'\nimport { Button } from 'components:button'\n\nexport type LinkItem = { label: string; to?: string; recordId?: string; q?: string }\n\nexport function LinkList({ links }: { links: LinkItem[] }) {\n    return (\n        <div className=\"flex flex-wrap gap-2\">\n            {links.map((l) => (\n                <Link key={l.label} to={l.to || ''} recordId={l.recordId} q={l.q}>\n                    <Button variant=\"outline\" size=\"sm\">\n                        {l.label}\n                    </Button>\n                </Link>\n            ))}\n        </div>\n    )\n}\n"
    }
-  ]
+  ],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": "string",
+     "title": "Title"
+    },
+    "body": {
+     "type": "string",
+     "title": "Body",
+     "format": "textarea"
+    },
+    "links": {
+     "type": "array",
+     "title": "Links",
+     "items": {
+      "type": "object",
+      "properties": {
+       "label": {
+        "type": "string",
+        "title": "Label"
+       },
+       "to": {
+        "type": "string",
+        "title": "Page route"
+       },
+       "recordId": {
+        "type": "string",
+        "title": "Record id"
+       },
+       "q": {
+        "type": "string",
+        "title": "Query"
+       }
+      }
+     }
+    }
+   }
+  }
  },
  "incident-list": {
   "meta": {
@@ -174,7 +213,36 @@
     "target": "client",
     "content": "import { Badge } from 'components:badge'\nimport { Button } from 'components:button'\n\nexport type Incident = {\n    sys_id: string\n    number: string\n    short_description: string\n    priority: string\n    priority_label: string\n    state: string\n    assigned_to: string\n    assigned_to_me: boolean\n    updated: string\n}\n\n/** Priority 1 → destructive, 2 → primary, 3+ → secondary. */\nfunction priorityVariant(p: string): 'destructive' | 'default' | 'secondary' {\n    if (p === '1') return 'destructive'\n    if (p === '2') return 'default'\n    return 'secondary'\n}\n\nexport function IncidentRow({ incident, canAssign, onAssign }: { incident: Incident; canAssign: boolean; onAssign: () => void }) {\n    return (\n        <div className=\"grid grid-cols-[7rem_minmax(0,1fr)_auto] items-center gap-4 px-6 py-3 hover:bg-muted/50\">\n            <a\n                href={`/incident.do?sys_id=${incident.sys_id}`}\n                target=\"_blank\"\n                rel=\"noreferrer\"\n                className=\"font-mono text-sm font-medium text-primary no-underline hover:underline\"\n            >\n                {incident.number}\n            </a>\n            <div className=\"min-w-0\">\n                <div className=\"truncate text-sm font-medium\">{incident.short_description || '(no short description)'}</div>\n                <div className=\"mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground\">\n                    <Badge variant={priorityVariant(incident.priority)}>{incident.priority_label}</Badge>\n                    <span>{incident.state}</span>\n                    <span>·</span>\n                    <span>{incident.assigned_to || 'Unassigned'}</span>\n                    <span>·</span>\n                    <span>{incident.updated}</span>\n                </div>\n            </div>\n            {canAssign && !incident.assigned_to_me ? (\n                <Button variant=\"outline\" size=\"xs\" onClick={onAssign}>\n                    Assign to me\n                </Button>\n            ) : (\n                <span className=\"text-xs text-muted-foreground\">{incident.assigned_to_me ? 'Yours' : ''}</span>\n            )}\n        </div>\n    )\n}\n"
    }
-  ]
+  ],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": "string",
+     "title": "Title"
+    },
+    "limit": {
+     "type": "integer",
+     "title": "Rows",
+     "default": 20
+    },
+    "filter": {
+     "type": "string",
+     "title": "Default filter",
+     "enum": [
+      "active",
+      "mine",
+      "opened"
+     ],
+     "enumNames": [
+      "Active",
+      "Assigned to me",
+      "Opened by me"
+     ],
+     "default": "active"
+    }
+   }
+  }
  },
  "nav-sidebar": {
   "meta": {
@@ -188,7 +256,17 @@
   "clientScript": "import { usePortal, Link } from '@portal/runtime'\n\ntype Props = { options?: { title?: string } }\n\n/** Portal-level sidebar: one link per page without route parameters; highlights the current page. */\nexport default function NavSidebar({ options }: Props) {\n    const { pages = [], page } = usePortal()\n    const links = pages.filter((p) => !p.route.includes(':') && !p.route.includes('*'))\n\n    return (\n        <div className=\"grid gap-1\">\n            <div className=\"mb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase\">{options?.title || 'Pages'}</div>\n            {links.map((p) => {\n                const active = page?.route === p.route\n                return (\n                    <Link\n                        key={p.id}\n                        to={p.route}\n                        className={\n                            'block rounded-md px-2.5 py-1.5 text-sm no-underline ' +\n                            (active ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted')\n                        }\n                    >\n                        {p.title || '/' + p.route}\n                    </Link>\n                )\n            })}\n        </div>\n    )\n}\n",
   "css": "",
   "serverScript": "",
-  "extraFiles": []
+  "extraFiles": [],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": "string",
+     "title": "Heading",
+     "default": "Pages"
+    }
+   }
+  }
  },
  "record-detail": {
   "meta": {
@@ -203,7 +281,21 @@
   "clientScript": "import { usePortal, RegionPortal, Link } from '@portal/runtime'\nimport { Card, CardHeader, CardTitle, CardContent } from 'components:card'\nimport { Badge } from 'components:badge'\n\ntype Props = { options?: { label?: string; back?: string } }\n\n/** For routes like orders/:id — shows the params and contributes a breadcrumb to the header. */\nexport default function RecordDetail({ options = {} }: Props) {\n    const { page } = usePortal()\n    const params = page?.params || {}\n    const id = params.id || params['*'] || '?'\n    const label = options.label || 'Record'\n\n    return (\n        <Card>\n            <RegionPortal region=\"header\">\n                <Badge className=\"mr-6\">\n                    Viewing {label} {id}\n                </Badge>\n            </RegionPortal>\n            <CardHeader>\n                <CardTitle>\n                    {label} {id}\n                </CardTitle>\n            </CardHeader>\n            <CardContent className=\"space-y-3 text-sm\">\n                <p className=\"text-muted-foreground\">Route pattern: {page?.route}</p>\n                <pre className=\"rounded-md bg-muted p-2 text-xs\">{JSON.stringify(params, null, 2)}</pre>\n                <Link to={options.back || ''} className=\"text-primary no-underline hover:underline\">\n                    ← Back\n                </Link>\n            </CardContent>\n        </Card>\n    )\n}\n",
   "css": "",
   "serverScript": "",
-  "extraFiles": []
+  "extraFiles": [],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "label": {
+     "type": "string",
+     "title": "Record label",
+     "default": "Record"
+    },
+    "back": {
+     "type": "string",
+     "title": "Back link (page route)"
+    }
+   }
+  }
  },
  "runtime-tests": {
   "meta": {
@@ -218,7 +310,16 @@
   "clientScript": "import { useEffect, useState } from 'react'\nimport {\n    useServer,\n    useUser,\n    useTheme,\n    useMessage,\n    useMessages,\n    useProperty,\n    useProperties,\n    useRecord,\n    useTableQuery,\n    usePortalUtils,\n    usePortal,\n    format,\n} from '@portal/runtime'\nimport { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'\nimport { Badge } from 'components:badge'\nimport { Button } from 'components:button'\n\ntype Status = 'pass' | 'fail' | 'pending'\ntype Check = { name: string; status: Status; detail: string }\n\nconst check = (name: string, ok: boolean | null, detail: unknown): Check => ({\n    name,\n    status: ok === null ? 'pending' : ok ? 'pass' : 'fail',\n    detail: typeof detail === 'string' ? detail : JSON.stringify(detail),\n})\n\n/** Live \"unit tests\" for every @portal/runtime hook and the $sp server helper. */\nexport default function RuntimeTests() {\n    const { data, pending, server } = useServer()\n    const user = useUser()\n    const { theme, resolvedTheme } = useTheme()\n    const { portal } = usePortal()\n    const utils = usePortalUtils()\n    const save = useMessage('Save')\n    const msgs = useMessages(['Cancel', 'Search'])\n    const welcome = useProperty('x_312987_portal.public.welcome')\n    const props = useProperties(['x_312987_portal.public.welcome', 'glide.servlet.uri'])\n    const me = useRecord('sys_user', user.sysId, { fields: 'name,email,user_name' })\n    const incidents = useTableQuery('incident', { query: 'active=true', fields: 'number,short_description,priority', limit: 5, orderBy: '-sys_updated_on' })\n\n    const [ping, setPing] = useState<any>(null)\n    const [fetched, setFetched] = useState<any>(null)\n    useEffect(() => {\n        server.get({ ping: 'pong' }).then(setPing, (e: Error) => setPing({ error: e.message }))\n        utils\n            .fetchJson('/api/now/table/sys_user?sysparm_limit=1&sysparm_fields=sys_id')\n            .then((r: any) => setFetched({ ok: Array.isArray(r.result), count: r.result?.length }), (e: Error) => setFetched({ error: e.message }))\n        // eslint-disable-next-line react-hooks/exhaustive-deps\n    }, [])\n\n    const sp = (data as any)?.sp\n    const checks: Check[] = [\n        check('useUser: current user', !!user.sysId && !!user.name, `${user.name} (${user.userName}), ${user.roles.length} roles`),\n        check('useUser: hasRole(\"admin\")', user.hasRole('admin'), String(user.hasRole('admin'))),\n        check('useTheme', !!resolvedTheme, `theme=${theme} resolved=${resolvedTheme}`),\n        check('usePortal', !!portal?.slug, `portal=${portal?.slug}`),\n        check('useMessage(\"Save\")', save ? !!save : null, save || '…'),\n        check('useMessages', msgs.isLoading ? null : !!msgs.messages?.Cancel, msgs.messages),\n        check('useProperty (exposed)', welcome.isLoading ? null : welcome.value === 'Hello from a system property', welcome.value),\n        check('useProperties (unexposed → null)', props.isLoading ? null : props.values?.['glide.servlet.uri'] === null, props.values),\n        check('useRecord(sys_user, me)', me.isLoading ? null : me.data?.user_name === user.userName, me.error ? String(me.error) : me.data),\n        check('useTableQuery(incident)', incidents.isLoading ? null : Array.isArray(incidents.data), incidents.error ? String(incidents.error) : `${incidents.data?.length} rows: ${(incidents.data || []).map((r: any) => r.number).join(', ')}`),\n        check('format', format('{0} of {1}', 1, 2) === '1 of 2' && utils.format('{a}-{b}', { a: 'x', b: 'y' }) === 'x-y', format('{0} of {1}', 1, 2)),\n        check('usePortalUtils.fetchJson', fetched ? !!fetched.ok : null, fetched),\n        check('useServer: on-load data ($sp)', pending ? null : !!sp && sp.userIsSelf && sp.canReadSelf, sp),\n        check('useServer: server.get(input)', ping ? ping.sp?.parameter === 'pong' && ping.action === 'get' : null, ping ? { parameter: ping.sp?.parameter, action: ping.action } : '…'),\n        check('$sp.getProperty', sp ? sp.property === 'Hello from a system property' : null, sp?.property),\n        check('$sp.getValue (option)', sp ? sp.option === 'from placement options' : null, sp?.option),\n    ]\n    const passed = checks.filter((c) => c.status === 'pass').length\n    const failed = checks.filter((c) => c.status === 'fail').length\n\n    return (\n        <Card>\n            <CardHeader className=\"flex flex-row items-start justify-between gap-4\">\n                <div>\n                    <CardTitle>Runtime tests</CardTitle>\n                    <CardDescription>\n                        {passed}/{checks.length} passing{failed ? ` · ${failed} failing` : ''}\n                    </CardDescription>\n                </div>\n                <div className=\"flex flex-wrap gap-2\">\n                    <Button size=\"sm\" variant=\"outline\" onClick={() => utils.addInfoMessage('Info toast from usePortalUtils')}>\n                        Info toast\n                    </Button>\n                    <Button size=\"sm\" variant=\"outline\" onClick={() => utils.addErrorMessage('Error toast from usePortalUtils')}>\n                        Error toast\n                    </Button>\n                    <Button size=\"sm\" variant=\"outline\" onClick={() => utils.addTrivialMessage('Trivial toast')}>\n                        Trivial toast\n                    </Button>\n                </div>\n            </CardHeader>\n            <CardContent className=\"px-0\">\n                <div className=\"divide-y divide-border\">\n                    {checks.map((c) => (\n                        <div key={c.name} className=\"grid grid-cols-[4.5rem_16rem_minmax(0,1fr)] items-center gap-3 px-6 py-2 text-sm\">\n                            <Badge variant={c.status === 'pass' ? 'default' : c.status === 'fail' ? 'destructive' : 'secondary'}>{c.status}</Badge>\n                            <span className=\"font-medium\">{c.name}</span>\n                            <code className=\"truncate text-xs text-muted-foreground\" title={c.detail}>\n                                {c.detail}\n                            </code>\n                        </div>\n                    ))}\n                </div>\n            </CardContent>\n        </Card>\n    )\n}\n",
   "css": "",
   "serverScript": "(function () {\n    // Exercises the $sp helper so the client can assert on the results.\n    var me = $sp.getUser()\n    data.sp = {\n        user: me.name,\n        userIsSelf: me.sysId === gs.getUserID(),\n        property: $sp.getProperty('x_312987_portal.public.welcome', '(unset)'),\n        translated: $sp.translate('Save'),\n        parameter: $sp.getParameter('ping'),\n        portal: $sp.getPortal().slug,\n        canReadSelf: $sp.canReadRecord('sys_user', gs.getUserID()),\n        option: $sp.getValue('label'),\n        hasAdmin: $sp.hasRole('admin'),\n    }\n    data.action = context.action\n})()\n",
-  "extraFiles": []
+  "extraFiles": [],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "label": {
+     "type": "string",
+     "title": "Label (read by $sp.getValue)"
+    }
+   }
+  }
  },
  "server-clock": {
   "meta": {
@@ -245,7 +346,16 @@
   "clientScript": "// Plain JSX on purpose: components can be written in JS/JSX as well as TS/TSX.\nimport { usePortal } from '@portal/runtime'\n\nexport default function SiteFooter({ options }) {\n    const { release, theme } = usePortal()\n    const parts = [options?.text || 'React Portal', release ? `release rev ${release.version}` : 'unprocessed', theme ? theme.name || theme.key : 'no theme']\n    return <div className=\"text-xs text-muted-foreground\">{parts.join(' · ')}</div>\n}\n",
   "css": "",
   "serverScript": "",
-  "extraFiles": []
+  "extraFiles": [],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "text": {
+     "type": "string",
+     "title": "Footer text"
+    }
+   }
+  }
  },
  "site-header": {
   "meta": {
@@ -265,7 +375,17 @@
     "target": "client",
     "content": "// Light / dark / system switcher (shadcn's ModeToggle pattern). useTheme() is the host's\n// next-themes-style API: the mode applies to the whole portal (host element + overlays).\nimport { useTheme } from '@portal/runtime'\nimport { Button } from 'components:button'\nimport { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'components:dropdown-menu'\n\nconst Sun = () => (\n    <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" strokeWidth=\"2\" strokeLinecap=\"round\" strokeLinejoin=\"round\" className=\"size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90\">\n        <circle cx=\"12\" cy=\"12\" r=\"4\" />\n        <path d=\"M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41\" />\n    </svg>\n)\n\nconst Moon = () => (\n    <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" strokeWidth=\"2\" strokeLinecap=\"round\" strokeLinejoin=\"round\" className=\"absolute size-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0\">\n        <path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\" />\n    </svg>\n)\n\nconst MODES = [\n    { value: 'light', label: 'Light' },\n    { value: 'dark', label: 'Dark' },\n    { value: 'system', label: 'System' },\n] as const\n\nexport function ModeToggle() {\n    const { theme, setTheme } = useTheme()\n    return (\n        <DropdownMenu>\n            <DropdownMenuTrigger render={<Button variant=\"outline\" size=\"icon\" aria-label=\"Toggle theme\" className=\"relative\" />}>\n                <Sun />\n                <Moon />\n            </DropdownMenuTrigger>\n            <DropdownMenuContent align=\"end\">\n                {MODES.map((m) => (\n                    <DropdownMenuItem key={m.value} onClick={() => setTheme(m.value)}>\n                        {m.label}\n                        {theme === m.value ? <span className=\"ml-auto text-xs text-muted-foreground\">✓</span> : null}\n                    </DropdownMenuItem>\n                ))}\n            </DropdownMenuContent>\n        </DropdownMenu>\n    )\n}\n"
    }
-  ]
+  ],
+  "optionsSchema": {
+   "type": "object",
+   "properties": {
+    "brand": {
+     "type": "string",
+     "title": "Brand text",
+     "description": "Defaults to the portal name"
+    }
+   }
+  }
  },
  "standard-layout": {
   "meta": {
@@ -324,6 +444,7 @@
             script: c.serverScript || '',
             regions_json: c.meta.regions || '',
             default_options_json: c.meta.defaults || {},
+            options_schema_json: c.optionsSchema || '',
         })
         // Extra files (each insert/update also recompiles the component).
         var keepPaths = {}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
 	ChevronsUpDown,
 	CircleCheck,
@@ -41,7 +41,43 @@ export async function guardedOpen(studio, target) {
 
 // ---- title bar ------------------------------------------------------------------------------
 
-export function Titlebar({ studio }) {
+export function Titlebar({ studio, designer }) {
+	const view = useStudio(studio, (s) => s.view);
+	if (view === 'pages' && designer) return <DesignerTitlebar studio={studio} designer={designer} />;
+	return <ComponentTitlebar studio={studio} />;
+}
+
+function DesignerTitlebar({ studio, designer }) {
+	const d = useSyncExternalStore(designer.subscribe, designer.get, designer.get);
+	const { theme, resolvedTheme, cycle } = useStudioTheme();
+	const page = d.page && d.page.page;
+	return (
+		<div className="rps-titlebar" data-rps-titlebar="pages">
+			<span className="rps-brand">
+				<Code2 size={16} color="var(--rps-accent)" /> Portal Studio · Pages
+			</span>
+			<span style={{ fontSize: 12, opacity: 0.8 }}>
+				{d.design ? d.design.portal.name : ''}
+				{d.node === 'portal' ? ' · portal settings' : page ? ` · ${page.title} (/${page.route})` : ''}
+			</span>
+			<span className="rps-spacer" />
+			{d.busy ? (
+				<span className="rps-badge busy">
+					<Loader2 size={12} className="rps-spin" /> saving…
+				</span>
+			) : (
+				<span className="rps-badge ok" title="Every change is saved as you make it">
+					<CircleCheck size={12} /> saved
+				</span>
+			)}
+			<button className="rps-tbtn" title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}`} onClick={cycle} data-rps-theme={theme}>
+				{theme === 'system' ? <Monitor size={15} /> : resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
+			</button>
+		</div>
+	);
+}
+
+function ComponentTitlebar({ studio }) {
 	const owner = useStudio(studio, (s) => s.owner);
 	const dirtyCount = useStudio(studio, (s) => Object.keys(s.dirty).length + s.deleted.length + (s.metaDirty ? 1 : 0));
 	const busy = useStudio(studio, (s) => s.busy);
@@ -372,7 +408,38 @@ export function Panel({ studio }) {
 
 // ---- status bar -----------------------------------------------------------------------------
 
-export function StatusBar({ studio, dark, mock }) {
+export function StatusBar({ studio, designer, dark, mock }) {
+	const view = useStudio(studio, (s) => s.view);
+	if (view === 'pages' && designer) return <DesignerStatusBar designer={designer} dark={dark} mock={mock} />;
+	return <ComponentStatusBar studio={studio} dark={dark} mock={mock} />;
+}
+
+function DesignerStatusBar({ designer, dark, mock }) {
+	const d = useSyncExternalStore(designer.subscribe, designer.get, designer.get);
+	const { theme: themeMode, cycle } = useStudioTheme();
+	const count = (byRegion) => Object.keys(byRegion || {}).reduce((n, r) => n + byRegion[r].length, 0);
+	const page = d.page;
+	return (
+		<div className="rps-statusbar" data-rps-statusbar="pages">
+			<span className="item">{d.busy ? <Loader2 size={12} className="rps-spin" /> : <CircleCheck size={12} />} {d.busy ? 'Saving…' : 'Saved'}</span>
+			{page ? (
+				<span className="item">
+					{count(page.placements)} on this page · {count(page.portalPlacements)} portal-wide
+				</span>
+			) : null}
+			{mock ? <span className="item">mock data</span> : null}
+			<span className="spacer" />
+			{page && page.layout ? <span className="item">Layout {page.layout.name || page.layout.uniqueId}</span> : null}
+			<span className="item">{d.device}</span>
+			<span className="item">{d.undo.length} undo · {d.redo.length} redo</span>
+			<button className="item" onClick={cycle} title="Theme">
+				{themeMode === 'system' ? <Monitor size={12} /> : dark ? <Moon size={12} /> : <Sun size={12} />} {themeMode}
+			</button>
+		</div>
+	);
+}
+
+function ComponentStatusBar({ studio, dark, mock }) {
 	const build = useStudio(studio, (s) => s.build);
 	const busy = useStudio(studio, (s) => s.busy);
 	const revision = useStudio(studio, (s) => s.revision);

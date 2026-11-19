@@ -13,6 +13,7 @@ function host() {
 import { studioApi } from './studio-api';
 import { isMock } from '#/runtime/api';
 import { useStudio } from './store';
+import { useHostTextStyle } from './host-text';
 
 const PREVIEW_PORTAL = { id: 'studio-preview', slug: 'studio-preview', name: 'Studio preview', homeRoute: '', settings: {}, navigation: [] };
 
@@ -76,14 +77,15 @@ export default function PreviewPane({ studio, root, active }) {
 			{state.status === 'loading' ? <div className="rps-preview-msg">Loading the build…</div> : null}
 			{state.status === 'error' ? <div className="rps-preview-msg" style={{ color: 'var(--rps-error)' }}>{String(state.error && state.error.message)}</div> : null}
 			{state.Component && (state.status === 'ready' || state.status === 'refreshing') ? (
-				<PreviewStage key={`${state.ref.build.id}:${state.ref.build.js}`} Component={state.Component} componentRef={state.ref} options={state.options} studio={studio} />
+				<PreviewStage key={`${state.ref.build.id}:${state.ref.build.js}`} Component={state.Component} componentRef={state.ref} options={state.options} studio={studio} root={root} />
 			) : null}
 		</div>
 	);
 }
 
 /** Mounts a host-React root and renders the widget there with host contexts. */
-function PreviewStage({ Component, componentRef, options, studio }) {
+function PreviewStage({ Component, componentRef, options, studio, root }) {
+	const hostText = useHostTextStyle(root);
 	const ref = useRef(null);
 	const rootRef = useRef(null);
 	const storeRef = useRef(null);
@@ -134,7 +136,7 @@ function PreviewStage({ Component, componentRef, options, studio }) {
 	}, [Component, componentRef, options, studio]);
 
 	return (
-		<div className="rps-preview-stage" data-rp-root="">
+		<div className="rps-preview-stage rps-host-content" style={hostText} data-rp-root="">
 			<div ref={ref} />
 			{componentRef.kind === 'layout' ? <div className="rps-preview-msg">Layouts render their regions inside a portal; regions are empty here.</div> : null}
 		</div>

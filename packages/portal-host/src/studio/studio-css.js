@@ -21,11 +21,20 @@ export const STUDIO_CSS = `
 	--rps-ok: #388a34; --rps-badge: #c4c4c4; --rps-drop: rgba(38, 119, 203, 0.18); --rps-banner: #fbe2e2;
 	--separator-border: #e5e5e5;
 }
-.rps *, .rps *::before, .rps *::after { box-sizing: border-box; }
-.rps button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
-.rps input, .rps select, .rps textarea { font: inherit; color: var(--rps-fg); background: var(--rps-input); border: 1px solid var(--rps-input-border); border-radius: 2px; padding: 3px 6px; outline: none; user-select: text; }
-.rps input:focus, .rps select:focus, .rps textarea:focus { border-color: var(--rps-focus); }
-.rps svg { flex: none; }
+/* Element resets live in Tailwind's base layer: unlayered rules beat every layered rule, so
+ * unlayered resets here would strip the shadcn/Tailwind utilities (layer "utilities") from the
+ * buttons and inputs of widgets rendered inside Studio (designer canvas, component preview).
+ * In the base layer they still style Studio's own chrome, but widget utilities win over them. */
+@layer base {
+	.rps *, .rps *::before, .rps *::after { box-sizing: border-box; }
+	.rps button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+	.rps input, .rps select, .rps textarea { font: inherit; color: var(--rps-fg); background: var(--rps-input); border: 1px solid var(--rps-input-border); border-radius: 2px; padding: 3px 6px; outline: none; user-select: text; }
+	.rps input:focus, .rps select:focus, .rps textarea:focus { border-color: var(--rps-focus); }
+	.rps svg { flex: none; }
+}
+/* Rendered portal content inside Studio (designer canvas, component preview) gets the host's
+ * own text styles back (set inline from the host's computed style), not Studio's 13px chrome. */
+.rps-host-content { user-select: text; -webkit-font-smoothing: auto; cursor: auto; }
 
 /* title bar */
 .rps-titlebar { flex: none; height: 35px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: var(--rps-title); border-bottom: 1px solid var(--rps-border); }
@@ -173,4 +182,71 @@ export const STUDIO_CSS = `
 
 .rps-spin { animation: rps-spin 1s linear infinite; }
 @keyframes rps-spin { to { transform: rotate(360deg); } }
+
+/* activity bar */
+.rps-main { flex: 1; min-height: 0; display: flex; }
+.rps-activity { flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; padding-top: 4px; gap: 2px; background: var(--rps-title); border-right: 1px solid var(--rps-border); }
+.rps-activity button { width: 48px; height: 46px; display: flex; align-items: center; justify-content: center; color: var(--rps-muted); border-left: 2px solid transparent; }
+.rps-activity button:hover { color: var(--rps-fg); }
+.rps-activity button[aria-pressed="true"] { color: var(--rps-fg); border-left-color: var(--rps-accent); }
+.rps-main > .rps-body { flex: 1; min-width: 0; }
+
+/* page designer */
+.rpd { height: 100%; outline: none; }
+.rpd-center { height: 100%; display: flex; flex-direction: column; background: var(--rps-bg); }
+.rpd-toolbar { flex: none; height: 35px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--rps-border); background: var(--rps-tabbar); }
+.rpd-path { font-size: 12px; color: var(--rps-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rpd-sep { width: 1px; height: 18px; background: var(--rps-border); margin: 0 4px; }
+.rpd-stage { flex: 1; min-height: 0; overflow: auto; position: relative; background: repeating-conic-gradient(rgba(128,128,128,.06) 0% 25%, transparent 0% 50%) 50% / 16px 16px; }
+.rpd-frame { position: relative; min-height: 100%; margin: 0 auto; background: var(--background, #fff); }
+.rpd-frame.device { margin: 12px auto; box-shadow: 0 0 0 1px var(--rps-border), 0 8px 30px rgba(0,0,0,.25); border-radius: 6px; overflow: hidden; }
+.rpd-mount { position: relative; }
+.rpd-overlay { position: absolute; inset: 0; z-index: 5; }
+.rpd-region { position: absolute; outline: 1px dashed transparent; outline-offset: -1px; pointer-events: none; transition: background .1s, outline-color .1s; }
+.rpd-overlay:hover .rpd-region { outline-color: rgba(128,128,128,.35); }
+.rpd-region.dragging { outline-color: color-mix(in srgb, var(--rps-accent) 55%, transparent); background: color-mix(in srgb, var(--rps-accent) 5%, transparent); }
+.rpd-region.over { outline: 2px solid var(--rps-accent); background: color-mix(in srgb, var(--rps-accent) 12%, transparent); }
+.rpd-region-label { position: absolute; right: 2px; top: 2px; font: 10px/14px system-ui, sans-serif; padding: 0 5px; border-radius: 3px; background: rgba(30,30,30,.72); color: #fff; opacity: 0; transition: opacity .1s; text-transform: uppercase; letter-spacing: .04em; }
+.rpd-overlay:hover .rpd-region-label, .rpd-region.dragging .rpd-region-label { opacity: 1; }
+.rpd-portal-strip { position: absolute; pointer-events: none; }
+.rpd-portal-strip.dragging { background: repeating-linear-gradient(45deg, color-mix(in srgb, #8b5cf6 12%, transparent) 0 6px, transparent 6px 12px); outline: 1px dashed color-mix(in srgb, #8b5cf6 60%, transparent); outline-offset: -1px; }
+.rpd-portal-strip.over { outline: 2px solid #8b5cf6; background: color-mix(in srgb, #8b5cf6 18%, transparent); }
+.rpd-strip-label { position: absolute; left: 4px; top: 1px; font: 10px/13px system-ui, sans-serif; color: #8b5cf6; font-weight: 600; text-transform: uppercase; }
+.rpd-placement { position: absolute; outline: 1px solid transparent; outline-offset: -1px; cursor: pointer; }
+.rpd-placement:hover { outline-color: color-mix(in srgb, var(--rps-accent) 70%, transparent); }
+.rpd-placement.portal:hover { outline-color: color-mix(in srgb, #8b5cf6 75%, transparent); }
+.rpd-placement.selected { outline: 2px solid var(--rps-accent); }
+.rpd-placement.portal.selected { outline-color: #8b5cf6; }
+.rpd-placement.dragging { pointer-events: none; }
+.rpd-placement.lifted { opacity: .45; }
+.rpd-chip { position: absolute; left: 2px; top: 2px; display: none; align-items: center; gap: 3px; padding: 1px 6px 1px 1px; border-radius: 3px; background: var(--rps-accent); color: #fff; font: 11px/16px system-ui, sans-serif; white-space: nowrap; pointer-events: auto; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.rpd-placement.portal .rpd-chip { background: #7c3aed; }
+.rpd-placement:hover .rpd-chip, .rpd-placement.selected .rpd-chip { display: flex; }
+.rpd-handle { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 2px; cursor: grab; color: #fff; }
+.rpd-handle:hover, .rpd-handle:focus-visible { background: rgba(255,255,255,.2); outline: none; }
+.rpd-handle:focus-visible { box-shadow: 0 0 0 2px #fff; }
+.rpd-badge { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px; border-radius: 2px; background: rgba(255,255,255,.22); font-size: 10px; }
+.rpd-insert { position: absolute; height: 3px; border-radius: 2px; background: var(--rps-accent); box-shadow: 0 0 0 1px #fff; pointer-events: none; z-index: 6; }
+.rpd-drag-chip { display: inline-block; padding: 4px 10px; border-radius: 4px; background: var(--rps-accent); color: #fff; font: 12px system-ui, sans-serif; box-shadow: 0 6px 18px rgba(0,0,0,.35); cursor: grabbing; }
+.rpd-pad { padding: 4px 12px 8px; }
+.rpd-row-actions { margin-left: auto; display: none; gap: 2px; }
+.rps-row:hover .rpd-row-actions { display: flex; }
+.rpd-palette-item { gap: 6px; }
+.rpd-palette-drag { flex: 1; min-width: 0; display: flex; flex-direction: column; cursor: grab; outline: none; border-radius: 3px; }
+.rpd-palette-drag:focus-visible { box-shadow: 0 0 0 1px var(--rps-focus); }
+.rpd-inspector { flex: 1; overflow: auto; padding: 4px 12px 16px; user-select: text; }
+.rpd-form { display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+.rpd-field { display: flex; flex-direction: column; gap: 3px; }
+.rpd-field input:not([type=checkbox]), .rpd-field select, .rpd-field textarea { width: 100%; }
+.rpd-check { flex-direction: row; align-items: center; gap: 6px; }
+.rpd-label { font-size: 11px; color: var(--rps-muted); }
+.rpd-hint { font-size: 11px; color: var(--rps-muted); }
+.rpd-error { font-size: 11px; color: var(--rps-error); }
+.rpd-mono { font-family: Consolas, "Cascadia Code", Menlo, monospace; font-size: 12px; width: 100%; }
+.rpd-json { display: flex; flex-direction: column; gap: 3px; }
+.rpd-rows { display: flex; flex-direction: column; gap: 5px; }
+.rpd-row { display: flex; align-items: center; gap: 4px; }
+.rpd-row > input, .rpd-row > select { flex: 1; min-width: 0; }
+.rpd-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+.rpd-buttons .rps-tbtn { border: 1px solid var(--rps-border); }
 `;
