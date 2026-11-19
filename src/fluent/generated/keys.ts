@@ -409,6 +409,10 @@ declare global {
                         table: 'sys_properties'
                         id: '3451e5aa3ff242258677f196fb08789b'
                     }
+                    'prop-public-welcome': {
+                        table: 'sys_properties'
+                        id: 'bf9a2b2a07bf42099e4fa33a5fab007b'
+                    }
                     'prop-runtime-abi': {
                         table: 'sys_properties'
                         id: '248269eee91945d5a4d5bf19e2772753'

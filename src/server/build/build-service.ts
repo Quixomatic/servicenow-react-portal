@@ -6,7 +6,7 @@ import { isValidAssetPath, mimeFor } from '../lib/paths.ts'
 import { requireStudio } from '../security/access.ts'
 import { Owner, ownerRecordOf, ownerOfRecord, loadOwner } from '../source/owner.ts'
 import { compilerInputs } from '../source/project-files.ts'
-import { compileComponent } from '../compiler/compiler.ts'
+import { compileComponent, COMPILER_VERSION } from '../compiler/compiler.ts'
 import { replaceDependencies, flagDependents } from './dependency-service.ts'
 import { componentRef, themeRef, buildRef, buildOf } from '../registry/registry.ts'
 import { reprocessForOwner } from '../release/release-service.ts'
@@ -58,6 +58,8 @@ interface Snapshot {
     runtimeAbi: string
     /** Bump when compileServerScript's output format changes, so builds recompile. */
     serverFormat: number
+    /** Compiler identity: a compiler upgrade invalidates every component build. */
+    compiler: string
 }
 
 function snapshotOf(owner: Owner): Snapshot {
@@ -84,6 +86,7 @@ function snapshotOf(owner: Owner): Snapshot {
         stylesheetHash: c ? '' : sha256(str(g, 'stylesheet')),
         runtimeAbi: runtimeAbiVersion(),
         serverFormat: SERVER_SCRIPT_FORMAT,
+        compiler: c ? COMPILER_VERSION : '',
     }
 }
 

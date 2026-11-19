@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.3.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.3.1/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -211,7 +211,7 @@
 
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home',
-        nav: [{ label: 'Home', to: '' }, { label: 'Orders', to: 'orders' }, { label: 'About', to: 'about' }],
+        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'About', to: 'about' }],
         pages: [
             { route: 'home', name: 'Home', widgets: [
                 { c: 'hello-card', options: { title: 'Welcome to the Service Portal', body: 'Rendered by React 19 from records: layout, theme and widgets are all compiled builds.', links: [{ label: 'Orders', to: 'orders' }, { label: 'Order 42', to: 'orders/42' }, { label: 'About (other layout)', to: 'about' }] } },
@@ -223,6 +223,12 @@
             { route: 'orders/:id', name: 'Order', widgets: [
                 { c: 'record-detail', options: { label: 'Order', back: 'orders' } },
                 { c: 'server-clock' },
+            ] },
+            { route: 'incidents', name: 'Incidents', widgets: [
+                { c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } },
+            ] },
+            { route: 'tests', name: 'Runtime Tests', widgets: [
+                { c: 'runtime-tests', options: { label: 'from placement options' } },
             ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },

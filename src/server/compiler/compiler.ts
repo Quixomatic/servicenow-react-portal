@@ -14,7 +14,7 @@ import { compile as tailwindCompile, sheets as tailwindSheets, version as tailwi
  * Output (one build): index.js (default export = the component) and index.css.
  */
 
-export const COMPILER_VERSION = `rp-server-compiler/1 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
+export const COMPILER_VERSION = `rp-server-compiler/2 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
 export const ENTRY = 'main.tsx'
 
 export interface CompilerFile {
@@ -256,13 +256,20 @@ export const TAILWIND_INPUT = [
  */
 export function extractCandidates(sources: string[]): string[] {
     const set: Record<string, boolean> = {}
+    const add = (t: string) => {
+        if (t.length < 2 || t.length > 160) return
+        if (!/^[!-]?[a-z@\[*][\w\-:/.\[\]#%!&@*+,'">~^$|()]*$/i.test(t)) return
+        set[t] = true
+    }
     for (const src of sources) {
-        const tokens = src.split(/[\s"'`{}();,<>=\\]+/)
-        for (const raw of tokens) {
-            const t = raw.replace(/^[.:]+|[.:]+$/g, '')
-            if (t.length < 2 || t.length > 120) continue
-            if (!/^[!-]?[a-z@\[*][\w\-:/.\[\]#%!&@*+,'">~^$|]*$/i.test(t)) continue
-            set[t] = true
+        // Split on whitespace and quotes only, so arbitrary values keep their parentheses and
+        // commas (grid-cols-[7rem_minmax(0,1fr)_auto], bg-[rgb(0,0,0)]); then also on JSX/JS
+        // punctuation that can't occur inside a class name.
+        for (const raw of src.split(/[\s"'`]+/)) {
+            for (const part of raw.split(/[{}<>=;\\]+/)) {
+                add(part)
+                add(part.replace(/^[.,:()!?]+/, '').replace(/[.,:;)]+$/, ''))
+            }
         }
     }
     return Object.keys(set)

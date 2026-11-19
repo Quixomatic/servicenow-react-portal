@@ -2,6 +2,30 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.3.1] - 2026-11-19
+
+Two demo components that exercise the new runtime end to end, and a Tailwind extraction fix they
+exposed.
+
+### Added
+- **Incident List** (`scripts/seed/components/incident-list/`): an on-load widget driven by `useServer`.
+  Its IIFE server script uses `$sp` and `GlideRecordSecure` (platform ACLs apply) for filtering
+  (Active / Assigned to me / Opened by me), search and "Assign to me"; the client uses `useUser`
+  (greeting, `hasRole('itil')`), `useMessage`, `usePortalUtils` (toasts, `format`), shadcn Card, Badge,
+  Button and DropdownMenu, and an extra file (`parts/IncidentRow.tsx`). New `sp` page `incidents`.
+- **Runtime Tests** (`scripts/seed/components/runtime-tests/`): a live checklist for every
+  `@portal/runtime` hook and the `$sp` helper (useUser, useTheme, usePortal, useMessage(s),
+  useProperty(ies), useRecord, useTableQuery, format, fetchJson, server.get, on-load data) plus toast
+  buttons. 16/16 pass on the instance. New `sp` page `tests`.
+- **Demo property** `x_312987_portal.public.welcome`, readable from widgets via `useProperty`.
+
+### Fixed
+- **Tailwind arbitrary values were dropped.** The compiler's class extraction split on `(` and `,`, so
+  classes like `grid-cols-[7rem_minmax(0,1fr)_auto]` or `bg-[rgb(1,2,3)]` never generated CSS. It now
+  splits on whitespace and quotes only (plus JSX punctuation).
+- **Compiler upgrades now rebuild components**: the compiler version (`rp-server-compiler/2`) is part
+  of each build's input hash, so a compiler change marks builds out of date instead of keeping old output.
+
 ## [1.3.0] - 2026-11-18
 
 Light/dark/system mode across portals and Studio, Service Portal-style server scripts with a `$sp`

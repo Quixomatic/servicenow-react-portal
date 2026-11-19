@@ -1,0 +1,7 @@
+{
+    "name": "Incident List",
+    "kind": "widget",
+    "tailwind": true,
+    "serverMode": "on-load",
+    "defaults": { "title": "", "limit": 20, "filter": "active" }
+}

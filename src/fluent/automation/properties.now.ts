@@ -73,3 +73,11 @@ Property({
     description: 'Maximum number of files in one save request.',
     roles: { read: [adminRole], write: [adminRole] },
 })
+
+Property({
+    $id: Now.ID['prop-public-welcome'],
+    name: 'x_312987_portal.public.welcome',
+    type: 'string',
+    value: 'Hello from a system property',
+    description: 'Demo: properties under x_312987_portal.public. are readable from widgets via useProperty().',
+})
