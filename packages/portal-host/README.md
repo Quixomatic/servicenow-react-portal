@@ -185,7 +185,11 @@ record, raw }`.
 
 `components:badge`, `components:button`, `components:card`, `components:dropdown-menu`,
 `components:popover`, `components:separator`, `components:sheet`, `components:tooltip`,
-`components:collapsible`, `components:tabs` (shadcn/ui on Base UI) and `utilities:cn`.
+`components:collapsible`, `components:tabs` (shadcn/ui on Base UI), `components:rich-text` / `components:rich-text-editor` (below) and `utilities:cn`.
+
+`components:rich-text`: `RichText` (`html`, `size`, `as`; sanitised, `.rp-prose` styles), `sanitizeHtml(html, { allowImages?, allowDataImages?, allowTables?, linkTarget? })`, `safeUrl(url, 'href'|'src')`, `htmlToText(html, { newlines? })`, `isHtmlEmpty(html)`, `findUnsupportedHtml(html)`.
+
+`components:rich-text-editor`: `RichTextEditor` (`value` / `onChange(html)` / `onBlur(html, { changed })`, `readOnly`, `disabled`, `placeholder`, `invalid`, `required`, `id` / `aria-*`, `minHeight` / `maxHeight`, `onUploadImage(file)`, `toolbarHide`, `notice`), `RichTextToolbar`, `useRichTextEditor`, `loadRichTextEngine`, `isRichTextEngineLoaded`. TipTap is the lazily loaded `portal-rte.jsdbx` chunk (`src/portal-rte.js`, vendored by `pnpm run vendor:rte`).
 
 `components:tabs`: `Tabs` (`value` / `defaultValue` / `onValueChange`, `orientation`), `TabsList`
 (`variant` default|line), `TabsTrigger` (`value`, `disabled`), `TabsContent` / `TabsPanel` (`value`,

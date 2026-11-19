@@ -35,7 +35,7 @@ host kit         components:tabs, components:collapsible, components:popover, ut
 | Area | Records | Page |
 |---|---|---|
 | Fields | `app/field`, `app/field-control`, `app/combobox`, `app/string-field`, `app/textarea-field`, `app/number-field`, `app/boolean-field`, `app/choice-field`, `app/reference-field`, `app/list-field`, `app/date-field`, `app/datetime-field`, `app/email-field`, `app/url-field`, `app/phone-field`, `app/password-field`, `app/currency-field`, `app/duration-field` | [Fields](fields.md) |
-| Catalog | `utilities:app/catalog`, `app/variable`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`; widgets `app/catalog-item`, `app/catalog-picker` | [Catalog variables](catalog-variables.md) |
+| Catalog | `utilities:app/catalog`, `utilities:app/custom-variables`, `app/variable`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/requested-for-field`, `app/variable-editor`, `app/star-rating-variable` (demo custom variable); widgets `app/catalog-item`, `app/catalog-picker`, `app/variable-editor-demo` | [Catalog variables](catalog-variables.md) |
 | Lists | `utilities:app/list-data`, `app/data-table`, `app/condition-builder`; widgets `app/list-view`, `app/list-card` | [Lists](lists.md) |
 | Forms | `app/form`, `app/form-section`, `app/form-tabs`; widget `app/record-form` | [Forms](forms.md) |
 | Form runtime | UI policies (in `app/field`), `utilities:app/gform` | [Form runtime](form-runtime.md) |

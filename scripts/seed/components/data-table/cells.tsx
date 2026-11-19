@@ -1,6 +1,20 @@
 import { cx, IconCheck } from 'components:app/field'
 import { baseType } from 'utilities:app/list-data'
 import type { CellValue } from 'utilities:app/list-data'
+import { htmlToText } from 'components:rich-text'
+
+const HTML_TYPES = ['html', 'translated_html']
+const textCache = new Map<string, string>()
+/** htmlToText, cached (cells re-render on every scroll and sort). */
+function cellText(html: string): string {
+    let t = textCache.get(html)
+    if (t === undefined) {
+        t = htmlToText(html)
+        if (textCache.size > 500) textCache.clear()
+        textCache.set(html, t)
+    }
+    return t
+}
 
 /** Fields whose 1..5 values read as severity (dot colour by value, as Workspace highlights them). */
 const SEVERITY_FIELDS = ['priority', 'impact', 'urgency', 'severity', 'risk']
@@ -34,6 +48,11 @@ export function DefaultCell({ name, type, isChoice, cell, isDisplay }: { name: s
         return value === 'false' ? <span className="text-muted-foreground">false</span> : <Empty />
     }
     if (!display && !value) return <Empty />
+    // HTML columns: the sanitised text on one line (components:rich-text), never raw markup.
+    if (type && HTML_TYPES.indexOf(type) >= 0) {
+        const text = cellText(value || display)
+        return text ? <span className="rpl-text" title={text.length > 80 ? text.slice(0, 400) : undefined}>{text}</span> : <Empty />
+    }
     const leaf = name.split('.').pop() || name
     if (kind === 'choice' && SEVERITY_FIELDS.indexOf(leaf) >= 0 && SEVERITY_TONE[value]) {
         return (

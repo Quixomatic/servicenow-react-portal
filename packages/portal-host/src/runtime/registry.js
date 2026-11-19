@@ -24,6 +24,8 @@ import * as Tabs from '#/components/ui/tabs';
 import * as Dialog from '#/components/ui/dialog';
 import * as Icon from '#/components/ui/icon';
 import * as Calendar from '#/components/ui/calendar';
+import * as RichText from '#/components/ui/rich-text';
+import * as RichTextEditor from '#/components/ui/rich-text-editor';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -63,6 +65,10 @@ const modules = {
 	'components:dialog': Dialog,
 	// Calendar grid (no date library): 'YYYY-MM-DD' in/out, Intl month/weekday names, WAI-ARIA grid keys.
 	'components:calendar': Calendar,
+	// Read-only rich text + the HTML sanitiser (sanitizeHtml, htmlToText, isHtmlEmpty, findUnsupportedHtml).
+	'components:rich-text': RichText,
+	// TipTap editor with an HTML value; TipTap itself is a lazily loaded chunk (portal-rte.jsdbx).
+	'components:rich-text-editor': RichTextEditor,
 	// Curated lucide icons by name: <Icon name="layout-dashboard" />.
 	'components:icon': Icon,
 	'utilities:cn': cnModule,

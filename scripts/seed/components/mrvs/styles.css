@@ -1,0 +1,19 @@
+/* Inline row editing: the column header names each input, so the field's own label row is
+   visually hidden (still read by screen readers: label / required marker stay in the DOM). */
+[data-rpv-inline-cell] > .rpf-root > :first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* The MRVS field's own "unsaved" bar must not reach the inputs of a row being edited inline
+   (app/field's rule matches any .rpf-control inside a dirty .rpf-root). */
+td[data-rpv-inline-cell] .rpf-root:not([data-dirty]) .rpf-control {
+    background-image: none;
+}

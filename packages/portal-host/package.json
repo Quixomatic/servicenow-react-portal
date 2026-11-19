@@ -1,6 +1,6 @@
 {
   "name": "@x-312987/portal-host",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": false,
   "description": "React Portal host component",
   "keywords": [
@@ -16,6 +16,7 @@
   "scripts": {
     "build:css": "tailwindcss -i src/styles/tailwind.css -o src/styles/tailwind.generated.css --minify && node scripts/variant-layer.mjs src/styles/tailwind.generated.css",
     "dev": "pnpm build:css && snc ui-component develop --port 8081",
+    "vendor:rte": "node scripts/vendor-rte.mjs",
     "verify": "patch-servicenow-babel --verify && servicenow-shadcn-fix --check",
     "deploy": "pnpm build:css && patch-servicenow-babel --verify && snc ui-component deploy"
   },
@@ -58,6 +59,11 @@
   "devDependencies": {
     "@babel/runtime": "7.28.3",
     "@tailwindcss/cli": "^4.3.5",
+    "@tiptap/core": "3.34.0",
+    "@tiptap/extension-image": "3.34.0",
+    "@tiptap/extensions": "3.34.0",
+    "@tiptap/pm": "3.34.0",
+    "@tiptap/starter-kit": "3.34.0",
     "ajv": "6.12.6",
     "sass": "^1.108.2",
     "shadcn": "^4.23.0",

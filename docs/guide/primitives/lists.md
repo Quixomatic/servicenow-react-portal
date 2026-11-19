@@ -60,6 +60,7 @@ import { RecordList } from 'components:app/data-table'
 - Column chooser and personalization (order, visibility, widths, dot-walked columns), persisted per user.
 - Right-click cell menu: show matching, filter out, copy, open.
 - Inline edit gated by `list_edit` ACLs; selection with bulk edit and custom actions; CSV export.
+- HTML columns (`html`, `translated_html`) show their sanitised text on one line (`htmlToText` from `components:rich-text`) and edit inline in a rich-text popover (`app/html-field`; links and images are left to the form; Save or Ctrl/⌘+Enter, Esc cancels).
 - Pagination or infinite virtualized scroll; skeleton and empty states; `page` / `card` / `plain` variants.
 - Every feature can be turned off: `features={{ search, filter, breadcrumbs, columnChooser, pagination, inlineEdit, contextMenu, selection, actions, refresh, export, title }}`.
 - Related lists: `fixedQuery="task=<sys_id>"`, or `relatedListName` + `parentTable` + `parentRecordSysId`.

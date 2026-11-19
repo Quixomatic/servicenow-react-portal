@@ -60,6 +60,41 @@ export type ScriptEnvironmentOptions = {
     onError?: (e: ScriptError) => void
     /** Catalog form (g_form names are variable names). */
     catalog?: boolean
+    /** g_service_catalog extras: `parent` = the item form an MRVS row belongs to (see catalogParent). */
+    serviceCatalog?: ServiceCatalogOptions
+}
+
+/** g_service_catalog.parent: read (and write) the parent catalog form from an MRVS row's scripts. */
+export type CatalogParent = {
+    getValue: (name: string) => string
+    getDisplayValue?: (name: string) => string
+    setValue?: (name: string, value: string, displayValue?: string) => void
+    hasField?: (name: string) => boolean
+}
+
+export type ServiceCatalogOptions = {
+    parent?: CatalogParent
+    isOrderGuide?: () => boolean
+}
+
+/**
+ * g_service_catalog.parent over any form store (names resolved like the parent's g_form: variable
+ * name, IO:<sys_id>, sys_id). Workspace gives rows getValue; Service Portal also setValue.
+ */
+export function catalogParent(store: FormStore, resolve: (name: string) => string = (n) => n): CatalogParent {
+    const known = (n: string) => {
+        const s = store.getState()
+        const name = resolve(n)
+        return name in s.fields || name in s.meta
+    }
+    return {
+        getValue: (n: string) => (n && known(n) ? store.getValue(resolve(n)) : ''),
+        getDisplayValue: (n: string) => (n && known(n) ? store.getDisplayValue(resolve(n)) : ''),
+        setValue: (n: string, value: string, displayValue?: string) => {
+            if (n && known(n)) store.setValue(resolve(n), str(value), displayValue === undefined ? undefined : str(displayValue))
+        },
+        hasField: (n: string) => !!n && known(n),
+    }
 }
 
 export type ScriptEnvironment = {
@@ -424,6 +459,9 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         g_aw: { openRecord, closeRecord: () => {}, setTabLabel: () => {} },
         g_navigation: { open: (url: string, target?: string) => (host.navigate ? host.navigate(url, target) : window.open(url, target || '_self')), openRecord: openRecord },
         g_service_catalog: {
+            // MRVS row scripts: the item form the row belongs to (undefined elsewhere, as on the platform).
+            parent: options.serviceCatalog && options.serviceCatalog.parent,
+            isOrderGuide: () => !!(options.serviceCatalog && options.serviceCatalog.isOrderGuide && options.serviceCatalog.isOrderGuide()),
             openCatalogItem: (table: string, sysId: string, params?: Record<string, unknown>) => {
                 if (host.openCatalogItem) host.openCatalogItem(table, sysId, params)
                 // eslint-disable-next-line no-console

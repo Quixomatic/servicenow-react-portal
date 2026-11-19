@@ -2,6 +2,59 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.14.0] - 2026-11-19
+
+Catalog wave 2 (multi-row rows with real form logic, requested-for and delegation, custom
+variables, a variable editor) and rich text (TipTap) for HTML fields and variables.
+
+### Added: catalog
+- **Multi-row variable set rows run real form logic.** Each row editor, inline or dialog, is its own `g_form` scope (`createRowScope` / `useRowScope`):
+  - the set's catalog UI policies and client scripts run in the row;
+  - onSubmit can block the row save;
+  - `g_service_catalog.parent` reaches the item form.
+- **Multi-row editing:**
+  - inline row editing by keyboard (Enter opens, Enter saves, Escape cancels, focus returns);
+  - per-row prices and a rows total, and the platform price call now counts the rows;
+  - Remove all, with a confirm dialog.
+- **Requested for:**
+  - new `app/requested-for-field` (delegation check on every pick; `useRequestedFor`, `useDelegationCheck`);
+  - variable type 31 uses it;
+  - `catalog-item` gains an item-level "Requested for", sent as `sysparm_requested_for`. It keeps the previous person after an ineligible pick. Option `requestedFor: 'hidden'` turns it off.
+- **Custom variables:** the attribute `rp_component=app/<key>` (with optional `rp_options={…}`) renders one of our components as a real input, given the value, `onChange`, the field and the catalog form. Registry utility `utilities:app/custom-variables`; demo primitive `app/star-rating-variable`.
+- **New `app/variable-editor`:** a record's variables (e.g. a RITM's), read-only or editable, from Workspace's form-layout data, with the record's catalog policies and scripts. Saving goes through the record's Save UI action. Demo page: sp `variable-editor`.
+- **Quantity** is now the combobox Select.
+
+### Added: rich text
+- **Host kit `components:rich-text-editor`:** a shadcn-styled TipTap 3 editor with an HTML value.
+  - Toolbar: text styles, bold, italic, underline, strikethrough, code, lists, quote, link and image dialogs, undo/redo.
+  - Keyboard: one Tab stop, Alt+F10 to reach the toolbar, Ctrl/⌘+K for links.
+  - Read-only and disabled modes, and a headless `useRichTextEditor` hook.
+- **Bundle:** TipTap/ProseMirror load as a lazy `portal-rte.jsdbx` chunk (131 KB gzip) only when an editor mounts. The main bundle grows by 9.8 KB gzip. TipTap is vendored (`pnpm run vendor:rte`) because the CLI's babel rejects its `@jsxImportSource` pragmas.
+- **Host kit `components:rich-text`:** a sanitised renderer plus reusable `sanitizeHtml`:
+  - allow-listed tags and attributes; every `on*` handler, script and frame is removed;
+  - safe URL schemes only, and `rel="noopener noreferrer"` on links;
+  - also exports `htmlToText`, `isHtmlEmpty` and `findUnsupportedHtml`.
+
+  `app/variable`'s sanitiser now delegates to it.
+- **`app/html-field`:** html and translated_html fields, and catalog variable type 23, on the editor through `field-control`.
+  - It commits only real edits, and warns before editing would drop formatting it can't keep.
+  - Images uploaded to a saved record's attachments.
+- **Lists:** HTML columns show plain text, and edit inline in a rich-text popover.
+
+### Fixed
+- **Delegation "false" answers were treated as eligible** (since 1.7).
+- **Reference search inside multi-row rows returned nothing:** row lookups now use the platform's `<item>$<set>` record id (since 1.7).
+
+### Notes
+- Catalog coverage: 154 match / 40 partial / 171 none (high usefulness 84 / 16 / 4); 31 of 32 variable types match.
+- **Waiting on James:**
+  - a demo catalog item (our scope can't create catalog records, so the choice is a one-off global script or Fluent demo data), and with it live checks of the custom variable and set-level row client scripts;
+  - one real order-now;
+  - one variable-editor save.
+
+  Set-level row UI policies are verified on an out-of-box item.
+- **Prepared but not run:** `scripts/seed/catalog-demo-global.js` (option A).
+
 ## [1.13.0] - 2026-11-19
 
 User criteria for portals, pages and menu items; related lists on every table; dialogs and

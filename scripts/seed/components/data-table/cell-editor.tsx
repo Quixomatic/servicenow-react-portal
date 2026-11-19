@@ -3,6 +3,10 @@ import { useEditability } from 'utilities:app/list-data'
 import type { ListColumn, ListRow, WriteResult } from 'utilities:app/list-data'
 import { FieldControl } from 'components:app/field-control'
 import { Spinner, IconAlert, cx } from 'components:app/field'
+import { HtmlField } from 'components:app/html-field'
+import { Button } from 'components:button'
+
+const HTML_TYPES = ['html', 'translated_html']
 
 export type CellEditorProps = {
     table: string
@@ -26,10 +30,12 @@ export function CellEditor({ table, row, column, write, onDone }: CellEditorProp
     const [saving, setSaving] = useState(false)
     const [errors, setErrors] = useState<string[]>([])
     const box = useRef<HTMLDivElement | null>(null)
+    const isHtml = HTML_TYPES.indexOf(String(column.type || '')) >= 0
+    const htmlDraft = useRef<string | null>(null)
 
     // Focus the control once it renders (after the grid restores its own focus).
     useEffect(() => {
-        if (!entry || !entry.canEdit) return undefined
+        if (!entry || !entry.canEdit || isHtml) return undefined
         const id = requestAnimationFrame(() => {
             const el = box.current && (box.current.querySelector('input,textarea,[role="combobox"],[tabindex="0"]') as HTMLElement | null)
             if (el) el.focus()
@@ -68,6 +74,66 @@ export function CellEditor({ table, row, column, write, onDone }: CellEditorProp
                 </span>
             </div>
         )
+    if (isHtml) {
+        // HTML: the rich-text editor (no link / image dialogs: they'd count as clicks outside the
+        // popup). Enter makes paragraphs, so saving is explicit: the Save button or Ctrl/⌘+Enter.
+        const saveHtml = () => {
+            const html = htmlDraft.current
+            if (html === null) return onDone(false)
+            commit(html, html)
+        }
+        return (
+            <div
+                ref={box}
+                className={cx('rpl-bare flex flex-col gap-2', saving ? 'pointer-events-none opacity-70' : '')}
+                aria-busy={saving || undefined}
+                onKeyDown={(e: any) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault()
+                        saveHtml()
+                    }
+                }}
+            >
+                <HtmlField
+                    name={column.name}
+                    table={table}
+                    label={`${column.label} for ${row.display || 'this record'}`}
+                    standalone
+                    autoFocus
+                    value={cell.value}
+                    size="sm"
+                    maxHeight="16rem"
+                    imageUpload={false}
+                    toolbarHide={['link', 'image', 'code', 'blockquote']}
+                    onStage={(html: string) => {
+                        htmlDraft.current = html
+                    }}
+                />
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>{saving ? 'Saving…' : 'Ctrl+Enter to save · Esc to cancel'}</span>
+                    <div className="flex items-center gap-1.5">
+                        {saving ? <Spinner label="Saving" /> : null}
+                        <Button type="button" size="sm" variant="outline" onClick={() => onDone(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" size="sm" onClick={saveHtml} data-rpl-html-save="">
+                            Save
+                        </Button>
+                    </div>
+                </div>
+                {errors.length ? (
+                    <div role="alert" className="flex flex-col gap-1 text-xs text-destructive">
+                        {errors.map((m, i) => (
+                            <span key={i} className="flex items-start gap-1.5">
+                                <IconAlert size={14} className="mt-px" />
+                                {m}
+                            </span>
+                        ))}
+                    </div>
+                ) : null}
+            </div>
+        )
+    }
     return (
         <div ref={box} className={cx('rpl-bare flex flex-col gap-2', saving ? 'pointer-events-none opacity-70' : '')} aria-busy={saving || undefined}>
             <FieldControl

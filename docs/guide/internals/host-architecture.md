@@ -75,6 +75,10 @@ Each placement and the layout get their own error boundary. A crashing widget sh
 
 `src/portal-studio.js` sits at the source root on purpose: the CLI names chunk assets after the module path, and on Windows a nested path produced an unresolvable `/uxasset` URL. The chunk has its own React copy and mounts its own root; previews and the designer canvas render through the host's React via `registry.internals` (`PortalPreview`, `loadComponent`, contexts, `queryClient`…).
 
+## Rich-text chunk
+
+`src/portal-rte.js` is a second lazy chunk (`portal-rte.jsdbx`, about 130 KB gzipped), imported by `components:rich-text-editor` the first time an editor mounts. It holds only TipTap / ProseMirror (no React) and returns an `Editor` the main bundle's React toolbar drives. TipTap is pre-bundled into `src/vendor/tiptap.js` by `pnpm run vendor:rte` (run it after changing the `@tiptap/*` devDependencies), because TipTap's dist files carry `@jsxImportSource` pragmas that the CLI's classic-runtime babel rejects. The vendored file is committed. TipTap's own CSS isn't injected (it would land in `document.head`); the editor styles are in the host stylesheet (`.rp-prose`, `.rp-rte-content`).
+
 ## Diagnostics
 
 A pinned pill opens a diagnostics drawer. `window.__RP_DIAG__()` returns a JSON snapshot (mounts, renders, navigation, query cache, router, style and load events); `.mark(label)`, `.since(label)` and `.reset()` measure what changed. Check `globalThis.__REACT_PORTAL__` in the page to confirm which host build is served (a deploy can be served stale).

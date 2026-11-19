@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.13.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.14.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
@@ -425,6 +425,21 @@
         return pid
     }
 
+    /* ---------------- Demo catalog item (catalog wave 2) ---------------- */
+
+    // "React Portal demo: Team equipment": an MRVS whose variable set has its own catalog UI policy
+    // and client scripts (they run in each row editor), a Requested For variable and a custom
+    // variable rendered by one of our components (rp_component / rp_options). The catalog tables
+    // refuse writes from this scope, so scripts/seed/catalog-demo-global.js creates it (global scope,
+    // run once); here it's only looked up by name for the sp catalog picker.
+    var DEMO_CATALOG_ITEM = ''
+    var demoItem = new GlideRecord('sc_cat_item')
+    demoItem.addQuery('name', 'React Portal demo: Team equipment')
+    demoItem.setLimit(1)
+    demoItem.query()
+    if (demoItem.next()) DEMO_CATALOG_ITEM = demoItem.getUniqueValue()
+    log.push('demo catalog item: ' + (DEMO_CATALOG_ITEM || 'not found (run scripts/seed/catalog-demo-global.js in global scope)'))
+
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home', layout: 'app-shell',
         // App shell (like the Dashboard portal) in sp's own look: a plain sidebar-coloured canvas
@@ -448,6 +463,7 @@
                     { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
                     { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
                     { page: 'embeds', label: 'Embeds', icon: 'layers' },
+                    { page: 'variable-editor', label: 'Variable editor', icon: 'clipboard-list' },
                 ] },
                 { label: 'More', children: [
                     { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
@@ -573,12 +589,19 @@
                             { sysId: '04b7e94b4f7b4200086eeed18110c7fd', label: 'Standard Laptop', note: 'Item · checkbox group, price' },
                             { sysId: '67e2f2da4fff0200086eeed18110c7dd', label: 'Firewall Rule Change', note: 'Item · variable set, IP address, radio' },
                             { sysId: '38c1fc840a0a0b2700285921c2bf5fc8', label: 'Report Outage', note: 'Record producer · incident' },
-                        ] } },
+                        ].concat(DEMO_CATALOG_ITEM ? [
+                            { sysId: DEMO_CATALOG_ITEM, label: 'React Portal demo: Team equipment', note: 'Item · MRVS row policies + scripts, requested for, custom variable' },
+                        ] : []) } },
                     ],
                     'col-2': [
                         { c: 'catalog-item', options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' } },
                     ],
                 } },
+            ] },
+            // Variable editor (app/variable-editor): a submitted request item's variables, read-only or
+            // editable, from the platform's form layout (GlideLayout_Query.formLayout variables).
+            { route: 'variable-editor', name: 'Variable editor', widgets: [
+                { c: 'variable-editor-demo', options: {} },
             ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },

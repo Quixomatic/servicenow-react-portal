@@ -34,6 +34,7 @@ Only legacy scripts receive it: client scripts (onLoad, onChange, onSubmit), UI 
 | `compileScript(script, exports)` | The sandbox |
 | `createGlideAjaxClass`, `createGlideRecordClass` | The `GlideAjax` / `GlideRecord` shims |
 | `scriptUserFrom(user)` | A `g_user` from the runtime's user |
+| `catalogParent(store, resolve?)` | A `g_service_catalog.parent` over any form store (pass it as `serviceCatalog.parent` to `attachGForm` / `createGForm`) |
 
 Order follows the classic form: onLoad client scripts, then UI policies (their scripts replay for the current results).
 
@@ -51,7 +52,8 @@ Like Workspace, every script is compiled with `new Function` in a scope where `w
 | `getMessage`, `getMessages`, `g_i18n` | Translated messages |
 | `g_modal` | `alert(title, message?)`, `confirm(title, message?)` (Promise); `showFields` rejects (not supported yet) |
 | `g_aw` | `openRecord` opens the record in the portal; `closeRecord`, `setTabLabel` are no-ops |
-| `g_navigation`, `g_service_catalog`, `gsftSubmit`, `NOW` | Compatibility shims |
+| `g_service_catalog` | `openCatalogItem`, `isOrderGuide()`; in MRVS rows, `parent` (the item form: `getValue`, `getDisplayValue`, `setValue`, `hasField`) |
+| `g_navigation`, `gsftSubmit`, `NOW` | Compatibility shims |
 
 > **Note:** **In progress:** `g_modal.showFields` on a real dialog (`app/field-dialog`).
 

@@ -1,6 +1,6 @@
 {
     "name": "x-312987-react-portal-global",
-    "version": "1.13.0",
+    "version": "1.14.0",
     "description": "React Portal global-scope helpers (ReactPortalGlobal script include)",
     "license": "UNLICENSED",
     "imports": {

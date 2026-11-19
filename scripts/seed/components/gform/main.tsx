@@ -12,6 +12,7 @@
  *   createGForm(store, { table, sysId, user })   g_form & co. on ANY form store (no scripts run)
  *   attachGForm(store, { …, scripts, policies }) the same plus the script lifecycle → { env, stop }
  *   hostFor(store, options)                      the ScriptHost for a store
+ *   catalogParent(store, resolve?)               g_service_catalog.parent over a store (MRVS rows → item form)
  *   compileScript(script, exports)     the sandbox (window, document, jQuery, $, $j, angular = null)
  *   createGlideAjaxClass / createGlideRecordClass
  */
@@ -20,10 +21,10 @@ import { useUser } from '@portal/runtime'
 import type { ClientScripts } from 'utilities:app/graphql'
 import type { AttachedPolicies, FormStore } from 'components:app/field'
 import { createScriptEnvironment } from './environment'
-import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser } from './environment'
+import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser, ServiceCatalogOptions } from './environment'
 
-export { createScriptEnvironment, compileScript } from './environment'
-export type { ScriptEnvironment, ScriptEnvironmentOptions, ScriptError, ScriptHost, ScriptUser } from './environment'
+export { createScriptEnvironment, compileScript, catalogParent } from './environment'
+export type { ScriptEnvironment, ScriptEnvironmentOptions, ScriptError, ScriptHost, ScriptUser, CatalogParent, ServiceCatalogOptions } from './environment'
 export { createGlideAjaxClass } from './glide-ajax'
 export { createGlideRecordClass } from './glide-record'
 
@@ -36,6 +37,8 @@ export type StartOptions = {
     policies?: AttachedPolicies
     onError?: (e: ScriptError) => void
     catalog?: boolean
+    /** g_service_catalog extras (MRVS rows: `parent`). */
+    serviceCatalog?: ServiceCatalogOptions
 }
 
 /** Start the legacy environment on a loaded form store. */
@@ -67,6 +70,9 @@ export type GFormOptions = {
     openRecord?: ScriptHost['openRecord']
     hasField?: ScriptHost['hasField']
     sectionNames?: ScriptHost['sectionNames']
+    /** Catalog form (names are variable names) and its g_service_catalog extras (MRVS rows: parent). */
+    catalog?: boolean
+    serviceCatalog?: ServiceCatalogOptions
 }
 
 /** A host for any form store (not only RecordForm): table / sys_id / view from the options. */
@@ -93,7 +99,7 @@ export function hostFor(store: FormStore, o: GFormOptions): ScriptHost {
  *   env.g_form.setValue('state', '2'); env.runClientAction(action)
  */
 export function createGForm(store: FormStore, options: GFormOptions & { scripts?: ClientScripts; scratchpad?: Record<string, unknown>; onError?: (e: ScriptError) => void }): ScriptEnvironment {
-    return createScriptEnvironment({ host: hostFor(store, options), user: options.user, scripts: options.scripts, scratchpad: options.scratchpad, onError: options.onError })
+    return createScriptEnvironment({ host: hostFor(store, options), user: options.user, scripts: options.scripts, scratchpad: options.scratchpad, onError: options.onError, catalog: options.catalog, serviceCatalog: options.serviceCatalog })
 }
 
 /** createGForm + the script lifecycle (onLoad, onChange, policy run-scripts); returns { env, stop }. */
@@ -101,7 +107,16 @@ export function attachGForm(
     store: FormStore,
     options: GFormOptions & { scripts?: ClientScripts; scratchpad?: Record<string, unknown>; policies?: AttachedPolicies; onError?: (e: ScriptError) => void },
 ): { env: ScriptEnvironment; stop: () => void } {
-    return startScriptEnvironment({ host: hostFor(store, options), user: options.user, scripts: options.scripts, scratchpad: options.scratchpad, policies: options.policies, onError: options.onError })
+    return startScriptEnvironment({
+        host: hostFor(store, options),
+        user: options.user,
+        scripts: options.scripts,
+        scratchpad: options.scratchpad,
+        policies: options.policies,
+        onError: options.onError,
+        catalog: options.catalog,
+        serviceCatalog: options.serviceCatalog,
+    })
 }
 
 /** Map the runtime user (useUser) to g_user's source. */

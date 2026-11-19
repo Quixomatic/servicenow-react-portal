@@ -5,16 +5,21 @@
  *   createCatalogForm(item) / useCatalogForm(item)   FormStore with catalog names and aliases
  *   <CatalogFormProvider form>        provides it to variables and field primitives
  *   <Variable spec />                 one variable (fields via app/field-control; label, rich text,
- *                                     break, attachment, custom here)
+ *                                     break, attachment, requested for, custom here)
+ *   catalogResolver(specs) / catalogItemIdOf(form)   g_form name aliases; the form's catalog item
+ *   Custom variables (rp_component=app/<key>, rp_options={…}): registerCustomVariable,
+ *     resolveCustomVariable, customVariableConfig, parseVariableAttributes, CustomVariableProps
  *   sanitizeHtml, QUESTION_TYPES, validateIp
  */
 import { Variable } from './variable'
 import { variableSpec } from './meta'
 import { CatalogFormProvider, createCatalogForm } from './catalog-form'
 
-export { variableSpec, QUESTION_TYPES, validateIp } from './meta'
-export type { VariableSpec, VariableKind } from './meta'
-export { createCatalogForm, useCatalogForm, CatalogFormProvider, useCatalogFormContext } from './catalog-form'
+export { variableSpec, QUESTION_TYPES, validateIp, customVariableConfig, parseVariableAttributes } from './meta'
+export type { VariableSpec, VariableKind, CustomVariableConfig } from './meta'
+export { createCatalogForm, useCatalogForm, CatalogFormProvider, useCatalogFormContext, catalogResolver, catalogItemIdOf } from './catalog-form'
+export { registerCustomVariable, resolveCustomVariable, customVariableKeys, CustomVariableHost, CustomVariableNotice } from './custom'
+export type { CustomVariableProps } from './custom'
 export type { CatalogForm } from './catalog-form'
 export { Variable, VariableLabel, RichTextLabel, VariableBreak, CustomVariable, sanitizeHtml } from './variable'
 export type { VariableProps } from './variable'

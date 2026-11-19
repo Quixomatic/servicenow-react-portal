@@ -30,11 +30,13 @@ import { TimeField } from 'components:app/time-field'
 import { ConditionsField } from 'components:app/conditions-field'
 import { TableNameField } from 'components:app/table-name-field'
 import { FieldNameField } from 'components:app/field-name-field'
+import { HtmlField } from 'components:app/html-field'
 
 /** Glide types each built-in primitive handles. */
 export const BUILT_IN_TYPES: Record<string, string[]> = {
     string: ['string', 'sys_class_name', 'GUID', 'domain_id', 'ip_address', 'color', 'translated_field', 'user_input'],
-    textarea: ['multi_two_lines', 'journal', 'journal_input', 'journal_list', 'html', 'translated_html', 'translated_text', 'script', 'script_plain', 'wiki_text'],
+    textarea: ['multi_two_lines', 'journal', 'journal_input', 'journal_list', 'translated_text', 'script', 'script_plain', 'wiki_text'],
+    html: ['html', 'translated_html'],
     number: ['integer', 'longint', 'decimal', 'float', 'numeric', 'percent_complete', 'order_index'],
     boolean: ['boolean'],
     choice: ['choice'],
@@ -74,6 +76,7 @@ const COMPONENTS: Record<string, any> = {
     conditions: ConditionsField,
     table: TableNameField,
     fieldname: FieldNameField,
+    html: HtmlField,
 }
 
 let registered = false

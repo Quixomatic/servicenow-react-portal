@@ -37,12 +37,13 @@ const NAME_METHODS = [
     'reset', 'isDirty', 'onChange', 'registerField', 'fieldSnapshot',
 ]
 
-export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): CatalogForm {
-    const specs = item.variables.map((v) => variableSpec(v, { table }))
-    const specByName: Record<string, VariableSpec> = {}
+/**
+ * g_form-style name resolution for a set of variable specs: '<name>', 'IO:<sys_id>', '<sys_id>' and
+ * 'variables.<name>' all resolve to the store name ('variables.<name>'). Unknown names pass through.
+ */
+export function catalogResolver(specs: VariableSpec[]): (nameOrAlias: string) => string {
     const alias: Record<string, string> = {}
     for (const s of specs) {
-        specByName[s.name] = s
         alias[s.name] = s.name
         if (s.variable.variableName) alias[s.variable.variableName] = s.name
         if (s.variable.id) {
@@ -50,7 +51,22 @@ export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): Cat
             alias[`IO:${s.variable.id}`] = s.name
         }
     }
-    const resolve = (n: string) => alias[n] || (alias[`variables.${n}`] ? `variables.${n}` : n)
+    return (n: string) => alias[n] || (alias[`variables.${n}`] ? `variables.${n}` : n)
+}
+
+/** The catalog item a form belongs to (an item's own id; a variable editor's record: its cat_item). */
+export function catalogItemIdOf(form: { item: CatalogItem } | null | undefined): string {
+    if (!form || !form.item) return ''
+    const item = form.item as CatalogItem & { catItemId?: string; type?: string }
+    if (item.type === 'variable_editor') return item.catItemId || ''
+    return item.sysId || ''
+}
+
+export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): CatalogForm {
+    const specs = item.variables.map((v) => variableSpec(v, { table }))
+    const specByName: Record<string, VariableSpec> = {}
+    for (const s of specs) specByName[s.name] = s
+    const resolve = catalogResolver(specs)
 
     const store: FormStore = createFormStore({ table, sysId: item.sysId })
     const values: Record<string, { value: string; displayValue: string }> = {}
@@ -84,7 +100,8 @@ export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): Cat
         const s = specByName[resolve(n)]
         return s ? s.variable : undefined
     }
-    form.priceAffecting = specs.filter((s) => s.variable.hasPriceImplecations).map((s) => s.name)
+    // MRVS rows count too: the platform's price call adds each row's variable prices.
+    form.priceAffecting = specs.filter((s) => s.variable.hasPriceImplecations || s.kind === 'mrvs').map((s) => s.name)
     form.serializeVariables = () => {
         const out: Record<string, string> = {}
         for (const s of specs) {

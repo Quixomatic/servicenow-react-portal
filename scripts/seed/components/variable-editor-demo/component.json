@@ -1,0 +1,1 @@
+{ "name": "Variable Editor Demo", "kind": "widget", "tailwind": true, "defaults": { "table": "sc_req_item", "sysId": "" } }

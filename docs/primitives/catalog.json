@@ -7377,7 +7377,7 @@
       "name": "app/html-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/textarea-field — html/translated_html fall back to a plain textarea (raw HTML), no rich-text editor",
+    "ourMatch": "match: components:app/html-field (on components:rich-text-editor, TipTap) — html/translated_html; record image uploads as attachments; no mentions, no dictionary-driven toolbar config",
     "sourceRef": "sys_ux_lib_component:cf4f401a8bcfde46997120c27d3bbdc4 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -7553,9 +7553,10 @@
       "journal (HTML mode)"
     ],
     "ourComponent": [
-      "components:app/textarea-field"
+      "components:app/html-field",
+      "components:rich-text-editor"
     ],
-    "coverageNotes": "Read-only rich text is rendered sanitized only in catalog labels/description and form messages (sanitizeHtml in app/variable)."
+    "coverageNotes": "TipTap editor lazily loaded (portal-rte chunk); toolbar: text style, bold/italic/underline/strike/code, lists, quote, link + image dialogs, undo/redo. Pasted/dropped images on a saved record upload to its attachments (/sys_attachment.do?sys_id=). Not covered: @mentions in HTML journals, toolbar config from dictionary attributes / system properties, tables and colours (dropped on edit, with a notice)."
   },
   {
     "tag": "now-record-html-script",
@@ -7970,12 +7971,13 @@
       "name": "ui/rich-text",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable — sanitizeHtml + `rpv-rich` styles exist inside app/variable, not a standalone ui/rich-text primitive",
+    "ourMatch": "match: components:rich-text (host kit) — RichText + sanitizeHtml (allow-listed tags/attributes, safe URLs, rel=noopener)",
     "sourceRef": "sys_ux_macroponent:2d56f06d55f46bbd4e79b5e624beb940 | sys_ux_lib_component:500e1c958a9e35b8429671c5182b9769 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "ourComponent": [
+      "components:rich-text",
       "components:app/variable"
     ],
-    "coverageNotes": "Used for rich-text label variables, item description, g_form info messages."
+    "coverageNotes": "Used for rich-text label variables (app/variable delegates to it), read-only HTML fields (app/html-field) and HTML list cells (htmlToText)."
   },
   {
     "tag": "now-record-markdown",
@@ -15679,7 +15681,7 @@
       "name": "app/cell-editor",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/data-table — CellEditor covers string/choice/reference/boolean/number/date/datetime; not dot-walked, journal, HTML, glide_list, script, conditions",
+    "ourMatch": "partial: components:app/data-table — CellEditor covers string/choice/reference/boolean/number/date/datetime and HTML (rich-text popover, app/html-field); not dot-walked, journal, glide_list, script, conditions",
     "sourceRef": "https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxab/_servicenow_now-list.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-list/index.min.js.map.jsdbx",
     "ourComponent": [
       "components:app/data-table"
@@ -24268,7 +24270,7 @@
       "name": "app/variable-custom (renders one of our components)",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable — custom/macro/UI page variables render a notice unless the host passes renderCustom; no typed \"render one of our components\" attribute",
+    "ourMatch": "match: components:app/variable, utilities:app/custom-variables",
     "sourceRef": "https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-form/index.min.js.map.jsdbx",
     "sharedProps": [
       "disabled",
@@ -24449,9 +24451,11 @@
       "15 UI Page (unsupported)"
     ],
     "ourComponent": [
-      "components:app/variable"
+      "components:app/variable",
+      "utilities:app/custom-variables",
+      "components:app/star-rating-variable"
     ],
-    "coverageNotes": "custom/macro/UI page variables render a notice unless the host passes renderCustom; no typed \"render one of our components\" attribute"
+    "coverageNotes": "rp_component=app/<key> renders that component (registerCustomVariable, utilities:app/custom-variables map, or a record already loaded on the page); rp_options={json} → options; the component gets value / onChange / the bound field / the catalog form. Platform macroponents, Jelly macros and SP widgets still do not run (notice)."
   },
   {
     "tag": "sn-catalog-form-multi-row-variable",
@@ -24668,7 +24672,7 @@
       "name": "app/mrvs",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/mrvs — no MRVS row UI policies/client scripts, no inline editing, row prices not totalled",
+    "ourMatch": "match: components:app/mrvs",
     "sourceRef": "https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-form/index.min.js.map.jsdbx",
     "sharedProps": [
       "disabled",
@@ -24849,7 +24853,7 @@
     "ourComponent": [
       "components:app/mrvs"
     ],
-    "coverageNotes": "Grid + native <dialog> row editor with its own form store, maxRows, unique columns, platform JSON value."
+    "coverageNotes": "Grid + row editor (inline or components:dialog); each row is its own g_form scope (createRowScope): row form metadata, the set's catalog UI policies and client scripts (onSubmit blocks the row save), g_service_catalog.parent. Inline row editing (Enter saves, Escape cancels), per-row prices + rows total from the row form's choice prices (the item price API adds the rows), Remove all with confirm, maxRows, unique columns, platform JSON value."
   },
   {
     "tag": "sn-catalog-form-multi-row-form-modal",
@@ -25066,7 +25070,7 @@
       "name": "app/mrvs (row editor)",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/mrvs, components:dialog — Still missing: a g_form scope for the row (row policies / scripts do not run).",
+    "ourMatch": "match: components:app/mrvs, components:dialog",
     "sourceRef": "https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-form/index.min.js.map.jsdbx",
     "sharedProps": [
       "disabled",
@@ -25243,9 +25247,10 @@
     ],
     "ourComponent": [
       "components:app/mrvs",
-      "components:dialog"
+      "components:dialog",
+      "utilities:app/gform"
     ],
-    "coverageNotes": "Row editor on components:dialog (same behaviour). Still missing: a g_form scope for the row (row policies / scripts do not run)."
+    "coverageNotes": "Row dialog on components:dialog with its own g_form scope (createRowScope / useRowScope): the set's UI policies and client scripts from the platform's row-form call, onSubmit can block the save, g_service_catalog.parent (getValue / getDisplayValue / setValue / hasField)."
   },
   {
     "tag": "sc-multi-row-header-action-button",
@@ -25462,7 +25467,7 @@
       "name": "app/mrvs",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/mrvs — Add only; no Remove all",
+    "ourMatch": "match: components:app/mrvs",
     "sourceRef": "https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-form/index.min.js.map.jsdbx",
     "sharedProps": [
       "disabled",
@@ -25638,9 +25643,10 @@
       }
     ],
     "ourComponent": [
-      "components:app/mrvs"
+      "components:app/mrvs",
+      "components:app/confirm-dialog"
     ],
-    "coverageNotes": "Add only; no Remove all"
+    "coverageNotes": "Add row and Remove all (confirm dialog)."
   },
   {
     "tag": "sn-catalog-form-multiple-select",
@@ -26401,12 +26407,13 @@
       "name": "app/catalog-quantity",
       "kind": "primitive"
     },
-    "ourMatch": "match: components:app/catalog-item",
+    "ourMatch": "match: components:app/catalog-item, components:app/combobox",
     "sourceRef": "sys_ux_lib_component:1fe40e67a503a6ad6e2fa893d95e43bc | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-quantity.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-quantity/index.min.js.map.jsdbx",
     "ourComponent": [
-      "components:app/catalog-item"
+      "components:app/catalog-item",
+      "components:app/combobox"
     ],
-    "coverageNotes": ""
+    "coverageNotes": "Quantity is our combobox Select (inline variant in a control frame)."
   },
   {
     "tag": "sn-catalog-request-for",
@@ -26439,15 +26446,17 @@
       "name": "app/requested-for-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: utilities:app/catalog — checkDelegation exists in the utility but there is no requested-for picker / delegation UI in catalog-item",
+    "ourMatch": "match: components:app/requested-for-field, components:app/catalog-item, utilities:app/catalog",
     "sourceRef": "sys_ux_lib_component:844cd44b00ff36314ad0cb97db89e813 | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-request-for.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-request-for/index.min.js.map.jsdbx",
     "variableTypes": [
       "31 Requested For"
     ],
     "ourComponent": [
+      "components:app/requested-for-field",
+      "components:app/catalog-item",
       "utilities:app/catalog"
     ],
-    "coverageNotes": "checkDelegation exists in the utility but there is no requested-for picker / delegation UI in catalog-item"
+    "coverageNotes": "Item-level \"Requested for\" in catalog-item (defaults to the current user, sent as sysparm_requested_for; hidden when the item has a Requested For variable or is a producer). Every pick runs the platform delegation check (canRequestFor); ineligible people show \"This person isn't eligible for this request.\" Inline field instead of Workspace's banner + modal. Reusable: useRequestedFor, useDelegationCheck."
   },
   {
     "tag": "sn-catalog-description",
@@ -43015,16 +43024,17 @@
       "name": "app/variable-custom",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable — notice unless renderCustom is supplied",
+    "ourMatch": "match: components:app/variable, utilities:app/custom-variables",
     "neType": "macro",
     "renderedBy": "sn-catalog-form-macro-variable (renders the macroponent set on the variable)",
     "note": "",
     "sourceRef": "sys_choice question.type; @devsnc/sn-catalog-form src/variable (transformVariable, view)",
     "variableTypeNumber": 14,
     "ourComponent": [
-      "components:app/variable"
+      "components:app/variable",
+      "utilities:app/custom-variables"
     ],
-    "coverageNotes": "notice unless renderCustom is supplied"
+    "coverageNotes": "rp_component=app/<key> renders that component (registerCustomVariable, utilities:app/custom-variables map, or a record already loaded on the page); rp_options={json} → options; the component gets value / onChange / the bound field / the catalog form. Platform macroponents, Jelly macros and SP widgets still do not run (notice)."
   },
   {
     "kind": "variable-type",
@@ -43059,16 +43069,17 @@
       "name": "none",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable — notice unless renderCustom is supplied (UI pages are classic-only)",
+    "ourMatch": "partial: components:app/variable — renders an rp_component when one is set; platform UI pages are classic-only and never run",
     "neType": "ui_page",
     "renderedBy": "not rendered natively (classic only)",
     "note": "unverified",
     "sourceRef": "sys_choice question.type; @devsnc/sn-catalog-form src/variable (transformVariable, view)",
     "variableTypeNumber": 15,
     "ourComponent": [
-      "components:app/variable"
+      "components:app/variable",
+      "utilities:app/custom-variables"
     ],
-    "coverageNotes": "notice unless renderCustom is supplied (UI pages are classic-only)"
+    "coverageNotes": "rp_component / rp_options work as for custom variables; without them a notice (UI pages are classic-only)."
   },
   {
     "kind": "variable-type",
@@ -43148,16 +43159,17 @@
       "name": "app/variable-custom",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable — notice unless renderCustom is supplied",
+    "ourMatch": "match: components:app/variable, utilities:app/custom-variables",
     "neType": "macro",
     "renderedBy": "sn-catalog-form-macro-variable with label",
     "note": "",
     "sourceRef": "sys_choice question.type; @devsnc/sn-catalog-form src/variable (transformVariable, view)",
     "variableTypeNumber": 17,
     "ourComponent": [
-      "components:app/variable"
+      "components:app/variable",
+      "utilities:app/custom-variables"
     ],
-    "coverageNotes": "notice unless renderCustom is supplied"
+    "coverageNotes": "rp_component=app/<key> renders that component (registerCustomVariable, utilities:app/custom-variables map, or a record already loaded on the page); rp_options={json} → options; the component gets value / onChange / the bound field / the catalog form. Platform macroponents, Jelly macros and SP widgets still do not run (notice). The variable label shows (showLabel)."
   },
   {
     "kind": "variable-type",
@@ -43415,7 +43427,7 @@
       "name": "app/html-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable, components:app/textarea-field — no rich-text editor (textarea)",
+    "ourMatch": "match: components:app/variable, components:app/html-field — rich-text editor (images by URL)",
     "neType": "html",
     "renderedBy": "now-record-html-editor (editable) / now-rich-text inside control wrapper (read-only)",
     "note": "",
@@ -43423,9 +43435,9 @@
     "variableTypeNumber": 23,
     "ourComponent": [
       "components:app/variable",
-      "components:app/textarea-field"
+      "components:app/html-field"
     ],
-    "coverageNotes": "no rich-text editor (textarea)"
+    "coverageNotes": "Rich-text editor through app/field-control; inline images are URL-only (no draft-record image upload yet)."
   },
   {
     "kind": "variable-type",
@@ -43729,7 +43741,7 @@
       "name": "app/requested-for-field (over app/reference-field)",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/variable, components:app/reference-field — renders as a sys_user reference; no delegation check UI",
+    "ourMatch": "match: components:app/requested-for-field, components:app/variable",
     "neType": "requested_for -> reference(sys_user)",
     "renderedBy": "sn-record-reference-connected; item-level sn-catalog-request-for adds delegation checks",
     "note": "",
@@ -43737,9 +43749,9 @@
     "variableTypeNumber": 31,
     "ourComponent": [
       "components:app/variable",
-      "components:app/reference-field"
+      "components:app/requested-for-field"
     ],
-    "coverageNotes": "renders as a sys_user reference; no delegation check UI"
+    "coverageNotes": "RequestedForField bound to the catalog form: delegation-checked, clears an ineligible pick (as Workspace)."
   },
   {
     "kind": "variable-type",
@@ -43862,7 +43874,7 @@
       "name": "app/mrvs",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/mrvs — no row policies/scripts, no inline edit, no row prices",
+    "ourMatch": "match: components:app/mrvs",
     "neType": "AppCatalog_MultiRowVariableSetType",
     "renderedBy": "sn-catalog-form-multi-row-variable + sn-catalog-form-multi-row-form-modal",
     "note": "",
@@ -43871,6 +43883,6 @@
     "ourComponent": [
       "components:app/mrvs"
     ],
-    "coverageNotes": "no row policies/scripts, no inline edit, no row prices"
+    "coverageNotes": "Grid + row editor (inline or components:dialog); each row is its own g_form scope (createRowScope): row form metadata, the set's catalog UI policies and client scripts (onSubmit blocks the row save), g_service_catalog.parent. Inline row editing (Enter saves, Escape cancels), per-row prices + rows total from the row form's choice prices (the item price API adds the rows), Remove all with confirm, maxRows, unique columns, platform JSON value."
   }
 ]

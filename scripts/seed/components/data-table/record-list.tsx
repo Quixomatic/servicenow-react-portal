@@ -125,7 +125,7 @@ const ALL_ON: RecordListFeatures = {
 
 /** Types the field primitives can edit inline. */
 const EDITABLE_BASE = ['string', 'choice', 'reference', 'boolean', 'number', 'date', 'datetime']
-const NOT_EDITABLE_TYPES = ['journal', 'journal_input', 'journal_list', 'html', 'translated_html', 'script', 'script_plain', 'conditions', 'sys_class_name', 'document_id', 'GUID', 'domain_id', 'glide_list', 'password', 'password2']
+const NOT_EDITABLE_TYPES = ['journal', 'journal_input', 'journal_list', 'script', 'script_plain', 'conditions', 'sys_class_name', 'document_id', 'GUID', 'domain_id', 'glide_list', 'password', 'password2']
 
 function orderToSort(orderBy: string | undefined): SortState {
     return String(orderBy || '')

@@ -101,7 +101,8 @@ Hooks: `useForm`, `useFormContext`, `useFormValue(name)`, `useFormMeta`.
 | Primitive | Dictionary types |
 |---|---|
 | `app/string-field` | string, sys_class_name, table_name, field_name, GUID, domain_id, ip_address, color, translated_field, user_input |
-| `app/textarea-field` | multi_two_lines, journal, journal_input, journal_list, html, translated_html, translated_text, script, script_plain, conditions, wiki_text (fallbacks for HTML and journal) |
+| `app/textarea-field` | multi_two_lines, journal, journal_input, journal_list, translated_text, script, script_plain, wiki_text (fallback for journal) |
+| `app/html-field` | html, translated_html, catalog variable type 23 (rich-text editor on `components:rich-text-editor`; read-only through `components:rich-text`) |
 | `app/number-field` | integer, longint, decimal, float, numeric, percent_complete, order_index (locale-aware, stepping) |
 | `app/boolean-field` | boolean (checkbox or switch) |
 | `app/choice-field` | choice (select, radio or scale; dependent values) |
@@ -115,7 +116,17 @@ Hooks: `useForm`, `useFormContext`, `useFormValue(name)`, `useFormMeta`.
 
 `<FieldControl name …/>` resolves the type from metadata and renders the matching primitive. `app/combobox` supplies an accessible editable combobox, a select-only `Select` and a `Listbox`, with popups in the top layer so they escape clipped cards.
 
-> **Note:** Not built yet: attachment / image fields (`file_attachment`, `user_image`) and a real journal field. **In progress:** a time field, and condition, table-name and field-name fields.
+## HTML fields
+
+`components:app/html-field` (`HtmlField`) puts the host kit's TipTap editor in a `FieldShell`: label, required marker, hint, messages, dirty marker and `g_form` work as on any field, and the contenteditable is the labelled control.
+
+- Keystrokes stage; leaving the editor commits, and only if the user changed something, so a form that just shows an article never writes back the editor's normalised copy of it.
+- Read-only (dictionary, ACL, UI policy, `g_form.setReadOnly`) renders the sanitised HTML with `components:rich-text`.
+- Formatting the editor can't keep (tables, colours, embedded media…) is named in a notice above the toolbar.
+- **Inline images:** on a saved record (bound form, real `sys_id`, not a catalog variable), pasted, dropped or uploaded images become attachments of that record (`POST /api/now/attachment/file`, `src="/sys_attachment.do?sys_id=…"`), as the platform's HTML editor does. New records and catalog variables are URL-only. `imageUpload={false}` turns uploads off; `uploadImage(file)` supplies your own uploader.
+- Extra props: `minHeight`, `maxHeight`, `toolbarHide`. Exports: `HtmlField`, `uploadRecordImage({ file, table, sysId })`, `imageUploadTarget(field)`, `MAX_INLINE_IMAGE_BYTES`.
+
+> **Note:** Not built yet: attachment / image fields (`file_attachment`, `user_image`) and a real journal field. HTML fields no longer fall back to a textarea. **In progress:** a time field, and condition, table-name and field-name fields.
 
 ## Data behind fields
 

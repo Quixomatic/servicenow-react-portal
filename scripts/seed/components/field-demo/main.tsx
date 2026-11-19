@@ -24,6 +24,7 @@ import { TimeField } from 'components:app/time-field'
 import { ConditionsField } from 'components:app/conditions-field'
 import { TableNameField } from 'components:app/table-name-field'
 import { FieldNameField } from 'components:app/field-name-field'
+import { HtmlField } from 'components:app/html-field'
 
 type Props = { options?: { table?: string; sysId?: string; query?: string } }
 
@@ -89,6 +90,14 @@ const MORE_TYPES: { key: string; label: string; table: string; query: string; fi
         query: 'work_phoneISNOTEMPTY^ORDERBYDESCsys_updated_on',
         fields: [{ name: 'user', wide: true }, { name: 'work_phone' }, { name: 'work_mobile' }],
         note: 'An employee profile: phone_number_e164 with the country codes from the form layout.',
+    },
+    {
+        key: 'html',
+        label: 'HTML (KB article)',
+        table: 'kb_knowledge',
+        query: 'textISNOTEMPTY^ORDERBYDESCsys_updated_on',
+        fields: [{ name: 'short_description', wide: true }, { name: 'text', wide: true, props: { imageUpload: false, maxHeight: '24rem' } }],
+        note: 'A knowledge article: Article body (html) in the rich-text editor; read-only views render it through components:rich-text. Image uploads are off here so nothing is attached to the article.',
     },
 ]
 
@@ -164,6 +173,14 @@ function Standalone() {
                     <PasswordField {...common('secret')} label="Password" confirm />
                     <div className="md:col-span-2">
                         <TextareaField {...common('notes')} label="Textarea" hint="Grows with its content; Ctrl+Enter commits" maxLength={500} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <HtmlField
+                            {...common('html')}
+                            label="HTML"
+                            hint="Toolbar: Alt+F10 · link: Ctrl+K · images by URL (standalone)"
+                            defaultValue="<h3>Rich text</h3><p>Formatting with <strong>bold</strong>, <em>italic</em>, <u>underline</u> and <a href='https://www.servicenow.com'>links</a>.</p><ul><li>Lists</li><li>Quotes and code</li></ul>"
+                        />
                     </div>
                     <div className="md:col-span-2">
                         <ConditionsField {...common('std_conditions')} label="Conditions" conditionsTable={(values.std_table && values.std_table.value) || 'incident'} defaultValue="active=true^priority=1" hint="On the table chosen above" />

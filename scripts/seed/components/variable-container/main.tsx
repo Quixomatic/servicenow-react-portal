@@ -6,7 +6,7 @@
  * containers and sets → titled sections with responsive columns, MRVS → <Mrvs>. Sections are
  * labelled regions for screen readers when they have a title.
  */
-import { useCatalogFormContext, Variable } from 'components:app/variable'
+import { useCatalogFormContext, catalogItemIdOf, Variable } from 'components:app/variable'
 import type { VariableSpec } from 'components:app/variable'
 import type { CatalogLayoutNode } from 'utilities:app/catalog'
 import { Mrvs } from 'components:app/mrvs'
@@ -45,7 +45,7 @@ function LayoutNode(props: VariableLayoutProps & { node: CatalogLayoutNode; byNa
     if (spec && spec.variable.visible === false && spec.kind !== 'field') return null
 
     if (node.type === 'multi_row_container' || (spec && spec.kind === 'mrvs')) {
-        return spec ? <Mrvs name={spec.name} variable={spec.variable} itemId={form.item.sysId} layout={props.fieldLayout} /> : null
+        return spec ? <Mrvs name={spec.name} variable={spec.variable} itemId={catalogItemIdOf(form)} layout={props.fieldLayout} /> : null
     }
     if (node.type === 'field' || !node.columns) {
         return spec ? <Variable spec={spec} layout={props.fieldLayout} renderCustom={props.renderCustom} /> : null

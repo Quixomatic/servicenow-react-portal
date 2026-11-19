@@ -1,25 +1,39 @@
 /**
  * components:app/mrvs: multi-row variable sets.
  *
- * A grid of rows (columns = the set's variables not hidden on the grid) with Add, Edit and Remove.
- * Rows are edited in a modal dialog (host kit components:dialog: overlay layer, focus trap, Escape
- * closes, focus returns to the button that opened it). Each row editor is its own form store, with the
- * row form metadata the platform evaluates for the set (fetched once per set and cached), so the
- * same field primitives render the row's variables.
+ * A grid of rows (columns = the set's variables not hidden on the grid) with Add, inline Edit,
+ * Edit in a dialog, Remove and Remove all. Every row editor (inline or dialog) is its own g_form
+ * scope (createRowScope): the platform's row form metadata, the set's catalog UI policies and
+ * client scripts (onLoad / onChange / onSubmit; onSubmit can block the row save), and
+ * g_service_catalog.parent for the item form. Row prices (the row form's per-choice prices) show
+ * in a Price column; the item total comes from the platform's price call, which counts the rows.
+ *
+ * Keyboard: Edit turns the row into inputs (Tab between them, Enter saves, Escape cancels, focus
+ * returns to the row's Edit button); "Edit in dialog" opens the full row form (focus trap, Escape
+ * closes, focus returns). Remove all asks first (app/confirm-dialog).
  *
  * Value: the platform's MRVS format, a JSON array of rows keyed by the set's variable names,
  * stored on the parent form's 'variables.<set>' field; display values ride along in the display
  * value. maxRows disables Add; unique columns are enforced on save.
+ *
+ * Exports: Mrvs, createRowScope / useRowScope (a row's g_form scope), rowVariable, rowPrice, parseRows.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useField, FieldShell, FormProvider, createFormStore, cx, adornmentButtonClass, IconPlus, IconX, Spinner } from 'components:app/field'
+import { useField, FieldShell, FormProvider, useFormMeta, cx, adornmentButtonClass, IconPlus, IconX, Spinner, IconAlert } from 'components:app/field'
 import type { FieldLayout } from 'components:app/field'
 import { FieldControl } from 'components:app/field-control'
 import { Button } from 'components:button'
 import { Dialog, DialogContent, DialogTitle } from 'components:dialog'
+import { confirmDialog } from 'components:app/confirm-dialog'
 import { useMrvsRowForm } from 'utilities:app/catalog'
-import type { CatalogVariable, MrvsRowField } from 'utilities:app/catalog'
-import { variableSpec } from 'components:app/variable'
+import type { CatalogVariable, MrvsRowForm } from 'utilities:app/catalog'
+import { useCatalogFormContext } from 'components:app/variable'
+import type { CatalogForm } from 'components:app/variable'
+import { useRowScope, rowPrice } from './row-scope'
+import type { Row, RowScope } from './row-scope'
+
+export { createRowScope, useRowScope, rowVariable, rowPrice } from './row-scope'
+export type { Row, RowScope } from './row-scope'
 
 export type MrvsProps = {
     /** Parent form field ('variables.<set name>'). */
@@ -28,11 +42,11 @@ export type MrvsProps = {
     itemId: string
     sourceTable?: string
     layout?: FieldLayout
+    /** Inline row editing in the grid (default true). */
+    inlineEdit?: boolean
 }
 
-type Row = { value: Record<string, string>; display: Record<string, string> }
-
-function parseRows(value: string, displayValue: string): Row[] {
+export function parseRows(value: string, displayValue: string): Row[] {
     let values: Record<string, string>[] = []
     let displays: Record<string, string>[] = []
     try {
@@ -48,47 +62,63 @@ function parseRows(value: string, displayValue: string): Row[] {
     return values.map((v, i) => ({ value: v || {}, display: (Array.isArray(displays) && displays[i]) || {} }))
 }
 
-/** Row form field → a catalog variable for app/variable's mapping. */
-function rowVariable(f: MrvsRowField, itemId: string, setId: string): CatalogVariable {
-    const isChoice = !!(f.choices && f.choices.length)
-    return {
-        __typename: isChoice ? 'AppCatalog_ChoiceQuestionElementType' : f.reference ? 'AppCatalog_ReferenceQuestionElementType' : 'AppCatalog_StandardQuestionElementType',
-        type: f.type,
-        id: f.sysId,
-        name: `variables.${f.name}`,
-        variableName: f.name,
-        label: f.label,
-        mandatory: f.mandatory,
-        readOnly: f.readOnly,
-        visible: f.visible,
-        variableAttributes: f.attributes,
-        defaultValue: f.value,
-        showHelp: !!f.helpText,
-        helpText: f.helpText,
-        exampleText: f.placeholder,
-        choices: isChoice ? (f.choices || []).map((c) => ({ value: c.value, displayValue: c.label })) : undefined,
-        includeNone: isChoice && (f.choices || []).some((c) => c.value === ''),
-        reference: f.reference,
-        referenceQual: f.referenceQual,
-        referringTable: 'sc_cat_item',
-        referringRecordId: `${itemId}$${setId}`,
+function money(amount: number, parent: CatalogForm | null): string {
+    const p = parent && parent.item && parent.item.pricing
+    const code = (p && p.currencyCode) || 'USD'
+    try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(amount)
+    } catch (e) {
+        return `${(p && p.currencySymbol) || ''}${amount.toFixed(2)}`
     }
 }
 
 export function Mrvs(props: MrvsProps) {
     const { variable } = props
+    const parent = useCatalogFormContext()
     const field = useField({ name: props.name, label: variable.label })
     const rows = useMemo(() => parseRows(field.value, field.displayValue), [field.value, field.displayValue])
     const columns = (variable.fields || []).filter((f) => !f.hideOnGrid)
     const max = variable.maxRows || 0
     const full = max > 0 && rows.length >= max
-    const [editing, setEditing] = useState<{ index: number; opener: HTMLElement | null } | null>(null)
     const readOnly = field.state.readOnly || field.state.disabled
+    const rowForm = useMrvsRowForm(variable.id, props.itemId, props.sourceTable, !!props.itemId)
+    const [dialog, setDialog] = useState<{ index: number; opener: HTMLElement | null } | null>(null)
+    const [inline, setInline] = useState<number>(-1)
+    const editButtons = useRef<Record<number, HTMLButtonElement | null>>({})
+    const addButton = useRef<HTMLButtonElement | null>(null)
+    const removeAllButton = useRef<HTMLButtonElement | null>(null)
     const captionId = `${field.ids.input}-caption`
+    const uniqueColumns = (variable.fields || []).filter((f) => f.unique).map((f) => f.name)
+    const showPrices = !!(rowForm.data && rowForm.data.hasPricing && parent && parent.item && parent.item.pricing && parent.item.pricing.showPrices)
+    const canInline = props.inlineEdit !== false && !!rowForm.data && columns.length > 0
+    const actionCols = readOnly ? 0 : 1
 
     const write = (next: Row[]) => {
         field.setValue(JSON.stringify(next.map((r) => r.value)), JSON.stringify(next.map((r) => r.display)))
         field.blur()
+    }
+    // Focus after React commits (the row's Edit button is re-created when inline editing ends).
+    const focusLater = (target: HTMLElement | null | undefined | (() => HTMLElement | null | undefined)) => {
+        setTimeout(() => {
+            const el = typeof target === 'function' ? target() : target
+            if (el && el.isConnected) el.focus()
+        }, 0)
+    }
+    const duplicates = (row: Row, index: number) =>
+        uniqueColumns.filter((c) => row.value[c] && rows.some((r, j) => j !== index && r.value[c] === row.value[c]))
+
+    const removeAll = async () => {
+        const ok = await confirmDialog({
+            title: `Remove all ${rows.length} row${rows.length === 1 ? '' : 's'}?`,
+            description: `Every row of ${variable.label} is removed. You can't undo this.`,
+            confirmLabel: 'Remove all',
+            destructive: true,
+        })
+        if (ok) {
+            setInline(-1)
+            write([])
+            focusLater(() => addButton.current)
+        } else focusLater(() => removeAllButton.current)
     }
 
     return (
@@ -102,12 +132,17 @@ export function Mrvs(props: MrvsProps) {
                         <thead className="bg-muted text-xs text-muted-foreground">
                             <tr>
                                 {columns.map((c) => (
-                                    <th key={c.name} scope="col" className="px-3 py-2 font-medium">
+                                    <th key={c.name} scope="col" className="px-3 py-2 font-medium whitespace-nowrap">
                                         {c.label}
                                     </th>
                                 ))}
-                                {!readOnly ? (
-                                    <th scope="col" className="w-24 px-3 py-2 text-right font-medium">
+                                {showPrices ? (
+                                    <th scope="col" className="px-3 py-2 text-right font-medium">
+                                        Price
+                                    </th>
+                                ) : null}
+                                {actionCols ? (
+                                    <th scope="col" className="w-28 px-3 py-2 text-right font-medium">
                                         <span className="sr-only">Actions</span>
                                     </th>
                                 ) : null}
@@ -115,71 +150,157 @@ export function Mrvs(props: MrvsProps) {
                         </thead>
                         <tbody>
                             {rows.length ? (
-                                rows.map((r, i) => (
-                                    <tr key={i} className="border-t border-border" data-rpv-row={i}>
-                                        {columns.map((c) => (
-                                            <td key={c.name} className="px-3 py-2">
-                                                {r.display[c.name] || r.value[c.name] || <span className="text-muted-foreground">—</span>}
-                                            </td>
-                                        ))}
-                                        {!readOnly ? (
-                                            <td className="px-2 py-1 text-right whitespace-nowrap">
-                                                <button
-                                                    type="button"
-                                                    className="rounded-sm px-2 py-1 text-xs text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60"
-                                                    aria-label={`Edit row ${i + 1}`}
-                                                    onClick={(e: any) => setEditing({ index: i, opener: e.currentTarget })}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button type="button" className={adornmentButtonClass} aria-label={`Remove row ${i + 1}`} onClick={() => write(rows.filter((_, j) => j !== i))}>
-                                                    <IconX size={14} />
-                                                </button>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))
+                                rows.map((r, i) =>
+                                    inline === i && canInline && !readOnly ? (
+                                        <InlineRow
+                                            key={`edit-${i}`}
+                                            index={i}
+                                            row={r}
+                                            rowForm={rowForm.data as MrvsRowForm}
+                                            columns={columns.map((c) => c.name)}
+                                            showPrices={showPrices}
+                                            itemId={props.itemId}
+                                            setId={variable.id}
+                                            parent={parent}
+                                            duplicates={(row) => duplicates(row, i)}
+                                            onCancel={() => {
+                                                setInline(-1)
+                                                focusLater(() => editButtons.current[i])
+                                            }}
+                                            onSave={(row) => {
+                                                const next = rows.slice()
+                                                next[i] = row
+                                                write(next)
+                                                setInline(-1)
+                                                focusLater(() => editButtons.current[i])
+                                            }}
+                                            onOpenDialog={(row) => {
+                                                setInline(-1)
+                                                const next = rows.slice()
+                                                next[i] = row
+                                                write(next)
+                                                setDialog({ index: i, opener: editButtons.current[i] || null })
+                                            }}
+                                        />
+                                    ) : (
+                                        <tr key={i} className="border-t border-border" data-rpv-row={i}>
+                                            {columns.map((c) => (
+                                                <td key={c.name} className="px-3 py-2">
+                                                    {r.display[c.name] || r.value[c.name] || <span className="text-muted-foreground">—</span>}
+                                                </td>
+                                            ))}
+                                            {showPrices ? (
+                                                <td className="px-3 py-2 text-right tabular-nums" data-rpv-row-price="">
+                                                    {money(rowPrice(rowForm.data, r).price, parent)}
+                                                </td>
+                                            ) : null}
+                                            {actionCols ? (
+                                                <td className="px-2 py-1 text-right whitespace-nowrap">
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                    <button
+                                                        type="button"
+                                                        ref={(el) => {
+                                                            editButtons.current[i] = el
+                                                        }}
+                                                        className="rounded-sm px-2 py-1 text-xs text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60"
+                                                        aria-label={`Edit row ${i + 1}`}
+                                                        data-rpv-row-edit=""
+                                                        onClick={(e: any) => {
+                                                            if (canInline) setInline(i)
+                                                            else setDialog({ index: i, opener: e.currentTarget })
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    {canInline ? (
+                                                        <button
+                                                            type="button"
+                                                            className={adornmentButtonClass}
+                                                            aria-label={`Edit row ${i + 1} in a dialog`}
+                                                            title="Edit in a dialog"
+                                                            data-rpv-row-dialog=""
+                                                            onClick={(e: any) => setDialog({ index: i, opener: e.currentTarget })}
+                                                        >
+                                                            <ExpandIcon />
+                                                        </button>
+                                                    ) : null}
+                                                    <button
+                                                        type="button"
+                                                        className={adornmentButtonClass}
+                                                        aria-label={`Remove row ${i + 1}`}
+                                                        data-rpv-row-remove=""
+                                                        onClick={() => {
+                                                            write(rows.filter((_, j) => j !== i))
+                                                            focusLater(() => editButtons.current[Math.min(i, rows.length - 2)] || addButton.current)
+                                                        }}
+                                                    >
+                                                        <IconX size={14} />
+                                                    </button>
+                                                    </div>
+                                                </td>
+                                            ) : null}
+                                        </tr>
+                                    ),
+                                )
                             ) : (
                                 <tr>
-                                    <td colSpan={columns.length + (readOnly ? 0 : 1)} className="px-3 py-4 text-center text-sm text-muted-foreground">
+                                    <td colSpan={columns.length + actionCols + (showPrices ? 1 : 0)} className="px-3 py-4 text-center text-sm text-muted-foreground">
                                         No rows yet
                                     </td>
                                 </tr>
                             )}
                         </tbody>
+                        {showPrices && rows.length ? (
+                            <tfoot>
+                                <tr className="border-t border-border bg-muted/40 text-xs">
+                                    <th scope="row" colSpan={columns.length} className="px-3 py-2 text-right font-medium text-muted-foreground">
+                                        Rows total
+                                    </th>
+                                    <td className="px-3 py-2 text-right font-medium tabular-nums" data-rpv-rows-total="">
+                                        {money(rows.reduce((sum, r) => sum + rowPrice(rowForm.data, r).price, 0), parent)}
+                                    </td>
+                                    {actionCols ? <td /> : null}
+                                </tr>
+                            </tfoot>
+                        ) : null}
                     </table>
                 </div>
                 {!readOnly ? (
-                    <div>
-                        <Button type="button" variant="outline" size="sm" disabled={full} onClick={(e: any) => setEditing({ index: -1, opener: e.currentTarget })}>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button ref={addButton} type="button" variant="outline" size="sm" disabled={full} data-rpv-mrvs-add="" onClick={(e: any) => setDialog({ index: -1, opener: e.currentTarget })}>
                             <IconPlus size={14} /> Add row
                         </Button>
-                        {full ? <span className="ml-2 text-xs text-muted-foreground">Maximum of {max} rows reached</span> : null}
+                        {rows.length ? (
+                            <Button ref={removeAllButton} type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" data-rpv-mrvs-remove-all={variable.id} onClick={removeAll}>
+                                Remove all
+                            </Button>
+                        ) : null}
+                        {full ? <span className="text-xs text-muted-foreground">Maximum of {max} rows reached</span> : null}
                     </div>
                 ) : null}
             </div>
-            {editing ? (
+            {dialog ? (
                 <RowDialog
-                    title={`${editing.index < 0 ? 'Add' : 'Edit'} ${variable.label} row`}
-                    setId={variable.id}
+                    title={`${dialog.index < 0 ? 'Add' : 'Edit'} ${variable.label} row`}
+                    rowForm={rowForm}
                     itemId={props.itemId}
-                    sourceTable={props.sourceTable}
-                    row={editing.index >= 0 ? rows[editing.index] : undefined}
-                    uniqueColumns={(variable.fields || []).filter((f) => f.unique).map((f) => f.name)}
-                    otherRows={rows.filter((_, j) => j !== editing.index)}
+                    setId={variable.id}
+                    parent={parent}
+                    row={dialog.index >= 0 ? rows[dialog.index] : undefined}
+                    duplicates={(row) => duplicates(row, dialog.index)}
                     onCancel={() => {
-                        const opener = editing.opener
-                        setEditing(null)
-                        if (opener) setTimeout(() => opener.focus(), 0)
+                        const opener = dialog.opener
+                        setDialog(null)
+                        focusLater(opener)
                     }}
                     onSave={(row) => {
                         const next = rows.slice()
-                        if (editing.index < 0) next.push(row)
-                        else next[editing.index] = row
+                        if (dialog.index < 0) next.push(row)
+                        else next[dialog.index] = row
                         write(next)
-                        const opener = editing.opener
-                        setEditing(null)
-                        if (opener) setTimeout(() => opener.focus(), 0)
+                        const opener = dialog.opener
+                        setDialog(null)
+                        focusLater(opener)
                     }}
                 />
             ) : null}
@@ -187,61 +308,158 @@ export function Mrvs(props: MrvsProps) {
     )
 }
 
+function ExpandIcon() {
+    return (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+        </svg>
+    )
+}
+
+/** Form messages of a row scope (g_form.addErrorMessage / addInfoMessage from row scripts). */
+function RowMessages({ scope, extra }: { scope: RowScope; extra?: string }) {
+    const meta = useFormMeta(scope.form as any)
+    const list = meta.messages.map((m: any) => ({ id: m.id, kind: m.kind, text: String(m.text || '') }))
+    if (extra) list.push({ id: 'extra', kind: 'error', text: extra })
+    if (!list.length) return null
+    return (
+        <div className="flex flex-col gap-1" data-rpv-row-messages="">
+            {list.map((m: any) => (
+                <p key={m.id} role={m.kind === 'error' ? 'alert' : 'status'} className={cx('flex items-start gap-1.5 text-sm', m.kind === 'error' ? 'text-destructive' : 'text-muted-foreground')}>
+                    {m.kind === 'error' ? <IconAlert size={14} className="mt-0.5 shrink-0" /> : null}
+                    {m.text.replace(/<[^>]+>/g, '')}
+                </p>
+            ))}
+        </div>
+    )
+}
+
+/** Field validation → onSubmit scripts → unique columns. Returns the row or null (stay open). */
+function trySave(scope: RowScope, duplicates: (row: Row) => string[], setError: (e: string) => void): Row | null {
+    setError('')
+    const r = scope.submit()
+    if (!r.ok) {
+        if (!r.blockedByScript) setError(r.validation.errors.map((e: any) => e.message).join(' · '))
+        return null
+    }
+    const row = scope.collect()
+    const dupes = duplicates(row)
+    if (dupes.length) {
+        setError(`These values must be unique across rows: ${dupes.join(', ')}`)
+        return null
+    }
+    return row
+}
+
+function InlineRow(props: {
+    index: number
+    row: Row
+    rowForm: MrvsRowForm
+    columns: string[]
+    showPrices: boolean
+    itemId: string
+    setId: string
+    parent: CatalogForm | null
+    duplicates: (row: Row) => string[]
+    onCancel: () => void
+    onSave: (row: Row) => void
+    onOpenDialog: (row: Row) => void
+}) {
+    const scope = useRowScope({ rowForm: props.rowForm, row: props.row, itemId: props.itemId, setId: props.setId, parent: props.parent })
+    const [error, setError] = useState('')
+    const tr = useRef<HTMLTableRowElement | null>(null)
+    // Focus the first input (select-only comboboxes ignore React's autoFocus).
+    useEffect(() => {
+        const t = setTimeout(() => {
+            const el = tr.current && (tr.current.querySelector('input:not([type=hidden]):not([disabled]), textarea, [role=combobox][tabindex]:not([aria-disabled=true]), button') as HTMLElement | null)
+            if (el) el.focus()
+        }, 0)
+        return () => clearTimeout(t)
+    }, [scope])
+    if (!scope) return null
+    const byCol: Record<string, any> = {}
+    for (const s of scope.specs) byCol[s.variable.variableName as string] = s
+    const save = () => {
+        const row = trySave(scope, props.duplicates, setError)
+        if (row) props.onSave(row)
+    }
+    const onKeyDown = (e: any) => {
+        if (e.defaultPrevented) return
+        if (e.key === 'Escape') {
+            e.preventDefault()
+            e.stopPropagation()
+            props.onCancel()
+        } else if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT' && e.target.getAttribute('role') !== 'combobox') {
+            e.preventDefault()
+            save()
+        }
+    }
+    const span = props.columns.length + (props.showPrices ? 1 : 0) + 1
+    return (
+        <>
+            <tr ref={tr} className="border-t border-border bg-accent/40 align-top" data-rpv-row={props.index} data-rpv-row-editing="" onKeyDown={onKeyDown}>
+                <FormProvider form={scope.form as any}>
+                    {props.columns.map((col, ci) => {
+                        const s = byCol[col]
+                        return (
+                            <td key={col} className="min-w-32 px-2 py-2" data-rpv-inline-cell="">
+                                {s && s.kind === 'field' ? <FieldControl name={s.name} type={s.fieldType} size="sm" autoFocus={ci === 0} {...(s.fieldProps || {})} /> : <span className="text-muted-foreground">—</span>}
+                            </td>
+                        )
+                    })}
+                </FormProvider>
+                {props.showPrices ? (
+                    <td className="px-3 py-3 text-right text-muted-foreground tabular-nums">
+                        <LivePrice scope={scope} rowForm={props.rowForm} parent={props.parent} />
+                    </td>
+                ) : null}
+                <td aria-hidden="true" />
+            </tr>
+            {/* Actions and messages on their own line, so the inputs keep the row's width. */}
+            <tr className="bg-accent/40" data-rpv-row-editing-actions="" onKeyDown={onKeyDown}>
+                <td colSpan={span} className="px-2 pb-2">
+                    <div className="flex flex-wrap items-center gap-2" aria-live="polite">
+                        <Button type="button" size="sm" data-rpv-row-save="" onClick={save}>
+                            Save row
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" data-rpv-row-cancel="" onClick={props.onCancel}>
+                            Cancel
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => props.onOpenDialog(scope.collect())}>
+                            All fields…
+                        </Button>
+                        <div className="min-w-0 flex-1">
+                            <RowMessages scope={scope} extra={error} />
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </>
+    )
+}
+
+function LivePrice({ scope, rowForm, parent }: { scope: RowScope; rowForm: MrvsRowForm; parent: CatalogForm | null }) {
+    useFormMeta(scope.form as any)
+    return <>{money(rowPrice(rowForm, scope.collect()).price, parent)}</>
+}
+
 function RowDialog(props: {
     title: string
-    setId: string
+    rowForm: { data?: MrvsRowForm; error: unknown }
     itemId: string
-    sourceTable?: string
+    setId: string
+    parent: CatalogForm | null
     row?: Row
-    uniqueColumns: string[]
-    otherRows: Row[]
+    duplicates: (row: Row) => string[]
     onCancel: () => void
     onSave: (row: Row) => void
 }) {
-    const meta = useMrvsRowForm(props.setId, props.itemId, props.sourceTable)
+    const scope = useRowScope({ rowForm: props.rowForm.data, row: props.row, itemId: props.itemId, setId: props.setId, parent: props.parent })
     const [error, setError] = useState('')
-
-    // One child form store per row editor, loaded with the row form metadata and the row's values.
-    const child = useMemo(() => {
-        if (!meta.data) return null
-        const store = createFormStore({ table: 'sc_cat_item', sysId: props.itemId })
-        const specs = meta.data.fields.map((f) => variableSpec(rowVariable(f, props.itemId, props.setId), { table: 'sc_cat_item' }))
-        const values: Record<string, { value: string; displayValue: string }> = {}
-        const metas: Record<string, any> = {}
-        specs.forEach((s, i) => {
-            const f = meta.data!.fields[i]
-            const col = s.variable.variableName as string
-            const v = props.row ? props.row.value[col] : undefined
-            values[s.name] = v !== undefined ? { value: v, displayValue: (props.row && props.row.display[col]) || v } : { value: f.value, displayValue: f.displayValue || f.value }
-            if (s.meta) metas[s.name] = s.meta
-        })
-        store.load({ values, meta: metas })
-        for (const s of specs) if (s.variable.visible === false) store.setVisible(s.name, false)
-        const form = Object.create(store)
-        form.status = { isLoading: false, isFetching: false, error: null, loaded: true }
-        form.refetch = () => {}
-        return { form, specs }
-    }, [meta.data])
-
     const save = () => {
-        if (!child) return
-        const result = child.form.validate()
-        if (!result.valid) {
-            setError(result.errors.map((e: any) => e.message).join(' · '))
-            return
-        }
-        const row: Row = { value: {}, display: {} }
-        for (const s of child.specs) {
-            const col = s.variable.variableName as string
-            row.value[col] = child.form.getValue(s.name)
-            row.display[col] = child.form.getDisplayValue(s.name) || row.value[col]
-        }
-        const dupes = props.uniqueColumns.filter((c) => row.value[c] && props.otherRows.some((r) => r.value[c] === row.value[c]))
-        if (dupes.length) {
-            setError(`These values must be unique across rows: ${dupes.join(', ')}`)
-            return
-        }
-        props.onSave(row)
+        if (!scope) return
+        const row = trySave(scope, props.duplicates, setError)
+        if (row) props.onSave(row)
     }
 
     return (
@@ -260,33 +478,31 @@ function RowDialog(props: {
                             <IconX size={16} />
                         </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto px-5 py-4">
-                        {meta.error ? (
+                    <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+                        {props.rowForm.error ? (
                             <p role="alert" className="text-sm text-destructive">
-                                {(meta.error as Error).message}
+                                {(props.rowForm.error as Error).message}
                             </p>
-                        ) : !child ? (
+                        ) : !scope ? (
                             <Spinner label="Loading the row form" />
                         ) : (
-                            <FormProvider form={child.form}>
-                                <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-                                    {child.specs.map((s: any, i: number) =>
-                                        s.kind === 'field' ? <FieldControl key={s.name} name={s.name} type={s.fieldType} autoFocus={i === 0} {...(s.fieldProps || {})} /> : null,
-                                    )}
-                                </div>
-                            </FormProvider>
+                            <>
+                                <FormProvider form={scope.form as any}>
+                                    <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+                                        {scope.specs.map((s: any, i: number) =>
+                                            s.kind === 'field' ? <FieldControl key={s.name} name={s.name} type={s.fieldType} autoFocus={i === 0} {...(s.fieldProps || {})} /> : null,
+                                        )}
+                                    </div>
+                                </FormProvider>
+                                <RowMessages scope={scope} extra={error} />
+                            </>
                         )}
-                        {error ? (
-                            <p role="alert" className="mt-4 text-sm text-destructive">
-                                {error}
-                            </p>
-                        ) : null}
                     </div>
                     <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
                         <Button type="button" variant="outline" onClick={props.onCancel}>
                             Cancel
                         </Button>
-                        <Button type="button" disabled={!child} onClick={save}>
+                        <Button type="button" disabled={!scope} data-rp-mrvs-save="" onClick={save}>
                             {props.row ? 'Save row' : 'Add row'}
                         </Button>
                     </div>

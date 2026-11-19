@@ -10,7 +10,9 @@ import { useClientScripts } from 'utilities:app/gform'
 import { DialogOutlet } from 'components:app/confirm-dialog'
 import type { CatalogForm, VariableSpec } from 'components:app/variable'
 import { VariableLayout } from 'components:app/variable-container'
-import { cx, Spinner, IconAlert, IconCheck, useFormMeta } from 'components:app/field'
+import { cx, Spinner, IconAlert, IconCheck, useFormMeta, controlClass } from 'components:app/field'
+import { Select } from 'components:app/combobox'
+import { RequestedForField, useRequestedFor } from 'components:app/requested-for-field'
 import type { FieldLayout } from 'components:app/field'
 
 /**
@@ -22,8 +24,13 @@ import type { FieldLayout } from 'components:app/field'
  * links to each field), then the platform's own submit (order_now / submit_producer), and shows
  * the created request or record with a link.
  *
- * Widget options: { itemId, table } (or the page query: ?item=<sys_id>). Also exported as
- * <CatalogItem itemId /> for other widgets.
+ * Requested for (items, not producers): a "Requested for" picker defaults to the current user and
+ * is delegation-checked (app/requested-for-field); its value is the order's requested_for. Items
+ * with a Requested For variable (type 31) use that variable instead, as the platform does.
+ * `requestedFor: 'hidden'` turns the item-level picker off.
+ *
+ * Widget options: { itemId, table, fieldLayout, requestedFor } (or the page query: ?item=<sys_id>).
+ * Also exported as <CatalogItem itemId /> for other widgets.
  */
 export type CatalogItemProps = {
     itemId: string
@@ -33,9 +40,11 @@ export type CatalogItemProps = {
     onSubmitted?: (result: SubmitResult) => void
     /** Link for the created record (default: the platform form). */
     recordHref?: (table: string, sysId: string) => string
+    /** Item-level requested-for picker: 'auto' (default: unless the item has a Requested For variable) or 'hidden'. */
+    requestedFor?: 'auto' | 'hidden'
 }
 
-type Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldLayout } }
+type Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldLayout; requestedFor?: 'auto' | 'hidden' } }
 
 export default function CatalogItemWidget({ options = {} }: Props) {
     const location = usePortalLocation() as any
@@ -49,7 +58,7 @@ export default function CatalogItemWidget({ options = {} }: Props) {
                 <CardContent className="text-sm text-muted-foreground">Choose a catalog item.</CardContent>
             </Card>
         )
-    return <CatalogItem key={itemId} itemId={itemId} table={table} fieldLayout={options.fieldLayout} />
+    return <CatalogItem key={itemId} itemId={itemId} table={table} fieldLayout={options.fieldLayout} requestedFor={options.requestedFor} />
 }
 
 export function CatalogItem(props: CatalogItemProps) {
@@ -93,6 +102,7 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
                 form={form}
                 fieldLayout={props.fieldLayout}
                 renderCustom={props.renderCustom}
+                requestedFor={props.requestedFor}
                 onSubmitted={(r) => {
                     setResult(r)
                     if (props.onSubmitted) props.onSubmitted(r)
@@ -118,9 +128,20 @@ function actionLabel(item: CatalogItemData) {
     return 'Order now'
 }
 
-function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout?: FieldLayout; renderCustom?: (s: VariableSpec) => any; onSubmitted: (r: SubmitResult) => void }) {
+function ItemForm(props: {
+    item: CatalogItemData
+    form: CatalogForm
+    fieldLayout?: FieldLayout
+    renderCustom?: (s: VariableSpec) => any
+    requestedFor?: 'auto' | 'hidden'
+    onSubmitted: (r: SubmitResult) => void
+}) {
     const { item, form } = props
     const isProducer = item.type === 'record_producer'
+    // The platform's item-level "Requested for": a Requested For variable, if the item has one, IS it.
+    const hasRequestedForVariable = form.specs.some((s) => !!s.meta && s.meta.internalType === 'requested_for')
+    const showRequestedFor = !isProducer && props.requestedFor !== 'hidden' && !hasRequestedForVariable
+    const requestedFor = useRequestedFor({ itemId: item.sysId })
     const [quantity, setQuantity] = useState(item.quantity[0] ? item.quantity[0].value : '1')
     const [errors, setErrors] = useState<{ name: string; label: string; message: string }[]>([])
     const [submitting, setSubmitting] = useState(false)
@@ -165,7 +186,9 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
     const submit = async () => {
         setFailure('')
         const r = form.validate()
-        if (!r.valid) {
+        if (showRequestedFor && !requestedFor.valid)
+            r.errors.unshift({ name: 'rp_requested_for', label: 'Requested for', message: requestedFor.pending ? 'Requested for: still checking who you can request for' : 'Requested for is required' })
+        if (!r.valid || r.errors.length) {
             setErrors(r.errors)
             setTimeout(() => summary.current && summary.current.focus(), 0)
             return
@@ -180,6 +203,7 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
                 kind: isProducer ? 'submit_producer' : 'order_now',
                 variables: form.serializeVariables(),
                 quantity,
+                requestedFor: showRequestedFor ? requestedFor.value : undefined,
                 itemGuid: item.targetRecordSysId,
             })
             props.onSubmitted(res)
@@ -252,6 +276,21 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
                             ))}
                         </div>
                     ) : null}
+                    {showRequestedFor ? (
+                        <div className="max-w-md" data-rpf-field="rp_requested_for" data-rp-item-requested-for="">
+                            <RequestedForField
+                                name="requested_for"
+                                table="sc_request"
+                                label="Requested for"
+                                hint="Who this request is for"
+                                readOnly={false}
+                                mandatory
+                                standalone
+                                layout={props.fieldLayout}
+                                {...requestedFor.fieldProps}
+                            />
+                        </div>
+                    ) : null}
                     <VariableLayout fieldLayout={props.fieldLayout} renderCustom={props.renderCustom} />
                     {item.mandatoryAttachment ? (
                         <p className="text-sm text-muted-foreground">This item requires an attachment on the request; add it from the platform after submitting.</p>
@@ -263,20 +302,20 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
                             </p>
                         ) : null}
                         {!isProducer && !item.hideQuantity && item.quantity.length ? (
-                            <label className="flex items-center gap-2 text-sm">
-                                Quantity
-                                <select
-                                    value={quantity}
-                                    onChange={(e: any) => setQuantity(e.target.value)}
-                                    className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                                >
-                                    {item.quantity.map((q) => (
-                                        <option key={q.value} value={q.value}>
-                                            {q.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                            <div className="flex items-center gap-2 text-sm" data-rp-quantity="">
+                                <span id={`rp-qty-${item.sysId}`}>Quantity</span>
+                                <div className={controlClass({ className: 'w-auto min-w-20 pl-1' })}>
+                                    <Select
+                                        variant="inline"
+                                        aria-labelledby={`rp-qty-${item.sysId}`}
+                                        value={quantity}
+                                        items={item.quantity.map((q) => ({ value: String(q.value), label: String(q.label) }))}
+                                        popupMinWidth={96}
+                                        renderValue={(i) => <span className="tabular-nums">{i.label}</span>}
+                                        onChange={(i) => setQuantity(i.value)}
+                                    />
+                                </div>
+                            </div>
                         ) : null}
                         <Button type="button" disabled={submitting} data-rp-submit="" onClick={submit}>
                             {submitting ? <Spinner label="Submitting" /> : null}

@@ -26,6 +26,83 @@ export type VariableSpec = {
     /** Extra props for the chosen field primitive (variant, confirm, choices, validate…). */
     fieldProps?: Record<string, unknown>
     meta?: FieldMeta
+    /** Custom (macro / UI page) variables: the component named by the rp_component attribute. */
+    custom?: CustomVariableConfig
+}
+
+/**
+ * The custom-variable contract on the variable's attributes (item_option_new.attributes):
+ *   rp_component=app/<key>          the component record that renders the variable
+ *   rp_options={…json…}             optional props for it (JSON; may contain commas)
+ */
+export type CustomVariableConfig = {
+    /** 'app/<key>' (from rp_component), '' when none is set. */
+    component: string
+    options: Record<string, unknown>
+    /** Type 17 (custom with label) and UI page variables show the variable's label; type 14 doesn't. */
+    showLabel: boolean
+    /** rp_options that didn't parse (shown to developers). */
+    error?: string
+}
+
+/**
+ * Variable attributes, JSON-aware: `rp_options={…}` keeps its commas; everything else is the
+ * platform's `name=value,name=value` list (parseAttributes).
+ */
+export function parseVariableAttributes(raw: string): { attributes: Record<string, string>; rpOptions?: string } {
+    const text = String(raw || '')
+    const at = text.search(/(^|,)\s*rp_options\s*=/)
+    if (at < 0) return { attributes: parseAttributes(text) }
+    const start = text.indexOf('=', at) + 1
+    let i = start
+    while (i < text.length && /\s/.test(text[i])) i++
+    let end = i
+    if (text[i] === '{' || text[i] === '[') {
+        // Balanced braces / brackets, strings respected.
+        let depth = 0
+        let inString = false
+        for (end = i; end < text.length; end++) {
+            const ch = text[end]
+            if (inString) {
+                if (ch === '\\') end++
+                else if (ch === '"') inString = false
+                continue
+            }
+            if (ch === '"') inString = true
+            else if (ch === '{' || ch === '[') depth++
+            else if (ch === '}' || ch === ']') {
+                depth--
+                if (depth === 0) {
+                    end++
+                    break
+                }
+            }
+        }
+    } else {
+        end = text.indexOf(',', i)
+        if (end < 0) end = text.length
+    }
+    const rpOptions = text.slice(i, end).trim()
+    const rest = (text.slice(0, at) + ',' + text.slice(end)).replace(/^[\s,]+|[\s,]+$/g, '')
+    return { attributes: parseAttributes(rest), rpOptions }
+}
+
+/** rp_component / rp_options of a variable's attributes (see CustomVariableConfig). */
+export function customVariableConfig(raw: string, showLabel: boolean): CustomVariableConfig {
+    const { attributes, rpOptions } = parseVariableAttributes(raw)
+    const component = String(attributes.rp_component || '').trim().replace(/^components:/, '')
+    let options: Record<string, unknown> = {}
+    let error: string | undefined
+    if (rpOptions) {
+        try {
+            const parsed = JSON.parse(rpOptions)
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) options = parsed
+            else error = 'rp_options must be a JSON object'
+        } catch (e) {
+            error = `rp_options is not valid JSON: ${(e as Error).message}`
+        }
+    }
+    return { component, options, showLabel, error }
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/
@@ -101,8 +178,28 @@ export function variableSpec(v: CatalogVariable, ctx: { table: string }): Variab
     if (rawType === 'label') return { ...base, kind: 'label', submitName: null }
     if (rawType === 'rich_text_label') return { ...base, kind: 'rich_text_label', submitName: null }
     if (rawType === 'break') return { ...base, kind: 'break', submitName: null }
-    if (rawType === 'macro' || rawType === 'macro_with_label' || rawType === 'ui_page' || rawType === 'custom' || rawType === 'custom_with_label') return { ...base, kind: 'custom' }
+    if (rawType === 'macro' || rawType === 'macro_with_label' || rawType === 'ui_page' || rawType === 'custom' || rawType === 'custom_with_label') {
+        const showLabel = rawType !== 'macro' && rawType !== 'custom'
+        const custom = customVariableConfig(v.variableAttributes || '', showLabel)
+        // A FieldMeta too, so the store validates it (mandatory) and g_form / policies reach it.
+        const meta: FieldMeta = {
+            table: v.referringTable || ctx.table,
+            name,
+            label: String(v.label || v.variableName || '').trim(),
+            type: 'string',
+            internalType: rawType,
+            mandatory: !!v.mandatory,
+            readOnly: !!v.readOnly,
+            hint: hintOf(v),
+            defaultValue: v.defaultValue || undefined,
+            attributes: parseVariableAttributes(v.variableAttributes || '').attributes,
+            source: 'layout',
+        }
+        return { ...base, kind: 'custom', custom, meta }
+    }
 
+    // HTML (type 23): fieldType 'html' goes through app/field-control's registry, so the rich-text
+    // field (components:app/html-field) takes over there once it registers for 'html'.
     const attributes = parseAttributes(v.variableAttributes || '')
     const map = TYPE_MAP[rawType] || { type: rawType }
     const choices =

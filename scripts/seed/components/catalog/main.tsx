@@ -1,29 +1,51 @@
 /**
- * utilities:app/catalog: Service Catalog data for app/variable, app/mrvs and app/catalog-item.
+ * utilities:app/catalog: Service Catalog data for app/variable, app/mrvs, app/catalog-item and
+ * app/variable-editor.
  *
- * Fetchers: fetchCatalogItem, fetchItemPrice, submitCatalogItem, fetchMrvsRowForm,
- *           validateVariableRegex, checkDelegation, uploadVariableAttachment (see api.ts for the
- *           platform call behind each).
+ * Fetchers: fetchCatalogItem, fetchItemPrice, submitCatalogItem, fetchMrvsRowForm (row form +
+ *           the set's client scripts / UI policies), validateVariableRegex, canRequestFor /
+ *           checkDelegation, uploadVariableAttachment, fetchVariableEditor, saveRecordVariables
+ *           (see api.ts for the platform call behind each); spClientScripts / spPolicy normalise
+ *           Service Portal model scripts and policies.
  * Hooks:    useCatalogItem(sysId, table?)   cached per item (a fresh draft record each mount)
  *           useItemPrice(itemId, variables, quantity, enabled)   debounced, keyed by values
- *           useMrvsRowForm(setId, itemId, row?)
+ *           useMrvsRowForm(setId, itemId, sourceTable?, enabled?)
+ *           useVariableEditor(table, sysId)  a record's variables (Workspace's variable editor data)
+ *           useCanRequestFor(itemId, userId)  delegation check, cached per item + user
  */
 import { useQuery, keepPreviousData } from 'utilities:react-query'
 import { useDebouncedValue, stableChanges } from 'utilities:app/graphql'
-import { fetchCatalogItem, fetchItemPrice, fetchMrvsRowForm } from './api'
-import type { CatalogItem, MrvsRowForm, PriceResult } from './types'
+import { fetchCatalogItem, fetchItemPrice, fetchMrvsRowForm, fetchVariableEditor, canRequestFor } from './api'
+import type { CatalogItem, DelegationResult, MrvsRowForm, PriceResult, VariableEditorData } from './types'
 
 export {
     ITEM_LAYOUT_QUERY,
+    VARIABLE_EDITOR_QUERY,
+    REQUESTED_FOR_NOT_ELIGIBLE,
     fetchCatalogItem,
     fetchItemPrice,
     submitCatalogItem,
     fetchMrvsRowForm,
+    fetchVariableEditor,
+    saveRecordVariables,
     validateVariableRegex,
+    canRequestFor,
     checkDelegation,
     uploadVariableAttachment,
+    spClientScripts,
+    spPolicy,
 } from './api'
-export type { CatalogItem, CatalogVariable, CatalogLayoutNode, PriceResult, SubmitResult, MrvsRowField, MrvsRowForm } from './types'
+export type {
+    CatalogItem,
+    CatalogVariable,
+    CatalogLayoutNode,
+    PriceResult,
+    SubmitResult,
+    MrvsRowField,
+    MrvsRowForm,
+    VariableEditorData,
+    DelegationResult,
+} from './types'
 
 export function useCatalogItem(sysId: string | undefined, table = 'sc_cat_item') {
     return useQuery<CatalogItem>({
@@ -57,5 +79,25 @@ export function useMrvsRowForm(setId: string | undefined, itemId: string | undef
         queryFn: () => fetchMrvsRowForm({ setId: setId as string, itemId: itemId as string, sourceTable }),
         enabled: !!setId && !!itemId && enabled,
         staleTime: 10 * 60_000,
+    })
+}
+
+/** A record's catalog variables (sc_req_item, a record producer's target, …). Refetch after a save. */
+export function useVariableEditor(table: string | undefined, sysId: string | undefined, options: { enabled?: boolean } = {}) {
+    return useQuery<VariableEditorData>({
+        queryKey: ['rp-catalog', 'variable-editor', table || '', sysId || ''],
+        queryFn: ({ signal }: { signal: AbortSignal }) => fetchVariableEditor(table as string, sysId as string, signal),
+        enabled: !!table && !!sysId && sysId !== '-1' && options.enabled !== false,
+        staleTime: 30_000,
+    })
+}
+
+/** Delegation check for (item, user), cached: { ok, message } once answered. */
+export function useCanRequestFor(itemId: string | undefined, userId: string | undefined, options: { enabled?: boolean } = {}) {
+    return useQuery<DelegationResult>({
+        queryKey: ['rp-catalog', 'delegation', itemId || '', userId || ''],
+        queryFn: () => canRequestFor(itemId as string, userId as string),
+        enabled: !!itemId && !!userId && options.enabled !== false,
+        staleTime: 5 * 60_000,
     })
 }
