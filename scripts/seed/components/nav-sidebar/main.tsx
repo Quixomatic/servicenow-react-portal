@@ -15,7 +15,7 @@ import {
     SidebarRail,
     SidebarSeparator,
 } from 'components:sidebar'
-import { Icon, getIcon } from 'components:icon'
+import { Icon } from 'components:icon'
 
 type Options = { title?: string; menu?: string; collapsible?: 'offcanvas' | 'icon' | 'none'; width?: string }
 
@@ -46,7 +46,7 @@ export default function NavSidebar({ options = {} }: { options?: Options }) {
                 ) : null}
                 {groups.map((group: any) => (
                     <SidebarGroup key={group.id} className="px-3 group-data-rail:px-2">
-                        <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                        <SidebarGroupLabel {...group.attrs}>{group.label}</SidebarGroupLabel>
                         <SidebarMenu>{group.children.map((item: any) => <NavItem key={item.id} item={item} />)}</SidebarMenu>
                     </SidebarGroup>
                 ))}
@@ -56,14 +56,14 @@ export default function NavSidebar({ options = {} }: { options?: Options }) {
     )
 }
 
-/** Icon from the menu data, else the label's first letter in a small tile (so the icon rail still works). */
+/** Icon from the menu data (any lucide name), else the label's first letter in a small tile (so the icon rail still works). */
 function ItemIcon({ item }: { item: any }) {
-    if (item.icon && getIcon(item.icon)) return <Icon name={item.icon} />
-    return (
+    const letter = (
         <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] bg-muted text-[10px] font-semibold text-muted-foreground uppercase">
             {(item.label || '?').slice(0, 1)}
         </span>
     )
+    return item.icon ? <Icon name={item.icon} fallback={letter} /> : letter
 }
 
 function NavItem({ item }: { item: any }) {
@@ -73,14 +73,14 @@ function NavItem({ item }: { item: any }) {
     if (item.type === 'group') {
         return (
             <SidebarMenuItem>
-                <SidebarMenuButton tooltip={item.label}>
+                <SidebarMenuButton tooltip={item.label} {...item.attrs}>
                     <ItemIcon item={item} />
                     <span>{item.label}</span>
                 </SidebarMenuButton>
                 <SidebarMenuSub>
                     {item.children.map((child: any) => (
                         <SidebarMenuSubItem key={child.id}>
-                            <SidebarMenuSubButton isActive={child.active} className={ACTIVE} render={child.type === 'url' ? <a href={child.href} target={child.target} rel="noreferrer" /> : <Link {...child.link} onClick={close} />}>
+                            <SidebarMenuSubButton isActive={child.active} className={ACTIVE} render={child.type === 'url' ? <a {...child.attrs} href={child.href} target={child.target} rel="noreferrer" /> : <Link {...child.link} onClick={close} />}>
                                 <span>{child.label}</span>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -89,7 +89,7 @@ function NavItem({ item }: { item: any }) {
             </SidebarMenuItem>
         )
     }
-    const render = item.type === 'url' ? <a href={item.href} target={item.target} rel="noreferrer" /> : <Link {...item.link} onClick={close} />
+    const render = item.type === 'url' ? <a {...item.attrs} href={item.href} target={item.target} rel="noreferrer" /> : <Link {...item.link} onClick={close} />
     return (
         <SidebarMenuItem>
             <SidebarMenuButton isActive={item.active} tooltip={item.tooltip || item.label} className={ACTIVE} render={render}>

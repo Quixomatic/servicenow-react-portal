@@ -88,6 +88,60 @@ export interface ComponentImport {
     uniqueId: string
     kind: ComponentKind
     build: BuildRef | null
+    /** Display name (labels embed errors). Manifest v4+. */
+    name?: string
+    /** Server mode: decides whether an embedded instance initializes. Manifest v4+. */
+    serverMode?: ServerMode
+    /**
+     * Component sys_ids in this import tree whose builds import it DIRECTLY (one entry per
+     * build_dep edge). Authorizes each step of an embed chain. Manifest v4+.
+     */
+    importers?: string[]
+}
+
+/**
+ * An embedded widget's model: what $sp.getWidget() and getWidget() return, and what
+ * <Embed model> / <Widget model> consume.
+ */
+export interface EmbedModel {
+    $embed: 1
+    /** Unique id of the embedded component, e.g. 'app/server-clock'. */
+    component: string
+    /** Default embedKey. */
+    key: string
+    ok: boolean
+    data?: Record<string, unknown>
+    /** Effective options. */
+    options: Record<string, unknown>
+    /** Signature over (root, path, options, user); null = client-originated options. */
+    token: string | null
+    build: string | null
+    error?: { status: number; code: string; message: string }
+    messages?: ServerMessage[]
+}
+
+/** One embedded instance in an initialize request. */
+export interface EmbedDescriptor {
+    /** Composite instance id (<placement>~<key>…), echoed as the result key. */
+    id: string
+    /** Root placement sys_id. */
+    placement: string
+    /** Embedded components' unique ids, outermost first (max 4). */
+    path: string[]
+    /** Matching embed keys (diagnostics / context only). */
+    keys?: string[]
+    /** Leaf options (≤ 16 KB JSON). */
+    options?: Record<string, unknown>
+    /** From a server-built model, if any. */
+    token?: string | null
+}
+
+/** Execute-request addition: run an embedded instance under the URL's root placement. */
+export interface EmbedRequest {
+    path: string[]
+    keys?: string[]
+    options?: Record<string, unknown>
+    token?: string | null
 }
 
 export interface PlacementRef {
@@ -196,6 +250,8 @@ export interface NavItem {
     to?: string
     /** page / route items: query parameters (<Link q={…}>). */
     q?: Record<string, string>
+    /** route items: another portal's slug (params_json.portal), for a cross-portal link. */
+    portalSlug?: string
     /** url items: the external URL (http(s): or mailto:). */
     href?: string
     target?: '_self' | '_blank'
@@ -272,7 +328,8 @@ export interface ResolvePageData {
 export interface InitializeRequest {
     portal: string
     page?: string
-    instances: string[]
+    /** Placement ids, or embed descriptors. */
+    instances: Array<string | EmbedDescriptor>
     context?: Record<string, unknown>
 }
 
@@ -290,6 +347,8 @@ export interface InstanceResult {
     build?: string | null
     /** Messages the server script raised (also on failure). */
     messages?: ServerMessage[]
+    /** Embeds: the token for these options (null = client-originated). */
+    token?: string | null
 }
 
 export interface InitializeData {
@@ -305,6 +364,8 @@ export interface ExecuteRequest {
     input?: Record<string, unknown>
     data?: Record<string, unknown>
     context?: Record<string, unknown>
+    /** Run an embedded instance under the URL's root placement. */
+    embed?: EmbedRequest
 }
 
 /* ---------------- Studio ---------------- */

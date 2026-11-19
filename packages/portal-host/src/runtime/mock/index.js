@@ -698,17 +698,30 @@ function initData(instanceId, body) {
 
 export function initializeInstances(body) {
 	const instances = {};
-	(body.instances || []).forEach((id) => {
-		instances[id] = { ok: true, data: initData(id, body), options: null };
+	(body.instances || []).forEach((entry) => {
+		if (entry && typeof entry === 'object') {
+			// Embedded widget descriptor: echo the chain so ?rpmock=1 shows embeds working.
+			instances[entry.id] = {
+				ok: true,
+				data: { ...initData(entry.placement, body), embed: { path: entry.path, keys: entry.keys || null }, serverTime: new Date().toLocaleTimeString(), action: 'initialize' },
+				options: entry.options || {},
+				token: entry.token || null
+			};
+			return;
+		}
+		instances[entry] = { ok: true, data: initData(entry, body), options: null };
 	});
 	return delay({ instances });
 }
 
 export function executeInstance(instanceId, body) {
 	const b = body || {};
+	if (b.embed) return delay({ embed: { path: b.embed.path, keys: b.embed.keys || null }, action: b.action || 'get', serverTime: new Date().toLocaleTimeString(), echo: b.input === undefined ? null : b.input });
 	if (b.action === 'initialize') return delay(initData(instanceId, b));
 	if (b.action === 'update') return delay({ ...(b.data || {}), updatedAt: new Date().toLocaleTimeString() });
-	return delay({ instance: instanceId, action: b.action || 'get', echo: b.input === undefined ? null : b.input, at: new Date().toLocaleTimeString() });
+	// URL params (table, sys_id, view, query, q keys) arrive as context.params, like the real API.
+	const params = (b.context && b.context.params) || {};
+	return delay({ instance: instanceId, action: b.action || 'get', echo: b.input === undefined ? null : b.input, params, at: new Date().toLocaleTimeString() });
 }
 
 // ---- Service Portal-style utilities ---------------------------------------------------------
@@ -764,6 +777,12 @@ const MOCK_ROWS = {
 		{ sys_id: 'inc-4', number: 'INC0010004', short_description: 'Laptop battery swelling', priority: '1', state: 'New' }
 	]
 };
+
+/** The mutable mock rows of a table (mock/amb.js writes them and publishes record-watch events). */
+export function mockTableRows(table) {
+	if (!MOCK_ROWS[table]) MOCK_ROWS[table] = [{ sys_id: `${table}-1`, name: `${table} record 1` }, { sys_id: `${table}-2`, name: `${table} record 2` }];
+	return MOCK_ROWS[table];
+}
 
 /** Table API stand-in: filters by simple field=value terms, orders, limits and picks fields. */
 export function tableApi(table, sysId, params) {

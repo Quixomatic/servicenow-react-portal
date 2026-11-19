@@ -4,9 +4,10 @@ import { Link, useNavigate } from './navigation';
 import { usePortal, usePortalLocation, useLayoutInfo } from './contexts';
 import { useSidebar } from './sidebar';
 import { useNavigation } from './use-navigation';
-import { usePortalContainer } from '@servicenow/ui-renderer-react';
+import { usePortalContainer } from './overlay';
 import { Region, RegionPortal, useBlock, useComponent } from './widgets';
 import { useTheme } from './theme-mode';
+import { Embed, useEmbeddedWidget, useGetWidget } from './embed';
 import {
 	format,
 	toast,
@@ -20,8 +21,9 @@ import {
 	useTableQuery,
 	useUser
 } from './sp-utils';
+import { useAmbChannel, useAmbStatus, useRecordWatch } from './record-watch';
 
-export const RUNTIME_ABI = '0.1.0';
+export const RUNTIME_ABI = '0.2.0';
 
 // useTheme() → { theme, setTheme, resolvedTheme, systemTheme, themes } (next-themes API).
 const useThemeMode = () => useTheme();
@@ -50,7 +52,13 @@ export {
 	useSidebar,
 	useNavigation,
 	useLayoutInfo as useLayout,
-	usePortalContainer
+	usePortalContainer,
+	Embed,
+	useEmbeddedWidget,
+	useGetWidget,
+	useRecordWatch,
+	useAmbChannel,
+	useAmbStatus
 };
 
 /** Names exported above, for Studio autocomplete. */
@@ -78,5 +86,11 @@ export const RUNTIME_EXPORTS = [
 	'useSidebar',
 	'useNavigation',
 	'useLayout',
-	'usePortalContainer'
+	'usePortalContainer',
+	'Embed',
+	'useEmbeddedWidget',
+	'useGetWidget',
+	'useRecordWatch',
+	'useAmbChannel',
+	'useAmbStatus'
 ];

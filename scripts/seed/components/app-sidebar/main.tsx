@@ -100,6 +100,7 @@ function NavGroup({ group, first }: { group: any; first?: boolean }) {
                     render={
                         <button
                             type="button"
+                            {...group.attrs}
                             className="group/section-title flex h-7 w-full shrink-0 cursor-pointer items-center justify-between rounded-md border-0 bg-transparent px-2 text-xs font-medium text-sidebar-foreground/60 ring-sidebar-ring outline-hidden transition-colors group-data-rail:hidden hover:bg-sidebar-accent hover:text-sidebar-foreground/80 focus-visible:ring-2"
                             aria-label={'Toggle ' + group.label}
                         />
@@ -127,7 +128,7 @@ function NavEntry({ item }: { item: any }) {
     const { setOpenMobile } = useSidebar()
     const close = () => setOpenMobile(false)
     if (item.type === 'separator') return <SidebarSeparator className="my-1" />
-    const render = item.type === 'url' ? <a href={item.href} target={item.target} rel="noreferrer" /> : <Link {...item.link} onClick={close} />
+    const render = item.type === 'url' ? <a {...item.attrs} href={item.href} target={item.target} rel="noreferrer" /> : <Link {...item.link} onClick={close} />
     return (
         <SidebarMenuItem>
             <SidebarMenuButton isActive={item.active} tooltip={item.tooltip || item.label} className="group-data-rail:p-1.5!" render={render}>
@@ -141,7 +142,7 @@ function NavEntry({ item }: { item: any }) {
                         <SidebarMenuSubItem key={child.id}>
                             <SidebarMenuSubButton
                                 isActive={child.active}
-                                render={child.type === 'url' ? <a href={child.href} target={child.target} rel="noreferrer" /> : <Link {...child.link} onClick={close} />}
+                                render={child.type === 'url' ? <a {...child.attrs} href={child.href} target={child.target} rel="noreferrer" /> : <Link {...child.link} onClick={close} />}
                             >
                                 <span>{child.label}</span>
                             </SidebarMenuSubButton>

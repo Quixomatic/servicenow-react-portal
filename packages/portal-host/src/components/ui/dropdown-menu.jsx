@@ -4,7 +4,7 @@ import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { cn } from "cn"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
-import { usePortalContainer } from "@servicenow/ui-renderer-react"
+import { usePortalContainer } from "#/runtime/overlay"
 
 function DropdownMenu({
   ...props

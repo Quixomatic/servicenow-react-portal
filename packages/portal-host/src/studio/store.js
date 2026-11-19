@@ -2,6 +2,8 @@
 // holds the editor buffers outside React. Editors share one buffer per path, so the same file
 // open in two groups stays in sync; React only hears about dirty-state flips.
 import { useRef, useSyncExternalStore } from 'react';
+import { toast } from 'sonner';
+import { isWrongScope, markOutOfScope, readOnly as scopeReadOnly } from './scope';
 import { Text } from '@codemirror/state';
 import { studioApi } from './studio-api';
 import * as L from './layout';
@@ -344,6 +346,10 @@ export function createStudio({ navigate }) {
 	async function save(opts) {
 		const options = opts || {};
 		if (!state.owner || state.busy === 'saving') return;
+		if (scopeReadOnly()) {
+			toast.error('Switch to React Portal to save (see the banner).');
+			return;
+		}
 		const owner = state.owner;
 		const files = changedFiles()
 			.map((f) => ({ path: f.path, content: f.content, target: f.target }))
@@ -413,7 +419,10 @@ export function createStudio({ navigate }) {
 			refreshCatalogEntry(owner, result);
 		} catch (error) {
 			set({ busy: null });
-			if (error.status === 409) {
+			if (isWrongScope(error)) {
+				markOutOfScope(error);
+				log('error', `Not saved: ${error.message}`);
+			} else if (error.status === 409) {
 				const current = error.details && error.details.currentRevision;
 				set({ conflict: { currentRevision: current, message: error.message } });
 				log('warn', `Revision conflict: someone saved revision ${current === undefined ? '?' : current} first`);

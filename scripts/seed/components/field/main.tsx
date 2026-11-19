@@ -6,6 +6,7 @@
  *   <FormProvider table sysId>    minimal form store; fields bind by name (one GraphQL bootstrap)
  *   useForm / useFormContext / useFormValue / useFormMeta / createFormStore
  *   registerFieldType / resolveFieldComponent   the type → component registry (app/field-control)
+ *   attachPolicies(store, policies) / evaluatePolicy / computePolicyLayer   UI policy engine (forms + catalog)
  *   controlClass / textareaClass / popupClass / icons / cx   shared look for controls
  */
 import { useField } from './use-field'
@@ -18,6 +19,8 @@ export type { FieldShellProps } from './shell'
 export { FormProvider, useForm, useFormContext, useFormValue, useFormMeta } from './form'
 export type { Form, UseFormOptions, FormProviderProps } from './form'
 export { createFormStore } from './store'
+export { attachPolicies, evaluatePolicy, evaluateTerm, computePolicyLayer } from './policies'
+export type { AttachedPolicies, PolicyEvaluation } from './policies'
 export type { FormStore, FormState, ValidationResult, ValueInput } from './store'
 export { registerFieldType, registerFieldAttribute, resolveFieldComponent, registeredFieldTypes, fieldRegistry } from './registry'
 export {
@@ -49,7 +52,7 @@ export {
     IconAlert,
     IconInfo,
 } from './ui'
-export type { FieldProps, FieldMessage, FieldMessageKind, FieldOverrides, FieldState, FieldLayout, FieldSize, UseFieldResult, FieldMeta, GlideType } from './types'
+export type { FieldProps, FieldMessage, FieldMessageKind, FieldOverrides, PolicyState, FieldState, FieldLayout, FieldSize, UseFieldResult, FieldMeta, GlideType } from './types'
 
 /** Preview (Studio): the base contract with a plain input. */
 export default function FieldPreview() {

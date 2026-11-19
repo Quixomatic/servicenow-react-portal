@@ -865,6 +865,14 @@ declare global {
                         table: 'sys_module'
                         id: '08de0edf05c04e1b83771a756e4df165'
                     }
+                    'src_server_runtime_embed-options_ts': {
+                        table: 'sys_module'
+                        id: '8ccaa10c70c84614973975f75762b02e'
+                    }
+                    'src_server_runtime_embed-token_ts': {
+                        table: 'sys_module'
+                        id: '385ec9f4a4b94cbe91ac65ba6a56ea3f'
+                    }
                     'src_server_runtime_menu-service_ts': {
                         table: 'sys_module'
                         id: 'cdfbd494168f4d19845cfe1fabe17e18'
@@ -1257,6 +1265,28 @@ declare global {
                             }
                             element: 'badge_script'
                             position: '1'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: '08498264d7c64b109daf77015fd9babb'
+                        key: {
+                            sys_ui_section: {
+                                id: '2983a67f3e774961b7a085053372c39b'
+                                key: {
+                                    name: 'x_312987_portal_execution_log'
+                                    caption: 'Execution'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'instance'
+                            position: '9'
                         }
                     },
                     {
@@ -2612,6 +2642,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: '29d2baca02e54afd84fc08dcbb1445a4'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: '2983a67f3e774961b7a085053372c39b'
@@ -3291,6 +3322,28 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_element'
+                        id: '36003519da204db8aac21bb6bee81a64'
+                        key: {
+                            sys_ui_section: {
+                                id: '2983a67f3e774961b7a085053372c39b'
+                                key: {
+                                    name: 'x_312987_portal_execution_log'
+                                    caption: 'Execution'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'sanitized_error'
+                            position: '13'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '36309b8852b840c18ea8c4ef95ba348c'
                         key: {
@@ -3510,6 +3563,28 @@ declare global {
                             }
                             element: '.begin_split'
                             position: '0'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: '3a19aa8b05cc4d84bbd5111550fa3588'
+                        key: {
+                            sys_ui_section: {
+                                id: '2983a67f3e774961b7a085053372c39b'
+                                key: {
+                                    name: 'x_312987_portal_execution_log'
+                                    caption: 'Execution'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'component'
+                            position: '10'
                         }
                     },
                     {
@@ -3779,6 +3854,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: '3fe1ed00f19244fda1ae89250ec68c8c'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: '2983a67f3e774961b7a085053372c39b'
@@ -6825,6 +6901,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: '829c1d4d5cb14c7e96daa017ec3b2681'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: '2983a67f3e774961b7a085053372c39b'
@@ -7916,6 +7993,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: '9e8ed27567444ea68f924c3d181be99b'
+                        key: {
+                            name: 'x_312987_portal_execution_log'
+                            element: 'instance'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: '9f4ea6dfffe44ee38605a879e3fe22a0'
                         key: {
@@ -8562,6 +8648,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: 'aecb3b8fd1b94381a306ddbaacb96c20'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: '2983a67f3e774961b7a085053372c39b'
@@ -9472,6 +9559,28 @@ declare global {
                             value: 'full'
                             language: 'en'
                             dependent_value: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: 'c414942ded52420c8f50cdb0ca119562'
+                        key: {
+                            sys_ui_section: {
+                                id: '2983a67f3e774961b7a085053372c39b'
+                                key: {
+                                    name: 'x_312987_portal_execution_log'
+                                    caption: 'Execution'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'build'
+                            position: '11'
                         }
                     },
                     {
@@ -10613,6 +10722,28 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_element'
+                        id: 'ddcdb4a07f19423fa42a54f3e561fd52'
+                        key: {
+                            sys_ui_section: {
+                                id: '2983a67f3e774961b7a085053372c39b'
+                                key: {
+                                    name: 'x_312987_portal_execution_log'
+                                    caption: 'Execution'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: '.end_split'
+                            position: '12'
+                        }
+                    },
+                    {
                         table: 'sys_choice'
                         id: 'dde72d79f9ba45bb81e9ad7bf5d41f16'
                         key: {
@@ -10910,6 +11041,14 @@ declare global {
                         key: {
                             name: 'x_312987_portal_page'
                             element: 'access_config_json'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'e78cc7ded3334956b94a9d37a09125c7'
+                        key: {
+                            name: 'x_312987_portal_execution_log'
+                            element: 'instance'
                         }
                     },
                     {

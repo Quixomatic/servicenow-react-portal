@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Allotment, LayoutPriority } from 'allotment';
 import allotmentStyles from 'allotment/dist/style.css';
-import { Code2, LayoutTemplate, Plus } from 'lucide-react';
+import { Code2, LayoutTemplate, ListTree, Plus } from 'lucide-react';
 import { isMock } from '#/runtime/api';
 import { ensureStyle, styleTarget } from '#/runtime/styles';
 import { useAvailableHeight } from '#/runtime/use-available-height';
@@ -18,7 +18,10 @@ import Designer from './designer/designer';
 import { designApi } from './designer/designer-api';
 import EditorGroups from './groups';
 import Explorer from './explorer';
-import { ConflictBanner, Panel, Properties, QuickOpen, StatusBar, Titlebar, guardedOpen } from './chrome';
+import { ConflictBanner, Panel, Properties, QuickOpen, ScopeBanner, StatusBar, Titlebar, guardedOpen } from './chrome';
+import Menus from './menus/menus';
+import { createMenusStore } from './menus/menus-store';
+import { loadScope, useScope } from './scope';
 import { ContextMenu, Dialogs, ask, confirmDiscard } from './dialogs';
 
 function cssText(mod) {
@@ -27,6 +30,10 @@ function cssText(mod) {
 	const value = mod.default !== undefined ? mod.default : mod;
 	return typeof value === 'string' ? value : String(value);
 }
+
+// Studio activity ↔ the studio page's `view` URL parameter.
+const VIEW_PARAM = { components: 'code', pages: 'pages', menus: 'menus' };
+const VIEW_OF_PARAM = { code: 'components', components: 'components', pages: 'pages', menus: 'menus' };
 
 // allotment's stylesheet defines its variables on :root, which doesn't exist in a shadow root.
 const ALLOTMENT_CSS = cssText(allotmentStyles).replace(/:root\b/g, ':host');
@@ -48,18 +55,33 @@ export default function StudioApp({ locationStore, navigate }) {
 		}
 	}, []);
 	const navigateRef = useRef(navigate);
-	navigateRef.current = navigate;
+	// Every Studio navigation carries the current activity as `view` (URL sync for all three).
+	const studioRef = useRef(null);
+	navigateRef.current = (to, opts) => {
+		const o = opts || {};
+		const current = studioRef.current ? studioRef.current.get().view : '';
+		return navigate(to, { ...o, view: o.view || VIEW_PARAM[current] || undefined });
+	};
 	const [studio] = useState(() =>
 		createStudio({
 			navigate: (to, opts) => navigateRef.current(to, opts)
 		})
 	);
+	studioRef.current = studio;
 	const [designer] = useState(() =>
 		createDesigner({
-			navigate: (to, opts) => navigateRef.current(to, opts),
+			navigate: (to, opts) => navigateRef.current(to, { view: 'pages', ...(opts || {}) }),
 			log: (level, text) => studio.log(level, text)
 		})
 	);
+	const [menus] = useState(() =>
+		createMenusStore({
+			navigate: (to, opts) => navigateRef.current(to, { view: 'menus', ...(opts || {}) }),
+			log: (level, text) => studio.log(level, text)
+		})
+	);
+	const scope = useScope();
+	const readOnly = !!(scope.context && scope.context.inScope === false);
 	const view = useStudio(studio, (s) => s.view);
 	// One light/dark/system preference for the portal and Studio (the host's store).
 	const { resolvedTheme } = useStudioTheme();
@@ -99,18 +121,25 @@ export default function StudioApp({ locationStore, navigate }) {
 	useEffect(() => {
 		studio.loadCatalog();
 		designer.loadPortals();
-	}, [studio, designer]);
+		menus.loadPortals();
+	}, [studio, designer, menus]);
 
-	// `view` property (studio page URL param): an initial-mode hint only, applied once. code → the
-	// Components activity, pages → the Pages activity; menus waits for the Menus view. An id
-	// (recordId, below) still picks what to open and can switch the activity as before.
-	const viewHint = location ? location.view : '';
-	const hintApplied = useRef(false);
+	// Scope: on load and whenever the window regains focus (the picker may change in another tab).
 	useEffect(() => {
-		if (hintApplied.current || !viewHint) return;
-		hintApplied.current = true;
-		if (viewHint === 'code' || viewHint === 'components') studio.set({ view: 'components' });
-		else if (viewHint === 'pages') studio.set({ view: 'pages' });
+		loadScope();
+		const onFocus = () => loadScope();
+		window.addEventListener('focus', onFocus);
+		return () => window.removeEventListener('focus', onFocus);
+	}, []);
+
+	// `view` property (studio page URL param): code → Components, pages → Pages, menus → Menus.
+	// Applied when it changes (initial load, back / forward); Studio's own navigation sends the
+	// activity it's already in, so that's a no-op. An id (recordId, below) still picks what to
+	// open and can switch the activity.
+	const viewHint = location ? location.view : '';
+	useEffect(() => {
+		const next = VIEW_OF_PARAM[viewHint];
+		if (next && studio.get().view !== next) studio.set({ view: next });
 	}, [viewHint, studio]);
 
 	// recordId → what it is: a component or theme opens the editor; a portal or page opens the
@@ -120,8 +149,10 @@ export default function StudioApp({ locationStore, navigate }) {
 	useEffect(() => {
 		const current = studio.get().owner;
 		const d = designer.get();
+		const m = menus.get();
 		if (!recordId || handling.current) return;
 		if ((current && current.id === recordId) || d.pageId === recordId || (d.portalId === recordId && d.node === 'portal')) return;
+		if (m.selection === recordId || (!m.selection && m.menuId === recordId)) return;
 		handling.current = true;
 		(async () => {
 			let catalog = studio.get().catalog;
@@ -137,6 +168,16 @@ export default function StudioApp({ locationStore, navigate }) {
 				} catch (error) {
 					kind = 'component'; // older backends: try it as a component
 				}
+			}
+			if (kind === 'menu' || kind === 'menuItem') {
+				studio.set({ view: 'menus' });
+				await menus.openPortal(resolved.portalId, { menuId: resolved.menuId, itemId: resolved.itemId || null, navigate: false });
+				return;
+			}
+			if (kind === 'portal' && viewHint === 'menus') {
+				studio.set({ view: 'menus' });
+				await menus.openPortal(resolved.portalId, { navigate: false });
+				return;
 			}
 			if (kind === 'portal' || kind === 'page') {
 				studio.set({ view: 'pages' });
@@ -160,7 +201,7 @@ export default function StudioApp({ locationStore, navigate }) {
 		})().finally(() => {
 			handling.current = false;
 		});
-	}, [recordId, studio, designer]);
+	}, [recordId, studio, designer, menus]);
 
 	// Opening the Pages view without a portal: open the default (or first) one.
 	const designerPortals = useSyncExternalStore(designer.subscribe, () => designer.get().portals);
@@ -170,6 +211,37 @@ export default function StudioApp({ locationStore, navigate }) {
 		const def = designerPortals.find((p) => p.isDefault) || designerPortals[0];
 		designer.openPortal(def.id, { navigate: false });
 	}, [view, designerPortals, designerPortalId, designer]);
+
+	// Opening the Menus view without a portal: the designer's portal, else the default one.
+	const menusPortalId = useSyncExternalStore(menus.subscribe, () => menus.get().portalId);
+	const menusRequest = useStudio(studio, (s) => s.menusPortal);
+	useEffect(() => {
+		if (view !== 'menus' || handling.current) return;
+		if (menusRequest) {
+			studio.set({ menusPortal: null });
+			if (menusRequest !== menusPortalId) menus.openPortal(menusRequest);
+			return;
+		}
+		if (menusPortalId || !designerPortals || !designerPortals.length) return;
+		const def = designerPortals.find((p) => p.id === designerPortalId) || designerPortals.find((p) => p.isDefault) || designerPortals[0];
+		menus.openPortal(def.id, { navigate: false });
+	}, [view, menusRequest, menusPortalId, designerPortals, designerPortalId, menus, studio]);
+
+	/** Switch activity and put its current record in the URL (view + id). */
+	const activate = (next) => {
+		if (studio.get().view === next) return;
+		studio.set({ view: next });
+		let id = '';
+		if (next === 'components') id = (studio.get().owner && studio.get().owner.id) || '';
+		else if (next === 'pages') {
+			const d = designer.get();
+			id = d.node === 'portal' ? d.portalId || '' : d.pageId || d.portalId || '';
+		} else if (next === 'menus') {
+			const m = menus.get();
+			id = m.selection || m.menuId || m.portalId || '';
+		}
+		navigateRef.current('', { recordId: id, view: VIEW_PARAM[next] });
+	};
 
 	// Warn before leaving the page with unsaved work.
 	useEffect(() => {
@@ -189,7 +261,7 @@ export default function StudioApp({ locationStore, navigate }) {
 		const mod = e.ctrlKey || e.metaKey;
 		const key = e.key.toLowerCase();
 		let handled = true;
-		if (studio.get().view === 'pages') {
+		if (studio.get().view === 'pages' || studio.get().view === 'menus') {
 			// The designer saves every change as it happens; it handles its own keys (undo, delete).
 			if (mod && !e.shiftKey && key === 's') {
 				e.preventDefault();
@@ -219,20 +291,25 @@ export default function StudioApp({ locationStore, navigate }) {
 	};
 
 	return (
-		<div ref={setRoot} className={'rps' + (dark ? '' : ' rps-light')} style={{ height }} onKeyDownCapture={onKeyDown} data-rps-root="">
-			<Titlebar studio={studio} designer={designer} />
+		<div ref={setRoot} className={'rps' + (dark ? '' : ' rps-light') + (readOnly ? ' rps-readonly' : '')} style={{ height }} onKeyDownCapture={onKeyDown} data-rps-root="">
+			<Titlebar studio={studio} designer={designer} menus={menus} />
+			<ScopeBanner />
 			{view === 'components' ? <ConflictBanner studio={studio} /> : null}
 			<div className="rps-main">
 			<div className="rps-activity" role="tablist" aria-label="Views">
-				<button role="tab" aria-pressed={view === 'components'} title="Components: the code editor" onClick={() => studio.set({ view: 'components' })} data-rps-activity="components">
+				<button role="tab" aria-pressed={view === 'components'} aria-selected={view === 'components'} title="Components: the code editor" onClick={() => activate('components')} data-rps-activity="components">
 					<Code2 size={22} strokeWidth={1.6} />
 				</button>
-				<button role="tab" aria-pressed={view === 'pages'} title="Pages: the page designer" onClick={() => studio.set({ view: 'pages' })} data-rps-activity="pages">
+				<button role="tab" aria-pressed={view === 'pages'} aria-selected={view === 'pages'} title="Pages: the page designer" onClick={() => activate('pages')} data-rps-activity="pages">
 					<LayoutTemplate size={22} strokeWidth={1.6} />
+				</button>
+				<button role="tab" aria-pressed={view === 'menus'} aria-selected={view === 'menus'} title="Menus: navigation menus with a live preview" onClick={() => activate('menus')} data-rps-activity="menus">
+					<ListTree size={22} strokeWidth={1.6} />
 				</button>
 			</div>
 			<div className="rps-body" ref={setBodyEl}>
 				{target && bodySized && view === 'pages' ? <Designer designer={designer} studio={studio} root={target} /> : null}
+				{target && bodySized && view === 'menus' ? <Menus store={menus} studio={studio} root={target} /> : null}
 				{target && bodySized && view === 'components' ? (
 					<Allotment proportionalLayout={false} separator>
 						<Allotment.Pane preferredSize={260} minSize={170} maxSize={600} visible={explorerOpen} snap priority={LayoutPriority.Low}>
@@ -259,7 +336,7 @@ export default function StudioApp({ locationStore, navigate }) {
 				) : null}
 			</div>
 			</div>
-			<StatusBar studio={studio} designer={designer} dark={dark} mock={isMock()} />
+			<StatusBar studio={studio} designer={designer} menus={menus} dark={dark} mock={isMock()} />
 			<Toaster theme={dark ? 'dark' : 'light'} position="bottom-right" closeButton richColors />
 			<QuickOpen studio={studio} />
 			<Dialogs studio={studio} />

@@ -1,10 +1,10 @@
 import { handle, wrap, send, requiredParam, bodyString } from './http.ts'
 import { bootstrap, resolvePage, exposedProperties, translateMessages } from '../runtime/portal-service.ts'
-import { execute, initialize } from '../runtime/component-executor.ts'
+import { execute, initialize, InitializeEntry } from '../runtime/component-executor.ts'
 import { getAsset } from '../runtime/asset-service.ts'
 import { badRequest, isRPError } from '../lib/errors.ts'
 import { isPlainObject } from '../lib/util.ts'
-import type { ExecuteAction } from '../../shared/contracts'
+import type { EmbedRequest, ExecuteAction } from '../../shared/contracts'
 
 /**
  * Runtime scripted REST API (/api/x_312987_portal/rp/...). Consumers use these; every
@@ -35,16 +35,50 @@ export function initializeRoute(request: any, response: any): void {
         const portal = bodyString(req, 'portal')
         if (!portal) throw badRequest('portal is required')
         const instances = req.body.instances
-        if (!Array.isArray(instances)) throw badRequest('instances must be an array of instance ids')
+        if (!Array.isArray(instances)) throw badRequest('instances must be an array of instance ids or embed descriptors')
         const r = initialize({
             portal,
             page: req.body.page === undefined ? undefined : bodyString(req, 'page'),
-            instances: instances.map(String),
+            instances: (instances as unknown[]).map(initializeEntry),
             context: isPlainObject(req.body.context) ? req.body.context : undefined,
             correlationId: req.correlationId,
         })
         return { data: { instances: r.instances }, meta: { release: r.release } }
     })
+}
+
+/**
+ * A placement id (string), or an embed descriptor { id, placement, path[], keys?, options?, token? }
+ * with its shape checked here (the executor authorizes it and validates limits).
+ */
+function initializeEntry(v: unknown): InitializeEntry {
+    if (!isPlainObject(v)) return String(v)
+    const id = typeof v.id === 'string' ? v.id : ''
+    const placement = typeof v.placement === 'string' ? v.placement : ''
+    if (!id || id.length > 400 || !/^[0-9a-f]{32}$/.test(placement)) throw badRequest('embed descriptors need an id and a placement sys_id')
+    if (!Array.isArray(v.path) || (v.path as unknown[]).some((p) => typeof p !== 'string')) throw badRequest('embed descriptor path must be an array of component ids')
+    if (v.keys !== undefined && !Array.isArray(v.keys)) throw badRequest('embed descriptor keys must be an array')
+    if (v.options !== undefined && v.options !== null && !isPlainObject(v.options)) throw badRequest('embed descriptor options must be an object')
+    return {
+        id,
+        placement,
+        path: (v.path as unknown[]).map(String),
+        keys: Array.isArray(v.keys) ? (v.keys as unknown[]).map(String) : undefined,
+        options: isPlainObject(v.options) ? v.options : undefined,
+        token: typeof v.token === 'string' ? v.token : null,
+    }
+}
+
+/** The execute body's `embed`, when it's a plain object with a path. */
+function embedOf(v: unknown): EmbedRequest | undefined {
+    if (!isPlainObject(v)) return undefined
+    if (!Array.isArray(v.path)) throw badRequest('embed.path must be an array of component ids')
+    return {
+        path: (v.path as unknown[]).map(String),
+        keys: Array.isArray(v.keys) ? (v.keys as unknown[]).map(String) : undefined,
+        options: v.options === undefined || v.options === null ? undefined : (v.options as Record<string, unknown>),
+        token: typeof v.token === 'string' ? v.token : null,
+    }
 }
 
 const ACTIONS: ExecuteAction[] = ['initialize', 'get', 'update']
@@ -65,8 +99,13 @@ export function executeRoute(request: any, response: any): void {
             data: isPlainObject(req.body.data) ? req.body.data : undefined,
             context: isPlainObject(req.body.context) ? req.body.context : undefined,
             correlationId: req.correlationId,
+            embed: embedOf(req.body.embed),
         })
-        return { data: r.data, options: r.options, meta: { build: r.buildId, release: r.release, ...(r.messages.length ? { messages: r.messages } : {}) } as any }
+        return {
+            data: r.data,
+            options: r.options,
+            meta: { build: r.buildId, release: r.release, ...(r.messages.length ? { messages: r.messages } : {}), ...(r.embed ? { embed: r.embed } : {}) } as any,
+        }
     })
 }
 

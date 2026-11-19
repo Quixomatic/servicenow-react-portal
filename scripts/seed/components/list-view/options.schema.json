@@ -1,0 +1,167 @@
+{
+  "type": "object",
+  "properties": {
+    "table": {
+      "type": "string",
+      "title": "Table",
+      "description": "Empty: the URL's table param (else incident)"
+    },
+    "title": {
+      "type": "string",
+      "title": "Title"
+    },
+    "query": {
+      "type": "string",
+      "title": "Default filter (encoded query)"
+    },
+    "fixedQuery": {
+      "type": "string",
+      "title": "Fixed filter (always applied, hidden)"
+    },
+    "columns": {
+      "type": "string",
+      "title": "Columns",
+      "description": "Comma-separated, dot-walks allowed; empty = the list view's layout"
+    },
+    "orderBy": {
+      "type": "string",
+      "title": "Default sort",
+      "description": "field or -field"
+    },
+    "view": {
+      "type": "string",
+      "title": "List view"
+    },
+    "pageSize": {
+      "type": "integer",
+      "title": "Rows per page",
+      "default": 50
+    },
+    "pagination": {
+      "type": "string",
+      "title": "Paging",
+      "enum": [
+        "pages",
+        "scroll"
+      ],
+      "enumNames": [
+        "Pages",
+        "Infinite scroll (virtualized)"
+      ],
+      "default": "pages"
+    },
+    "density": {
+      "type": "string",
+      "title": "Density",
+      "enum": [
+        "compact",
+        "normal",
+        "comfortable"
+      ]
+    },
+    "searchMode": {
+      "type": "string",
+      "title": "Search",
+      "enum": [
+        "keywords",
+        "contains"
+      ],
+      "enumNames": [
+        "Keywords (text index)",
+        "Contains (visible text columns)"
+      ]
+    },
+    "recordPage": {
+      "type": "string",
+      "title": "Record page",
+      "description": "Portal page opened with table + sys_id; empty = classic form in a new tab",
+      "default": "form"
+    },
+    "toolbarPlacement": {
+      "type": "string",
+      "title": "Toolbar placement",
+      "enum": [
+        "auto",
+        "header",
+        "inline"
+      ],
+      "enumNames": [
+        "Auto (page header when available)",
+        "Page header",
+        "Above the table"
+      ],
+      "default": "auto"
+    },
+    "syncUrl": {
+      "type": "boolean",
+      "title": "Keep filter, sort and page in the URL",
+      "default": true
+    },
+    "showTitle": {
+      "type": "boolean",
+      "title": "Title",
+      "default": true
+    },
+    "showSearch": {
+      "type": "boolean",
+      "title": "Search",
+      "default": true
+    },
+    "showBreadcrumbs": {
+      "type": "boolean",
+      "title": "Filter breadcrumbs",
+      "default": true
+    },
+    "showFilter": {
+      "type": "boolean",
+      "title": "Condition builder",
+      "default": true
+    },
+    "showColumns": {
+      "type": "boolean",
+      "title": "Column chooser",
+      "default": true
+    },
+    "showPagination": {
+      "type": "boolean",
+      "title": "Pagination",
+      "default": true
+    },
+    "inlineEdit": {
+      "type": "boolean",
+      "title": "Inline edit",
+      "default": true
+    },
+    "contextMenu": {
+      "type": "boolean",
+      "title": "Cell menu (right-click)",
+      "default": true
+    },
+    "selection": {
+      "type": "boolean",
+      "title": "Row selection",
+      "default": true
+    },
+    "actions": {
+      "type": "boolean",
+      "title": "Bulk actions",
+      "default": true
+    },
+    "showExport": {
+      "type": "boolean",
+      "title": "Export",
+      "default": true
+    },
+    "showRefresh": {
+      "type": "boolean",
+      "title": "Refresh",
+      "default": true
+    },
+    "liveUpdates": {
+      "type": "boolean",
+      "title": "Live updates",
+      "description": "Refresh the current page when matching records change (record watch)",
+      "default": false
+    }
+  }
+}

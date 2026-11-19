@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.9.2/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.10.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -241,6 +241,79 @@
         }
     }
 
+    /* ---------------- Menus (x_312987_portal_menu / _menu_item) ---------------- */
+
+    // Upsert a portal's menus by (portal, key) and their items by (menu, parent, label); separators
+    // by (menu, parent, type, order). Item defs:
+    //   { page: '<route>', label?, params?, query? }        → page item (references the page record)
+    //   { route: 'orders?tab=open', label, portal? }       → route item (portal: another portal's slug)
+    //   { url: 'https://…', label, target? }               → external URL item
+    //   { label, children: [...], collapsed? }             → group
+    //   { type: 'separator' }
+    // Common: icon (lucide kebab-case), tooltip, match ('exact' | 'prefix'), roles ('a,b'), badge.
+    // The menu business rules validate each write; one release reprocess runs at the end of seedPortal.
+    function seedMenuItems(menuId, parentId, list, counts) {
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i]
+            var order = (i + 1) * 100
+            var type = it.type || (it.children ? 'group' : it.page !== undefined ? 'page' : it.url ? 'url' : 'route')
+            var params = null
+            if (it.params || it.query || it.portal) {
+                params = {}
+                if (it.params) params.params = it.params
+                if (it.query) params.query = it.query
+                if (it.portal) params.portal = it.portal
+            }
+            var fields = {
+                menu: menuId,
+                parent: parentId,
+                order: order,
+                type: type,
+                label: it.label || '',
+                active: true,
+                page: type === 'page' ? counts.pageIds[it.page] : '',
+                params_json: params ? JSON.stringify(params) : '',
+                route: type === 'route' ? it.route || '' : '',
+                url: type === 'url' ? it.url : '',
+                icon: it.icon || '',
+                target: it.target || (type === 'url' ? '_blank' : ''),
+                match: it.match || 'prefix',
+                tooltip: it.tooltip || '',
+                collapsed: !!it.collapsed,
+                roles: it.roles || '',
+                badge: it.badge || '',
+            }
+            if (type === 'page' && !fields.page) throw new Error('menu item "' + it.label + '": no page with route ' + it.page)
+            var where = 'menu=' + menuId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') +
+                (type === 'separator' ? '^type=separator^order=' + order : '^label=' + (it.label || ''))
+            var id = upsert('menu_item', where, fields)
+            counts.items++
+            if (it.children) seedMenuItems(menuId, id, it.children, counts)
+        }
+    }
+
+    function seedMenus(pid, pageIds, menus) {
+        var session = gs.getSession()
+        session.putClientData('x_312987_portal.skip_reprocess', 'true') // one reprocess at the end
+        try {
+            for (var m = 0; m < menus.length; m++) {
+                var def = menus[m]
+                var menuId = upsert('menu', 'portal=' + pid + '^key=' + def.key, {
+                    portal: pid,
+                    key: def.key,
+                    name: def.name || def.key,
+                    description: def.description || '',
+                    active: true,
+                })
+                var counts = { items: 0, pageIds: pageIds }
+                seedMenuItems(menuId, '', def.items, counts)
+                log.push('  menu ' + def.key + ': ' + counts.items + ' items')
+            }
+        } finally {
+            session.putClientData('x_312987_portal.skip_reprocess', '')
+        }
+    }
+
     function seedPortal(def) {
         var pid = upsert('portal', 'slug=' + def.slug, {
             name: def.name,
@@ -264,6 +337,7 @@
                 active: true,
                 layout_override: pg.layout ? C[pg.layout] : '',
                 layout_options_json: pg.layoutOptions || '',
+                content_width: pg.contentWidth || 'inherit',
             })
             placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main')
         }
@@ -285,6 +359,7 @@
             })
         }
         upsert('portal', 'slug=' + def.slug, { home_page: pageIds[def.home] })
+        if (def.menus) seedMenus(pid, pageIds, def.menus)
         var rel = releases.processPortal(pid, true)
         log.push('portal ' + def.slug + ': release rev ' + rel.revision + (rel.problems.length ? ' problems: ' + rel.problems.join('; ') : ' (no problems)'))
         return pid
@@ -292,7 +367,29 @@
 
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home',
-        nav: [{ label: 'Home', to: '', icon: 'house' }, { label: 'Incidents', to: 'incidents', icon: 'ticket' }, { label: 'Orders', to: 'orders', icon: 'shopping-cart' }, { label: 'Tests', to: 'tests', icon: 'flask-conical' }, { label: 'Layouts', to: 'layouts', icon: 'layout-grid' }, { label: 'Fields', to: 'fields', icon: 'text-cursor-input' }, { label: 'Catalog', to: 'catalog', icon: 'store' }, { label: 'About', to: 'about', icon: 'info' }],
+        nav: [{ label: 'Home', to: '', icon: 'house' }, { label: 'Incidents', to: 'incidents', icon: 'ticket' }, { label: 'Lists', to: 'lists', icon: 'list' }, { label: 'Orders', to: 'orders', icon: 'shopping-cart' }, { label: 'Tests', to: 'tests', icon: 'flask-conical' }, { label: 'Embeds', to: 'embeds', icon: 'layers' }, { label: 'Layouts', to: 'layouts', icon: 'layout-grid' }, { label: 'Fields', to: 'fields', icon: 'text-cursor-input' }, { label: 'Catalog', to: 'catalog', icon: 'store' }, { label: 'Form', to: 'form', icon: 'file-text' }, { label: 'About', to: 'about', icon: 'info' }],
+        // Menu records (navigation_json above stays one release as the fallback).
+        menus: [
+            { key: 'primary', name: 'Primary', items: [
+                { page: 'home', label: 'Home', icon: 'house' },
+                { page: 'incidents', label: 'Incidents', icon: 'ticket' },
+                { page: 'lists', label: 'Lists', icon: 'list' },
+                { page: 'orders', label: 'Orders', icon: 'shopping-cart' },
+                { page: 'tests', label: 'Tests', icon: 'flask-conical' },
+                { page: 'embeds', label: 'Embeds', icon: 'layers' },
+                { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
+                { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
+                { page: 'catalog', label: 'Catalog', icon: 'store' },
+                { page: 'form', label: 'Form', icon: 'file-text' },
+                { page: 'about', label: 'About', icon: 'info' },
+            ] },
+            { key: 'footer', name: 'Footer', items: [
+                { page: 'about', label: 'About', icon: 'info' },
+                { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
+                { page: 'catalog', label: 'Catalog', icon: 'store' },
+                { url: 'https://lucide.dev/icons/', label: 'Lucide icons', icon: 'external-link' },
+            ] },
+        ],
         // Header full width over an icon-rail sidebar (Ctrl/Cmd+B or the header's toggle).
         portalWidgets: [
             { c: 'site-header', region: 'header', options: { brand: 'Service Portal', sidebarTrigger: true } },
@@ -314,8 +411,26 @@
             { route: 'incidents', name: 'Incidents', widgets: [
                 { c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } },
             ] },
+            // Lists inside widgets (app/list-card embeds app/data-table's RecordList): a configured
+            // list and a related list (an incident's SLAs, via a fixed parent condition).
+            { route: 'lists', name: 'Lists', widgets: [
+                { c: 'list-card', options: { title: 'My open incidents', table: 'incident', query: 'active=true^caller_id=javascript:gs.getUserID()^ORassigned_to=javascript:gs.getUserID()', columns: 'number,short_description,priority,state,assigned_to,sys_updated_on', orderBy: '-sys_updated_on', pageSize: 10 } },
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
+                    'col-1': [
+                        { c: 'list-card', options: { title: 'Critical, unassigned', table: 'incident', query: 'active=true^priority=1^assigned_toISEMPTY', columns: 'number,short_description,caller_id,opened_at', orderBy: '-opened_at', pageSize: 5, hide: ['columnChooser', 'export'], liveUpdates: true } },
+                    ],
+                    'col-2': [
+                        { c: 'list-card', options: { title: 'SLAs of INC0000060 (related list)', table: 'task_sla', parentField: 'task', parentSysId: '1c741bd70b2322007518478d83673af3', columns: 'sla,stage,has_breached,business_percentage,planned_end_time', pageSize: 5, hide: ['search', 'selection', 'actions', 'export'] } },
+                    ],
+                } },
+            ] },
             { route: 'tests', name: 'Runtime Tests', widgets: [
                 { c: 'runtime-tests', options: { label: 'from placement options' } },
+            ] },
+            // Embedded widgets: Server Clock imported by app/embed-demo and rendered as its own
+            // instances (client-declared, server-built with $sp.getWidget, fetched on demand).
+            { route: 'embeds', name: 'Embedded Widgets', widgets: [
+                { c: 'embed-demo', options: { title: 'Embedded widgets' } },
             ] },
             // Blocks demo: a ⅓ + ⅔ Columns block; the wide column holds a 12-track Grid whose cards
             // span 6, plus a nested Grid that uses subgrid to line up on the parent's tracks.
@@ -345,6 +460,11 @@
             { route: 'fields', name: 'Fields', widgets: [
                 { c: 'field-demo', options: { table: 'incident' } },
             ] },
+            // Generic record form (app/form, app/record-form) for any table: ?table=&sys_id=&view= (sys_id=-1 = new);
+            // no table → incident. The record picker is a demo convenience.
+            { route: 'form', name: 'Form', widgets: [
+                { c: 'record-form', options: { picker: true, showViews: true } },
+            ] },
             // Catalog variables (app/variable, app/mrvs, app/catalog-item): picker + item, chosen via ?item=<sys_id>.
             { route: 'catalog', name: 'Catalog', widgets: [
                 { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] }, children: {
@@ -372,6 +492,16 @@
     seedPortal({
         slug: 'crm', name: 'CRM', theme: 'crm-dark', home: 'dashboard',
         nav: [{ label: 'Dashboard', to: '', icon: 'layout-dashboard' }, { label: 'Accounts', to: 'accounts', icon: 'building' }],
+        menus: [
+            { key: 'primary', name: 'Primary', items: [
+                { page: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+                { page: 'accounts', label: 'Accounts', icon: 'building' },
+            ] },
+            { key: 'footer', name: 'Footer', items: [
+                { route: '', portal: 'sp', label: 'Service Portal', icon: 'life-buoy' },
+                { url: 'mailto:crm-support@example.com', label: 'Contact support', icon: 'mail' },
+            ] },
+        ],
         // Offcanvas sidebar: the header's toggle slides it out completely.
         portalWidgets: [
             { c: 'site-header', region: 'header', options: { brand: 'CRM', sidebarTrigger: true } },
@@ -401,6 +531,7 @@
             { label: 'Workspace', children: [
                 { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
                 { label: 'Incidents', to: 'incidents', icon: 'ticket', tint: 'chart-2' },
+                { label: 'Incident list', to: 'incidents-list', icon: 'list', tint: 'chart-3' },
             ] },
             { label: 'Build', children: [
                 { label: 'Fields', to: 'fields', icon: 'text-cursor-input', tint: 'chart-3' },
@@ -409,6 +540,32 @@
             ] },
             { label: 'More', children: [
                 { label: 'Service Portal', to: '', portalSlug: 'sp', icon: 'external-link' },
+            ] },
+        ],
+        // Leaves get chart-1…5 tile tints by position (useNavigation), as the legacy nav set them.
+        menus: [
+            { key: 'primary', name: 'Primary', items: [
+                { label: 'Workspace', children: [
+                    { page: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+                    { page: 'incidents', label: 'Incidents', icon: 'ticket' },
+                    { page: 'incidents-list', label: 'Incident list', icon: 'list' },
+                ] },
+                { label: 'Build', children: [
+                    { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
+                    { page: 'catalog', label: 'Catalog', icon: 'store' },
+                    { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
+                ] },
+                { label: 'More', children: [
+                    { route: '', portal: 'sp', label: 'Service Portal', icon: 'external-link' },
+                ] },
+            ] },
+            // The sidebar user menu (app-sidebar, above Theme / Sign out).
+            { key: 'account', name: 'Account', items: [
+                { route: '', portal: 'sp', label: 'Service Portal', icon: 'life-buoy' },
+                { route: '', portal: 'crm', label: 'CRM', icon: 'building-2' },
+                { type: 'separator' },
+                { url: 'https://www.servicenow.com/docs/', label: 'Documentation', icon: 'book-open' },
+                { url: 'https://lucide.dev/icons/', label: 'Lucide icons', icon: 'shapes', roles: 'x_312987_portal.developer' },
             ] },
         ],
         portalWidgets: [
@@ -426,6 +583,11 @@
             ] },
             { route: 'incidents', name: 'Incidents', widgets: [
                 { c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } },
+            ] },
+            // Full-bleed list view (app/list-view): server-side paging/sorting/filtering, condition
+            // builder, breadcrumbs, right-click filters, inline edit; state lives in the URL.
+            { route: 'incidents-list', name: 'Incident List', contentWidth: 'full', layoutOptions: { contentPadding: 'sm' }, widgets: [
+                { c: 'list-view', options: { table: 'incident', title: 'Incidents', query: 'active=true', columns: 'number,short_description,caller_id,priority,state,category,assignment_group,assigned_to,opened_at,sys_updated_on', orderBy: '-number', pageSize: 50, liveUpdates: true } },
             ] },
             { route: 'fields', name: 'Fields', widgets: [
                 { c: 'field-demo', options: { table: 'incident' } },

@@ -153,6 +153,16 @@ export function loadBuild(build) {
 //   imports: [{ specifier, id, uniqueId, kind, build: { id, js, css } }]
 // Each import's module namespace (named exports + default) is registered under its specifier.
 
+// Widget-kind imports render as embedded instances: embed.js installs a wrapper that replaces the
+// namespace's default export (named exports and `.Raw` stay presentational).
+let importWrapper = null;
+export function setImportWrapper(fn) {
+	importWrapper = typeof fn === 'function' ? fn : null;
+}
+function wrapNamespace(ns, imp) {
+	return importWrapper && imp && imp.kind === 'widget' ? importWrapper(ns, imp) : ns;
+}
+
 const importPromises = new Map(); // build id -> Promise<{ mod, cssText }>
 const importsLoaded = new Map(); // build id -> { mod, cssText } (resolved)
 const registeredBy = new Map(); // specifier -> build id currently registered
@@ -183,9 +193,20 @@ function namespaceOf(mod) {
 	if (mod && mod.__rpExports && typeof mod.__rpExports === 'object') {
 		const ns = { ...mod.__rpExports };
 		if (!('default' in ns) && 'default' in mod) ns.default = mod.default;
-		return ns;
+		return esModule(ns);
 	}
 	return mod;
+}
+
+/**
+ * Mark a registered namespace as an ES module. Compiled code reads a default import through
+ * sucrase's interop (`obj.__esModule ? obj : { default: obj }`); spreading the compiled exports
+ * drops the non-enumerable __esModule flag, which made `import X from 'components:…'` resolve
+ * to the whole namespace instead of its default export.
+ */
+export function esModule(ns) {
+	if (ns && typeof ns === 'object' && !ns.__esModule) Object.defineProperty(ns, '__esModule', { value: true });
+	return ns;
 }
 
 /** Start downloading an import's JS source and CSS without evaluating anything. */
@@ -206,7 +227,7 @@ function loadImport(imp) {
 		const build = imp.build;
 		const promise = Promise.all([importModule(build.js), build.css ? loadCss(build.css) : Promise.resolve('')]).then(
 			([mod, cssText]) => {
-				const loaded = { mod: namespaceOf(mod), cssText: cssText || '' };
+				const loaded = { mod: wrapNamespace(namespaceOf(mod), imp), cssText: cssText || '' };
 				importsLoaded.set(key, loaded);
 				return loaded;
 			},

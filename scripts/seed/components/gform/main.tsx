@@ -1,0 +1,97 @@
+/**
+ * utilities:app/gform: the legacy client-script compatibility layer (g_form & co.).
+ *
+ * Only legacy scripts receive it (client scripts, UI policy run-scripts, UI action onclick
+ * scripts). New widgets use the typed form API (components:app/field, components:app/form).
+ *
+ *   startScriptEnvironment({ host, scripts, scratchpad, user, policies, onError })
+ *       → { env, stop }   binds onChange scripts, runs onLoad (then onChange with isLoading),
+ *                         hooks UI policy run-scripts; stop() unbinds
+ *   useClientScripts({ … })   the same as a React hook (re-runs when `runKey` changes)
+ *   createScriptEnvironment(options)   the environment alone (g_form, g_user, runOnSubmit, …)
+ *   compileScript(script, exports)     the sandbox (window, document, jQuery, $, $j, angular = null)
+ *   createGlideAjaxClass / createGlideRecordClass
+ */
+import { useEffect, useRef, useState } from 'react'
+import { useUser } from '@portal/runtime'
+import type { ClientScripts } from 'utilities:app/graphql'
+import type { AttachedPolicies } from 'components:app/field'
+import { createScriptEnvironment } from './environment'
+import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser } from './environment'
+
+export { createScriptEnvironment, compileScript } from './environment'
+export type { ScriptEnvironment, ScriptEnvironmentOptions, ScriptError, ScriptHost, ScriptUser } from './environment'
+export { createGlideAjaxClass } from './glide-ajax'
+export { createGlideRecordClass } from './glide-record'
+
+export type StartOptions = {
+    host: ScriptHost
+    scripts?: ClientScripts
+    scratchpad?: Record<string, unknown>
+    user: ScriptUser
+    /** The form's attached UI policies: their run-scripts execute through this environment. */
+    policies?: AttachedPolicies
+    onError?: (e: ScriptError) => void
+    catalog?: boolean
+}
+
+/** Start the legacy environment on a loaded form store. */
+export function startScriptEnvironment(options: StartOptions): { env: ScriptEnvironment; stop: () => void } {
+    const env = createScriptEnvironment(options)
+    const offChange = env.attachOnChange()
+    env.runOnLoad()
+    // Classic order: onLoad client scripts, then UI policies (their scripts replay for the current results).
+    if (options.policies) options.policies.setOnResult((p, r) => env.runPolicyScript(p, r), true)
+    return {
+        env,
+        stop: () => {
+            offChange()
+            if (options.policies) options.policies.setOnResult(undefined)
+        },
+    }
+}
+
+/** Map the runtime user (useUser) to g_user's source. */
+export function scriptUserFrom(u: any): ScriptUser {
+    return {
+        sysId: (u && (u.sysId || u.userID)) || '',
+        userName: (u && u.userName) || '',
+        firstName: (u && u.firstName) || '',
+        lastName: (u && u.lastName) || '',
+        name: (u && u.name) || '',
+        roles: (u && Array.isArray(u.roles) ? u.roles : []) as string[],
+    }
+}
+
+/**
+ * Hook form: starts when `enabled`, restarts when `runKey` changes, stops on unmount. Returns the
+ * environment (for onSubmit and UI actions) and the script errors seen so far.
+ */
+export function useClientScripts(options: Omit<StartOptions, 'user'> & { enabled?: boolean; runKey?: unknown }) {
+    const user = useUser() as any
+    const [state, setState] = useState<{ env: ScriptEnvironment | null; errors: ScriptError[] }>({ env: null, errors: [] })
+    const optsRef = useRef(options)
+    optsRef.current = options
+    const ready = options.enabled !== false && !!user && !!(user.sysId || user.userName)
+    useEffect(() => {
+        if (!ready) return
+        const o = optsRef.current
+        const errors: ScriptError[] = []
+        let live = true
+        const started = startScriptEnvironment({
+            ...o,
+            user: scriptUserFrom(user),
+            onError: (e) => {
+                errors.push(e)
+                if (live) setState((s) => ({ env: s.env, errors: errors.slice() }))
+                if (o.onError) o.onError(e)
+            },
+        })
+        setState({ env: started.env, errors: errors.slice() })
+        return () => {
+            live = false
+            started.stop()
+        }
+    }, [ready, options.runKey])
+    return state
+}

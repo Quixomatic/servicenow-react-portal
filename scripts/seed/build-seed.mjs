@@ -63,6 +63,8 @@ const assetUri = (_, file) => {
     return `data:${MIME[ext] || 'application/octet-stream'};base64,${readFileSync(join(here, 'assets', file)).toString('base64')}`
 }
 const template = readFileSync(join(here, 'seed-template.js'), 'utf8').replace(/__ASSET_DATA_URI:([\w.-]+)__/g, assetUri)
-const out = template.replace('__COMPONENTS_JSON__', JSON.stringify(ordered, null, 1))
+// A function replacement: a string one would expand $' / $& / $$ found in component sources (e.g. ['$', '$j']).
+const componentsJson = JSON.stringify(ordered, null, 1)
+const out = template.replace('__COMPONENTS_JSON__', () => componentsJson)
 writeFileSync(join(here, '..', 'seed-demo.js'), out)
 console.log(`seed-demo.js: ${Object.keys(components).length} components, ${(out.length / 1024).toFixed(0)} KB`)

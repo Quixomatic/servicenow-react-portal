@@ -37,7 +37,9 @@ function writeStored(key, value) {
 export function createSidebarStore(slug, opts) {
 	const options = opts || {};
 	const key = KEY_PREFIX + (slug || 'portal');
-	let open = typeof window !== 'undefined' ? readStored(key, options.defaultOpen !== false) : true;
+	// persist: false (Studio's Menus preview) keeps the state in memory only.
+	const persist = options.persist !== false;
+	let open = typeof window !== 'undefined' && persist ? readStored(key, options.defaultOpen !== false) : options.defaultOpen !== false;
 	let openMobile = false;
 	let isMobile = false;
 	let sidebars = 0;
@@ -52,7 +54,7 @@ export function createSidebarStore(slug, opts) {
 		const next = !!(typeof value === 'function' ? value(open) : value);
 		if (next === open) return;
 		open = next;
-		writeStored(key, open);
+		if (persist) writeStored(key, open);
 		emit();
 	};
 	const setOpenMobile = (value) => {

@@ -25,13 +25,90 @@ export function onLoadIds(byRegion) {
 	return ids;
 }
 
-export function createInstanceInitStore(queryClient) {
+/** getContext() → { params, recordId } for server calls (the current URL params), or null. */
+export function createInstanceInitStore(queryClient, getContext) {
 	const records = new Map(); // id -> { entry, pending, error } (replaced on change)
 	const listeners = new Set();
 	const notify = () => listeners.forEach((l) => l());
 	const setRecord = (id, record) => records.set(id, Object.freeze(record));
 
+	// Embedded instances (embed.js): descriptors registered during a commit's layout effects are
+	// sent in ONE initialize per microtask, deduped by id + options hash.
+	const embedHashes = new Map(); // composite id -> options hash last requested (or seeded)
+	let queue = [];
+	let flushScheduled = false;
+	const flushEmbeds = () => {
+		flushScheduled = false;
+		const batch = queue;
+		queue = [];
+		const byTarget = new Map(); // `${portal}|${page}` -> descriptors
+		batch.forEach((item) => {
+			const k = `${item.portal}|${item.page}`;
+			if (!byTarget.has(k)) byTarget.set(k, { portal: item.portal, page: item.page, context: item.context, list: [] });
+			byTarget.get(k).list.push(item.descriptor);
+		});
+		byTarget.forEach(({ portal, page, context, list }) => {
+			// The server takes 50 descriptors per request.
+			for (let i = 0; i < list.length; i += 50) {
+				const chunk = list.slice(i, i + 50);
+				// The client-side options hash isn't part of the wire descriptor.
+				const wire = chunk.map(({ hash, ...d }) => d); // eslint-disable-line no-unused-vars
+				initializeInstances(portal, page, wire, context).then(
+					(data) => {
+						const instances = (data && data.instances) || {};
+						chunk.forEach((d) => {
+							if (embedHashes.get(d.id) !== d.hash) return; // superseded by newer options
+							const entry = instances[d.id];
+							if (entry) emitServerMessages(entry.messages);
+							setRecord(d.id, { entry, pending: false, error: entry ? null : new Error(`No init result for ${d.id}`) });
+						});
+						notify();
+					},
+					(error) => {
+						chunk.forEach((d) => {
+							if (embedHashes.get(d.id) === d.hash) setRecord(d.id, { entry: undefined, pending: false, error });
+						});
+						notify();
+					}
+				);
+			}
+		});
+	};
+
 	return {
+		/**
+		 * Embedded widgets: put a known result (a server-built model) under `id` without a request.
+		 * Silent (no notify): it's called while the embed renders, and its subtree reads the record
+		 * in that same render.
+		 */
+		seed(id, entry, hash) {
+			embedHashes.set(id, hash || '');
+			setRecord(id, { entry, pending: false, error: null });
+		},
+		/** True when `id` already has (or is fetching) data for options `hash`. */
+		hasEmbed(id, hash) {
+			const r = records.get(id);
+			return embedHashes.get(id) === hash && !!r && (!!r.entry || r.pending);
+		},
+		/**
+		 * Queue an embedded instance's initialize: { id, placement, path, keys, options, token }.
+		 * Skipped when the same id + options hash is cached or in flight.
+		 */
+		requestEmbed(portal, page, descriptor, hash, context) {
+			if (embedHashes.get(descriptor.id) === hash) {
+				const r = records.get(descriptor.id);
+				if (r && (r.entry || r.pending)) return;
+			}
+			embedHashes.set(descriptor.id, hash);
+			const prev = records.get(descriptor.id);
+			setRecord(descriptor.id, { entry: prev ? prev.entry : undefined, pending: true, error: null });
+			queue.push({ portal, page: page || '', descriptor: { ...descriptor, hash }, context: context || null });
+			if (!flushScheduled) {
+				flushScheduled = true;
+				queueMicrotask(flushEmbeds);
+			}
+			notify();
+		},
 		record: (id) => records.get(id) || EMPTY,
 		get: (id) => (records.get(id) || EMPTY).entry,
 		pending: (id) => (records.get(id) || EMPTY).pending,
@@ -46,7 +123,10 @@ export function createInstanceInitStore(queryClient) {
 		 */
 		fetch(portal, page, ids, scope) {
 			if (!ids || !ids.length) return Promise.resolve(null);
-			const queryKey = ['rp', 'init', portal, scope, scope === 'portal' ? '' : page, ids.join(',')];
+			// URL params reach the server scripts (context); page results are cached per params.
+			const context = getContext ? getContext() : null;
+			const paramsKey = scope === 'portal' || !context ? '' : JSON.stringify(context);
+			const queryKey = ['rp', 'init', portal, scope, scope === 'portal' ? '' : page, ids.join(','), paramsKey];
 			const cached = queryClient.getQueryData(queryKey);
 			const apply = (data) => {
 				const instances = (data && data.instances) || {};
@@ -65,7 +145,7 @@ export function createInstanceInitStore(queryClient) {
 			});
 			notify();
 			return queryClient
-				.fetchQuery({ queryKey, queryFn: () => initializeInstances(portal, page, ids), staleTime: Infinity, retry: false })
+				.fetchQuery({ queryKey, queryFn: () => initializeInstances(portal, page, ids, context), staleTime: Infinity, retry: false })
 				.then(apply, (error) => {
 					ids.forEach((id) => setRecord(id, { entry: undefined, pending: false, error }));
 					notify();

@@ -40,6 +40,8 @@ export interface ManifestMenuItem {
     query: Record<string, string>
     route: string
     url: string
+    /** Route items: another portal's slug (params_json.portal) for a cross-portal link ('' = this portal). */
+    portal?: string
     children: ManifestMenuItem[]
 }
 
@@ -65,6 +67,13 @@ function stringMap(v: unknown): Record<string, string> {
         if (val !== null && val !== undefined && typeof val !== 'object') out[k] = String(val)
     }
     return out
+}
+
+/** params_json.portal: a route item's target portal slug ('' = the menu's own portal). */
+export function parseItemPortal(text: string): string {
+    const raw = parseJson<unknown>(text, null)
+    if (!isPlainObject(raw) || typeof raw.portal !== 'string') return ''
+    return raw.portal.trim()
 }
 
 /** params_json → { params, query }. */
@@ -93,6 +102,7 @@ function manifestItem(gr: GR): ManifestMenuItem {
         query: p.query,
         route: str(gr, 'route'),
         url: str(gr, 'url'),
+        portal: parseItemPortal(str(gr, 'params_json')),
         children: [],
     }
 }
@@ -301,6 +311,7 @@ function resolveItem(item: ManifestMenuItem, ctx: MenuResolveContext, pagesById:
         const r = splitRoute(item.route)
         nav.to = r.to
         if (Object.keys(r.q).length) nav.q = r.q
+        if (item.portal && item.portal !== ctx.portal.slug) nav.portalSlug = item.portal
     }
     nav.match = item.match === 'exact' ? 'exact' : 'prefix'
     if (item.target === '_blank') nav.target = '_blank'

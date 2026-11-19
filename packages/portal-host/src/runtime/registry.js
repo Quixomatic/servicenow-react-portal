@@ -30,6 +30,8 @@ import { ensureStyle } from './styles';
 import { themeStore } from './theme-mode';
 import * as ReactQuery from '@tanstack/react-query';
 import { QueryClientProvider } from '@tanstack/react-query';
+import * as ReactTable from '@tanstack/react-table';
+import * as ReactVirtual from '@tanstack/react-virtual';
 import { queryClient } from './query-client';
 import { PortalPreview, invalidatePortal } from '#/portal/portal-preview';
 import { designApi as mockDesignApi } from './mock';
@@ -57,7 +59,12 @@ const modules = {
 	'utilities:cn': cnModule,
 	// TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
 	// build data hooks on it: import { useQuery } from 'utilities:react-query'.
-	'utilities:react-query': ReactQuery
+	'utilities:react-query': ReactQuery,
+	// TanStack Table (headless table state: sorting, selection, visibility, ordering, sizing) and
+	// TanStack Virtual (row virtualization), for the list primitives: import { useReactTable } from
+	// 'utilities:react-table', import { useVirtualizer } from 'utilities:react-virtual'.
+	'utilities:react-table': ReactTable,
+	'utilities:react-virtual': ReactVirtual
 };
 
 const registry = (globalThis.__REACT_PORTAL__ = globalThis.__REACT_PORTAL__ || { modules: {} });

@@ -26,7 +26,7 @@ import { createInstanceInitStore, onLoadIds } from '#/runtime/instance-init';
 import { loadCss } from '#/runtime/loader';
 import { useThemeStyles } from '#/runtime/theme';
 import { LayoutHost, PagePlacements, createOutletStore, mainRegionOf, prefetchBuilds } from '#/runtime/widgets';
-import { searchParamsToObject, toSearchParams, safeDecode } from '#/runtime/location';
+import { searchParamsToObject, toSearchParams, safeDecode, requestContextOf } from '#/runtime/location';
 import { leafData } from '#/runtime/page-state';
 import { useDiagCounter } from '#/runtime/diag-hooks';
 import { clearActiveRouter, navNoop, navResolved, navStart, setActiveRouter } from '#/runtime/diagnostics';
@@ -60,7 +60,7 @@ export function stringifySearch(search) {
 /** Router target for a normalized location: page '' -> '/', q -> search. */
 export function targetOf(location) {
 	const to = '/' + (location.page || '');
-	const search = location.query || {};
+	const search = location.qParams || {};
 	return { to, search, key: to + stringifySearch(search) };
 }
 
@@ -124,10 +124,11 @@ function placementsOf(regions) {
 	return list;
 }
 
-export function createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref, embedded }) {
-	const initStore = createInstanceInitStore(queryClient);
-	// useSidebar(): one shell state per portal, shared by every widget and the layout.
-	const sidebarStore = createSidebarStore(slug);
+export function createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref, embedded, sidebarStore: externalSidebar }) {
+	const initStore = createInstanceInitStore(queryClient, () => requestContextOf(locationStore ? locationStore.get() : null));
+	// useSidebar(): one shell state per portal, shared by every widget and the layout. Studio's
+	// Menus preview passes its own (in-memory) store to drive expanded / collapsed.
+	const sidebarStore = externalSidebar || createSidebarStore(slug);
 	let routerRef = null;
 
 	const portalValue = {
@@ -302,12 +303,12 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
  * Builds the router for one portal, loads the first location before mounting (no blank first
  * paint), then mirrors the host's location store into it.
  */
-export function PortalRouterHost({ slug, boot, target, embedded }) {
+export function PortalRouterHost({ slug, boot, target, embedded, sidebarStore }) {
 	const locationStore = useContext(LocationStoreContext);
 	const navigate = useNavigate();
 	useDiagCounter('PortalRouterHost', { slug, boot, target });
 	const [router] = useState(() =>
-		createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref: targetOf(locationStore.get()).key, embedded })
+		createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref: targetOf(locationStore.get()).key, embedded, sidebarStore })
 	);
 	const [ready, setReady] = useState(false);
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState } from 'react'
-import { createFormStore, FormProvider } from 'components:app/field'
-import type { Form, FormStore } from 'components:app/field'
+import { createFormStore, FormProvider, attachPolicies } from 'components:app/field'
+import type { Form, FormStore, AttachedPolicies } from 'components:app/field'
 import type { CatalogItem, CatalogVariable } from 'utilities:app/catalog'
 import { variableSpec } from './meta'
 import type { VariableSpec } from './meta'
@@ -14,8 +14,8 @@ import type { VariableSpec } from './meta'
  *   (g_form compatibility for catalog client scripts);
  * - specs: each variable's render kind + FieldMeta, from one mapping (meta.ts);
  * - serializeVariables(): { variableName: value } for price and submit (MRVS as row JSON);
- * - the store's override layer (setMandatory, setReadOnly, setDisplay, showFieldMessage, …) is
- *   where catalog UI policies and client scripts plug in later.
+ * - catalog UI policies run on the store's policy layer (attachPolicies); the override layer
+ *   (setMandatory, setReadOnly, setDisplay, showFieldMessage, …) is where client scripts plug in.
  */
 export type CatalogForm = Form & {
     item: CatalogItem
@@ -27,6 +27,8 @@ export type CatalogForm = Form & {
     serializeVariables: () => Record<string, string>
     /** Variables whose change affects the price. */
     priceAffecting: string[]
+    /** The item's catalog UI policies, bound to this form. */
+    policies: AttachedPolicies
 }
 
 const NAME_METHODS = [
@@ -63,9 +65,11 @@ export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): Cat
     }
     const meta: Record<string, any> = {}
     for (const s of specs) if (s.meta) meta[s.name] = s.meta
-    store.load({ values, meta, table, sysId: item.sysId })
-    // Server-evaluated visibility (variables the platform hides up front).
-    for (const s of specs) if (s.variable.visible === false) store.setVisible(s.name, false)
+    // Server-evaluated visibility (variables the platform hides up front) is the server layer, so
+    // UI policies (the layer above) can still show them.
+    const server: Record<string, { hidden?: boolean }> = {}
+    for (const s of specs) if (s.variable.visible === false) server[s.name] = { hidden: true }
+    store.load({ values, meta, server, table, sysId: item.sysId })
 
     const form = Object.create(store) as CatalogForm
     for (const m of NAME_METHODS) {
@@ -89,6 +93,8 @@ export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): Cat
         }
         return out
     }
+    // Catalog UI policies: evaluated now and on every change (the store lives as long as the form).
+    form.policies = attachPolicies(store, item.policies || [], { resolve })
     form.status = { isLoading: false, isFetching: false, error: null, loaded: true }
     form.refetch = () => {}
     return form

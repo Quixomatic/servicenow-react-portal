@@ -14,6 +14,17 @@ export type FieldOverrides = {
     label?: string
     placeholder?: string
     hint?: string
+    /** Option overlay (g_form.addOption / removeOption / clearOptions): replaces the field's choices. */
+    choices?: { value: string; label: string }[]
+}
+
+/** UI policy layer (between server state and script overrides); recomputed as a whole. */
+export type PolicyState = {
+    mandatory?: boolean
+    readOnly?: boolean
+    visible?: boolean
+    /** Field message a catalog UI policy shows while its condition is true. */
+    message?: FieldMessage
 }
 
 /** One field's slice of the form store. Values are glide strings (what the platform stores). */
@@ -27,6 +38,8 @@ export type FieldEntry = {
     touched: boolean
     messages: FieldMessage[]
     overrides: FieldOverrides
+    /** UI policy layer (setPolicyLayer). */
+    policy?: PolicyState
 }
 
 export type FieldState = { mandatory: boolean; readOnly: boolean; visible: boolean; disabled: boolean }

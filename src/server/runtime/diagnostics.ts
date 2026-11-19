@@ -14,6 +14,8 @@ export interface ExecutionLogEntry {
     releaseId?: string | null
     buildId?: string | null
     placementId?: string | null
+    /** Instance id: the placement id, or an embed's composite id (<placement>~<key>…). */
+    instanceId?: string | null
     componentId?: string | null
     portalId?: string | null
     error?: string
@@ -32,6 +34,7 @@ export function logExecution(entry: ExecutionLogEntry): void {
         if (entry.buildId) gr.setValue('build', entry.buildId)
         if (entry.placementId) gr.setValue('placement', entry.placementId)
         if (entry.componentId) gr.setValue('component', entry.componentId)
+        if (entry.instanceId) gr.setValue('instance', String(entry.instanceId).substring(0, 255))
         if (entry.portalId) gr.setValue('portal', entry.portalId)
         if (entry.error) gr.setValue('sanitized_error', entry.error)
         gr.insert()

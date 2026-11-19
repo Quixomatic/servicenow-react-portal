@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useFieldMeta } from 'utilities:app/graphql'
 import { useFormContext } from './form'
-import type { FieldMessage, FieldMeta, FieldProps, FieldSnapshot, UseFieldResult } from './types'
+import type { FieldMessage, FieldMeta, FieldProps, FieldSnapshot, PolicyState, UseFieldResult } from './types'
 
 const NO_SNAPSHOT: FieldSnapshot = { entry: undefined, server: undefined, meta: undefined, submitted: false }
 const noopSubscribe = () => () => {}
 const NO_MESSAGES: FieldMessage[] = []
+const NO_POLICY: PolicyState = {}
 
 function isEmpty(v: string | undefined): boolean {
     return v == null || String(v).trim() === ''
@@ -18,7 +19,7 @@ function firstDefined<T>(...values: (T | undefined | null)[]): T | undefined {
 
 /**
  * The field contract. Resolves, in order: explicit props → form context (values, script
- * overrides, server states) → dictionary metadata (cached by the GraphQL utility).
+ * overrides, UI policy layer, server states) → dictionary metadata (cached by the GraphQL utility).
  *
  *   useField('short_description')                  // bound to the nearest FormProvider
  *   useField({ name: 'x', value, onChange, ... })  // standalone, controlled
@@ -70,6 +71,7 @@ export function useField(input: string | FieldProps): UseFieldResult {
     const ov = (entry && entry.overrides) || {}
     const server = snap.server
 
+    const ovChoices = entry && entry.overrides ? entry.overrides.choices : undefined
     const meta: FieldMeta = useMemo(
         () => ({
             table: table || '',
@@ -83,8 +85,10 @@ export function useField(input: string | FieldProps): UseFieldResult {
             ...(baseMeta || {}),
             ...(props.meta || {}),
             ...(props.type ? { type: props.type } : {}),
+            // Script option overlay: explicit choices (source 'props' makes choice fields use them as given).
+            ...(ovChoices ? { choices: ovChoices, source: 'props' as const } : {}),
         }),
-        [baseMeta, props.meta, props.type, table, name],
+        [baseMeta, props.meta, props.type, table, name, ovChoices],
     )
 
     const value = props.value ?? (bound ? (entry ? entry.value : '') : local.value)
@@ -93,9 +97,10 @@ export function useField(input: string | FieldProps): UseFieldResult {
     const staged = bound ? entry && entry.staged : local.staged
     const touched = bound ? !!(entry && entry.touched) : local.touched
 
-    const readOnly = !!firstDefined(props.readOnly, ov.readOnly, server && server.readonly, meta.readOnly || meta.canWrite === false)
-    const mandatoryRaw = !!firstDefined(props.mandatory, ov.mandatory, server && server.mandatory, meta.mandatory)
-    const visible = firstDefined(props.visible, ov.visible, server ? !server.hidden : undefined, meta.canRead === false ? false : undefined) ?? true
+    const pol = (entry && entry.policy) || NO_POLICY
+    const readOnly = !!firstDefined(props.readOnly, ov.readOnly, pol.readOnly, server && server.readonly, meta.readOnly || meta.canWrite === false)
+    const mandatoryRaw = !!firstDefined(props.mandatory, ov.mandatory, pol.mandatory, server && server.mandatory, meta.mandatory)
+    const visible = meta.canRead === false ? false : (firstDefined(props.visible, ov.visible, pol.visible, server ? !server.hidden : undefined) ?? true)
     const disabled = !!firstDefined(props.disabled, ov.disabled)
     // The platform's rule: a read-only field is never required.
     const mandatory = mandatoryRaw && !readOnly
@@ -113,6 +118,7 @@ export function useField(input: string | FieldProps): UseFieldResult {
         if (props.error) list.push({ kind: 'error', text: props.error, id: 'prop-error' })
         for (const m of props.messages || NO_MESSAGES) list.push(m)
         for (const m of (entry && entry.messages) || NO_MESSAGES) list.push(m)
+        if (entry && entry.policy && entry.policy.message) list.push(entry.policy.message)
         // "Required" appears after a submit/validate, or once the user changed the value and left it
         // empty: never just for tabbing through an empty field (no error flash, no layout shift).
         if (missing && (snap.submitted || (touched && value !== originalValue))) list.push({ kind: 'error', text: `${label} is required`, id: 'required' })

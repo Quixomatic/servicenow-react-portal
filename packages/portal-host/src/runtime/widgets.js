@@ -18,6 +18,7 @@ setServerMessageSink((messages) =>
 	})
 );
 import { EMPTY_LIST, leafData } from './page-state';
+import { requestContextOf } from './location';
 
 // ---- error boundary -------------------------------------------------------------------------
 
@@ -78,7 +79,7 @@ export function reportServerError(error, { portal, label, key }) {
 }
 
 /** In-place notice above a widget whose on-load server script failed. */
-function ServerErrorBanner({ error, label }) {
+export function ServerErrorBanner({ error, label }) {
 	const portal = useContext(PortalContext);
 	const { title, description } = describeServerError(error, label, canSeeErrorDetails(portal));
 	return (
@@ -506,6 +507,10 @@ function LayoutFailure({ error }) {
 
 // ---- useComponent ---------------------------------------------------------------------------
 
+export function toServerError(value) {
+	return toError(value);
+}
+
 function toError(value) {
 	if (!value) return null;
 	if (value instanceof Error) return value;
@@ -565,18 +570,32 @@ export function useComponent(hookOptions) {
 	dataRef.current = data;
 
 	// Read at call time (not render time), so calling the server never subscribes to navigation.
+	// `context` carries the URL params (table, sys_id, view, query, q keys) and recordId: the
+	// server exposes them as context.client / context.query and through $sp.getParameter().
 	const context = () => ({
 		portal: portal ? portal.slug : '',
-		page: portal && portal.getPath ? portal.getPath() : ''
+		page: portal && portal.getPath ? portal.getPath() : '',
+		context: requestContextOf(portal && portal.locationStore ? portal.locationStore.get() : null)
 	});
 	// Action errors toast automatically (detailed for developers), unless the widget opted out
 	// (useServer({ toastErrors: false })) or the call did ({ toast: false }). The promise still rejects.
 	const label = component.name || component.uniqueId || 'Widget';
-	const run = (action, extra, callOptions) =>
-		executeInstance(instanceId, { ...context(), action, ...extra }).catch((error) => {
+	// Embedded instances run under their root placement, with the embed chain in the body.
+	const embed = placement.embed || null;
+	const run = (action, extra, callOptions) => {
+		if (embed && !embed.serverOk) {
+			const error = toError({ status: 400, code: 'no_server', message: 'This embedded widget has no server here (no placement, e.g. Studio preview)' });
+			if (toastErrors && !(callOptions && callOptions.toast === false)) reportServerError(error, { portal, label });
+			return Promise.reject(error);
+		}
+		const target = embed ? embed.root : instanceId;
+		const body = { ...context(), action, ...extra };
+		if (embed) body.embed = { path: embed.path, keys: embed.keys, options: embed.options || {}, token: embed.token || null };
+		return executeInstance(target, body).catch((error) => {
 			if (toastErrors && !(callOptions && callOptions.toast === false)) reportServerError(error, { portal, label });
 			throw error;
 		});
+	};
 	const replace = (promise) =>
 		promise.then(
 			(next) => {

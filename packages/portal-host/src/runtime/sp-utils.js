@@ -1,12 +1,14 @@
 // Service Portal-style utilities for widgets, exported from @portal/runtime: the current user,
 // system properties, translated messages, spUtils-like helpers, and Table API hooks. Data goes
 // through the module-level QueryClient (cached per portal / language), so widgets share it.
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PortalContext } from './contexts';
 import { useComponent } from './widgets';
+import { useGetWidget } from './embed';
 import { fetchJson, getHeaders, getMessages, getProperties, tableApi } from './api';
+import { scheduleInvalidate, useRecordWatch } from './record-watch';
 
 const EMPTY = Object.freeze({});
 
@@ -139,6 +141,7 @@ function scrollToIn(root, target, options) {
  */
 export function usePortalUtils() {
 	const portal = usePortalValue();
+	const getWidget = useGetWidget();
 	return useMemo(() => {
 		const lang = languageOf(portal);
 		return {
@@ -151,9 +154,11 @@ export function usePortalUtils() {
 			scrollTo: (target, options) => scrollToIn(portal && portal.shadowRoot, target, options),
 			fetchJson,
 			refresh: () => (portal && portal.refresh ? portal.refresh() : Promise.resolve()),
-			getHeaders
+			getHeaders,
+			// spUtils.get equivalent: (component | 'app/x', options?, { key? }) → Promise<EmbedModel>
+			getWidget
 		};
-	}, [portal]);
+	}, [portal, getWidget]);
 }
 
 /**
@@ -167,7 +172,10 @@ export function useServer(options) {
 
 // ---- Table API ------------------------------------------------------------------------------
 
-/** useRecord(table, sysId, { fields?, displayValue? }) → { data, isLoading, error, refetch } */
+/**
+ * useRecord(table, sysId, { fields?, displayValue?, live?, liveThrottleMs? }) →
+ * { data, isLoading, error, refetch, deleted }. live: refetch when the record changes (AMB).
+ */
 export function useRecord(table, sysId, options) {
 	const o = options || {};
 	const fields = Array.isArray(o.fields) ? o.fields.join(',') : o.fields || '';
@@ -177,11 +185,28 @@ export function useRecord(table, sysId, options) {
 		queryFn: () => tableApi(table, sysId, { sysparm_fields: fields, sysparm_display_value: displayValue }),
 		enabled: !!table && !!sysId
 	});
-	return { data: query.data, isLoading: !!table && !!sysId && query.isPending, error: query.error, refetch: query.refetch };
+	// live: true → watch this record (AMB) and refetch it on a change; `deleted` after a delete.
+	const [deletedId, setDeletedId] = useState(null);
+	useRecordWatch(
+		table,
+		sysId ? `sys_id=${sysId}` : null,
+		(event) => {
+			if (event.operation === 'delete') setDeletedId(sysId);
+			scheduleInvalidate(['rp', 'table', table, 'record', sysId], o.liveThrottleMs === undefined ? 250 : o.liveThrottleMs);
+		},
+		{ enabled: !!o.live && !!table && !!sysId, invalidate: false }
+	);
+	return {
+		data: query.data,
+		isLoading: !!table && !!sysId && query.isPending,
+		error: query.error,
+		refetch: query.refetch,
+		deleted: !!sysId && deletedId === sysId
+	};
 }
 
 /**
- * useTableQuery(table, { query, fields, limit, orderBy, displayValue }) →
+ * useTableQuery(table, { query, fields, limit, orderBy, displayValue, live?, liveThrottleMs? }) →
  * { data: rows, isLoading, error, refetch }. orderBy: 'field' or '-field' (descending), or a list.
  */
 export function useTableQuery(table, options) {
@@ -198,6 +223,13 @@ export function useTableQuery(table, options) {
 		queryFn: () => tableApi(table, null, { sysparm_query: encoded, sysparm_fields: fields, sysparm_limit: limit, sysparm_display_value: displayValue }),
 		enabled: !!table
 	});
+	// live: true → watch the query's filter (AMB) and refetch this list, throttled (liveThrottleMs).
+	useRecordWatch(
+		table,
+		o.query || '',
+		() => scheduleInvalidate(['rp', 'table', table, 'query', encoded], o.liveThrottleMs === undefined ? 1000 : o.liveThrottleMs),
+		{ enabled: !!o.live && !!table, invalidate: false }
+	);
 	return { data: query.data, isLoading: !!table && query.isPending, error: query.error, refetch: query.refetch };
 }
 

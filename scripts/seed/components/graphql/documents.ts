@@ -1,12 +1,29 @@
-import { graphql, restGet, safeName } from './client'
-import type { Choice, FieldMeta, FormBootstrap, FormChanges, ReferenceItem, ReferenceSearchResult, FieldValue } from './types'
+import { graphql, restGet, safeName, authHeaders } from './client'
+import type {
+    Choice,
+    FieldMeta,
+    FormBootstrap,
+    FormChanges,
+    FormView,
+    ReferenceItem,
+    ReferenceSearchResult,
+    FieldValue,
+    SessionNotification,
+    UiAction,
+    UiActionResult,
+    UiPolicy,
+    ClientScript,
+    ClientScripts,
+} from './types'
 
 /**
  * Documents and fetchers. Each fetcher is a plain async function (usable outside React) and the
  * hooks in hooks.ts wrap them in TanStack Query.
  *
  *   fetchTableMeta      GET  /api/now/ui/meta/{table}              (REST: GraphQL has no per-table dictionary query outside a form view)
- *   fetchFormBootstrap  POST /api/now/graphql  GlideLayout_Query.formLayout
+ *   fetchFormBootstrap  POST /api/now/graphql  GlideViewQuery_Query.uiView → formLayout + UI policies + UI actions
+ *   fetchFormViews      POST /api/now/graphql  GlideViewQuery_Query.uiView.availableViews
+ *   executeUiAction     POST /api/now/ui/ui_action/{sysId}   (form Save = sysverb_ws_save)
  *   fetchChoices        POST /api/now/graphql  GlideLayout_Query.choiceDataRetriever
  *   searchReference     POST /api/now/graphql  GlideLayout_Query.referenceDataRetriever
  *   fetchRecordValues   POST /api/now/graphql  GlideRecord_Query.<table>
@@ -164,14 +181,157 @@ function metaFromElement(table: string, e: any): FieldMeta {
     return meta
 }
 
+/** UI policy fields (forms and catalog share the shape; catalog adds value / message actions). */
+export const UI_POLICY_FIELDS = `shortDescription sysId reverse onLoad isRunScripts preEvaluated preEvaluatedResult
+  scriptTrue { script } scriptFalse { script }
+  actions { visible name disabled mandatory cleared: clearValue }
+  conditions { type field: fieldName fieldLabel value oper: operator or: isOrQuery newquery: isNewQuery preEvaluatedTerm preEvaluatedTermResult }`
+
+/** Client scripts (forms and catalog share the shape). */
+export const CLIENT_SCRIPT_FIELDS = `onLoad { name sysId script type fieldName tableName }
+  onChange { name sysId script type fieldName tableName }
+  onSubmit { name sysId script type fieldName tableName }
+  messages { name value }`
+
+/** GraphQL client scripts → ClientScripts (unknown shape → empty lists). */
+export function normalizeClientScripts(s: any): ClientScripts {
+    const list = (arr: any): ClientScript[] =>
+        (Array.isArray(arr) ? arr : [])
+            .filter((x: any) => x && x.script)
+            .map((x: any) => ({ name: String(x.name || ''), sysId: String(x.sysId || ''), script: String(x.script), type: String(x.type || ''), fieldName: String(x.fieldName || ''), tableName: String(x.tableName || '') }))
+    const messages: Record<string, string> = {}
+    for (const m of (s && s.messages) || []) if (m && m.name) messages[String(m.name)] = m.value == null ? String(m.name) : String(m.value)
+    return { onLoad: list(s && s.onLoad), onChange: list(s && s.onChange), onSubmit: list(s && s.onSubmit), messages }
+}
+
+function parseScratchpad(v: unknown): Record<string, unknown> {
+    if (!v) return {}
+    if (typeof v === 'object') return v as Record<string, unknown>
+    try {
+        const o = JSON.parse(String(v))
+        return o && typeof o === 'object' ? o : {}
+    } catch (e) {
+        return {}
+    }
+}
+
 /**
- * One request for a record form: values + display values, server field states (dictionary, ACL,
- * policies), field metadata for the view's elements, the encoded record and modCount.
- * sysId '-1' opens a new record (the platform evaluates defaults, including the next number).
+ * The record form as Workspace loads it: the view resolver (GlideViewQuery_Query.uiView) wraps
+ * the form layout, the UI policies (GlideClientScriptingEnvironment_Query) and the form's UI
+ * actions (GlideUIAction_Query), all evaluated for the resolved view ("$$parent.viewName$$").
  */
-export async function fetchFormBootstrap(table: string, sysId: string, view = '', signal?: AbortSignal): Promise<FormBootstrap> {
-    const data = await graphql(FORM_LAYOUT_QUERY, { table, sysId: sysId || '-1', view, query: '' }, { signal })
-    const L = data && data.GlideLayout_Query && data.GlideLayout_Query.formLayout
+export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query: String, $forcedViewName: String) {
+  GlideViewQuery_Query {
+    uiView(table: $table, views: "", sysId: $sysId, query: $query, forcedViewName: $forcedViewName) {
+      view
+      glideLayoutItem(table: $table, sysId: $sysId, query: $query) {
+        _query {
+          GlideLayout_Query {
+            formLayout(table: $table, view: "$$parent.viewName$$", sysId: $sysId, query: $query) {
+              table sysId isValidRecord canReadRecord lastErrorMessage encodedRecord
+              recordMetadata { modCount }
+              sectionLayout { sysId caption captionDisplay rows { fields } }
+              formatters { name }
+              recordValues { name value displayValue }
+              fieldStates { name hidden mandatory readonly }
+              elementsData {
+                name: elementName
+                dictionary: dictionaryData {
+                  type: dictionaryType label isMandatory sysReadonly canWrite canRead dependentField internalType
+                  attributes { name value }
+                }
+                ... on GlideLayout_ChoiceElementType { choices { displayValue value } }
+                ... on GlideLayout_ReferenceElementType { reference referenceQualifier useReferenceQualifier refAcColumns refAcOrderBy refAcDisplayValue dependentOnField }
+                ... on GlideLayout_GlideListElementType { reference }
+                ... on GlideLayout_ValueElementType { maxLength }
+                ... on GlideLayout_CurrencyElementType { code defaultCurrency currencyCodes { code symbol name } }
+                ... on GlideLayout_PhoneNumberElementType { country countryCodes { code name } }
+              }
+            }
+          }
+          GlideClientScriptingEnvironment_Query {
+            ClientScriptingEnvironment_Policies(table: $table, view: "$$parent.viewName$$", sysId: $sysId, query: $query) { ${UI_POLICY_FIELDS} }
+            ClientScriptingEnvironment_Scripts(table: $table, view: "$$parent.viewName$$", sysId: $sysId, query: $query) { ${CLIENT_SCRIPT_FIELDS} }
+            ClientScriptingEnvironment_Globals(table: $table, sysId: $sysId, query: $query) { g_scratchpad g_language g_date_time_format g_decimal_separator g_user_grouping g_text_direction }
+          }
+          GlideUIAction_Query {
+            uiActions(table: $table, sysId: $sysId, query: $query, view: "$$parent.viewName$$") {
+              formActions { label name sysId order style type clientScript hasClientScript hint }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+
+const flag = (v: unknown): 'true' | 'false' | 'ignore' => (v === true || v === 'true' ? 'true' : v === false || v === 'false' ? 'false' : 'ignore')
+
+/** GraphQL policy → UiPolicy (forms and catalog). */
+export function normalizePolicy(p: any): UiPolicy {
+    return {
+        id: String(p.sysId || ''),
+        description: String(p.shortDescription || ''),
+        reverse: bool(p.reverse),
+        onLoad: p.onLoad == null ? true : bool(p.onLoad),
+        runScripts: bool(p.isRunScripts),
+        preEvaluated: bool(p.preEvaluated),
+        preEvaluatedResult: bool(p.preEvaluatedResult),
+        scriptTrue: (p.scriptTrue && p.scriptTrue.script) || undefined,
+        scriptFalse: (p.scriptFalse && p.scriptFalse.script) || undefined,
+        actions: (p.actions || []).filter((a: any) => a && a.name).map((a: any) => ({
+            name: String(a.name),
+            visible: flag(a.visible),
+            mandatory: flag(a.mandatory),
+            disabled: flag(a.disabled),
+            cleared: bool(a.cleared),
+            value: a.value == null ? undefined : String(a.value),
+            valueAction: a.valueAction || undefined,
+            fieldMessage: a.fieldMessage || undefined,
+            fieldMessageType: a.fieldMessageType || undefined,
+        })),
+        conditions: (p.conditions || []).filter((c: any) => c && c.field).map((c: any) => ({
+            field: String(c.field),
+            oper: String(c.oper || '='),
+            value: c.value == null ? '' : String(c.value),
+            type: c.type || undefined,
+            label: c.fieldLabel || undefined,
+            or: bool(c.or),
+            newquery: bool(c.newquery),
+            preEvaluatedTerm: bool(c.preEvaluatedTerm),
+            preEvaluatedTermResult: bool(c.preEvaluatedTermResult),
+        })),
+    }
+}
+
+function normalizeAction(a: any): UiAction {
+    return {
+        sysId: String(a.sysId || ''),
+        name: String(a.name || ''),
+        label: String(a.label || a.name || ''),
+        order: Number(a.order || 0),
+        type: String(a.type || 'button'),
+        style: a.style || undefined,
+        hint: a.hint || undefined,
+        hasClientScript: bool(a.hasClientScript),
+        clientScript: a.clientScript || undefined,
+    }
+}
+
+/**
+ * One request for a record form, as Workspace makes it: the resolved view, values + display
+ * values, server field states (dictionary, ACL), field metadata for the view's elements, sections
+ * (rows → columns → fields), UI policies, form UI actions, the encoded record and modCount.
+ * sysId '-1' opens a new record: the platform evaluates defaults and RESERVES the next number, so
+ * never refetch a new record in the background. `query` (encoded, e.g. 'incident=<id>') presets a
+ * new record's values, as Workspace's openRecord(table, '-1', { query }) does.
+ */
+export async function fetchFormBootstrap(table: string, sysId: string, view = '', signal?: AbortSignal, query = ''): Promise<FormBootstrap> {
+    safeName(table, 'table')
+    const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: view || '' }, { signal, allowPartial: true })
+    const U = data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView
+    const Q = (U && U.glideLayoutItem && U.glideLayoutItem._query) || {}
+    const L = Q.GlideLayout_Query && Q.GlideLayout_Query.formLayout
     if (!L) throw new Error(`No form layout for ${table}`)
     if (L.isValidRecord === false || L.canReadRecord === false) throw new Error(L.lastErrorMessage || `Record ${table}/${sysId} not found or not readable`)
     const values: Record<string, FieldValue> = {}
@@ -180,6 +340,20 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
     for (const s of L.fieldStates || []) states[s.name] = { hidden: !!s.hidden, mandatory: !!s.mandatory, readonly: !!s.readonly }
     const meta: Record<string, FieldMeta> = {}
     for (const e of L.elementsData || []) if (e && e.name) meta[e.name] = metaFromElement(L.table || table, e)
+    const S = Q.GlideClientScriptingEnvironment_Query
+    const A = Q.GlideUIAction_Query && Q.GlideUIAction_Query.uiActions
+    const warnings: string[] = []
+    if (!S || !S.ClientScriptingEnvironment_Policies) warnings.push('UI policies unavailable')
+    if (!A || !A.formActions) warnings.push('UI actions unavailable')
+    if (!S || !S.ClientScriptingEnvironment_Scripts) warnings.push('Client scripts unavailable')
+    const G = (S && S.ClientScriptingEnvironment_Globals) || {}
+    const sections = (L.sectionLayout || []).map((s: any) => ({
+        id: String(s.sysId || ''),
+        caption: s.caption || '',
+        label: s.captionDisplay || s.caption || '',
+        // rows: [[{ fields: [...] }, { fields: [...] }], …] → rows → columns → fields
+        rows: (s.rows || []).map((row: any) => (Array.isArray(row) ? row : [row]).map((col: any) => ((col && col.fields) || []).map(String))),
+    }))
     return {
         table: L.table || table,
         sysId: L.sysId || sysId,
@@ -189,8 +363,118 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
         values,
         states,
         meta,
-        sections: (L.sectionLayout || []).map((s: any) => ({ id: s.sysId, caption: s.caption || '', rows: (s.rows || []).map((r: any) => r.fields || []) })),
+        sections,
+        view: (U && U.view) || view || '',
+        tableLabel: (sections[0] && sections[0].label) || table,
+        formatters: (L.formatters || []).map((f: any) => String(f.name || '')).filter(Boolean),
+        policies: ((S && S.ClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
+        actions: ((A && A.formActions) || []).map(normalizeAction).sort((a: UiAction, b: UiAction) => a.order - b.order),
+        scripts: normalizeClientScripts(S && S.ClientScriptingEnvironment_Scripts),
+        scratchpad: parseScratchpad(G.g_scratchpad),
+        globals: {
+            language: G.g_language || '',
+            dateTimeFormat: G.g_date_time_format || '',
+            decimalSeparator: G.g_decimal_separator || '.',
+            grouping: G.g_user_grouping || ',',
+            textDirection: G.g_text_direction || 'ltr',
+        },
+        warnings,
     }
+}
+
+// ---- form views (GlideViewQuery_Query.uiView.availableViews) --------------------------------
+
+export const FORM_VIEWS_QUERY = `query rpFormViews($table: String!, $sysId: String!) {
+  GlideViewQuery_Query { uiView(table: $table, views: "", sysId: $sysId, query: "") { view availableViews { name label } } }
+}`
+
+/** The form views a table offers (and the one the view rules pick for this record; the list is
+ *  empty for a new record, '-1'). No layout is loaded. */
+export async function fetchFormViews(table: string, sysId = '-1', signal?: AbortSignal): Promise<{ current: string; views: FormView[] }> {
+    const data = await graphql(FORM_VIEWS_QUERY, { table: safeName(table, 'table'), sysId: sysId || '-1' }, { signal })
+    const U = (data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView) || {}
+    return { current: U.view || '', views: (U.availableViews || []).map((v: any) => ({ name: String(v.name), label: String(v.label || v.name) })) }
+}
+
+// ---- server UI actions (save, insert, …): POST /api/now/ui/ui_action/:sysId -----------------
+
+/** A failed UI action: the platform's message plus field-level messages. */
+export class UiActionError extends Error {
+    status: number
+    fieldMessages: { field: string; type: string; message: string }[]
+    notifications: SessionNotification[]
+    constructor(message: string, status: number, fieldMessages: UiActionError['fieldMessages'] = [], notifications: SessionNotification[] = []) {
+        super(message)
+        this.name = 'UiActionError'
+        this.status = status
+        this.fieldMessages = fieldMessages
+        this.notifications = notifications
+    }
+}
+
+function notificationsOf(json: any): SessionNotification[] {
+    const list = (json && json.session && json.session.notifications) || []
+    return list.map((n: any) => ({ type: String(n.type || n.notificationType || 'info'), text: String(n.text || n.message || '') })).filter((n: SessionNotification) => n.text)
+}
+
+/**
+ * Run a server UI action against a record, exactly as Workspace's g_form does (the form's Save
+ * is the 'sysverb_ws_save' action): the server applies `fields` to the record, runs the action
+ * script (update / insert → business rules, data policies, ACLs) and returns the operation plus
+ * the session notifications business rules queued.
+ *   fields: [{ name, value, displayValue?, originalValue? }]
+ */
+export async function executeUiAction(args: {
+    actionSysId: string
+    table: string
+    sysId: string
+    encodedRecord?: string
+    fields: { name: string; value: string; displayValue?: string; originalValue?: string }[]
+    signal?: AbortSignal
+}): Promise<UiActionResult> {
+    const url = `/api/now/ui/ui_action/${encodeURIComponent(args.actionSysId)}?sysparm_table=${encodeURIComponent(args.table)}&sysparm_sys_id=${encodeURIComponent(args.sysId || '-1')}`
+    const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { ...authHeaders(true), 'X-WantSessionNotificationMessages': 'true' },
+        body: JSON.stringify({
+            encodedRecord: args.encodedRecord || '',
+            fields: args.fields,
+            parentTable: '',
+            parentRecordSysId: '',
+            linkCollection: '',
+            collectionRelatedField: '',
+            collectionKey: '',
+            additionalParams: {},
+        }),
+        signal: args.signal,
+    })
+    const text = await response.text()
+    let json: any = null
+    try {
+        json = text ? JSON.parse(text) : null
+    } catch (e) {
+        /* not JSON */
+    }
+    const notifications = notificationsOf(json)
+    const result = (json && (json.result || json)) || {}
+    if (!response.ok || result.status === 'failure') {
+        const err = result.error || (json && json.error) || {}
+        const fieldMessages: UiActionError['fieldMessages'] = []
+        for (const f of result.fieldMessages || []) for (const m of f.debugMessages || []) fieldMessages.push({ field: String(f.elementId || ''), type: String(m.type || 'error'), message: String(m.message || '') })
+        const message = err.message || err.detail || (notifications.find((n) => n.type === 'error') || ({} as any)).text || `The action failed (HTTP ${response.status})`
+        throw new UiActionError(String(message), response.status, fieldMessages, notifications)
+    }
+    const record = result.record || {}
+    const r = result.redirect
+    const meta = (r && (r.type_metadata || r.typeMetadata)) || {}
+    const redirect =
+        r && typeof r === 'object'
+            ? { type: String(r.type || ''), table: meta.table || undefined, sysId: meta.sys_id || undefined, query: meta.query || undefined, url: r.url || meta.url || undefined }
+            : typeof r === 'string' && r
+              ? { type: 'URL', url: r }
+              : undefined
+    return { operation: String(result.operation || ''), table: String(record.table || args.table), sysId: String(record.sys_id || args.sysId), notifications, redirect, raw: json }
 }
 
 // ---- choices (GlideLayout_Query.choiceDataRetriever) ----------------------------------------

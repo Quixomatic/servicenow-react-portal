@@ -47,13 +47,13 @@ const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
 export default PortalApp;
 
 /** Bootstrap the portal, then build its router (rebuilt only if the page routes change). */
-export function PortalBoot({ slug, target, embedded }) {
+export function PortalBoot({ slug, target, embedded, sidebarStore }) {
 	const boot = useQuery(bootstrapQuery(slug));
 	useDiagCounter('PortalBoot', { slug, data: boot.data });
 	if (boot.isError) return <BootError slug={slug} error={boot.error} />;
 	if (!boot.data) return <div className="bg-muted/60 m-4 h-40 animate-pulse rounded-xl" data-rp-booting="" />;
 	const routesKey = (boot.data.pages || []).map((p) => toRouterPath(p.route)).join('|') + '#' + ((boot.data.layout && boot.data.layout.id) || '');
-	return <PortalRouterHost key={routesKey} slug={slug} boot={boot.data} target={target} embedded={embedded} />;
+	return <PortalRouterHost key={routesKey} slug={slug} boot={boot.data} target={target} embedded={embedded} sidebarStore={sidebarStore} />;
 }
 
 function PortalSwitchButtons({ current }) {

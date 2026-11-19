@@ -18,7 +18,7 @@ const SEARCH = `query rpCatalogSearch($q: String) {
  */
 export default function CatalogPicker({ options = {} }: Props) {
     const location = usePortalLocation() as any
-    const current = String(((location && location.query) || {}).item || '')
+    const current = String(((location && (location.params || location.qParams)) || {}).item || '')
     const [text, setText] = useState('')
     const term = useDebouncedValue(text.trim(), 250)
     const search = useGraphQL(SEARCH, { q: `active=true^nameLIKE${term.replace(/\^/g, '')}^ORDERBYname` }, { enabled: options.search !== false && term.length >= 2, keepPrevious: true })

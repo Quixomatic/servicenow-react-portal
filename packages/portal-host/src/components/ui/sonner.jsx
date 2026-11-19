@@ -2,7 +2,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { Toaster as Sonner } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
-import { usePortalContainer } from "@servicenow/ui-renderer-react"
+import { usePortalContainer } from "#/runtime/overlay"
 import { useTheme } from "#/runtime/theme-mode"
 
 // shadcn's Sonner, adapted for shadow DOM: the theme comes from the host's useTheme() (not

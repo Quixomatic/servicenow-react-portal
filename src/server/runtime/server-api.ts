@@ -4,7 +4,7 @@ import { currentUser } from '../security/user.ts'
 import { isPlainObject } from '../lib/util.ts'
 import { resolveMenu, resolveMenus, findNavItem } from './menu-service.ts'
 import type { Manifest } from './portal-service.ts'
-import type { MenuMap, NavItem } from '../../shared/contracts'
+import type { EmbedModel, MenuMap, NavItem } from '../../shared/contracts'
 
 /**
  * `$rp` — the server-side helper injected into every component server script, modeled on Service
@@ -25,11 +25,19 @@ export interface ServerApiContext {
     input: Record<string, unknown>
     options: Record<string, unknown>
     params: Record<string, string>
+    /** The portal URL's params (table, sys_id, view, query, q keys); explicit params already win. */
+    urlParams?: Record<string, string>
     portal: { id: string; slug: string; name: string; settings: Record<string, unknown> }
     page: { route: string | null; params: Record<string, string> } | null
-    component: { id: string; uniqueId: string; instanceId: string }
+    /** Embedded instances add embedded/parentInstanceId/key/path (see component-executor). */
+    component: { id: string; uniqueId: string; instanceId: string; [extra: string]: unknown }
     /** The portal's served manifest (menus come from it). */
     manifest?: Manifest | null
+    /**
+     * $sp.getWidget(id, options?, { key? }): run a widget this component imports and return its
+     * EmbedModel (component scripts only; absent elsewhere, e.g. menu conditions).
+     */
+    getWidget?: (id: unknown, options?: unknown, settings?: unknown) => EmbedModel
 }
 
 export function createServerApi(ctx: ServerApiContext): Record<string, unknown> {
@@ -53,12 +61,18 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
         return gr.get(id) ? gr : null
     }
 
-    /** input first, then route params (orders/:id → id), like $sp.getParameter's URL lookup. */
+    /**
+     * Like $sp.getParameter's URL lookup: input first, then route params (orders/:id → id), then
+     * the URL params (explicit table / sys_id / view / query, then the keys inside q).
+     */
     const getParameter = (name: string): unknown => {
         if (ctx.input && ctx.input[name] !== undefined) return ctx.input[name]
         if (ctx.params && ctx.params[name] !== undefined) return ctx.params[name]
+        if (ctx.urlParams && ctx.urlParams[name] !== undefined) return ctx.urlParams[name]
         return null
     }
+    /** Every parameter getParameter() can see, merged in the same order (later wins). */
+    const getParameters = (): Record<string, unknown> => ({ ...(ctx.urlParams || {}), ...(ctx.params || {}), ...(ctx.input || {}) })
 
     const getField = (gr: any, field: string) => {
         if (!gr || !gr.isValidRecord || !gr.isValidRecord() || !gr.isValidField(field)) return null
@@ -97,6 +111,7 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
             return v === null || v === undefined ? '' : String(v)
         },
         getParameter,
+        getParameters,
         getRecord,
         getField,
         getFields: (gr: any, fields: string) =>
@@ -113,12 +128,23 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
             }
             return !!grOrTable && typeof grOrTable.canRead === 'function' && grOrTable.canRead()
         },
-        getProperty: (name: string, fallback?: string) => gs.getProperty(name, fallback === undefined ? null : fallback),
+        // The embed signing secret is never handed to component scripts (they could put it in data).
+        getProperty: (name: string, fallback?: string) =>
+            String(name) === 'x_312987_portal.embed_secret' ? (fallback === undefined ? null : fallback) : gs.getProperty(name, fallback === undefined ? null : fallback),
         getUser: () => currentUser(),
         hasRole: (role: string) => gs.hasRole(role),
         getPortal: () => ({ id: ctx.portal.id, slug: ctx.portal.slug, name: ctx.portal.name, settings }),
         getPage: () => ctx.page,
         getComponent: () => ctx.component,
+        /**
+         * Embed a widget this component's build imports: runs its server script now, with these
+         * (trusted, signed) options, and returns an EmbedModel for <Widget model={…} /> or <Embed model>.
+         *   data.clock = $sp.getWidget('app/server-clock', { title: 'UTC' }, { key: 'utc' })
+         */
+        getWidget: (id: unknown, options?: unknown, settings?: unknown) => {
+            if (!ctx.getWidget) throw new Error("$sp.getWidget isn't available here (component server scripts only)")
+            return ctx.getWidget(id, options, settings)
+        },
         translate: (message: string, args?: unknown) => (args === undefined ? gs.getMessage(message) : gs.getMessage(message, args as any)),
         log: (message: unknown) => gs.info(`[React Portal ${ctx.component.uniqueId}] ${typeof message === 'string' ? message : JSON.stringify(message)}`),
         /** One menu (primary, footer, …) as the current user sees it: NavItem[] (same tree as bootstrap.menus). */

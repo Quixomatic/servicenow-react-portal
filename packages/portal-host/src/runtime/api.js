@@ -8,10 +8,12 @@
 //        -> { portal, release, theme, layout, regions, pages }
 //   POST /api/x_312987_portal/rp/pages/resolve  { portal, page }
 //        -> { page, layout, regions }
-//   POST /api/x_312987_portal/rp/instances/initialize  { portal, page, instances: [ids] }
-//        -> { instances: { [id]: { ok, data, options, error? } } }
-//   POST /api/x_312987_portal/rp/instances/{id}/execute  { portal, page, action, input | data }
+//   POST /api/x_312987_portal/rp/instances/initialize  { portal, page, instances: [id | embed] }
+//        embed = { id, placement, path: [uniqueId…], keys?, options?, token? }  (embedded widgets)
+//        -> { instances: { [id]: { ok, data, options, error?, token? } } }
+//   POST /api/x_312987_portal/rp/instances/{id}/execute  { portal, page, action, input, embed? }
 //        action: 'get' (returns data) | 'update' (replaces data) | 'initialize' (refresh)
+//        embed = { path, keys, options, token }: run the embedded instance below placement {id}
 // Errors: non-2xx with { result: { error: { status, code, message }, meta } }.
 // ComponentRef = { id, uniqueId, kind, build: { id, js, css } | null, serverMode, regions? }
 // PlacementRef = { id, region, order, component: ComponentRef, options }
@@ -87,6 +89,11 @@ export function emitServerMessages(messages) {
  * errors thrown as ApiError with status, code and details. Studio uses it with STUDIO_API_BASE.
  */
 export async function requestAt(base, method, path, body) {
+	return (await requestEnvelopeAt(base, method, path, body)).data;
+}
+
+/** requestAt, resolving to the whole envelope ({ data, options?, meta }). */
+export async function requestEnvelopeAt(base, method, path, body) {
 	const response = await fetch(base + path, {
 		method,
 		credentials: 'same-origin',
@@ -117,7 +124,7 @@ export async function requestAt(base, method, path, body) {
 		throw new ApiError(`${method} ${path}: response has no { data } envelope`, response.status, json);
 	}
 	if (envelope.meta) emitServerMessages(envelope.meta.messages);
-	return envelope.data;
+	return envelope;
 }
 
 export function getBootstrap(slug) {
@@ -131,8 +138,9 @@ export function resolvePage(portal, page) {
 }
 
 /** Batch init for on-load placements: -> { instances: { [id]: { ok, data, options, error? } } } */
-export function initializeInstances(portal, page, instances) {
+export function initializeInstances(portal, page, instances, context) {
 	const body = { portal, page: page || '', instances: instances || [] };
+	if (context) body.context = context;
 	if (useMock) return mock.initializeInstances(body);
 	return request('POST', '/instances/initialize', body);
 }
@@ -141,6 +149,12 @@ export function initializeInstances(portal, page, instances) {
 export function executeInstance(instanceId, body) {
 	if (useMock) return mock.executeInstance(instanceId, body);
 	return request('POST', `/instances/${encodeURIComponent(instanceId)}/execute`, body || {});
+}
+
+/** executeInstance resolving to { data, options, meta } (embedded-widget models need the options). */
+export function executeInstanceEnvelope(instanceId, body) {
+	if (useMock) return mock.executeInstance(instanceId, body).then((data) => ({ data, options: (body && body.embed && body.embed.options) || {}, meta: {} }));
+	return requestEnvelopeAt(API_BASE, 'POST', `/instances/${encodeURIComponent(instanceId)}/execute`, body || {});
 }
 
 /** Text of an asset (theme or widget CSS). Mock assets are served from memory. */

@@ -1,3 +1,5 @@
+import type { UiPolicy, ClientScripts } from 'utilities:app/graphql'
+
 /** A catalog variable as the AppCatalog GraphQL schema returns it (fields we use). */
 export type CatalogVariable = {
     __typename: string
@@ -93,6 +95,10 @@ export type CatalogItem = {
     variables: CatalogVariable[]
     layout: CatalogLayoutNode[]
     values: Record<string, { value: string; displayValue: string }>
+    /** Catalog UI policies (item and its variable sets), as the platform ships them to Workspace. */
+    policies: UiPolicy[]
+    /** Catalog client scripts (onLoad / onChange / onSubmit) for the item and its variable sets. */
+    scripts: ClientScripts
 }
 
 export type PriceResult = { price: string; recurringPrice: string; priceValue: number; recurringValue: number; frequency: string; subtotal: string; recurringSubtotal: string }

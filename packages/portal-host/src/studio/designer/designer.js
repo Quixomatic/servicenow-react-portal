@@ -22,6 +22,7 @@ import {
 	FilePlus,
 	Globe,
 	LayoutGrid,
+	ListTree,
 	Home,
 	Laptop,
 	Loader2,
@@ -33,7 +34,8 @@ import {
 	Smartphone,
 	Tablet,
 	Trash2,
-	Undo2
+	Undo2,
+	Layers
 } from 'lucide-react';
 import { Canvas, computeDropTarget, deepestUnderPointer } from './canvas';
 import { OptionsForm, JsonEditor } from './options-form';
@@ -277,6 +279,79 @@ function PagesPanel({ designer, studio, state }) {
 	);
 }
 
+// ---- embedded widgets (read-only) --------------------------------------------------------------
+//
+// The canvas runs the real host runtime, which publishes its live embeds (widgets a placed
+// component imports and renders as their own instances) on globalThis.__REACT_PORTAL__.embeds and
+// fires `rp-embeds-change`. They aren't records: the designer shows them read-only under their
+// placement; clicking one selects that placement.
+
+const NO_EMBEDS = Object.freeze({ version: 0, list: [] });
+function subscribeEmbeds(listener) {
+	window.addEventListener('rp-embeds-change', listener);
+	return () => window.removeEventListener('rp-embeds-change', listener);
+}
+function readEmbeds() {
+	const r = globalThis.__REACT_PORTAL__;
+	return (r && r.embeds) || NO_EMBEDS;
+}
+export function useLiveEmbeds() {
+	return useSyncExternalStore(subscribeEmbeds, readEmbeds, readEmbeds).list;
+}
+
+/** Embeds whose parent instance is `parentId`, each followed by its own embeds (indented). */
+function EmbedRows({ embeds, parentId, pad, rootId, designer }) {
+	const kids = embeds.filter((e) => e.parent === parentId);
+	if (!kids.length) return null;
+	return kids.map((e) => (
+		<React.Fragment key={e.id}>
+			<div
+				className="rps-row rpd-embed-row"
+				style={{ paddingLeft: pad }}
+				onClick={() => designer.select(rootId)}
+				title={`Embedded instance ${e.id} (read-only: set by the component's code)`}
+				data-rpd-outline-embed={e.id}
+			>
+				<Layers size={12} aria-hidden="true" />
+				<span className="label">
+					{e.component} · {e.key}
+				</span>
+				<span className="desc">{e.status === 'error' ? 'error' : 'embedded'}</span>
+			</div>
+			<EmbedRows embeds={embeds} parentId={e.id} pad={pad + 14} rootId={rootId} designer={designer} />
+		</React.Fragment>
+	));
+}
+
+/** Properties panel: the selected placement's live embeds (component, key, status, effective options). */
+function EmbedsSection({ placementId }) {
+	const embeds = useLiveEmbeds().filter((e) => e.root === placementId);
+	if (!embeds.length) return null;
+	return (
+		<>
+			<div className="rpd-section-title">Embeds · read-only</div>
+			<div className="rpd-hint">Widgets this component imports and renders as their own instances. Their options come from the code, not the designer.</div>
+			<ul className="rpd-embeds" aria-label="Embedded widgets">
+				{embeds.map((e) => (
+					<li key={e.id} data-rpd-embed-item={e.id}>
+						<div className="rpd-embed-head">
+							<Layers size={12} aria-hidden="true" />
+							<span className="rpd-embed-name">{e.name}</span>
+							<code>{e.key}</code>
+							<span className={'rpd-embed-status ' + e.status}>{e.status}</span>
+							{e.trusted ? <span className="rpd-embed-status trusted">signed</span> : null}
+						</div>
+						<div className="rpd-hint">
+							{e.component} · depth {e.depth} · <span title="Instance id">{e.id}</span>
+						</div>
+						<pre className="rpd-embed-options">{JSON.stringify(e.options || {}, null, 1)}</pre>
+					</li>
+				))}
+			</ul>
+		</>
+	);
+}
+
 function Outline({ designer, state }) {
 	const page = state.page;
 	const regions = (page.layout && page.layout.regions) || [];
@@ -310,6 +385,7 @@ function Outline({ designer, state }) {
 function OutlineItem({ p, depth, designer, state }) {
 	const pad = 26 + depth * 14;
 	const isBlock = p.component.kind === 'block';
+	const embeds = useLiveEmbeds();
 	return (
 		<>
 			<div
@@ -322,6 +398,7 @@ function OutlineItem({ p, depth, designer, state }) {
 				<span className="label">{p.component.name}</span>
 				{p.active === false ? <span className="desc">inactive</span> : null}
 			</div>
+			<EmbedRows embeds={embeds} parentId={p.id} pad={pad + 14} rootId={p.id} designer={designer} />
 			{isBlock
 				? (p.regions || []).map((z) => {
 						const kids = (p.children && p.children[z.name]) || [];
@@ -448,7 +525,7 @@ function Inspector({ designer, studio, state }) {
 	const found = findPlacement(state, state.selection);
 	let body;
 	if (found) body = <PlacementProperties designer={designer} studio={studio} state={state} found={found} />;
-	else if (state.node === 'portal' && state.design) body = <PortalSettings designer={designer} state={state} />;
+	else if (state.node === 'portal' && state.design) body = <PortalSettings designer={designer} studio={studio} state={state} />;
 	else if (state.page) body = <PageSettings designer={designer} studio={studio} state={state} />;
 	else body = <div className="rps-empty">Nothing selected.</div>;
 	return (
@@ -584,6 +661,7 @@ function PlacementProperties({ designer, studio, state, found }) {
 				onApply={(layout) => designer.setStyle(placement.id, { layout }, 'Updated grid layout of')}
 			/>
 			<ClassesField key={'c' + placement.id} placement={placement} disabled={busy} onApply={(classes) => designer.setStyle(placement.id, { classes }, 'Updated classes of')} />
+			<EmbedsSection placementId={placement.id} />
 		</div>
 	);
 }
@@ -759,14 +837,13 @@ const CONTENT_WIDTH_OPTIONS = [
 	['3xl', '3xl (48rem)']
 ];
 
-function PortalSettings({ designer, state }) {
+function PortalSettings({ designer, studio, state }) {
 	const design = state.design;
 	const portal = design.portal;
 	const busy = !!state.busy;
 	const [name, setName] = useState(null);
 	const nameValue = name === null ? portal.name || '' : name;
 	const nav = portal.navigation || [];
-	const setNav = (next) => designer.updatePortal({ navigation: next });
 	return (
 		<div className="rpd-form" data-rpd-portal-settings={portal.id}>
 			<label className="rpd-field">
@@ -837,36 +914,16 @@ function PortalSettings({ designer, state }) {
 				<input type="checkbox" checked={portal.active !== false} onChange={(e) => designer.updatePortal({ active: e.target.checked })} disabled={busy} />
 				<span className="rpd-label">Active</span>
 			</label>
-			<div className="rpd-label">Navigation</div>
-			<div className="rpd-rows" data-rpd-nav="">
-				{nav.map((item, i) => (
-					<div key={i} className="rpd-row">
-						<NavLabel value={item.label || ''} onApply={(label) => setNav(nav.map((x, j) => (j === i ? { ...x, label } : x)))} disabled={busy} />
-						<select value={item.page || ''} onChange={(e) => setNav(nav.map((x, j) => (j === i ? { ...x, page: e.target.value } : x)))} disabled={busy}>
-							<option value="">Home</option>
-							{(design.pages || [])
-								.filter((p) => p.route.indexOf(':') === -1)
-								.map((p) => (
-									<option key={p.id} value={p.route}>
-										{p.title} (/{p.route})
-									</option>
-								))}
-						</select>
-						<button className="rps-icon-btn" title="Remove" onClick={() => setNav(nav.filter((x, j) => j !== i))} disabled={busy}>
-							<Trash2 size={13} />
-						</button>
-					</div>
-				))}
-				<button className="rps-tbtn" style={{ alignSelf: 'flex-start' }} onClick={() => setNav(nav.concat({ label: 'New link', page: '' }))} disabled={busy} data-rpd-nav-add="">
-					<Plus size={13} /> Add link
+			<div className="rpd-section" data-rpd-nav="">
+				<div className="rpd-label">Navigation</div>
+				<div className="rpd-hint">
+					Navigation lives in menu records (primary, footer, account…), edited with a live preview in the Menus activity.
+					{nav.length ? ` This portal still has a legacy navigation_json (${nav.length} entr${nav.length === 1 ? 'y' : 'ies'}), used only when it has no primary menu.` : ''}
+				</div>
+				<button className="rps-tbtn" style={{ alignSelf: 'flex-start', border: '1px solid var(--rps-border)' }} onClick={() => studio && studio.set({ view: 'menus', menusPortal: portal.id })} data-rpd-open-menus="">
+					<ListTree size={13} /> Edit menus
 				</button>
 			</div>
 		</div>
 	);
-}
-
-function NavLabel({ value, onApply, disabled }) {
-	const [draft, setDraft] = useState(value);
-	React.useEffect(() => setDraft(value), [value]);
-	return <input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => draft !== value && onApply(draft)} onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} disabled={disabled} />;
 }

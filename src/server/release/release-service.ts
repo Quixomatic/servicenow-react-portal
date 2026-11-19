@@ -144,6 +144,18 @@ export function processPortal(portalId: string, force = false): ReleaseSummary |
     return releaseSummary(r)
 }
 
+/**
+ * Reprocess every portal (force). Run once after a manifest version bump: until then each portal
+ * serves a live-assembled manifest (correct, slower). new x_312987_portal.ReactPortal().reprocessAll()
+ */
+export function processAllPortals(): number {
+    let n = 0
+    each(T.portal, '', (p) => {
+        if (processPortal(p.getUniqueValue(), true)) n++
+    })
+    return n
+}
+
 /** Reprocess every portal that uses a component (layout or placement) or a theme. */
 export function reprocessForOwner(type: 'component' | 'theme', id: string): number {
     const portals: Record<string, boolean> = {}

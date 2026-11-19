@@ -33,7 +33,8 @@ import type {
 // v2: blocks — placements nest under their parent block (children by drop zone), plus
 // layout / classes / instance css per placement.
 // v3: menus — menu definitions by key (x_312987_portal_menu / _menu_item).
-export const MANIFEST_VERSION = 3
+// v4: embedded widgets — ComponentImport gains name, serverMode and importers (direct import edges).
+export const MANIFEST_VERSION = 4
 
 /** Maximum block nesting depth (a block inside a block inside …). */
 export const MAX_BLOCK_DEPTH = 6
@@ -386,7 +387,9 @@ export function exposedProperties(slug: string, names: string[]): Record<string,
     for (const raw of names.slice(0, 100)) {
         const name = String(raw || '').trim()
         if (!name) continue
-        const ok = name.indexOf('x_312987_portal.public.') === 0 || allowed.indexOf(name) >= 0
+        // Never expose the embed signing secret, whatever a portal's settings list.
+        const secret = name === 'x_312987_portal.embed_secret'
+        const ok = !secret && (name.indexOf('x_312987_portal.public.') === 0 || allowed.indexOf(name) >= 0)
         out[name] = ok ? gs.getProperty(name, null) : null
     }
     return out

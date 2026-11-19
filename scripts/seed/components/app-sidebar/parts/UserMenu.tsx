@@ -1,4 +1,4 @@
-import { useUser, useTheme, useSidebar } from '@portal/runtime'
+import { useUser, useTheme, useSidebar, useNavigation, Link } from '@portal/runtime'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from 'components:sidebar'
 import { Icon } from 'components:icon'
 import {
@@ -26,8 +26,39 @@ const MODES = [
     { value: 'system', label: 'System', icon: 'monitor' },
 ]
 
-/** ChannelGuide's user menu: avatar + name; theme submenu and sign out. */
-export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
+/** Items of the portal's `account` menu (records only), above Theme / Sign out. */
+function AccountItems({ menu }: { menu: string }) {
+    const nav = useNavigation(menu)
+    if (nav.source !== 'menu' || !nav.items.length) return null
+    const render = (item: any) => {
+        if (item.type === 'separator') return <DropdownMenuSeparator key={item.id} />
+        if (item.type === 'group') {
+            return (
+                <DropdownMenuGroup key={item.id}>
+                    <DropdownMenuLabel {...item.attrs} className="text-xs text-muted-foreground">{item.label}</DropdownMenuLabel>
+                    {item.children.map(render)}
+                </DropdownMenuGroup>
+            )
+        }
+        const el = item.type === 'url' ? <a {...item.attrs} href={item.href} target={item.target} rel="noreferrer" /> : <Link {...item.link} />
+        return (
+            <DropdownMenuItem key={item.id} render={el} title={item.tooltip}>
+                <Icon name={item.icon || 'circle'} className="mr-2 size-4" />
+                <span>{item.label}</span>
+                {item.badge ? <span className="ml-auto text-xs text-muted-foreground">{item.badge}</span> : null}
+            </DropdownMenuItem>
+        )
+    }
+    return (
+        <>
+            <DropdownMenuGroup>{nav.items.map(render)}</DropdownMenuGroup>
+            <DropdownMenuSeparator />
+        </>
+    )
+}
+
+/** ChannelGuide's user menu: avatar + name; the account menu, theme submenu and sign out. */
+export function UserMenu({ side = 'top', menu = 'account' }: { side?: 'top' | 'bottom'; menu?: string }) {
     const user = useUser() as any
     const { theme, setTheme } = useTheme()
     const { state, isMobile } = useSidebar()
@@ -71,6 +102,7 @@ export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
                             </DropdownMenuLabel>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
+                        <AccountItems menu={menu} />
                         <DropdownMenuGroup>
                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>

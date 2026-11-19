@@ -10,6 +10,8 @@
 //     [data-rp-parent][data-rp-zone]        … nested in a block's drop zone
 //   [data-rp-zone][data-rp-parent]          a block drop zone with its own element (no `contents`)
 // A `contents` zone has no element: its area is the block root's.
+//   [data-rp-embed]                         an embedded widget instance (display: contents; read-only,
+//                                           never selectable or draggable: its area is its children's)
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { GripVertical, Globe, LayoutGrid } from 'lucide-react';
@@ -62,7 +64,7 @@ function blocksOf(state) {
 
 /** Measures layout regions, placements and block zones rendered by the runtime, relative to the frame. */
 function useGeometry(frameEl, mountEl, blocks) {
-	const [geo, setGeo] = useState({ regions: [], placements: [], zones: [] });
+	const [geo, setGeo] = useState({ regions: [], placements: [], zones: [], embeds: [] });
 	const blocksRef = useRef(blocks);
 	blocksRef.current = blocks;
 	useEffect(() => {
@@ -105,7 +107,28 @@ function useGeometry(frameEl, mountEl, blocks) {
 						zones.push({ parentId: blockId, name: z.name, label: z.label || z.name, scope, own: !!el, rect });
 					});
 				});
-				const next = { regions, placements, zones };
+				// Embeds: display: contents wrappers, measured as the union of their children.
+				const embeds = Array.from(mountEl.querySelectorAll('[data-rp-embed]'))
+					.map((el) => {
+						const rects = Array.from(el.children)
+							.map((c) => c.getBoundingClientRect())
+							.filter((r) => r.width || r.height);
+						if (!rects.length) return null;
+						const left = Math.min(...rects.map((r) => r.left));
+						const top = Math.min(...rects.map((r) => r.top));
+						const right = Math.max(...rects.map((r) => r.right));
+						const bottom = Math.max(...rects.map((r) => r.bottom));
+						const id = el.getAttribute('data-rp-embed');
+						return {
+							id,
+							key: id.split('~').pop(),
+							component: el.getAttribute('data-rp-component') || '',
+							depth: parseInt(el.getAttribute('data-rp-embed-depth') || '1', 10),
+							rect: rel({ left, top, width: right - left, height: bottom - top })
+						};
+					})
+					.filter(Boolean);
+				const next = { regions, placements, zones, embeds };
 				setGeo((prev) => (sameGeo(prev, next) ? prev : next));
 			});
 		};
@@ -212,6 +235,15 @@ function Overlay({ designer, state, geo, selection, dropTarget, dragging }) {
 				const found = findPlacement(state, p.id);
 				return <PlacementBox key={`${p.scope}:${p.id}`} box={p} info={found} selected={selection === p.id} designer={designer} dragging={dragging} />;
 			})}
+			{dragging
+				? null
+				: (geo.embeds || []).map((e) => (
+						<div key={e.id} className="rpd-embed" style={e.rect} aria-hidden="true" data-rpd-embed={e.id}>
+							<span className="rpd-embed-label">
+								embedded · {e.component} · {e.key}
+							</span>
+						</div>
+					))}
 			{dragging && dropTarget && dropTarget.line ? <div className="rpd-insert" style={dropTarget.line} data-rpd-insert="" /> : null}
 		</div>
 	);

@@ -10,8 +10,9 @@ import view from './view';
 import { frameworkCssText, frameworkStyles } from '#/runtime/framework-css';
 
 // The React Portal host. UI Builder binds the `site` page's URL parameters to these properties
-// (portal -> portalSlug, page -> page, id -> recordId, q -> q). Navigation goes out as
-// PORTAL_NAVIGATE (payload portalSlug/page/recordId/q), handled by a "Link to destination"
+// (portal -> portalSlug, page -> page, id -> recordId, q -> q, table -> table, sys_id -> sysId,
+// view -> view, query -> query). Navigation goes out as PORTAL_NAVIGATE (payload
+// portalSlug/page/recordId/q/table/sysId/view/query), handled by a "Link to destination"
 // event handler on the page. Never add a property named `id`: it collides with the element's
 // HTML id attribute.
 createCustomElement('x-312987-portal-host', {
@@ -24,7 +25,11 @@ createCustomElement('x-312987-portal-host', {
 		page: { default: '' },
 		recordId: { default: '' },
 		q: { default: '' },
-		// Studio only: initial view hint (code | pages | menus), bound to the studio page's `view` param.
-		view: { default: '' }
+		// Portal: the record view (site page param `view`). Studio: initial view hint (code | pages | menus).
+		view: { default: '' },
+		// Standard record params (site page optional params table, sys_id, query); also accepted inside q.
+		table: { default: '' },
+		sysId: { default: '' },
+		query: { default: '' }
 	}
 });

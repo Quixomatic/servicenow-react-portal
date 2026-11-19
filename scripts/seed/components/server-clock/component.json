@@ -1,1 +1,1 @@
-{ "name": "Server Clock", "kind": "widget", "tailwind": true, "serverMode": "on-load" }
+{ "name": "Server Clock", "kind": "widget", "tailwind": true, "serverMode": "on-load", "defaults": { "title": "Server script", "format": "datetime", "badge": "" } }

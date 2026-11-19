@@ -26,9 +26,13 @@ const TINTS: Record<string, string> = {
 export default function AppHeader({ options = {} }: { options?: Options }) {
     const { page } = usePortal()
     const nav = useNavigation(options.menu || 'primary')
-    const crumbs: { label: string; link?: any }[] = nav.activePath.map((i: any) => ({ label: i.label, link: i.type === 'group' ? null : i.link }))
-    const title = page ? page.title || page.name : ''
-    if (title && (!crumbs.length || crumbs[crumbs.length - 1].label !== title)) crumbs.push({ label: title })
+    // Labelled items only (no separators, no empty / whitespace labels), so two slashes never meet.
+    const crumbs: { label: string; link?: any }[] = nav.activePath
+        .filter((i: any) => i && i.type !== 'separator' && String(i.label || '').trim())
+        .map((i: any) => ({ label: String(i.label).trim(), link: i.type === 'group' ? null : i.link }))
+    const title = String((page ? page.title || page.name : '') || '').trim()
+    // The page title closes the trail unless the active item already says it (case-insensitive).
+    if (title && (!crumbs.length || crumbs[crumbs.length - 1].label.toLowerCase() !== title.toLowerCase())) crumbs.push({ label: title })
     const lead = nav.activePath.find((i: any) => i.icon)
     const actions = Array.isArray(options.actions) ? options.actions : []
 
@@ -48,11 +52,11 @@ export default function AppHeader({ options = {} }: { options?: Options }) {
                             return (
                                 <Fragment key={i}>
                                     {i > 0 ? (
-                                        <li aria-hidden="true" className="mx-0.5 text-muted-foreground">
+                                        <li aria-hidden="true" className="mx-0.5 text-muted-foreground max-sm:hidden">
                                             /
                                         </li>
                                     ) : null}
-                                    <li className={'min-w-0 ' + (last ? 'truncate' : 'hidden truncate sm:block')}>
+                                    <li className={'min-w-0 truncate ' + (last ? '' : 'max-sm:hidden')}>
                                         {last ? (
                                             <span aria-current="page">{c.label}</span>
                                         ) : c.link ? (

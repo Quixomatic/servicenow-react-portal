@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "cn"
-import { usePortalContainer } from "@servicenow/ui-renderer-react"
+import { usePortalContainer } from "#/runtime/overlay"
 
 function Popover({
   ...props

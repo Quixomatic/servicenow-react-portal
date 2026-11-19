@@ -22,6 +22,7 @@ import { FileIcon, ask, baseName, confirmDiscard } from './dialogs';
 import { useStudioTheme } from './theme';
 import { PREVIEW_TAB, languageOf, useStudio, virtualLabel } from './store';
 import * as L from './layout';
+import { switchToReactPortal, useScope } from './scope';
 
 // ---- switching with unsaved changes ---------------------------------------------------------
 
@@ -41,9 +42,10 @@ export async function guardedOpen(studio, target) {
 
 // ---- title bar ------------------------------------------------------------------------------
 
-export function Titlebar({ studio, designer }) {
+export function Titlebar({ studio, designer, menus }) {
 	const view = useStudio(studio, (s) => s.view);
 	if (view === 'pages' && designer) return <DesignerTitlebar studio={studio} designer={designer} />;
+	if (view === 'menus' && menus) return <MenusTitlebar menus={menus} />;
 	return <ComponentTitlebar studio={studio} />;
 }
 
@@ -62,6 +64,36 @@ function DesignerTitlebar({ studio, designer }) {
 			</span>
 			<span className="rps-spacer" />
 			{d.busy ? (
+				<span className="rps-badge busy">
+					<Loader2 size={12} className="rps-spin" /> saving…
+				</span>
+			) : (
+				<span className="rps-badge ok" title="Every change is saved as you make it">
+					<CircleCheck size={12} /> saved
+				</span>
+			)}
+			<button className="rps-tbtn" title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}`} onClick={cycle} data-rps-theme={theme}>
+				{theme === 'system' ? <Monitor size={15} /> : resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
+			</button>
+		</div>
+	);
+}
+
+function MenusTitlebar({ menus }) {
+	const m = useSyncExternalStore(menus.subscribe, menus.get, menus.get);
+	const { theme, resolvedTheme, cycle } = useStudioTheme();
+	const menu = (m.menus || []).find((x) => x.id === m.menuId);
+	return (
+		<div className="rps-titlebar" data-rps-titlebar="menus">
+			<span className="rps-brand">
+				<Code2 size={16} color="var(--rps-accent)" /> Portal Studio · Menus
+			</span>
+			<span style={{ fontSize: 12, opacity: 0.8 }}>
+				{m.design ? m.design.portal.name : ''}
+				{menu ? ` · ${menu.name} (${menu.key})` : ''}
+			</span>
+			<span className="rps-spacer" />
+			{m.busy ? (
 				<span className="rps-badge busy">
 					<Loader2 size={12} className="rps-spin" /> saving…
 				</span>
@@ -292,6 +324,54 @@ function Switcher({ studio }) {
 	);
 }
 
+// ---- scope banner ---------------------------------------------------------------------------
+
+/** Out of scope (the application picker isn't on React Portal): explain, offer the switch. */
+export function ScopeBanner() {
+	const scope = useScope();
+	const ctx = scope.context;
+	if (!ctx || ctx.inScope !== false) return null;
+	const current = (ctx.currentApp && (ctx.currentApp.name || ctx.currentApp.scope)) || 'another application';
+	const app = (ctx.app && ctx.app.name) || 'React Portal';
+	const onSwitch = async () => {
+		try {
+			await switchToReactPortal();
+		} catch (error) {
+			// eslint-disable-next-line no-alert
+			window.alert(`Could not switch the application: ${error.message}`);
+		}
+	};
+	return (
+		<div className="rps-banner rps-scope-banner" role="alert" data-rps-scope-banner="">
+			<TriangleAlert size={15} color="var(--rps-warn)" />
+			<span>
+				You're in <strong>{current}</strong>. {app} records belong to {app}, so editing is off until you switch.
+				{scope.simulated ? ' (simulated)' : ''}
+			</span>
+			<span className="rps-spacer" />
+			<button className="rps-btn" onClick={onSwitch} disabled={scope.switching} data-rps-scope-switch="">
+				{scope.switching ? 'Switching…' : `Switch to ${app}`}
+			</button>
+		</div>
+	);
+}
+
+/** Status bar item: the current application and update set. */
+function ScopeStatus() {
+	const scope = useScope();
+	const ctx = scope.context;
+	if (!ctx) return null;
+	const app = ctx.currentApp ? ctx.currentApp.name || ctx.currentApp.scope : ctx.app && ctx.app.name;
+	const us = ctx.updateSet && (ctx.updateSet.name || ctx.updateSet.id);
+	return (
+		<span className={'item' + (ctx.inScope === false ? ' rps-scope-out' : '')} title={`Current application: ${app || '?'}
+Update set: ${us || '?'}`} data-rps-scope-status={ctx.inScope === false ? 'out' : 'in'}>
+			{ctx.inScope === false ? <TriangleAlert size={12} /> : null} {app || '?'}
+			{us ? ` · ${us}` : ''}
+		</span>
+	);
+}
+
 // ---- conflict banner ------------------------------------------------------------------------
 
 export function ConflictBanner({ studio }) {
@@ -409,9 +489,10 @@ export function Panel({ studio }) {
 
 // ---- status bar -----------------------------------------------------------------------------
 
-export function StatusBar({ studio, designer, dark, mock }) {
+export function StatusBar({ studio, designer, menus, dark, mock }) {
 	const view = useStudio(studio, (s) => s.view);
 	if (view === 'pages' && designer) return <DesignerStatusBar designer={designer} dark={dark} mock={mock} />;
+	if (view === 'menus' && menus) return <MenusStatusBar menus={menus} dark={dark} mock={mock} />;
 	return <ComponentStatusBar studio={studio} dark={dark} mock={mock} />;
 }
 
@@ -432,7 +513,29 @@ function DesignerStatusBar({ designer, dark, mock }) {
 			<span className="spacer" />
 			{page && page.layout ? <span className="item">Layout {page.layout.name || page.layout.uniqueId}</span> : null}
 			<span className="item">{d.device}</span>
+			<ScopeStatus />
 			<span className="item">{d.undo.length} undo · {d.redo.length} redo</span>
+			<button className="item" onClick={cycle} title="Theme">
+				{themeMode === 'system' ? <Monitor size={12} /> : dark ? <Moon size={12} /> : <Sun size={12} />} {themeMode}
+			</button>
+		</div>
+	);
+}
+
+function MenusStatusBar({ menus, dark, mock }) {
+	const m = useSyncExternalStore(menus.subscribe, menus.get, menus.get);
+	const { theme: themeMode, cycle } = useStudioTheme();
+	const menu = (m.menus || []).find((x) => x.id === m.menuId);
+	const count = (items) => (items || []).reduce((n, it) => n + 1 + count(it.children), 0);
+	return (
+		<div className="rps-statusbar" data-rps-statusbar="menus">
+			<span className="item">{m.busy ? <Loader2 size={12} className="rps-spin" /> : <CircleCheck size={12} />} {m.busy ? 'Saving…' : 'Saved'}</span>
+			{menu ? <span className="item">{count(menu.items)} item(s) in {menu.key}</span> : null}
+			{mock ? <span className="item">mock data</span> : null}
+			<span className="spacer" />
+			<ScopeStatus />
+			<span className="item">{m.preview}{m.preview === 'sidebar' && m.rail ? ' (rail)' : ''} · view as {m.viewAs}</span>
+			<span className="item">{m.undo.length} undo · {m.redo.length} redo</span>
 			<button className="item" onClick={cycle} title="Theme">
 				{themeMode === 'system' ? <Monitor size={12} /> : dark ? <Moon size={12} /> : <Sun size={12} />} {themeMode}
 			</button>
@@ -472,6 +575,7 @@ function ComponentStatusBar({ studio, dark, mock }) {
 			) : null}
 			{activePath ? <span className="item">{activePath === PREVIEW_TAB ? 'Preview' : languageOf(activePath)}</span> : null}
 			{activePath && virtualLabel(activePath) ? <span className="item">{virtualLabel(activePath).label}</span> : null}
+			<ScopeStatus />
 			{owner ? <span className="item">Revision {revision}</span> : null}
 			<button className="item" title={`Theme: ${themeMode} (click to change)`} onClick={cycle}>
 				{themeMode === 'system' ? <Monitor size={12} /> : dark ? <Moon size={12} /> : <Sun size={12} />} {themeMode}

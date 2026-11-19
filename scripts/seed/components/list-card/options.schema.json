@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "table": { "type": "string", "title": "Table", "default": "incident" },
+    "title": { "type": "string", "title": "Title" },
+    "query": { "type": "string", "title": "Default filter (encoded query)" },
+    "columns": { "type": "string", "title": "Columns" },
+    "orderBy": { "type": "string", "title": "Default sort (field or -field)" },
+    "pageSize": { "type": "integer", "title": "Rows per page", "default": 10 },
+    "height": { "type": "integer", "title": "Scroll height (px, empty = auto)" },
+    "pagination": { "type": "string", "title": "Paging", "enum": ["pages", "scroll"], "enumNames": ["Pages", "Infinite scroll"] },
+    "density": { "type": "string", "title": "Density", "enum": ["compact", "normal", "comfortable"], "default": "compact" },
+    "parentField": { "type": "string", "title": "Related list: parent field" },
+    "parentSysId": { "type": "string", "title": "Related list: parent sys_id" },
+    "recordPage": { "type": "string", "title": "Record page", "default": "form" },
+    "liveUpdates": { "type": "boolean", "title": "Live updates", "description": "Refresh the current page when matching records change (record watch)", "default": false },
+    "hide": { "type": "array", "title": "Turn off", "items": { "type": "string", "enum": ["title", "search", "breadcrumbs", "filter", "columnChooser", "pagination", "inlineEdit", "contextMenu", "selection", "actions", "refresh", "export"] } }
+  }
+}

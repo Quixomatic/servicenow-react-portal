@@ -266,6 +266,13 @@ function resolveRecordImports(owner: Owner, result: CompileResult): Record<strin
             continue
         }
         targets[d.specifier] = b.getUniqueValue()
+        // Embedded widgets: a widget import's default export renders as its own instance.
+        if (kind === 'widget' && (str(comp, 'server_mode') || 'none') !== 'none' && result.diagnostics.warnings) {
+            result.diagnostics.warnings.push({
+                file: ENTRY,
+                message: `Import "${d.specifier}" is a widget: its default export renders as an embedded instance (own options and server script). Use <X.Raw /> or a named export for presentational use.`,
+            })
+        }
     }
     if (result.diagnostics.errors.length) result.ok = false
     return targets

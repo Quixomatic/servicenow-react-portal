@@ -6,9 +6,10 @@ import { Button } from 'components:button'
 import { useCatalogItem, useItemPrice, submitCatalogItem } from 'utilities:app/catalog'
 import type { CatalogItem as CatalogItemData, SubmitResult } from 'utilities:app/catalog'
 import { useCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable'
+import { useClientScripts } from 'utilities:app/gform'
 import type { CatalogForm, VariableSpec } from 'components:app/variable'
 import { VariableLayout } from 'components:app/variable-container'
-import { cx, Spinner, IconAlert, IconCheck } from 'components:app/field'
+import { cx, Spinner, IconAlert, IconCheck, useFormMeta } from 'components:app/field'
 import type { FieldLayout } from 'components:app/field'
 
 /**
@@ -37,7 +38,8 @@ type Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldL
 
 export default function CatalogItemWidget({ options = {} }: Props) {
     const location = usePortalLocation() as any
-    const query = (location && location.query) || {}
+    // q keys + explicit URL params (location.query is the encoded-query param now).
+    const query = (location && (location.params || location.qParams)) || {}
     const itemId = String(query.item || options.itemId || '')
     const table = String(query.table || options.table || 'sc_cat_item')
     if (!itemId)
@@ -123,6 +125,26 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
     const root = useRef<HTMLDivElement | null>(null)
     const summary = useRef<HTMLDivElement | null>(null)
     const priceVars = usePriceVariables(form)
+    const formMeta = useFormMeta(form)
+    // Catalog client scripts (onLoad / onChange / onSubmit) and catalog UI policy run-scripts,
+    // through the g_form compatibility layer (variable names, IO:<sys_id> aliases accepted).
+    const scripts = useClientScripts({
+        host: {
+            store: form,
+            resolve: form.resolve,
+            table: () => 'sc_cat_item',
+            sysId: () => item.sysId,
+            isNew: () => true,
+            view: () => '',
+            encodedRecord: () => '',
+            displayValue: () => item.name,
+            submit: () => false,
+        },
+        scripts: item.scripts,
+        policies: form.policies,
+        catalog: true,
+        runKey: form,
+    })
     const showPrices = !!(item.pricing && item.pricing.showPrices) && !isProducer
     const price = useItemPrice(item.sysId, priceVars, quantity, showPrices && (form.priceAffecting.length > 0 || quantity !== '1'))
     const displayPrice = price.data ? price.data.price : item.pricing && item.pricing.price ? item.pricing.displayPrice : ''
@@ -145,6 +167,8 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
             setTimeout(() => summary.current && summary.current.focus(), 0)
             return
         }
+        // onSubmit catalog client scripts can veto the order (return false).
+        if (scripts.env && !scripts.env.runOnSubmit('order_now')) return
         setErrors([])
         setSubmitting(true)
         try {
@@ -211,6 +235,18 @@ function ItemForm(props: { item: CatalogItemData; form: CatalogForm; fieldLayout
                                     </li>
                                 ))}
                             </ul>
+                        </div>
+                    ) : null}
+                    {formMeta.messages.length ? (
+                        <div className="flex flex-col gap-2" data-rp-form-messages="">
+                            {formMeta.messages.map((m: any) => (
+                                <div
+                                    key={m.id}
+                                    role={m.kind === 'error' ? 'alert' : 'status'}
+                                    className={cx('rpv-rich rounded-md border p-3 text-sm [&_a]:font-medium [&_a]:text-primary [&_a]:underline-offset-4 hover:[&_a]:underline', m.kind === 'error' ? 'border-destructive/50 bg-destructive/5 text-destructive' : 'border-border bg-muted/50 text-foreground')}
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.text) }}
+                                />
+                            ))}
                         </div>
                     ) : null}
                     <VariableLayout fieldLayout={props.fieldLayout} renderCustom={props.renderCustom} />

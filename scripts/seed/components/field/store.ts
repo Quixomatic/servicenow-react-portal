@@ -1,4 +1,4 @@
-import type { FieldEntry, FieldMessage, FieldMessageKind, FieldOverrides, FieldSnapshot, FieldMeta, ServerFieldState } from './types'
+import type { FieldEntry, FieldMessage, FieldMessageKind, FieldOverrides, FieldSnapshot, FieldMeta, PolicyState, ServerFieldState } from './types'
 
 /**
  * Form store: a small external store with per-field immutable slices, so useField can subscribe
@@ -10,7 +10,9 @@ import type { FieldEntry, FieldMessage, FieldMessageKind, FieldOverrides, FieldS
  * hideFieldMessage, addInfoMessage, addErrorMessage, clearMessages, isDirty, serialize), so a
  * g_form compatibility shim can sit on top later without translation.
  *
- * State layers per field: dictionary meta → server state (ACL / policies) → script overrides.
+ * State layers per field: dictionary meta → server state (ACL / data policies) → UI policy layer
+ * (setPolicyLayer, recomputed as a whole so a policy turning false restores what was below it)
+ * → script overrides.
  * Explicit component props win over all of them (in useField).
  */
 
@@ -59,7 +61,11 @@ export interface FormStore {
     setLabel(name: string, label: string): void
     setPlaceholder(name: string, text: string): void
     setHint(name: string, text: string): void
+    /** Option overlay for choice fields (g_form.addOption / removeOption / clearOptions); undefined = metadata choices. */
+    setOptions(name: string, choices: { value: string; label: string }[] | undefined): void
     clearOverrides(name: string, keys?: (keyof FieldOverrides)[]): void
+    /** Replace the UI policy layer of every field ({} entries / missing names = no policy state). */
+    setPolicyLayer(layer: Record<string, PolicyState>): void
 
     // messages
     showFieldMessage(name: string, text: string, kind?: FieldMessageKind): void
@@ -72,6 +78,8 @@ export interface FormStore {
     load(input: { values?: Record<string, ValueInput>; server?: Record<string, ServerFieldState>; meta?: Record<string, FieldMeta>; table?: string; sysId?: string; encodedRecord?: string; replace?: boolean }): void
     mergeMeta(meta: Record<string, FieldMeta>, overwrite?: boolean): void
     reset(name?: string): void
+    /** After a save: current values become the originals (nothing dirty, nothing lost). */
+    commit(): void
     isDirty(name?: string): boolean
     getDirtyFields(): string[]
     /** Unsaved values { field: value }, as lookups send them (serializedChanges). */
@@ -99,6 +107,17 @@ function norm(v: ValueInput, dv?: string): { value: string; displayValue: string
 }
 
 let seq = 0
+
+function samePolicy(a: PolicyState | undefined, b: PolicyState | undefined): boolean {
+    if (a === b) return true
+    if (!a || !b) return false
+    return (
+        a.mandatory === b.mandatory &&
+        a.readOnly === b.readOnly &&
+        a.visible === b.visible &&
+        (a.message ? a.message.kind + a.message.text : '') === (b.message ? b.message.kind + b.message.text : '')
+    )
+}
 
 export function createFormStore(init: { table?: string; sysId?: string; values?: Record<string, ValueInput> } = {}): FormStore {
     let state: FormState = {
@@ -196,11 +215,33 @@ export function createFormStore(init: { table?: string; sysId?: string; values?:
         setLabel: (name, label) => override(name, { label }),
         setPlaceholder: (name, text) => override(name, { placeholder: text }),
         setHint: (name, text) => override(name, { hint: text }),
+        setOptions: (name, choices) => override(name, { choices: choices ? choices.slice() : undefined }),
         clearOverrides(name, keys) {
             if (!keys) return patchField(name, { overrides: {} })
             const o = { ...entry(name).overrides }
             keys.forEach((k) => delete o[k])
             patchField(name, { overrides: o })
+        },
+        setPolicyLayer(layer) {
+            const names = new Set(Object.keys(layer).concat(Object.keys(state.fields).filter((n) => state.fields[n].policy)))
+            let fields: Record<string, FieldEntry> | null = null
+            names.forEach((n) => {
+                const next = layer[n] && Object.keys(layer[n]).length ? layer[n] : undefined
+                const cur = state.fields[n]
+                const prev = cur ? cur.policy : undefined
+                if (samePolicy(prev, next)) return
+                if (!fields) fields = { ...state.fields }
+                // Last writer wins (as on the platform): a policy that changes a property drops a
+                // script override of that property set earlier (g_form.setMandatory on load, …).
+                const overrides = { ...((cur || EMPTY).overrides) }
+                ;(['mandatory', 'readOnly', 'visible'] as const).forEach((k) => {
+                    const was = prev ? prev[k] : undefined
+                    const now = next ? next[k] : undefined
+                    if (now !== undefined && now !== was) delete overrides[k]
+                })
+                fields[n] = { ...(cur || EMPTY), policy: next, overrides }
+            })
+            if (fields) set({ ...state, fields })
         },
 
         showFieldMessage(name, text, kind = 'info') {
@@ -285,6 +326,14 @@ export function createFormStore(init: { table?: string; sysId?: string; values?:
             }
             set({ ...state, fields, submitted: false, formMessages: [] })
         },
+        commit() {
+            const fields: Record<string, FieldEntry> = {}
+            for (const n of Object.keys(state.fields)) {
+                const e = state.fields[n]
+                fields[n] = { ...e, originalValue: e.value, originalDisplayValue: e.displayValue, staged: undefined, touched: false }
+            }
+            set({ ...state, fields, submitted: false })
+        },
         isDirty(name) {
             if (name) {
                 const e = entry(name)
@@ -308,9 +357,10 @@ export function createFormStore(init: { table?: string; sysId?: string; values?:
                 const e = entry(n)
                 const m = state.meta[n]
                 const s = state.server[n]
-                const required = isRequired ? isRequired(n) : !!(e.overrides.mandatory ?? (s && s.mandatory) ?? (m && m.mandatory))
-                const readOnly = !!(e.overrides.readOnly ?? (s && s.readonly) ?? (m && m.readOnly))
-                const visible = e.overrides.visible ?? !(s && s.hidden)
+                const p = e.policy || {}
+                const required = isRequired ? isRequired(n) : !!(e.overrides.mandatory ?? p.mandatory ?? (s && s.mandatory) ?? (m && m.mandatory))
+                const readOnly = !!(e.overrides.readOnly ?? p.readOnly ?? (s && s.readonly) ?? (m && (m.readOnly || m.canWrite === false)))
+                const visible = (e.overrides.visible ?? p.visible ?? !(s && s.hidden)) && !(m && m.canRead === false)
                 const label = e.overrides.label || (m && m.label) || n
                 if (required && !readOnly && visible && !String(e.value || '').trim()) errors.push({ name: n, label, message: `${label} is required` })
                 e.messages.filter((x) => x.kind === 'error').forEach((x) => errors.push({ name: n, label, message: x.text }))

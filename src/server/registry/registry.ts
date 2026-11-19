@@ -116,12 +116,18 @@ export function componentRef(component: GR, build?: GR | null): ComponentRef {
 /**
  * A build's record imports, transitively and dependencies first (post-order), each component once.
  * Cycles are cut (the host also guards). Uses each imported component's current build.
+ *
+ * Each import also records `importers`: the components whose builds import it DIRECTLY (one per
+ * build_dep edge in this tree). Embedded widgets are authorized step by step against these edges,
+ * so a request can't skip an intermediate component (§5.1 of .plans/embedded-widgets.md).
  */
 export function componentImports(buildId: string): ComponentImport[] {
     const out: ComponentImport[] = []
-    const placed: Record<string, boolean> = {}
+    const placed: Record<string, ComponentImport> = {}
     const visiting: Record<string, boolean> = {}
-    const visit = (bId: string, depth: number) => {
+    const rootBuild = getById(T.build, buildId)
+    const rootOwner = rootBuild ? str(rootBuild, 'owner_key').replace(/^component:/, '') : ''
+    const visit = (bId: string, ownerId: string, depth: number) => {
         if (depth > 12 || visiting[bId]) return
         visiting[bId] = true
         each(T.buildDep, `build=${bId}^kind=component`, (dep) => {
@@ -131,22 +137,30 @@ export function componentImports(buildId: string): ComponentImport[] {
             const comp = getById(T.component, compId)
             if (!comp) return
             const current = buildOf('component', compId)
-            if (current) visit(current.getUniqueValue(), depth + 1)
+            if (current) visit(current.getUniqueValue(), compId, depth + 1)
             const specifier = str(dep, 'specifier')
             const key = `${specifier}|${compId}`
-            if (placed[key]) return
-            placed[key] = true
-            out.push({
+            const existing = placed[key]
+            if (existing) {
+                if (ownerId && existing.importers && existing.importers.indexOf(ownerId) < 0) existing.importers.push(ownerId)
+                return
+            }
+            const imp: ComponentImport = {
                 specifier,
                 id: compId,
                 uniqueId: str(comp, 'unique_id'),
                 kind: (str(comp, 'kind') || 'widget') as ComponentKind,
                 build: buildRef(current),
-            })
+                name: str(comp, 'name'),
+                serverMode: (str(comp, 'server_mode') || 'none') as ServerMode,
+                importers: ownerId ? [ownerId] : [],
+            }
+            placed[key] = imp
+            out.push(imp)
         })
         visiting[bId] = false
     }
-    visit(buildId, 0)
+    visit(buildId, rootOwner, 0)
     return out
 }
 

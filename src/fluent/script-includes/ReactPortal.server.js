@@ -11,7 +11,7 @@
  */
 var ReactPortal = Class.create()
 
-ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.9.2/src/server/'
+ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.10.0/src/server/'
 
 ReactPortal.prototype = {
     initialize: function () {},
@@ -51,6 +51,11 @@ ReactPortal.prototype = {
     /** Reprocess a portal's compiled release (normally automatic). */
     process: function (portalId) {
         return this._mod('release/release-service').processPortal(portalId, true)
+    },
+
+    /** Reprocess every portal's release (after a manifest version bump). Returns the count. */
+    reprocessAll: function () {
+        return this._mod('release/release-service').processAllPortals()
     },
 
     /**

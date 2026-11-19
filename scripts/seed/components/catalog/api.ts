@@ -1,11 +1,12 @@
-import { graphql, authHeaders } from 'utilities:app/graphql'
+import { graphql, authHeaders, normalizePolicy, normalizeClientScripts, CLIENT_SCRIPT_FIELDS } from 'utilities:app/graphql'
 import type { CatalogItem, CatalogVariable, MrvsRowField, MrvsRowForm, PriceResult, SubmitResult } from './types'
 
 /**
  * Catalog platform calls (the same ones Workspace's catalog form makes):
  *
  *   fetchCatalogItem      POST /api/now/graphql   AppCatalogView_Query.itemViewLayout → AppCatalog_Query.itemLayout
- *                         (item, pricing, variables, variablesLayout, variablesValues: one request)
+ *                         (item, pricing, variables, variablesLayout, variablesValues, catalog UI
+ *                         policies: one request)
  *   fetchItemPrice        POST /api/sn_sc/servicecatalog/items/{id}/price
  *   submitCatalogItem     POST /api/sn_sc/servicecatalog/items/{id}/order_now | submit_producer
  *   fetchMrvsRowForm      POST /api/now/sp/widget/sc-multi-row-active-row   (row form metadata; Workspace's MRVS modal uses it)
@@ -38,6 +39,15 @@ export const ITEM_LAYOUT_QUERY = `query rpCatalogItem($table: String!, $sysId: S
             }
           }
         }
+        GlideClientScriptingEnvironment_Query {
+          CatalogClientScriptingEnvironment_Policies(table: $table, sysId: $sysId) {
+            shortDescription sysId reverse onLoad isRunScripts preEvaluated preEvaluatedResult
+            scriptTrue { script } scriptFalse { script }
+            actions { visible name disabled mandatory cleared: clearValue value valueAction fieldMessageType fieldMessage }
+            conditions { type field: fieldName fieldLabel value oper: operator or: isOrQuery newquery: isNewQuery preEvaluatedTerm preEvaluatedTermResult }
+          }
+          CatalogClientScriptingEnvironment_Scripts(table: $table, sysId: $sysId) { ${CLIENT_SCRIPT_FIELDS} }
+        }
       }
     }
   }
@@ -48,7 +58,9 @@ const bool = (v: unknown) => v === true || v === 'true'
 /** Item or record producer, with variables, layout and default values, in one GraphQL request. */
 export async function fetchCatalogItem(sysId: string, table = 'sc_cat_item', signal?: AbortSignal): Promise<CatalogItem> {
     const data = await graphql(ITEM_LAYOUT_QUERY, { table, sysId }, { signal })
-    const L = data && data.AppCatalogView_Query && data.AppCatalogView_Query.itemViewLayout && data.AppCatalogView_Query.itemViewLayout._query.AppCatalog_Query.itemLayout
+    const V = data && data.AppCatalogView_Query && data.AppCatalogView_Query.itemViewLayout && data.AppCatalogView_Query.itemViewLayout._query
+    const L = V && V.AppCatalog_Query.itemLayout
+    const S = V && V.GlideClientScriptingEnvironment_Query
     if (!L) throw new Error('Catalog item not found or not available to you')
     const values: CatalogItem['values'] = {}
     for (const v of L.variablesValues || []) values[v.name] = { value: v.value == null ? '' : String(v.value), displayValue: v.displayValue == null ? '' : String(v.displayValue) }
@@ -70,6 +82,8 @@ export async function fetchCatalogItem(sysId: string, table = 'sc_cat_item', sig
         variables: (L.variables || []) as CatalogVariable[],
         layout: L.variablesLayout || [],
         values,
+        policies: ((S && S.CatalogClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
+        scripts: normalizeClientScripts(S && S.CatalogClientScriptingEnvironment_Scripts),
     }
 }
 

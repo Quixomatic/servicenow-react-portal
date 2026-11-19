@@ -1,0 +1,6 @@
+{
+    "name": "List View",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "table": "", "pageSize": 50, "pagination": "pages", "recordPage": "form", "syncUrl": true }
+}

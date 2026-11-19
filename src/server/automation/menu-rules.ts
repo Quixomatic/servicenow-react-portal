@@ -3,7 +3,7 @@ import { T } from '../lib/tables.ts'
 import { isValidJson, parseJson, isPlainObject } from '../lib/util.ts'
 import { processPortal } from '../release/release-service.ts'
 import { reprocessSuppressed } from '../lib/session-flags.ts'
-import { MENU_ITEM_TYPES, MAX_MENU_DEPTH, parseItemParams } from '../runtime/menu-service.ts'
+import { MENU_ITEM_TYPES, MAX_MENU_DEPTH, parseItemParams, parseItemPortal } from '../runtime/menu-service.ts'
 import { isLucideIcon, normalizeIconName } from '../icons/icons.ts'
 import { abort } from './guards.ts'
 
@@ -129,6 +129,10 @@ export function validateMenuItem(current: any, previous: any): void {
             if (route === null) return abort(current, 'Route must be a portal-relative path such as "orders" or "orders/42" ("" = home). Use a URL item for other sites.')
             current.setValue('route', route)
             if (!label) return abort(current, 'Route items need a label.')
+            const targetPortal = parseItemPortal(paramsText)
+            if (targetPortal && !findOne(T.portal, `slug=${targetPortal}`)) {
+                return abort(current, `params_json.portal: there is no portal with the slug "${targetPortal}".`)
+            }
             break
         }
         case 'url': {

@@ -2,6 +2,106 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.10.0] - 2026-11-19
+
+A large feature release: lists, full record forms with the platform's form runtime, embedded widgets,
+menus in Studio, standard URL params, and live record updates.
+
+### Added: lists (primitives wave 3)
+- **`utilities:app/list-data`:** list data through the platform's own calls, plus encoded queries as data.
+  - `GlideListLayout_Query.getListLayout` returns rows, count and column metadata in one call.
+  - `GlideConditionBuilder_Query` provides breadcrumbs and dot-walking.
+  - `GlideListLayoutInline_Query` handles inline-edit ACLs and multi-row writes.
+  - Personalization is saved as user preferences.
+  - Encoded queries can be parsed and serialized: AND/OR, `^NQ`, ORDERBY, keywords, relative dates.
+- **`components:app/condition-builder`:**
+  - AND/OR and new-criteria groups, with operators per type;
+  - a dot-walk field picker, 4 levels deep;
+  - value editors from the field primitives;
+  - breadcrumbs labelled by the platform's parser.
+- **`components:app/data-table`:** built on TanStack Table and TanStack Virtual.
+  - **Grid:** a real `role="grid"` with full keyboard support and aria-sort/rowcount/rowindex. Columns resize, and there are skeleton and empty states.
+  - **Data:** server-side paging, sort, filter and search.
+  - **Editing:** a right-click Show matching / Filter out menu, and inline edit gated by `list_edit` ACLs.
+  - **Personalization:** a column chooser (order, visibility, widths, dot-walked columns), persisted per user.
+  - **Options:** every feature can be switched off; `page`/`card`/`plain` variants; pagination or infinite scroll; related lists; bulk actions.
+- **Widgets:**
+  - `app/list-view`, a full-bleed page list. Its state lives in the URL and rows open the form page; `toolbarPlacement` can put the toolbar in the header.
+  - `app/list-card`, a list you can drop in anywhere.
+- **Host modules:** `utilities:react-table` and `utilities:react-virtual`.
+- **`utilities:app/header-slots`:** `HeaderSlot` / `HeaderSlotOutlet` / `useHeaderSlot`. `app/app-subheader` has left/center/right outlets, and the full-bleed list puts its title, count and actions in them.
+
+### Added: record forms and the form runtime (primitives wave 4)
+- **`components:app/form` and the `app/record-form` widget:**
+  - It renders the record's real form view through Workspace's `GlideViewQuery_Query.uiView` (layout, policies, scripts, UI actions, scratchpad).
+  - Header, view switcher, sections and columns, an error summary, a sticky save bar (Ctrl/⌘+S), and a guard for unsaved changes.
+  - Save and create go through the platform's Save UI action (`/api/now/ui/ui_action`), sending only the changed fields.
+  - It reads `table` / `sys_id` / `view` from options, then the route, then the URL.
+- **UI policies** on record forms and catalog items. They're evaluated in the browser, using the server's pre-evaluated terms; reverse-if-false, onLoad=false, run-scripts, and last-writer-wins precedence with scripts are all handled.
+- **`utilities:app/gform`, a `g_form` compatibility layer** that runs existing client scripts unchanged:
+  - onLoad/onChange/onSubmit in a sandbox with no window or document;
+  - `g_user` and `g_scratchpad`;
+  - GlideAjax through `/xmlhttp.do` and async GlideRecord;
+  - `getMessage`, a basic `g_modal`, and `g_aw.openRecord`.
+- **UI action bar:** client actions run through the shim and server actions through the platform; redirects stay in the portal.
+- **Conflict check:** a "Changed by someone else" prompt (Reload / Overwrite).
+- **Catalog:** catalog client scripts and UI policies run, and onSubmit can block an order.
+
+### Added: embedded widgets
+- **Embedding by import:** importing a widget record and rendering it in TSX (`<ServerClock embedKey options/>`) creates a real embedded instance with its own server script, options, on-load data and error boundary. `.Raw` opts out.
+- **`$sp.getWidget(id, options, { key })`** builds a child model server-side, running the child's script nested.
+- **Client APIs:** `useEmbeddedWidget`, `useGetWidget` / `usePortalUtils().getWidget` and `<Embed model>`.
+- **Security:**
+  - Only widgets the placed widget actually imports can run, authorized step by step; anything else returns 404.
+  - Client options are filtered by the child's schema.
+  - Server-only options need an HMAC-style signed token, bound to placement, path, options and user, with a 12-hour lifetime and a runtime-generated private secret.
+  - Limits: depth 4, 50 embeds per initialize, 20 `getWidget` calls per instance.
+- **Designer:** read-only embed markers on the canvas, rows in the outline, and an Embeds section in the properties panel.
+- **Manifest version 4.**
+
+### Added: menus in Studio
+- **Seeded menu records:** sp, crm and app now use primary/footer/account menu records, including cross-portal route items (`params_json.portal`). `navigation_json` is kept only as a fallback.
+- **Any Lucide icon renders:** `components:icon` loads the full sprite on demand (cached).
+- **The Studio Menus activity:**
+  - a live preview through the portal's real widgets, in sidebar, rail, header and footer modes;
+  - "View as" by role;
+  - a drag-and-drop tree, quick-add (including "All pages"), the item form with a Lucide icon picker, and the server's script errors shown inline;
+  - undo/redo.
+- **Studio scope banner:** "Switch to React Portal", with editing disabled while out of scope, and the current app and update set shown in the status bar.
+- **Deep links:** `view=menus` and `id=<menu or item>` open the activity.
+
+### Added: standard URL params
+- **Host properties** `table`, `sysId`, `view` and `query`, matching optional `site` page params. They can also be packed inside `q`, and an explicit param wins.
+- **`usePortalLocation()`** returns `table`, `sysId`, `view`, `query`, `qParams` and `params`; `<Link>` and `navigate()` accept them.
+- **Server scripts get the URL context:** `$sp.getParameter` checks input, then route params, then URL params; new `$sp.getParameters()`.
+- **UIB URL format:** one `params` segment with dash-cased names (`sys-id`), read directly from the URL. Optional params missing from the URL reset, which fixes stale state on Back.
+
+### Added: live record updates (AMB)
+- **Runtime:** `useRecordWatch`, `useAmbChannel` and `useAmbStatus` reuse the shell's AMB client (one socket), with shared, reference-counted subscriptions, reconnect refresh and a mock bus.
+- **`live` option on `useRecord` and `useTableQuery`.**
+- **Lists:** optional live refresh with a highlight on changed rows.
+- **Forms:** a clean form refreshes silently; a dirty one shows a "Changed by someone else" banner.
+
+### Changed
+- **Breaking: `usePortalLocation().query`** is now the encoded-query string; the old q-keys object is `qParams`.
+- **Overlay container:** dropdowns, popovers and tooltips now open inside host-created roots, such as the designer canvas and the menus preview.
+- **`build-seed.mjs`** inserts sources with a function replacement, so `$'` in component code no longer corrupts the seed.
+
+### Fixed
+- Default imports of component records resolved to the namespace object (React #130).
+- Incident list: a double scroll bar, the sub-header right slot rendering left-aligned, and an empty middle breadcrumb.
+
+### Notes
+- Runtime Tests: 28/28 live.
+- Test records left on the instance: INC0020825 and INC0020831 ("safe to delete"; INC0020831 is the Runtime Tests watch target).
+- Known follow-ups:
+  - re-initialize on-load widgets when URL params change;
+  - lists and form navigation should use explicit params instead of `q`;
+  - the recurring `hidden sm:block` cascade problem inside widgets;
+  - a Studio dependencies panel, lazy embeds, and embeds in layouts;
+  - AMB non-admin filtering is untested;
+  - the Studio URL sync depends on James's studio navigate mapping.
+
 ## [1.9.2] - 2026-11-19
 
 A global helper app gets past scope fencing: server messages now behave exactly like Service Portal's.

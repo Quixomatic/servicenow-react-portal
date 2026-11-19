@@ -4,6 +4,7 @@
 // freshly published runtime data.
 import { toast } from 'sonner';
 import { designApi } from './designer-api';
+import { isWrongScope, markOutOfScope, readOnly as scopeReadOnly } from '../scope';
 
 function internals() {
 	return (globalThis.__REACT_PORTAL__ && globalThis.__REACT_PORTAL__.internals) || {};
@@ -106,6 +107,10 @@ export function createDesigner({ navigate, log }) {
 	/** Run a write: busy indicator, toast on error, refresh after, push to the undo stack. */
 	async function write(label, run, opts) {
 		const options = opts || {};
+		if (scopeReadOnly()) {
+			toast.error('Switch to React Portal to edit (see the banner).');
+			return null;
+		}
 		set((s) => ({ busy: s.busy + 1 }));
 		try {
 			const result = await run();
@@ -115,6 +120,7 @@ export function createDesigner({ navigate, log }) {
 			say('info', label);
 			return result;
 		} catch (error) {
+			if (isWrongScope(error)) markOutOfScope(error);
 			toast.error(`${label} failed: ${error.message}`);
 			say('error', `${label} failed: ${error.message}`);
 			try {

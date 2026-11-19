@@ -1,0 +1,4 @@
+/* A filled slot replaces the bar's default content on that side. */
+.rp-subheader [data-rp-hslot][data-filled] ~ .rp-sub-default {
+	display: none;
+}

@@ -1,0 +1,22 @@
+/* app/condition-builder: field primitives used as bare value editors (label kept for screen
+   readers only: the row's group label names the condition). */
+.rpl-bare > .rpf-root > :first-child:not(:last-child) {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+.rpl-bare > .rpf-root .rpf-control {
+	min-height: 2rem;
+}
+.rpl-bare .rpf-hint {
+	display: none;
+}
+.rpl-cb .rpf-control {
+	min-height: 2rem;
+}

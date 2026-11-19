@@ -2,15 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from 'utilities:react-query'
 import { graphql } from './client'
 import type { GraphQLOptions } from './client'
-import { fetchChoices, fetchDisplayValue, fetchFormBootstrap, fetchRecordValues, fetchTableMeta, searchReference, stableChanges } from './documents'
-import type { Choice, FieldMeta, FormBootstrap, FormChanges, FieldValue, ReferenceSearchResult } from './types'
+import { fetchChoices, fetchDisplayValue, fetchFormBootstrap, fetchFormViews, fetchRecordValues, fetchTableMeta, searchReference, stableChanges } from './documents'
+import type { Choice, FieldMeta, FormBootstrap, FormChanges, FormView, FieldValue, ReferenceSearchResult } from './types'
 
 /** Query keys: everything this utility caches lives under ['rp-gql', …]. */
 export const gqlKeys = {
     all: ['rp-gql'] as const,
     raw: (query: string, variables: unknown) => ['rp-gql', 'raw', query, variables] as const,
     tableMeta: (table: string) => ['rp-gql', 'table-meta', table] as const,
-    form: (table: string, sysId: string, view: string) => ['rp-gql', 'form', table, sysId, view] as const,
+    form: (table: string, sysId: string, view: string, query = '') => (query ? (['rp-gql', 'form', table, sysId, view, query] as const) : (['rp-gql', 'form', table, sysId, view] as const)),
+    formViews: (table: string) => ['rp-gql', 'form-views', table] as const,
     choices: (table: string, field: string, sysId: string, changes: string) => ['rp-gql', 'choices', table, field, sysId, changes] as const,
     reference: (table: string, field: string, sysId: string, term: string, changes: string, limit: number) =>
         ['rp-gql', 'reference', table, field, sysId, term, changes, limit] as const,
@@ -70,15 +71,36 @@ export function useFieldMeta(table: string | undefined, field: string | undefine
 }
 
 /** Form bootstrap (formLayout): values, display values, server states, metadata, encodedRecord. */
-export function useFormBootstrap(table: string | undefined, sysId: string | undefined, options: { view?: string; enabled?: boolean } = {}) {
+export function useFormBootstrap(table: string | undefined, sysId: string | undefined, options: { view?: string; enabled?: boolean; query?: string } = {}) {
     const view = options.view || ''
+    const query = options.query || ''
+    const isNew = !sysId || sysId === '-1'
     return useQuery<FormBootstrap>({
-        queryKey: gqlKeys.form(table || '', sysId || '-1', view),
-        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormBootstrap(table as string, sysId || '-1', view, signal),
+        queryKey: gqlKeys.form(table || '', sysId || '-1', view, query),
+        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormBootstrap(table as string, sysId || '-1', view, signal, query),
         enabled: !!table && options.enabled !== false,
-        staleTime: 30_000,
-        // A new record's bootstrap reserves a number: never refetch it behind the user's back.
-        refetchOnMount: !sysId || sysId === '-1' ? false : undefined,
+        // A new record's bootstrap reserves a number: never refetch it behind the user's back
+        // (no staleness, no mount / focus / reconnect refetch).
+        staleTime: isNew ? Infinity : 30_000,
+        refetchOnMount: isNew ? false : undefined,
+        refetchOnWindowFocus: isNew ? false : undefined,
+        refetchOnReconnect: isNew ? false : undefined,
+        // …and forget it once unmounted: the next new record must reserve its own number.
+        gcTime: isNew ? 0 : undefined,
+    })
+}
+
+/**
+ * The form views of a table (cached 10 minutes per table; loads no layout, reserves nothing).
+ * The platform lists views only for an existing record: pass any sys_id of the table.
+ */
+export function useFormViews(table: string | undefined, sysId: string | undefined, options: { enabled?: boolean } = {}) {
+    const real = !!sysId && sysId !== '-1'
+    return useQuery<{ current: string; views: FormView[] }>({
+        queryKey: gqlKeys.formViews(table || ''),
+        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormViews(table as string, sysId as string, signal),
+        enabled: !!table && real && options.enabled !== false,
+        staleTime: 10 * MINUTE,
     })
 }
 

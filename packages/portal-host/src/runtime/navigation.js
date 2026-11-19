@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import { toSearchParams } from './location';
 import { recordDispatch } from './diagnostics';
+import { requestUrlCheck } from './use-normalized-location';
 
 // Outgoing navigation (spec §8.1). The platform owns the URL: we never touch window.history.
 // A navigation is a PORTAL_NAVIGATE action; a UI Builder event handler ("Link to destination",
@@ -28,14 +29,20 @@ export function buildNavigatePayload(current, target) {
 	const page = to.page ? String(to.page).replace(/^\/+|\/+$/g, '') : '';
 	const recordId = to.recordId !== undefined && to.recordId !== null ? String(to.recordId) : '';
 	const q = toSearchParams(to.q).toString();
+	// Standard record params, each its own payload field so UIB maps them onto the site page's
+	// optional URL params (table, sys_id, view, query). In Studio, `view` is the activity
+	// (code | pages | menus) for the studio page's `view` param.
+	const str = (v) => (v === undefined || v === null ? '' : String(v));
+	const record = { table: str(to.table), sysId: str(to.sysId !== undefined ? to.sysId : to.sys_id), view: str(to.view), query: str(to.query) };
 	if (settings.preEncode) {
-		return { portalSlug, page: encodeURIComponent(page), recordId, q: q ? encodeURIComponent(q) : '' };
+		return { portalSlug, page: encodeURIComponent(page), recordId, q: q ? encodeURIComponent(q) : '', ...record, query: record.query ? encodeURIComponent(record.query) : '' };
 	}
-	return { portalSlug, page, recordId, q };
+	return { portalSlug, page, recordId, q, ...record };
 }
 
 /**
- * navigate(to, { recordId?, q?, portalSlug? }?) bound to a host's dispatch and current location.
+ * navigate(to, { recordId?, q?, table?, sysId?, view?, query?, portalSlug? }?) bound to a host's
+ * dispatch and current location.
  * `to` is the portal-relative page path; '' means the portal home. Cross-portal navigation is
  * explicit: pass portalSlug. (An object { page | to, recordId, q, portalSlug } is also accepted.)
  */
@@ -47,6 +54,8 @@ export function createNavigate(dispatch, current) {
 		const payload = buildNavigatePayload(current, target);
 		recordDispatch(payload);
 		dispatch(PORTAL_NAVIGATE, payload);
+		// Optional params UIB drops never arrive as property changes: re-read the URL shortly.
+		requestUrlCheck();
 	};
 }
 
@@ -54,7 +63,7 @@ export const NavigationContext = createContext(() => {
 	throw new Error('navigate() used outside the portal host');
 });
 
-/** useNavigate() -> (to, { recordId?, q?, portalSlug? }?) => void */
+/** useNavigate() -> (to, { recordId?, q?, table?, sysId?, view?, query?, portalSlug? }?) => void */
 export function useNavigate() {
 	return useContext(NavigationContext);
 }
@@ -65,14 +74,14 @@ export function useNavigate() {
  * `portalSlug` for an explicit cross-portal link, `render` to make any element (e.g. a
  * Button) the clickable element, Base UI style. `page` is accepted as an alias of `to`.
  */
-export function Link({ to, page, recordId, q, portalSlug, render, children, className, onClick, ...rest }) {
+export function Link({ to, page, recordId, q, table, sysId, view, query, portalSlug, render, children, className, onClick, ...rest }) {
 	const navigate = useNavigate();
 	const path = to !== undefined ? to : page || '';
 	const handleClick = (event) => {
 		if (onClick) onClick(event);
 		if (event.defaultPrevented) return;
 		event.preventDefault();
-		navigate(path, { recordId, q, portalSlug });
+		navigate(path, { recordId, q, table, sysId, view, query, portalSlug });
 	};
 	const props = { ...rest, className, onClick: handleClick, href: '#', 'data-portal-page': path || '', children };
 	return render ? React.cloneElement(render, props) : <a {...props} />;

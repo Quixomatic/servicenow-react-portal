@@ -14,6 +14,7 @@ export const x_312987_portal_execution_log = Table({
         build: ReferenceColumn({ label: 'Build', referenceTable: 'x_312987_portal_build', cascadeRule: 'clear' }),
         placement: ReferenceColumn({ label: 'Instance', referenceTable: 'x_312987_portal_placement', cascadeRule: 'clear' }),
         component: ReferenceColumn({ label: 'Component', referenceTable: 'x_312987_portal_component', cascadeRule: 'clear' }),
+        instance: StringColumn({ label: 'Instance ID', maxLength: 255 }),
         action: StringColumn({ label: 'Action', maxLength: 40 }),
         duration_ms: IntegerColumn({ label: 'Duration (ms)' }),
         outcome: ChoiceColumn({
@@ -50,6 +51,7 @@ Form({
                         { field: 'portal', type: 'table_field' },
                         { field: 'release', type: 'table_field' },
                         { field: 'placement', type: 'table_field' },
+                        { field: 'instance', type: 'table_field' },
                         { field: 'component', type: 'table_field' },
                         { field: 'build', type: 'table_field' },
                     ],

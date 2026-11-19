@@ -161,6 +161,13 @@ export function resolveDesignTarget(id: string) {
     if (page) return { kind: 'page', portalId: str(page, 'portal'), pageId: id }
     if (getById(T.component, id)) return { kind: 'component', portalId: null, pageId: null }
     if (getById(T.theme, id)) return { kind: 'theme', portalId: null, pageId: null }
+    const menu = getById(T.menu, id)
+    if (menu) return { kind: 'menu', portalId: str(menu, 'portal'), pageId: null, menuId: id, itemId: null }
+    const item = getById(T.menuItem, id)
+    if (item) {
+        const m = getById(T.menu, str(item, 'menu'))
+        return { kind: 'menuItem', portalId: m ? str(m, 'portal') : null, pageId: null, menuId: str(item, 'menu'), itemId: id }
+    }
     return { kind: 'unknown', portalId: null, pageId: null }
 }
 

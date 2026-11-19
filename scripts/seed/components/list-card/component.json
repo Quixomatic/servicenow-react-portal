@@ -1,0 +1,6 @@
+{
+    "name": "List Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "table": "incident", "pageSize": 10 }
+}

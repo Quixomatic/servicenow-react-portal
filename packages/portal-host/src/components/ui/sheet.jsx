@@ -2,7 +2,7 @@ import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 import { cn } from "cn"
-import { usePortalContainer } from "@servicenow/ui-renderer-react"
+import { usePortalContainer } from "#/runtime/overlay"
 import { Button } from "./button"
 
 function Sheet({ ...props }) {

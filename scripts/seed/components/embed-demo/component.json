@@ -1,0 +1,1 @@
+{ "name": "Embedded Widgets Demo", "kind": "widget", "tailwind": true, "serverMode": "on-load", "defaults": { "title": "Embedded widgets" } }
