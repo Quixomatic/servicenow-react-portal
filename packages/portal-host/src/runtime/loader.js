@@ -26,10 +26,25 @@ function nativeImport(url) {
  * Fallback when a direct import() fails (CSP on the URL, wrong MIME type): fetch the source and
  * import it from a Blob URL. Only for non-blob URLs.
  */
+const sourcePromises = new Map(); // url -> Promise<string> (JS source text, fetched with the token)
+
+/** Fetch a module's source text once per page load (lets imports download in parallel). */
+export function prefetchSource(url) {
+	if (!sourcePromises.has(url)) {
+		const promise = fetch(url, { credentials: 'same-origin', headers: assetHeaders('text/javascript,*/*') }).then(async (response) => {
+			if (!response.ok) throw new Error(`GET ${url} failed: HTTP ${response.status}`);
+			return response.text();
+		});
+		promise.catch(() => sourcePromises.delete(url));
+		sourcePromises.set(url, promise);
+	}
+	return sourcePromises.get(url);
+}
+
 async function blobImport(url) {
-	const response = await fetch(url, { credentials: 'same-origin', headers: assetHeaders('text/javascript,*/*') });
-	if (!response.ok) throw new Error(`GET ${url} failed: HTTP ${response.status}`);
-	const blobUrl = URL.createObjectURL(new Blob([await response.text()], { type: 'text/javascript' }));
+	const source = await prefetchSource(url);
+	sourcePromises.delete(url); // evaluated once; the module cache takes over
+	const blobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
 	try {
 		return await nativeImport(blobUrl);
 	} finally {
@@ -129,7 +144,179 @@ export function loadBuild(build) {
 	);
 }
 
+// ---- record imports -------------------------------------------------------------------------
+//
+// A component can import other component records: `components:<ns>/<key>` (primitive, widget,
+// block) or `utilities:<ns>/<key>` (utility). The compiled module reads
+// globalThis.__REACT_PORTAL__.modules['<specifier>'] when it evaluates, so every import must be
+// loaded and registered first. ComponentRef.imports lists them transitively, dependencies first:
+//   imports: [{ specifier, id, uniqueId, kind, build: { id, js, css } }]
+// Each import's module namespace (named exports + default) is registered under its specifier.
+
+const importPromises = new Map(); // build id -> Promise<{ mod, cssText }>
+const importsLoaded = new Map(); // build id -> { mod, cssText } (resolved)
+const registeredBy = new Map(); // specifier -> build id currently registered
+
+function registryOf() {
+	const g = globalThis;
+	g.__REACT_PORTAL__ = g.__REACT_PORTAL__ || { modules: {} };
+	g.__REACT_PORTAL__.modules = g.__REACT_PORTAL__.modules || {};
+	return g.__REACT_PORTAL__;
+}
+
+function registerImport(specifier, buildId, mod) {
+	const registry = registryOf();
+	if (typeof registry.register === 'function') registry.register(specifier, mod);
+	else registry.modules[specifier] = mod;
+	registeredBy.set(specifier, buildId);
+}
+
+function importKey(imp) {
+	return imp && imp.build ? imp.build.id || imp.build.js : '';
+}
+
+/**
+ * The module object to register: the compiled module's CommonJS-style exports (every named export)
+ * when the compiler publishes them as `__rpExports`, plus `default`; otherwise the ES namespace.
+ */
+function namespaceOf(mod) {
+	if (mod && mod.__rpExports && typeof mod.__rpExports === 'object') {
+		const ns = { ...mod.__rpExports };
+		if (!('default' in ns) && 'default' in mod) ns.default = mod.default;
+		return ns;
+	}
+	return mod;
+}
+
+/** Start downloading an import's JS source and CSS without evaluating anything. */
+function prefetchImport(imp) {
+	const build = imp.build;
+	if (!build) return;
+	if (needsToken(build.js) && !modules.has(build.js)) prefetchSource(build.js).catch(() => {});
+	if (build.css) loadCss(build.css).catch(() => {});
+}
+
+/**
+ * Evaluate one import (its own imports must already be registered) and load its CSS. Cached per
+ * build for the page load.
+ */
+function loadImport(imp) {
+	const key = importKey(imp);
+	if (!importPromises.has(key)) {
+		const build = imp.build;
+		const promise = Promise.all([importModule(build.js), build.css ? loadCss(build.css) : Promise.resolve('')]).then(
+			([mod, cssText]) => {
+				const loaded = { mod: namespaceOf(mod), cssText: cssText || '' };
+				importsLoaded.set(key, loaded);
+				return loaded;
+			},
+			(error) => {
+				importPromises.delete(key);
+				throw new Error(`Import ${imp.specifier} (${imp.uniqueId || imp.id}) failed to load: ${(error && error.message) || error}`);
+			}
+		);
+		importPromises.set(key, promise);
+	}
+	return importPromises.get(key);
+}
+
+function usableImports(ref) {
+	const list = (ref && Array.isArray(ref.imports) ? ref.imports : []).filter((imp) => imp && imp.specifier);
+	const seen = new Set();
+	const out = [];
+	for (const imp of list) {
+		// A component never imports itself (the server rejects it; guard against stale manifests).
+		if (ref.id && imp.id === ref.id) continue;
+		const dedupe = `${imp.specifier}|${importKey(imp)}`;
+		if (seen.has(dedupe)) continue;
+		seen.add(dedupe);
+		out.push(imp);
+	}
+	return out;
+}
+
+function combineCss(parts) {
+	return parts.filter((p) => p && p.text && p.text.trim()).map((p) => `/* ${p.label} */\n${p.text}`).join('\n');
+}
+
+function importsCss(imports) {
+	return imports.map((imp) => {
+		const loaded = importsLoaded.get(importKey(imp));
+		return { label: imp.specifier, text: loaded ? loaded.cssText : '' };
+	});
+}
+
+/**
+ * Load a component's record imports in dependency order, registering each module under its
+ * specifier, then the component itself. Resolves to { Component, cssText, imports } where cssText
+ * is the imports' CSS (dependencies first) followed by the component's own, and imports lists
+ * { specifier, buildId, cssText } for callers that inject per build.
+ *
+ * Imports load in parallel (network) but register strictly in manifest order, and every import is
+ * registered before the dependent module is evaluated. Builds are deduped and cached per page load.
+ * An import without a build fails the component with a clear message.
+ */
+export function loadComponent(ref) {
+	const build = ref && ref.build;
+	if (!build || !build.js) return Promise.reject(new Error('Component has no build (nothing compiled yet)'));
+	const imports = usableImports(ref);
+	const missing = imports.find((imp) => !imp.build || !imp.build.js);
+	if (missing) return Promise.reject(new Error(`Import ${missing.specifier} has no build (compile ${missing.uniqueId || missing.id} first)`));
+
+	// Download everything now (sources + CSS in parallel), then evaluate strictly in manifest order:
+	// a compiled module reads the registry when it evaluates, so each import is registered before
+	// anything that depends on it runs.
+	imports.forEach(prefetchImport);
+	if (needsToken(build.js) && !modules.has(build.js)) prefetchSource(build.js).catch(() => {});
+	const own = Promise.all([build.css ? loadCss(build.css) : Promise.resolve('')]);
+	let chain = Promise.resolve();
+	imports.forEach((imp) => {
+		chain = chain.then(() =>
+			loadImport(imp).then((loaded) => {
+				const key = importKey(imp);
+				if (registeredBy.get(imp.specifier) !== key) registerImport(imp.specifier, key, loaded.mod);
+			})
+		);
+	});
+	return chain
+		.then(() => Promise.all([importModule(build.js), own]))
+		.then(([mod, [css]]) => {
+			const loaded = toLoaded(build, mod, css);
+			return {
+				Component: loaded.Component,
+				cssText: combineCss([...importsCss(imports), { label: ref.uniqueId || build.id, text: loaded.cssText }]),
+				imports: imports.map((imp) => ({ specifier: imp.specifier, buildId: importKey(imp), cssText: (importsLoaded.get(importKey(imp)) || {}).cssText || '' }))
+			};
+		});
+}
+
+/**
+ * Synchronous cache hit for loadComponent: the component and every import already loaded this page
+ * load (and registered). Returns the same shape as loadComponent, or null.
+ */
+export function peekComponent(ref) {
+	const build = ref && ref.build;
+	if (!build || !build.js || !modules.has(build.js)) return null;
+	if (build.css && !cssTexts.has(build.css)) return null;
+	const imports = usableImports(ref);
+	for (const imp of imports) {
+		const key = importKey(imp);
+		if (!importsLoaded.has(key)) return null;
+		if (registeredBy.get(imp.specifier) !== key) registerImport(imp.specifier, key, importsLoaded.get(key).mod);
+	}
+	try {
+		const loaded = toLoaded(build, modules.get(build.js), build.css ? cssTexts.get(build.css) : '');
+		return {
+			Component: loaded.Component,
+			cssText: combineCss([...importsCss(imports), { label: ref.uniqueId || build.id, text: loaded.cssText }]),
+			imports: imports.map((imp) => ({ specifier: imp.specifier, buildId: importKey(imp), cssText: importsLoaded.get(importKey(imp)).cssText }))
+		};
+	} catch (error) {
+		return null;
+	}
+}
+
 /** Cache contents, for diagnostics. */
 export function loaderStats() {
-	return { modules: modules.size, stylesheets: cssTexts.size };
+	return { modules: modules.size, stylesheets: cssTexts.size, imports: importsLoaded.size, registeredImports: Object.fromEntries(registeredBy) };
 }

@@ -1,6 +1,6 @@
 import { str } from '../lib/gr.ts'
 import { processPortal, reprocessForOwner } from '../release/release-service.ts'
-import { reprocessSuppressed } from '../design/design-service.ts'
+import { reprocessSuppressed } from '../lib/session-flags.ts'
 
 /**
  * Keep each portal's compiled release in sync with its inputs. Every rule is an `after`

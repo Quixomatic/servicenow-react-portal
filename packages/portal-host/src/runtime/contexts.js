@@ -74,6 +74,13 @@ export function useWidgetInstance() {
 	return useContext(WidgetInstanceContext);
 }
 
+// The block instance being rendered (kind = 'block'): { placement, scope, api }. <Region> inside a
+// block renders that instance's children; useBlock() returns `api`. Widgets and layouts reset it.
+export const BlockContext = createContext(null);
+export function useBlockContext() {
+	return useContext(BlockContext);
+}
+
 // Per-router store of batch-initialized instance data (instance-init.js).
 export const InstanceInitContext = createContext(null);
 export function useInstanceInit() {

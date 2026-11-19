@@ -48,7 +48,7 @@ Record({
     data: {
         title: 'Widgets',
         application: reactPortalMenu,
-        link_type: 'FILTER',
+        link_type: 'LIST',
         name: 'x_312987_portal_component',
         filter: 'kind=widget',
         roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'],
@@ -62,12 +62,54 @@ Record({
     data: {
         title: 'Layouts',
         application: reactPortalMenu,
-        link_type: 'FILTER',
+        link_type: 'LIST',
         name: 'x_312987_portal_component',
         filter: 'kind=layout',
         roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'],
         active: true,
         order: 220,
+    },
+})
+Record({
+    $id: Now.ID['module-blocks'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Blocks',
+        application: reactPortalMenu,
+        link_type: 'LIST',
+        name: 'x_312987_portal_component',
+        filter: 'kind=block',
+        roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'],
+        active: true,
+        order: 222,
+    },
+})
+Record({
+    $id: Now.ID['module-primitives'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Primitives',
+        application: reactPortalMenu,
+        link_type: 'LIST',
+        name: 'x_312987_portal_component',
+        filter: 'kind=primitive',
+        roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'],
+        active: true,
+        order: 224,
+    },
+})
+Record({
+    $id: Now.ID['module-utilities'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Utilities',
+        application: reactPortalMenu,
+        link_type: 'LIST',
+        name: 'x_312987_portal_component',
+        filter: 'kind=utility',
+        roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'],
+        active: true,
+        order: 226,
     },
 })
 Record({
@@ -129,7 +171,7 @@ Record({
     data: {
         title: 'Properties',
         application: reactPortalMenu,
-        link_type: 'FILTER',
+        link_type: 'LIST',
         name: 'sys_properties',
         filter: 'nameSTARTSWITHx_312987_portal.',
         roles: ['x_312987_portal.admin'],

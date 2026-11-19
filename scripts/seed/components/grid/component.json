@@ -1,0 +1,14 @@
+{
+    "name": "Grid",
+    "kind": "block",
+    "tailwind": false,
+    "regions": [{ "name": "items", "label": "Items" }],
+    "defaults": {
+        "columns": "repeat(12, minmax(0, 1fr))",
+        "gap": "1rem",
+        "itemSpan": 4,
+        "subgrid": "none",
+        "tablet": { "itemSpan": 6 },
+        "mobile": { "itemSpan": 12 }
+    }
+}

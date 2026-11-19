@@ -1,0 +1,15 @@
+{
+    "name": "Split",
+    "kind": "block",
+    "tailwind": false,
+    "regions": [
+        { "name": "start", "label": "Start" },
+        { "name": "end", "label": "End" }
+    ],
+    "defaults": {
+        "template": "minmax(0, 1fr) minmax(0, 1fr)",
+        "gap": "1.5rem",
+        "divider": false,
+        "mobile": { "template": "minmax(0, 1fr)" }
+    }
+}

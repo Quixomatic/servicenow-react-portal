@@ -102,19 +102,19 @@ export function pageDesignRoute(request: any, response: any): void {
     handle(request, response, (req) => ({ data: pageDesign(requiredParam(req, 'id')) }))
 }
 
-/** POST /placements { portal, page?, region, component, index?, options? } */
+/** POST /placements { portal, page?, parent?, region, component, index?, options?, styleTokens?, layout?, classes? } */
 export function createPlacementRoute(request: any, response: any): void {
-    handle(request, response, (req) => ({ data: createPlacement(req.body as any), status: 201 }))
+    handle(request, response, (req) => createPlacement(req.body as any).then((data) => ({ data, status: 201 })))
 }
 
-/** PATCH /placements/{id} { region?, index?, page?, options?, active? } */
+/** PATCH /placements/{id} { region?, index?, page?, parent?, options?, active?, styleTokens?, layout?, classes? } */
 export function updatePlacementRoute(request: any, response: any): void {
-    handle(request, response, (req) => ({ data: updatePlacement(requiredParam(req, 'id'), req.body as any) }))
+    handle(request, response, (req) => updatePlacement(requiredParam(req, 'id'), req.body as any).then((data) => ({ data })))
 }
 
-/** DELETE /placements/{id} */
+/** DELETE /placements/{id}?mode=lift|cascade (mode is required when the block has children) */
 export function deletePlacementRoute(request: any, response: any): void {
-    handle(request, response, (req) => ({ data: deletePlacement(requiredParam(req, 'id')) }))
+    handle(request, response, (req) => ({ data: deletePlacement(requiredParam(req, 'id'), ((req.queryParams || {}).mode || [])[0]) }))
 }
 
 /** POST /pages { portal, name, title?, route, layoutOverride? } */

@@ -2,7 +2,7 @@
 // Exports are additive: widgets deployed on the instance depend on every name here.
 import { Link, useNavigate } from './navigation';
 import { usePortal, usePortalLocation } from './contexts';
-import { Region, RegionPortal, useComponent } from './widgets';
+import { Region, RegionPortal, useBlock, useComponent } from './widgets';
 import { useTheme } from './theme-mode';
 import {
 	format,
@@ -31,6 +31,7 @@ export {
 	Region,
 	RegionPortal,
 	useComponent,
+	useBlock,
 	useThemeMode as useTheme,
 	useUser,
 	useProperty,
@@ -54,6 +55,7 @@ export const RUNTIME_EXPORTS = [
 	'Region',
 	'RegionPortal',
 	'useComponent',
+	'useBlock',
 	'useTheme',
 	'useUser',
 	'useProperty',

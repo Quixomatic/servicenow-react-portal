@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.4.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.5.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -149,7 +149,60 @@
         while (stale.next()) if (!keepPaths[stale.getValue('path')]) stale.deleteRecord()
     }
 
+    // Record imports: components are seeded in dependency order (build-seed.mjs), but save-time
+    // compiles all settle at script end, so an importer can compile before its import is ready and
+    // fail with "hasn't compiled successfully yet". Recompile every component in the import graph
+    // in dependency order once the save compiles have run (up-to-date builds are skipped).
+    var builds = require(ROOT + 'build/build-service.ts')
+    var owners = require(ROOT + 'source/owner.ts')
+    var inGraph = {}
+    for (var gk in components) {
+        if (components[gk].imports && components[gk].imports.length) {
+            inGraph[gk] = true
+            for (var gi = 0; gi < components[gk].imports.length; gi++) inGraph[components[gk].imports[gi]] = true
+        }
+    }
+    var importLog = []
+    var importChain = Promise.resolve()
+    Object.keys(components).forEach(function (key) {
+        if (!inGraph[key]) return
+        importChain = importChain.then(function () {
+            return builds.compileOwner(owners.loadOwner('component', C[key])).then(function (b) {
+                var errs = (b.diagnostics && b.diagnostics.errors) || []
+                importLog.push(key + ': ' + (b.upToDate ? 'up to date' : b.state) + (errs.length ? ' ERR ' + errs.map(function (e) { return e.message }).join('; ') : ''))
+            })
+        })
+    })
+    importChain.then(
+        function () { gs.info('[seed] record-import compiles (dependency order):
+' + importLog.join('
+')) },
+        function (e) { gs.error('[seed] record-import compile pass failed: ' + e) }
+    )
+
     /* ---------------- Portals, pages, placements ---------------- */
+
+    // Place a list of widgets/blocks; a block's `children` maps its drop zones to nested lists.
+    function placeAll(pid, pageId, parentId, list, defaultRegion) {
+        for (var j = 0; j < list.length; j++) {
+            var w = list[j]
+            var region = w.region || defaultRegion
+            var id = upsert('placement', 'page=' + pageId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') + '^region=' + region + '^component=' + C[w.c] + '^order=' + (j + 1) * 100, {
+                portal: pid,
+                page: pageId,
+                parent: parentId,
+                region: region,
+                component: C[w.c],
+                order: (j + 1) * 100,
+                active: true,
+                options_json: w.options || {},
+                layout_json: w.layout || '',
+                style_tokens_json: w.style || '',
+                classes: w.classes || '',
+            })
+            if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone)
+        }
+    }
 
     function seedPortal(def) {
         var pid = upsert('portal', 'slug=' + def.slug, {
@@ -174,18 +227,7 @@
                 active: true,
                 layout_override: pg.layout ? C[pg.layout] : '',
             })
-            for (var j = 0; j < pg.widgets.length; j++) {
-                var w = pg.widgets[j]
-                upsert('placement', 'page=' + pageIds[pg.route] + '^region=' + (w.region || 'main') + '^component=' + C[w.c] + '^order=' + (j + 1) * 100, {
-                    portal: pid,
-                    page: pageIds[pg.route],
-                    region: w.region || 'main',
-                    component: C[w.c],
-                    order: (j + 1) * 100,
-                    active: true,
-                    options_json: w.options || {},
-                })
-            }
+            placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main')
         }
         var portalWidgets = [
             { c: 'site-header', region: 'header', options: { brand: def.name } },
@@ -212,7 +254,7 @@
 
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home',
-        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'About', to: 'about' }],
+        nav: [{ label: 'Home', to: '' }, { label: 'Incidents', to: 'incidents' }, { label: 'Orders', to: 'orders' }, { label: 'Tests', to: 'tests' }, { label: 'Layouts', to: 'layouts' }, { label: 'Fields', to: 'fields' }, { label: 'About', to: 'about' }],
         pages: [
             { route: 'home', name: 'Home', widgets: [
                 { c: 'hello-card', options: { title: 'Welcome to the Service Portal', body: 'Rendered by React 19 from records: layout, theme and widgets are all compiled builds.', links: [{ label: 'Orders', to: 'orders' }, { label: 'Order 42', to: 'orders/42' }, { label: 'About (other layout)', to: 'about' }] } },
@@ -230,6 +272,34 @@
             ] },
             { route: 'tests', name: 'Runtime Tests', widgets: [
                 { c: 'runtime-tests', options: { label: 'from placement options' } },
+            ] },
+            // Blocks demo: a ⅓ + ⅔ Columns block; the wide column holds a 12-track Grid whose cards
+            // span 6, plus a nested Grid that uses subgrid to line up on the parent's tracks.
+            { route: 'layouts', name: 'Layouts', widgets: [
+                { c: 'section', style: { background: 'muted', radius: '0.75rem', paddingX: '1.5rem' }, options: { paddingY: '1.5rem' }, children: { content: [
+                    { c: 'hello-card', options: { title: 'Blocks', body: 'Sections, containers, grids, columns, stacks and splits are page-structure components with drop zones. This band is a Section with a muted background from its instance styling.' } },
+                ] } },
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2fr)' }] }, children: {
+                    'col-1': [
+                        { c: 'hello-card', options: { title: 'Column 1 (⅓)', body: 'Stacks on mobile.' } },
+                        { c: 'server-clock' },
+                    ],
+                    'col-2': [
+                        { c: 'grid', options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 6 }, children: { items: [
+                            { c: 'hello-card', options: { title: 'Card A', body: 'span 6' } },
+                            { c: 'hello-card', options: { title: 'Card B', body: 'span 6' } },
+                            { c: 'grid', layout: { colSpan: 'full' }, options: { subgrid: 'columns', itemSpan: 4 }, classes: 'rounded-xl border border-dashed p-3', children: { items: [
+                                { c: 'hello-card', options: { title: 'Sub 1', body: 'subgrid, span 4' } },
+                                { c: 'hello-card', options: { title: 'Sub 2', body: 'subgrid, span 4' } },
+                                { c: 'hello-card', options: { title: 'Sub 3', body: 'subgrid, span 4' } },
+                            ] } },
+                        ] } },
+                    ],
+                } },
+            ] },
+            // Field primitives (app/field + app/*-field): standalone and bound to a real incident.
+            { route: 'fields', name: 'Fields', widgets: [
+                { c: 'field-demo', options: { table: 'incident' } },
             ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },

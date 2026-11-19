@@ -73,8 +73,29 @@ const DEFINITIONS = {
 	record: { kind: 'widget', js: S.RECORD_JS, css: null },
 	text: { kind: 'widget', js: S.TEXT_JS, css: S.TEXT_CSS },
 	broken: { kind: 'widget', js: S.BROKEN_JS, css: null },
-	utils: { kind: 'widget', js: S.UTILS_JS, css: null }
+	utils: { kind: 'widget', js: S.UTILS_JS, css: null },
+	// Blocks: page-structure building blocks; drop zones come from their spec (regions_json).
+	section: { kind: 'block', js: S.SECTION_JS, css: S.SECTION_CSS, spec: [{ name: 'content', label: 'Content' }] },
+	container: { kind: 'block', js: S.CONTAINER_JS, css: S.CONTAINER_CSS, spec: [{ name: 'content', label: 'Content' }] },
+	grid: { kind: 'block', js: S.GRID_JS, css: S.GRID_CSS, spec: [{ name: 'items', label: 'Items' }] },
+	columns: { kind: 'block', js: S.COLUMNS_JS, css: S.COLUMNS_CSS, spec: [{ repeat: 'tracks', name: 'col-{n}', label: 'Column {n}' }] },
+	stack: { kind: 'block', js: S.STACK_JS, css: S.STACK_CSS, spec: [{ name: 'items', label: 'Items' }] },
+	split: { kind: 'block', js: S.SPLIT_JS, css: S.SPLIT_CSS, spec: [{ name: 'start', label: 'Start' }, { name: 'end', label: 'End' }] },
+	// Record imports: a primitive and a utility, and a widget that imports both
+	// (components:rp/mock-badge, utilities:rp/mock-format). The ref lists them dependencies first.
+	'mock-format': { kind: 'utility', js: S.MOCK_FORMAT_JS, css: null },
+	'mock-badge': { kind: 'primitive', js: S.MOCK_BADGE_JS, css: S.MOCK_BADGE_CSS, imports: ['mock-format'] },
+	'mock-imports': { kind: 'widget', js: S.MOCK_IMPORTS_JS, css: null, imports: ['mock-format', 'mock-badge'] }
 };
+
+const IMPORT_PREFIX = { utility: 'utilities:rp/', primitive: 'components:rp/', widget: 'components:rp/', block: 'components:rp/' };
+
+function importRefs(keys) {
+	return keys.map((k) => {
+		const r = component(k);
+		return { specifier: IMPORT_PREFIX[r.kind] + k, id: r.id, uniqueId: r.uniqueId, kind: r.kind, build: r.build };
+	});
+}
 
 const refs = new Map();
 function component(key) {
@@ -89,6 +110,7 @@ function component(key) {
 			serverMode: def.serverMode || 'none'
 		};
 		if (def.regions) ref.regions = def.regions;
+		if (def.imports) ref.imports = importRefs(def.imports);
 		refs.set(key, ref);
 	}
 	return refs.get(key);
@@ -100,19 +122,143 @@ function placement(id, region, key, options, order) {
 	return { id, region, order: order !== undefined ? order : placementSeq * 10, componentKey: key, options: options || {} };
 }
 
-function materialize(p) {
-	return { id: p.id, region: p.region, order: p.order, component: component(p.componentKey), options: clone(p.options) };
+/** A placement with block fields: { parent, styleTokens, layout, classes }. */
+function blk(id, region, key, options, extra) {
+	return Object.assign(placement(id, region, key, options), extra || {});
 }
 
+function materialize(p) {
+	const def = DEFINITIONS[p.componentKey] || {};
+	const options = effectiveOptions(p);
+	const out = {
+		id: p.id,
+		region: p.region,
+		order: p.order,
+		parentId: p.parent || null,
+		component: component(p.componentKey),
+		options,
+		styleTokens: clone(p.styleTokens || {}),
+		layout: clone(p.layout || {}),
+		classes: p.classes || '',
+		css: instanceCss(p, options)
+	};
+	if (def.kind === 'block') {
+		out.regions = resolveZones(def.spec || [], options);
+		out.children = {};
+	}
+	return out;
+}
+
+/** Top-level placements by layout region; block children nested by drop zone (v2 manifest). */
 function groupByRegion(list) {
-	const regions = {};
+	const items = {};
 	list.forEach((p) => {
 		if (p.active === false) return; // inactive placements don't render (the designer still lists them)
-		const m = materialize(p);
-		(regions[m.region] = regions[m.region] || []).push(m);
+		items[p.id] = materialize(p);
 	});
-	Object.keys(regions).forEach((name) => regions[name].sort((a, b) => a.order - b.order));
+	const regions = {};
+	list.slice()
+		.sort((a, b) => a.order - b.order)
+		.forEach((p) => {
+			const m = items[p.id];
+			if (!m) return;
+			if (!m.parentId) (regions[m.region] = regions[m.region] || []).push(m);
+			else {
+				const parent = items[m.parentId];
+				if (parent && parent.children) (parent.children[m.region] = parent.children[m.region] || []).push(m);
+			}
+		});
 	return regions;
+}
+
+// ---- blocks: zones, effective options and instance CSS (mirrors src/server/design) ---------
+
+const ZONE_RE = /^[a-z][a-z0-9_-]{0,39}$/;
+
+function resolveZones(spec, options) {
+	const out = [];
+	const seen = {};
+	const push = (name, label) => {
+		const clean = String(name).trim().toLowerCase();
+		if (!ZONE_RE.test(clean) || seen[clean] || out.length >= 24) return;
+		seen[clean] = true;
+		out.push(label ? { name: clean, acceptsContributions: true, label } : { name: clean, acceptsContributions: true });
+	};
+	const fill = (t, n, item) => String(t).replace(/\{(\w+)\}/g, (m, k) => (k === 'n' ? String(n) : item && item[k] != null ? String(item[k]) : ''));
+	spec.forEach((entry) => {
+		const e = typeof entry === 'string' ? { name: entry } : entry;
+		if (!e.repeat) return push(e.name, e.label);
+		const src = options[e.repeat];
+		const list = Array.isArray(src) ? src : typeof src === 'number' && src > 0 ? Array.from({ length: Math.min(src, 24) }, () => null) : [];
+		list.forEach((item, i) => push(fill(e.name, i + 1, item), e.label ? fill(e.label, i + 1, item) : undefined));
+	});
+	return out;
+}
+
+/** Component defaults overlaid by the instance's options; tablet/mobile overrides merge too. */
+function effectiveOptions(p) {
+	const d = (DESIGN_META[p.componentKey] || {}).defaults || {};
+	const o = p.options || {};
+	const out = Object.assign({}, clone(d), clone(o));
+	['tablet', 'mobile'].forEach((dev) => {
+		if (d[dev] || o[dev]) out[dev] = Object.assign({}, clone(d[dev] || {}), clone(o[dev] || {}));
+	});
+	return out;
+}
+
+const TOKEN_PROPS = {
+	padding: 'padding', paddingX: 'padding-inline', paddingY: 'padding-block', margin: 'margin', marginX: 'margin-inline', marginY: 'margin-block',
+	background: 'background', color: 'color', border: 'border', borderColor: 'border-color', radius: 'border-radius', shadow: 'box-shadow',
+	minHeight: 'min-height', maxWidth: 'max-width', width: 'width', gap: 'gap', opacity: 'opacity', textAlign: 'text-align', overflow: 'overflow'
+};
+const THEME_COLORS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive', 'border', 'input', 'ring'];
+
+function cssVal(raw, colorish) {
+	if (raw === null || raw === undefined || raw === '' || (typeof raw !== 'string' && typeof raw !== 'number')) return null;
+	const v = String(raw).trim();
+	if (!v || /[;{}<>]/.test(v)) return null;
+	return colorish && THEME_COLORS.indexOf(v) >= 0 ? 'var(--' + v + ')' : v;
+}
+
+function declsFor(tokens, layout, options, schema) {
+	const out = [];
+	const props = schema && schema.properties ? schema.properties : {};
+	Object.keys(props).forEach((k) => {
+		const varName = props[k] && props[k]['x-css-var'];
+		if (!varName || options[k] === undefined) return;
+		const raw = options[k];
+		const v = Array.isArray(raw) ? cssVal(raw.map((x) => (x && typeof x === 'object' ? x.size : x)).join(' ')) : cssVal(raw);
+		if (v !== null) out.push(varName + ': ' + v);
+	});
+	Object.keys(TOKEN_PROPS).forEach((k) => {
+		const v = cssVal(tokens[k], k === 'background' || k === 'color' || k === 'borderColor');
+		if (v !== null) out.push(TOKEN_PROPS[k] + ': ' + v);
+	});
+	const n = (v) => (typeof v === 'number' ? v : /^\d+$/.test(String(v || '')) ? parseInt(v, 10) : null);
+	if (layout.colSpan === 'full') out.push('grid-column: 1 / -1');
+	else if (n(layout.colSpan) || n(layout.colStart)) out.push('grid-column: ' + (n(layout.colStart) ? n(layout.colStart) + ' / ' : '') + 'span ' + (n(layout.colSpan) || 1));
+	if (n(layout.rowSpan) || n(layout.rowStart)) out.push('grid-row: ' + (n(layout.rowStart) ? n(layout.rowStart) + ' / ' : '') + 'span ' + (n(layout.rowSpan) || 1));
+	if (typeof layout.order === 'number') out.push('order: ' + Math.round(layout.order));
+	if (layout.alignSelf) out.push('align-self: ' + layout.alignSelf);
+	if (layout.justifySelf) out.push('justify-self: ' + layout.justifySelf);
+	return out;
+}
+
+/** placement.css: style tokens, grid layout and x-css-var options, with container queries. */
+function instanceCss(p, options) {
+	const schema = (DESIGN_META[p.componentKey] || {}).schema;
+	const sel = '[data-rp-placement="' + p.id + '"][data-rp-placement]';
+	const sub = (o, d) => (o && typeof o[d] === 'object' && o[d]) || {};
+	const tokens = p.styleTokens || {};
+	const layout = p.layout || {};
+	const rules = [];
+	const base = declsFor(tokens, layout, options, schema);
+	if (base.length) rules.push(sel + ' { ' + base.join('; ') + ' }');
+	[['tablet', '(max-width: 1023px)'], ['mobile', '(max-width: 639px)']].forEach(([dev, q]) => {
+		const d = declsFor(sub(tokens, dev), sub(layout, dev), sub(options, dev), schema);
+		if (d.length) rules.push('@container rp-page ' + q + ' { ' + sel + ' { ' + d.join('; ') + ' } }');
+	});
+	return rules.join('\n');
 }
 
 // ---- themes ---------------------------------------------------------------------------------
@@ -265,7 +411,8 @@ const PORTALS = {
 				{ label: 'Home', page: '' },
 				{ label: 'Orders', page: 'orders' },
 				{ label: 'Order 42', page: 'orders/42', recordId: '42' },
-				{ label: 'Broken widget', page: 'broken' }
+				{ label: 'Broken widget', page: 'broken' },
+				{ label: 'Layouts', page: 'layouts' }
 			]
 		},
 		theme: 'sp-light',
@@ -332,7 +479,26 @@ const PORTALS = {
 				id: 'page-sp-utils',
 				route: 'utils',
 				title: 'Utilities',
-				placements: [placement('pl-sp-utils', 'main', 'utils', {})]
+				placements: [placement('pl-sp-utils', 'main', 'utils', {}), placement('pl-sp-imports', 'main', 'mock-imports', {})]
+			},
+			{
+				id: 'page-sp-layouts',
+				route: 'layouts',
+				title: 'Layouts',
+				placements: [
+					blk('pl-lay-section', 'main', 'section', {}, { styleTokens: { background: 'muted', radius: '0.75rem', paddingX: '1.5rem' } }),
+					blk('pl-lay-sec-text', 'content', 'text', { title: 'A Section band', text: 'Muted background and radius from style tokens.' }, { parent: 'pl-lay-section' }),
+					blk('pl-lay-cols', 'main', 'columns', { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2fr)' }] }),
+					blk('pl-lay-c1-text', 'col-1', 'text', { title: 'Column 1', text: 'One third.' }, { parent: 'pl-lay-cols' }),
+					blk('pl-lay-c1-counter', 'col-1', 'counter', { label: 'In column 1' }, { parent: 'pl-lay-cols' }),
+					blk('pl-lay-grid', 'col-2', 'grid', { itemSpan: 6, tablet: { itemSpan: 6 }, mobile: { itemSpan: 12 } }, { parent: 'pl-lay-cols' }),
+					blk('pl-lay-g1', 'items', 'text', { title: 'Card A', text: 'Spans 6 of 12.' }, { parent: 'pl-lay-grid' }),
+					blk('pl-lay-g2', 'items', 'text', { title: 'Card B', text: 'Spans 6 of 12.' }, { parent: 'pl-lay-grid' }),
+					blk('pl-lay-sub', 'items', 'grid', { itemSpan: 4, subgrid: 'columns', tablet: { itemSpan: 6 }, mobile: { itemSpan: 12 } }, { parent: 'pl-lay-grid', layout: { colSpan: 'full' }, classes: 'rounded-xl border border-dashed p-3' }),
+					blk('pl-lay-s1', 'items', 'text', { title: 'Sub 1' }, { parent: 'pl-lay-sub' }),
+					blk('pl-lay-s2', 'items', 'text', { title: 'Sub 2' }, { parent: 'pl-lay-sub' }),
+					blk('pl-lay-s3', 'items', 'text', { title: 'Sub 3' }, { parent: 'pl-lay-sub' })
+				]
 			}
 		]
 	},
@@ -623,7 +789,72 @@ const DESIGN_META = {
 		defaults: { title: 'Text', text: '', variant: 'card', links: [] }
 	},
 	broken: { name: 'Broken (throws)', description: 'Fails on render (error boundary demo)', schema: { type: 'object', properties: { message: { type: 'string', title: 'Error message' } } }, defaults: {} },
-	utils: { name: 'Utilities Demo', description: 'Service Portal-style hooks', schema: null, defaults: {} }
+	utils: { name: 'Utilities Demo', description: 'Service Portal-style hooks', schema: null, defaults: {} },
+	section: {
+		name: 'Section',
+		description: 'A full-width band; content can be width-capped',
+		schema: { type: 'object', properties: { paddingY: { type: 'string', title: 'Vertical padding', 'x-css-var': '--rp-section-py' }, maxWidth: { type: 'string', title: 'Content max width', 'x-css-var': '--rp-section-max' }, gap: { type: 'string', title: 'Gap between items', 'x-css-var': '--rp-section-gap' } } },
+		defaults: { paddingY: '2rem', maxWidth: 'none', gap: '1.5rem' }
+	},
+	container: {
+		name: 'Container',
+		description: 'A centred, max-width container',
+		schema: { type: 'object', properties: { maxWidth: { type: 'string', title: 'Max width', 'x-css-var': '--rp-container-max' }, paddingX: { type: 'string', title: 'Side padding', 'x-css-var': '--rp-container-px' }, gap: { type: 'string', title: 'Gap', 'x-css-var': '--rp-container-gap' } } },
+		defaults: { maxWidth: '72rem', paddingX: '1rem', gap: '1.5rem' }
+	},
+	grid: {
+		name: 'Grid',
+		description: 'A real CSS grid (12 tracks by default); nested grids can use subgrid',
+		schema: {
+			type: 'object',
+			properties: {
+				columns: { type: 'string', title: 'Column tracks', 'x-css-var': '--rp-grid-cols', 'x-presets': ['repeat(12, minmax(0, 1fr))', 'repeat(auto-fit, minmax(16rem, 1fr))', '1fr 1fr', '1fr 2fr', '2fr 1fr', 'repeat(3, minmax(0, 1fr))', 'repeat(4, minmax(0, 1fr))'] },
+				gap: { type: 'string', title: 'Gap', 'x-css-var': '--rp-grid-gap' },
+				itemSpan: { type: 'integer', title: 'Default item span', 'x-css-var': '--rp-grid-span' },
+				alignItems: { type: 'string', title: 'Align items', enum: ['stretch', 'start', 'center', 'end', 'baseline'], 'x-css-var': '--rp-grid-align' },
+				subgrid: { type: 'string', title: 'Subgrid', enum: ['none', 'columns', 'rows', 'both'], enumNames: ['Off', 'Columns', 'Rows', 'Columns and rows'] }
+			}
+		},
+		defaults: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 4, subgrid: 'none', tablet: { itemSpan: 6 }, mobile: { itemSpan: 12 } }
+	},
+	columns: {
+		name: 'Columns',
+		description: 'One drop zone per column (½+½, ⅓+⅔, ⅓×3 …); stacks on mobile',
+		schema: {
+			type: 'object',
+			properties: {
+				tracks: {
+					type: 'array',
+					title: 'Columns',
+					'x-css-var': '--rp-cols',
+					'x-presets': [
+						{ label: '½ + ½', value: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+						{ label: '⅓ + ⅔', value: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2fr)' }] },
+						{ label: '⅔ + ⅓', value: [{ size: 'minmax(0, 2fr)' }, { size: 'minmax(0, 1fr)' }] },
+						{ label: '⅓ × 3', value: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+						{ label: '¼ × 4', value: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+						{ label: 'Sidebar + main', value: [{ size: '18rem' }, { size: 'minmax(0, 1fr)' }] }
+					],
+					items: { type: 'object', properties: { size: { type: 'string', title: 'Size' } } }
+				},
+				gap: { type: 'string', title: 'Gap', 'x-css-var': '--rp-cols-gap' },
+				align: { type: 'string', title: 'Align columns', enum: ['start', 'center', 'end', 'stretch'], 'x-css-var': '--rp-cols-align' }
+			}
+		},
+		defaults: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2fr)' }], gap: '1.5rem', align: 'start', mobile: { tracks: [{ size: 'minmax(0, 1fr)' }] } }
+	},
+	stack: {
+		name: 'Stack',
+		description: 'A flex stack, vertical or horizontal',
+		schema: { type: 'object', properties: { direction: { type: 'string', title: 'Direction', enum: ['column', 'row'], 'x-css-var': '--rp-stack-dir' }, gap: { type: 'string', title: 'Gap', 'x-css-var': '--rp-stack-gap' }, wrap: { type: 'string', title: 'Wrap', enum: ['nowrap', 'wrap'], 'x-css-var': '--rp-stack-wrap' } } },
+		defaults: { direction: 'column', gap: '1rem', wrap: 'nowrap' }
+	},
+	split: {
+		name: 'Split',
+		description: 'Two panes with an optional divider; stacks on mobile',
+		schema: { type: 'object', properties: { template: { type: 'string', title: 'Pane sizes', 'x-css-var': '--rp-split', 'x-presets': ['minmax(0, 1fr) minmax(0, 1fr)', '18rem minmax(0, 1fr)', 'minmax(0, 2fr) minmax(0, 1fr)'] }, gap: { type: 'string', title: 'Gap', 'x-css-var': '--rp-split-gap' }, divider: { type: 'boolean', title: 'Divider' } } },
+		defaults: { template: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.5rem', divider: false, mobile: { template: 'minmax(0, 1fr)' } }
+	}
 };
 
 const keyOfComponentId = (id) => (id && id.indexOf('cmp-') === 0 ? id.slice(4) : id);
@@ -666,23 +897,39 @@ function layoutRef(key) {
 
 function designPlacement(raw, scope) {
 	const meta = DESIGN_META[raw.componentKey] || {};
-	return {
+	const def = DEFINITIONS[raw.componentKey] || {};
+	const dto = {
 		id: raw.id,
 		region: raw.region,
 		order: raw.order,
 		active: raw.active !== false,
-		component: { id: 'cmp-' + raw.componentKey, uniqueId: 'rp.' + raw.componentKey, name: meta.name || raw.componentKey },
+		scope,
+		parentId: raw.parent || null,
+		component: { id: 'cmp-' + raw.componentKey, uniqueId: 'rp.' + raw.componentKey, name: meta.name || raw.componentKey, kind: def.kind || 'widget' },
 		options: clone(raw.options || {}),
-		effectiveOptions: Object.assign({}, clone(meta.defaults || {}), clone(raw.options || {})),
-		scope
+		effectiveOptions: effectiveOptions(raw),
+		styleTokens: clone(raw.styleTokens || {}),
+		layout: clone(raw.layout || {}),
+		classes: raw.classes || ''
 	};
+	if (def.kind === 'block') {
+		dto.regions = resolveZones(def.spec || [], dto.effectiveOptions);
+		dto.children = {};
+	}
+	return dto;
 }
 
 function groupDesign(list, scope) {
+	const items = {};
+	list.forEach((p) => (items[p.id] = designPlacement(p, scope)));
 	const out = {};
 	list.slice()
 		.sort((a, b) => a.order - b.order)
-		.forEach((p) => (out[p.region] = out[p.region] || []).push(designPlacement(p, scope)));
+		.forEach((p) => {
+			const d = items[p.id];
+			if (!d.parentId) (out[d.region] = out[d.region] || []).push(d);
+			else if (items[d.parentId] && items[d.parentId].children) (items[d.parentId].children[d.region] = items[d.parentId].children[d.region] || []).push(d);
+		});
 	return out;
 }
 
@@ -721,21 +968,37 @@ function effectiveLayoutKey(entry, page) {
 }
 
 /** Renumber orders in `list` for one region (10, 20, 30…) after an insert or move. */
-function renumber(list, region) {
-	list.filter((p) => p.region === region)
+/** Renumber orders (10, 20, …) among siblings: same parent, same region/zone. */
+function renumber(list, region, parent) {
+	list.filter((p) => p.region === region && (p.parent || null) === (parent || null))
 		.sort((a, b) => a.order - b.order)
 		.forEach((p, i) => (p.order = (i + 1) * 10));
 }
 
 function insertAt(list, raw, index) {
-	const same = list.filter((p) => p.region === raw.region && p !== raw).sort((a, b) => a.order - b.order);
+	const same = list.filter((p) => p !== raw && p.region === raw.region && (p.parent || null) === (raw.parent || null)).sort((a, b) => a.order - b.order);
 	const at = index === undefined || index === null || index < 0 || index > same.length ? same.length : index;
 	same.splice(at, 0, raw);
 	same.forEach((p, i) => (p.order = (i + 1) * 10));
 	if (!list.includes(raw)) list.push(raw);
 }
 
-function assertRegion(entry, page, region) {
+/** Every placement nested under id (in the same owner list), parents first. */
+function descendantsIn(list, id) {
+	const out = [];
+	const walk = (pid) => list.filter((p) => p.parent === pid).forEach((c) => (out.push(c), walk(c.id)));
+	walk(id);
+	return out;
+}
+
+function assertRegion(entry, page, region, parentRaw) {
+	if (parentRaw) {
+		const def = DEFINITIONS[parentRaw.componentKey] || {};
+		if (def.kind !== 'block') throw designError('Only blocks can contain placements', 400);
+		const zones = resolveZones(def.spec || [], effectiveOptions(parentRaw)).map((z) => z.name);
+		if (!zones.includes(region)) throw designError('Zone "' + region + '" is not on this ' + ((DESIGN_META[parentRaw.componentKey] || {}).name || 'block') + ' (zones: ' + zones.join(', ') + ')', 400);
+		return;
+	}
 	const key = effectiveLayoutKey(entry, page);
 	const regions = (DEFINITIONS[key].regions || []).map((r) => r.name);
 	if (!regions.includes(region)) {
@@ -775,6 +1038,17 @@ export const designApi = {
 						optionsSchema: clone((DESIGN_META[k] || {}).schema || null),
 						defaultOptions: clone((DESIGN_META[k] || {}).defaults || {})
 					})),
+				blocks: Object.keys(DEFINITIONS)
+					.filter((k) => DEFINITIONS[k].kind === 'block')
+					.map((k) => ({
+						id: 'cmp-' + k,
+						uniqueId: 'rp.' + k,
+						name: (DESIGN_META[k] || {}).name || k,
+						description: (DESIGN_META[k] || {}).description || '',
+						regionSpec: clone(DEFINITIONS[k].spec || []),
+						optionsSchema: clone((DESIGN_META[k] || {}).schema || null),
+						defaultOptions: clone((DESIGN_META[k] || {}).defaults || {})
+					})),
 				pages: entry.pages.map((p, i) => pageSummary(entry, p, i)),
 				portalPlacements: groupDesign(entry.placements, 'portal')
 			});
@@ -800,12 +1074,26 @@ export const designApi = {
 			const found = body.page ? findPage(body.page) : null;
 			if (body.page && !found) throw designError('Page ' + body.page + ' not found', 404);
 			const key = keyOfComponentId(body.component);
-			if (!DEFINITIONS[key] || DEFINITIONS[key].kind !== 'widget') throw designError('Component ' + body.component + ' is not a placeable widget', 400);
-			// Checked against the effective layout (portal-wide placements: the portal default layout).
-			assertRegion(entry, found ? found.page : null, body.region);
+			if (!DEFINITIONS[key] || (DEFINITIONS[key].kind !== 'widget' && DEFINITIONS[key].kind !== 'block')) throw designError('Component ' + body.component + ' is not placeable', 400);
+			const list = found ? found.page.placements : entry.placements;
+			const parentRaw = body.parent ? list.find((p) => p.id === body.parent) : null;
+			if (body.parent && !parentRaw) throw designError('Parent block ' + body.parent + ' not found here', 400);
+			// Checked against the parent block's zones, or the effective layout's regions.
+			assertRegion(entry, found ? found.page : null, body.region, parentRaw);
 			designSeq += 1;
-			const raw = { id: 'pl-new-' + Date.now().toString(36) + '-' + designSeq, region: body.region, order: 0, componentKey: key, options: clone(body.options || {}), active: true };
-			insertAt(found ? found.page.placements : entry.placements, raw, body.index);
+			const raw = {
+				id: 'pl-new-' + Date.now().toString(36) + '-' + designSeq,
+				region: body.region,
+				order: 0,
+				componentKey: key,
+				options: clone(body.options || {}),
+				active: true,
+				parent: parentRaw ? parentRaw.id : undefined,
+				styleTokens: clone(body.styleTokens || {}),
+				layout: clone(body.layout || {}),
+				classes: body.classes || ''
+			};
+			insertAt(list, raw, body.index);
 			return delay(designPlacement(raw, found ? 'page' : 'portal'), 180);
 		} catch (error) {
 			return Promise.reject(error);
@@ -823,15 +1111,36 @@ export const designApi = {
 				if (body.page && !targetPage) throw designError('Page ' + body.page + ' not found', 404);
 				targetList = targetPage ? targetPage.placements : rec.entry.placements;
 			}
+			const fromParent = raw.parent || null;
+			let toParent = fromParent;
+			if (body.parent !== undefined) toParent = body.parent || null;
+			else if (targetList !== rec.list) toParent = null; // changing scope without a target block → top level
 			const region = body.region || raw.region;
-			if (body.region !== undefined || body.page !== undefined) assertRegion(rec.entry, targetPage, region);
+			const moved = targetList !== rec.list || toParent !== fromParent || region !== raw.region;
+			let parentRaw = null;
+			if (toParent) {
+				parentRaw = targetList.find((p) => p.id === toParent);
+				if (!parentRaw) throw designError('Parent block ' + toParent + ' not found here', 400);
+				if (toParent === id || descendantsIn(rec.list, id).some((d) => d.id === toParent)) throw designError("A block can't be moved inside itself", 400);
+			}
+			if (moved) assertRegion(rec.entry, targetPage, region, parentRaw);
 			if (body.options !== undefined) raw.options = clone(body.options || {});
 			if (body.active !== undefined) raw.active = !!body.active;
-			if (body.region !== undefined || body.page !== undefined || body.index !== undefined) {
+			if (body.styleTokens !== undefined) raw.styleTokens = clone(body.styleTokens || {});
+			if (body.layout !== undefined) raw.layout = clone(body.layout || {});
+			if (body.classes !== undefined) raw.classes = String(body.classes || '');
+			if (moved || body.index !== undefined) {
 				const oldRegion = raw.region;
-				rec.list.splice(rec.index, 1);
-				renumber(rec.list, oldRegion);
+				// A block moves with its subtree (across scopes too).
+				const subtree = targetList !== rec.list ? descendantsIn(rec.list, id) : [];
+				rec.list.splice(rec.list.indexOf(raw), 1);
+				subtree.forEach((d) => {
+					rec.list.splice(rec.list.indexOf(d), 1);
+					targetList.push(d);
+				});
+				renumber(rec.list, oldRegion, fromParent);
 				raw.region = region;
+				raw.parent = toParent || undefined;
 				insertAt(targetList, raw, body.index);
 			}
 			return delay(designPlacement(raw, targetPage ? 'page' : 'portal'), 150);
@@ -839,14 +1148,37 @@ export const designApi = {
 			return Promise.reject(error);
 		}
 	},
-	deletePlacement(id) {
+	deletePlacement(id, mode) {
 		const rec = findPlacementRecord(id);
 		if (!rec) return Promise.reject(designError('Placement ' + id + ' not found', 404));
 		const raw = rec.list[rec.index];
-		const placement = Object.assign(designPlacement(raw, rec.page ? 'page' : 'portal'), { page: rec.page ? rec.page.id : null, portal: rec.entry.portal.id });
-		rec.list.splice(rec.index, 1);
-		renumber(rec.list, raw.region);
-		return delay({ deleted: true, placement }, 150);
+		const children = rec.list.filter((p) => p.parent === id).sort((a, b) => a.region.localeCompare(b.region) || a.order - b.order);
+		if (children.length && mode !== 'lift' && mode !== 'cascade') {
+			const err = designError('This block contains ' + children.length + ' placement(s): delete with mode "lift" (move them out) or "cascade" (delete them too)', 409);
+			err.code = 'has_children';
+			err.details = { children: children.length };
+			return Promise.reject(err);
+		}
+		const scope = rec.page ? 'page' : 'portal';
+		const placement = Object.assign(designPlacement(raw, scope), { pageId: rec.page ? rec.page.id : null, portal: rec.entry.portal.id });
+		const lifted = [];
+		if (mode === 'cascade') {
+			descendantsIn(rec.list, id).forEach((d) => rec.list.splice(rec.list.indexOf(d), 1));
+		}
+		// Index of the block among its siblings, so lifted children land where it was.
+		const siblings = rec.list.filter((p) => p.region === raw.region && (p.parent || null) === (raw.parent || null)).sort((a, b) => a.order - b.order);
+		let at = siblings.indexOf(raw);
+		rec.list.splice(rec.list.indexOf(raw), 1);
+		if (mode === 'lift') {
+			children.forEach((c) => {
+				c.parent = raw.parent || undefined;
+				c.region = raw.region;
+				insertAt(rec.list, c, at++);
+				lifted.push(c.id);
+			});
+		}
+		renumber(rec.list, raw.region, raw.parent || null);
+		return delay({ deleted: true, placement, lifted }, 150);
 	},
 	createPage(body) {
 		try {

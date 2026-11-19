@@ -1,0 +1,7 @@
+{
+    "name": "Stack",
+    "kind": "block",
+    "tailwind": false,
+    "regions": [{ "name": "items", "label": "Items" }],
+    "defaults": { "direction": "column", "gap": "1rem", "align": "stretch", "justify": "start", "wrap": "nowrap" }
+}

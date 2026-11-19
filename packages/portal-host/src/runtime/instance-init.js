@@ -6,13 +6,19 @@ import { initializeInstances } from './api';
 
 const EMPTY = Object.freeze({ entry: undefined, pending: false, error: null });
 
+/** On-load placement ids in a region map, including those nested inside blocks (children by drop zone). */
 export function onLoadIds(byRegion) {
 	const ids = [];
-	Object.keys(byRegion || {}).forEach((name) =>
-		(byRegion[name] || []).forEach((p) => {
-			if (p.component && p.component.serverMode === 'on-load') ids.push(p.id);
-		})
-	);
+	const walk = (map, depth) => {
+		if (!map || depth > 12) return;
+		Object.keys(map).forEach((name) =>
+			(map[name] || []).forEach((p) => {
+				if (p.component && p.component.serverMode === 'on-load') ids.push(p.id);
+				if (p.children) walk(p.children, depth + 1);
+			})
+		);
+	};
+	walk(byRegion, 0);
 	return ids;
 }
 

@@ -1,0 +1,7 @@
+{
+    "name": "Container",
+    "kind": "block",
+    "tailwind": false,
+    "regions": [{ "name": "content", "label": "Content" }],
+    "defaults": { "maxWidth": "72rem", "paddingX": "1rem", "gap": "1.5rem" }
+}

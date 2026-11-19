@@ -45,7 +45,7 @@ export const VIRTUAL: Record<OwnerType, Record<string, VirtualFile>> = {
         'server.js': { field: 'script', target: 'server', empty: SERVER_SCRIPT_TEMPLATE },
         'options.schema.json': { field: 'options_schema_json', target: 'asset', empty: '{}', json: true },
         'options.defaults.json': { field: 'default_options_json', target: 'asset', empty: '{}', json: true },
-        'regions.json': { field: 'regions_json', target: 'asset', empty: '[]', json: true, kinds: ['layout'] },
+        'regions.json': { field: 'regions_json', target: 'asset', empty: '[]', json: true, kinds: ['layout', 'block'] },
     },
     theme: {
         'theme.css': { field: 'stylesheet', target: 'style', empty: '', compile: true },
@@ -55,7 +55,7 @@ export const VIRTUAL: Record<OwnerType, Record<string, VirtualFile>> = {
 
 export const RESERVED_VIRTUAL_PATHS = ['main.tsx', 'styles.css', 'server.js', 'options.schema.json', 'options.defaults.json', 'regions.json', 'theme.css', 'tokens.json']
 
-/** The virtual files that apply to this owner (regions.json only for layouts). */
+/** The virtual files that apply to this owner (regions.json only for layouts and blocks). */
 export function virtualMapFor(owner: Owner): Record<string, VirtualFile> {
     const all = VIRTUAL[owner.type]
     const kind = owner.type === 'component' ? str(owner.gr, 'kind') || 'widget' : ''

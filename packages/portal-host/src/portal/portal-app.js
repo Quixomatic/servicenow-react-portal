@@ -9,6 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/com
 import DiagnosticsPanel from './diagnostics-panel';
 import { PortalRouterHost, bootstrapQuery, toRouterPath } from './portal-router';
 
+// The page frame is the `rp-page` size container: instance CSS (placement.css) answers its
+// tablet/mobile container queries, so in the designer the device-width frame renders exactly.
+const PAGE_CONTAINER = Object.freeze({ containerType: 'inline-size', containerName: 'rp-page' });
+
 const KNOWN_PORTALS = ['sp', 'crm'];
 
 /**
@@ -32,7 +36,7 @@ const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
 	// its main region gets all the space the other regions leave; main scrolls only after that.
 	return (
 		<div ref={setRoot} data-rp-root="" className="relative flex flex-col overflow-hidden" style={{ height }}>
-			<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" data-rp-layout-frame="">
+			<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="">
 				{!portalSlug ? <NoPortal /> : target ? <PortalBoot key={portalSlug} slug={portalSlug} target={target} /> : null}
 			</div>
 			<DiagnosticsPanel hostId={hostId} target={target} />

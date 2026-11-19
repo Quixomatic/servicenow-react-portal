@@ -1,0 +1,8 @@
+{
+    "type": "object",
+    "properties": {
+        "paddingY": { "type": "string", "title": "Vertical padding", "x-css-var": "--rp-section-py" },
+        "maxWidth": { "type": "string", "title": "Content max width", "description": "none, 72rem, 1200px …", "x-css-var": "--rp-section-max" },
+        "gap": { "type": "string", "title": "Gap between items", "x-css-var": "--rp-section-gap" }
+    }
+}

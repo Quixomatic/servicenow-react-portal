@@ -4,6 +4,7 @@ import { normalizePortal, enforceSingleDefault } from '../../server/automation/p
 import { normalizeTheme } from '../../server/automation/theme-rules'
 import { normalizeComponent } from '../../server/automation/component-rules'
 import { validatePage, validatePlacement } from '../../server/automation/page-rules'
+import { compileInstanceStyle } from '../../server/automation/instance-style-rules'
 
 /* Portal */
 
@@ -78,4 +79,15 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: validatePlacement,
+})
+
+BusinessRule({
+    $id: Now.ID['br-placement-instance-style'],
+    name: 'RP: Compile placement instance CSS',
+    description: 'Compiles classes, style tokens, grid layout and responsive block options into instance_css, then reprocesses the portal.',
+    table: 'x_312987_portal_placement',
+    when: 'after',
+    action: ['insert', 'update'],
+    order: 900,
+    script: compileInstanceStyle,
 })

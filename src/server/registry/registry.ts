@@ -1,7 +1,8 @@
 import { GR, getById, findOne, str, bool } from '../lib/gr.ts'
 import { T, RUNTIME_API_BASE } from '../lib/tables.ts'
 import { parseJson, isPlainObject } from '../lib/util.ts'
-import type { BuildRef, ComponentRef, RegionDef, ThemeRef, ComponentKind, ServerMode } from '../../shared/contracts'
+import { each } from '../lib/gr.ts'
+import type { BuildRef, ComponentRef, ComponentImport, RegionDef, ThemeRef, ComponentKind, ServerMode } from '../../shared/contracts'
 
 /**
  * RPRegistry: canonical IDs, descriptors and build resolution for components and themes.
@@ -105,7 +106,46 @@ export function componentRef(component: GR, build?: GR | null): ComponentRef {
         const regions = regionsOf(component)
         ref.regions = regions.length ? regions : DEFAULT_REGIONS
     }
+    const imports = pinned ? componentImports(pinned.getUniqueValue()) : []
+    if (imports.length) ref.imports = imports
     return ref
+}
+
+/**
+ * A build's record imports, transitively and dependencies first (post-order), each component once.
+ * Cycles are cut (the host also guards). Uses each imported component's current build.
+ */
+export function componentImports(buildId: string): ComponentImport[] {
+    const out: ComponentImport[] = []
+    const placed: Record<string, boolean> = {}
+    const visiting: Record<string, boolean> = {}
+    const visit = (bId: string, depth: number) => {
+        if (depth > 12 || visiting[bId]) return
+        visiting[bId] = true
+        each(T.buildDep, `build=${bId}^kind=component`, (dep) => {
+            const target = getById(T.build, str(dep, 'target_build'))
+            if (!target) return
+            const compId = str(target, 'owner_key').replace(/^component:/, '')
+            const comp = getById(T.component, compId)
+            if (!comp) return
+            const current = buildOf('component', compId)
+            if (current) visit(current.getUniqueValue(), depth + 1)
+            const specifier = str(dep, 'specifier')
+            const key = `${specifier}|${compId}`
+            if (placed[key]) return
+            placed[key] = true
+            out.push({
+                specifier,
+                id: compId,
+                uniqueId: str(comp, 'unique_id'),
+                kind: (str(comp, 'kind') || 'widget') as ComponentKind,
+                build: buildRef(current),
+            })
+        })
+        visiting[bId] = false
+    }
+    visit(buildId, 0)
+    return out
 }
 
 export function componentRefById(id: string): ComponentRef | null {

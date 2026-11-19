@@ -1,0 +1,8 @@
+{
+    "type": "object",
+    "properties": {
+        "maxWidth": { "type": "string", "title": "Max width", "x-css-var": "--rp-container-max", "x-presets": ["48rem", "64rem", "72rem", "80rem", "none"] },
+        "paddingX": { "type": "string", "title": "Side padding", "x-css-var": "--rp-container-px" },
+        "gap": { "type": "string", "title": "Gap between items", "x-css-var": "--rp-container-gap" }
+    }
+}

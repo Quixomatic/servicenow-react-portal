@@ -30,10 +30,31 @@ for (const key of readdirSync(root).sort()) {
         else c.extraFiles.push({ path: rel, target: rel.endsWith('.css') ? 'style' : 'client', content })
     }
     if (!c.clientScript) throw new Error(`${key}: missing main.tsx/main.jsx`)
+    // Record imports (components:app/<key>, utilities:app/<key>) found in the client sources.
+    const imports = new Set()
+    for (const src of [c.clientScript].concat(c.extraFiles.filter((f) => f.target === 'client').map((f) => f.content))) {
+        for (const m of src.matchAll(/^\s*import\s+(?!type\s)[^'"]*['"](?:components|utilities):app\/([a-z][a-z0-9-]*)['"]/gm)) if (m[1] !== key) imports.add(m[1])
+    }
+    c.imports = Array.from(imports).sort()
     components[key] = c
 }
 
+// Seed in dependency order: a record import must compile before its importers (the compile
+// rejects an import whose target has no successful build yet). Alphabetical within a level.
+const ordered = {}
+const visiting = new Set()
+const visit = (key, trail) => {
+    if (ordered[key]) return
+    if (visiting.has(key)) throw new Error(`Record import cycle: ${trail.concat(key).join(' -> ')}`)
+    if (!components[key]) throw new Error(`${trail[trail.length - 1]} imports app/${key}, which has no seed folder`)
+    visiting.add(key)
+    for (const dep of components[key].imports) visit(dep, trail.concat(key))
+    visiting.delete(key)
+    ordered[key] = components[key]
+}
+for (const key of Object.keys(components)) visit(key, [])
+
 const template = readFileSync(join(here, 'seed-template.js'), 'utf8')
-const out = template.replace('__COMPONENTS_JSON__', JSON.stringify(components, null, 1))
+const out = template.replace('__COMPONENTS_JSON__', JSON.stringify(ordered, null, 1))
 writeFileSync(join(here, '..', 'seed-demo.js'), out)
 console.log(`seed-demo.js: ${Object.keys(components).length} components, ${(out.length / 1024).toFixed(0)} KB`)

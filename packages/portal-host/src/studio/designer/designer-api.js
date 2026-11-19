@@ -20,7 +20,8 @@ export const designApi = {
 	pageDesign: (pageId) => (isMock() ? mock().pageDesign(pageId) : call('GET', `/pages/${e(pageId)}/design`)),
 	createPlacement: (body) => (isMock() ? mock().createPlacement(body) : call('POST', '/placements', body)),
 	patchPlacement: (id, body) => (isMock() ? mock().patchPlacement(id, body) : call('PATCH', `/placements/${e(id)}`, body)),
-	deletePlacement: (id) => (isMock() ? mock().deletePlacement(id) : call('DELETE', `/placements/${e(id)}`)),
+	/** mode: undefined | 'lift' (move a block's children out) | 'cascade' (delete them too) */
+	deletePlacement: (id, mode) => (isMock() ? mock().deletePlacement(id, mode) : call('DELETE', `/placements/${e(id)}${mode ? `?mode=${e(mode)}` : ''}`)),
 	createPage: (body) => (isMock() ? mock().createPage(body) : call('POST', '/pages', body)),
 	patchPage: (id, body) => (isMock() ? mock().patchPage(id, body) : call('PATCH', `/pages/${e(id)}`, body)),
 	deletePage: (id) => (isMock() ? mock().deletePage(id) : call('DELETE', `/pages/${e(id)}`)),

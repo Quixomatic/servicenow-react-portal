@@ -52,13 +52,15 @@ export function OptionsForm({ schema, value, defaults, onApply, disabled }) {
 	);
 }
 
-function Label({ spec, name, required, children }) {
+function Label({ spec, name, required, children, onPreset, current }) {
+	const presets = Array.isArray(spec['x-presets']) && onPreset ? spec['x-presets'] : null;
 	return (
 		<label className="rpd-field" data-rpd-field={name}>
 			<span className="rpd-label">
 				{spec.title || name}
 				{required ? <span style={{ color: 'var(--rps-error)' }}> *</span> : null}
 			</span>
+			{presets ? <PresetButtons presets={presets} current={current} onPreset={onPreset} name={name} /> : null}
 			{children}
 			{spec.description ? <span className="rpd-hint">{spec.description}</span> : null}
 		</label>
@@ -77,7 +79,7 @@ function Field({ name, spec, value, placeholder, required, onApply, disabled }) 
 	}
 	if (type === 'string' && Array.isArray(spec.enum)) {
 		return (
-			<Label spec={spec} name={name} required={required}>
+			<Label spec={spec} name={name} required={required} onPreset={onApply} current={value}>
 				<select value={value === undefined ? '' : value} onChange={(e) => onApply(e.target.value === '' ? undefined : e.target.value)} disabled={disabled}>
 					<option value="">{placeholder !== undefined ? `Default (${placeholder})` : '(none)'}</option>
 					{spec.enum.map((opt, i) => (
@@ -92,7 +94,7 @@ function Field({ name, spec, value, placeholder, required, onApply, disabled }) 
 	if (type === 'string' || type === 'number' || type === 'integer') {
 		const numeric = type !== 'string';
 		return (
-			<Label spec={spec} name={name} required={required}>
+			<Label spec={spec} name={name} required={required} onPreset={onApply} current={value}>
 				<TextInput
 					multiline={spec.format === 'textarea'}
 					inputType={numeric ? 'number' : spec.format === 'color' ? 'color' : spec.format === 'url' ? 'url' : 'text'}
@@ -111,13 +113,13 @@ function Field({ name, spec, value, placeholder, required, onApply, disabled }) 
 	}
 	if (type === 'array' && spec.items && spec.items.type === 'object' && spec.items.properties) {
 		return (
-			<Label spec={spec} name={name} required={required}>
+			<Label spec={spec} name={name} required={required} onPreset={onApply} current={value}>
 				<ArrayRows items={spec.items} value={Array.isArray(value) ? value : []} onApply={onApply} disabled={disabled} />
 			</Label>
 		);
 	}
 	return (
-		<Label spec={spec} name={name} required={required}>
+		<Label spec={spec} name={name} required={required} onPreset={onApply} current={value}>
 			<JsonEditor value={value === undefined ? null : value} onApply={onApply} disabled={disabled} rows={4} />
 		</Label>
 	);
@@ -219,5 +221,34 @@ export function JsonEditor({ value, onApply, disabled, rows }) {
 			/>
 			{error ? <span className="rpd-error">{error}</span> : null}
 		</div>
+	);
+}
+
+/** x-presets: quick buttons ({ label, value } objects or plain values) that set the option. */
+function PresetButtons({ presets, current, onPreset, name }) {
+	const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+	return (
+		<span className="rpd-presets inline" data-rpd-option-presets={name}>
+			{presets.map((p, i) => {
+				const isObj = p && typeof p === 'object' && !Array.isArray(p) && 'value' in p;
+				const value = isObj ? p.value : p;
+				const label = isObj ? p.label || String(p.value) : String(p);
+				return (
+					<button
+						key={i}
+						type="button"
+						className={'rpd-preset' + (same(current, value) ? ' active' : '')}
+						aria-pressed={same(current, value)}
+						title={typeof value === 'string' ? value : label}
+						onClick={(e) => {
+							e.preventDefault();
+							onPreset(value);
+						}}
+					>
+						{label}
+					</button>
+				);
+			})}
+		</span>
 	);
 }

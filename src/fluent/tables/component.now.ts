@@ -36,6 +36,8 @@ export const x_312987_portal_component = Table({
                 widget: { label: 'Widget', sequence: 0 },
                 layout: { label: 'Layout', sequence: 1 },
                 utility: { label: 'Utility', sequence: 2 },
+                block: { label: 'Block', sequence: 3 },
+                primitive: { label: 'Primitive', sequence: 4 },
             },
         }),
         description: MultiLineTextColumn({ label: 'Description', maxLength: 1000 }),

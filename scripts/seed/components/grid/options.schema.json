@@ -1,0 +1,30 @@
+{
+    "type": "object",
+    "properties": {
+        "columns": {
+            "type": "string",
+            "title": "Column tracks",
+            "description": "grid-template-columns, e.g. repeat(12, minmax(0, 1fr)) · 1fr 2fr · repeat(auto-fit, minmax(16rem, 1fr))",
+            "x-css-var": "--rp-grid-cols",
+            "x-presets": ["repeat(12, minmax(0, 1fr))", "repeat(auto-fit, minmax(16rem, 1fr))", "1fr 1fr", "1fr 2fr", "2fr 1fr", "repeat(3, minmax(0, 1fr))", "repeat(4, minmax(0, 1fr))"]
+        },
+        "rows": { "type": "string", "title": "Row tracks", "description": "grid-template-rows (empty = auto rows)", "x-css-var": "--rp-grid-rows" },
+        "gap": { "type": "string", "title": "Gap", "description": "e.g. 1rem, or \"1rem 2rem\" for row / column gap", "x-css-var": "--rp-grid-gap" },
+        "itemSpan": { "type": "integer", "title": "Default item span", "description": "Columns an item spans unless it sets its own grid layout", "x-css-var": "--rp-grid-span" },
+        "alignItems": {
+            "type": "string",
+            "title": "Align items",
+            "enum": ["stretch", "start", "center", "end", "baseline"],
+            "x-css-var": "--rp-grid-align"
+        },
+        "justifyItems": { "type": "string", "title": "Justify items", "enum": ["stretch", "start", "center", "end"], "x-css-var": "--rp-grid-justify" },
+        "autoFlow": { "type": "string", "title": "Auto flow", "enum": ["row", "column", "row dense", "column dense"], "x-css-var": "--rp-grid-flow" },
+        "subgrid": {
+            "type": "string",
+            "title": "Subgrid",
+            "description": "Inside another Grid: use the parent's tracks instead of your own",
+            "enum": ["none", "columns", "rows", "both"],
+            "enumNames": ["Off", "Columns", "Rows", "Columns and rows"]
+        }
+    }
+}

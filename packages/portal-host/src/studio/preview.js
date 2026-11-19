@@ -43,7 +43,10 @@ export default function PreviewPane({ studio, root, active }) {
 			.then((ctx) => {
 				const ref = ctx.component;
 				if (!ref || !ref.build || !ref.build.js) throw new Error('The build has no client output');
-				return host().internals.loadBuild(ref.build).then((loaded) => ({ ctx, ref, loaded }));
+				// Record imports (components:<ns>/<key>, utilities:<ns>/<key>) load and register first.
+				const { loadComponent, loadBuild } = host().internals;
+				const load = loadComponent ? loadComponent(ref) : loadBuild(ref.build);
+				return load.then((loaded) => ({ ctx, ref, loaded }));
 			})
 			.then(({ ctx, ref, loaded }) => {
 				if (!alive) return;

@@ -1,9 +1,9 @@
 import React, { memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, useRouterState } from '@tanstack/react-router';
-import { LayoutContext, PortalContext, WidgetInstanceContext, useInstanceInit, useLayout, useWidgetInstance } from './contexts';
-import { loadBuild, peekBuild } from './loader';
-import { ensureStyle, styleTarget } from './styles';
+import { BlockContext, LayoutContext, PortalContext, WidgetInstanceContext, useBlockContext, useInstanceInit, useLayout, useWidgetInstance } from './contexts';
+import { loadComponent, peekComponent } from './loader';
+import { acquireStyle, ensureStyle, styleTarget } from './styles';
 import { executeInstance } from './api';
 import { useInstanceRecord } from './instance-init';
 import { useDiagCounter } from './diag-hooks';
@@ -55,22 +55,25 @@ export function WidgetPlaceholder({ label, error, onRetry }) {
 /** Loads a component's build. { status: 'loading'|'ready'|'error'|'empty', Component, cssText, error } */
 export function useComponentModule(componentRef) {
 	const build = componentRef && componentRef.build;
-	const key = build ? `${build.id}|${build.js}|${build.css}` : '';
-	const [state, setState] = useState(() => initialState(build));
+	const imports = componentRef && Array.isArray(componentRef.imports) ? componentRef.imports : null;
+	const key = build ? `${build.id}|${build.js}|${build.css}|${imports ? imports.map((i) => (i.build ? i.build.id : '-')).join(',') : ''}` : '';
+	const refNow = useRef(componentRef);
+	refNow.current = componentRef;
+	const [state, setState] = useState(() => initialState(componentRef));
 
 	useEffect(() => {
 		if (!build || !build.js) {
 			setState((prev) => (prev.status === 'empty' ? prev : { status: 'empty' }));
 			return undefined;
 		}
-		const cached = peekBuild(build);
+		const cached = peekComponent(refNow.current);
 		if (cached) {
 			setState((prev) => (prev.status === 'ready' && prev.Component === cached.Component ? prev : { status: 'ready', ...cached }));
 			return undefined;
 		}
 		let alive = true;
 		setState({ status: 'loading' });
-		loadBuild(build).then(
+		loadComponent(refNow.current).then(
 			(loaded) => alive && setState({ status: 'ready', ...loaded }),
 			(error) => alive && setState({ status: 'error', error })
 		);
@@ -83,16 +86,17 @@ export function useComponentModule(componentRef) {
 	return state;
 }
 
-function initialState(build) {
+function initialState(componentRef) {
+	const build = componentRef && componentRef.build;
 	if (!build || !build.js) return { status: 'empty' };
-	const cached = peekBuild(build);
+	const cached = peekComponent(componentRef);
 	return cached ? { status: 'ready', ...cached } : { status: 'loading' };
 }
 
 /** Prefetch builds (JS + CSS) so a page renders complete; failures surface later in the slot. */
 export function prefetchBuilds(componentRefs) {
 	return Promise.all(
-		(componentRefs || []).filter((c) => c && c.build && c.build.js).map((c) => loadBuild(c.build).catch(() => null))
+		(componentRefs || []).filter((c) => c && c.build && c.build.js).map((c) => loadComponent(c).catch(() => null))
 	);
 }
 
@@ -120,37 +124,81 @@ function useCountedComponent(Component, name) {
  * wraps it in an error boundary. The wrapper carries data-rp-widget for CSS scoping.
  * Memoized: a slot only re-renders when its placement object changes.
  */
-export const WidgetSlot = memo(function WidgetSlot({ placement, scope }) {
+export const WidgetSlot = memo(function WidgetSlot({ placement, scope, parentId, zone }) {
 	const component = placement.component || {};
 	const label = component.uniqueId || component.id || placement.id;
 	return (
 		<WidgetErrorBoundary key={component.build ? component.build.id : 'none'} label={label}>
-			<WidgetSlotInner placement={placement} component={component} scope={scope} label={label} />
+			<WidgetSlotInner placement={placement} component={component} scope={scope} label={label} parentId={parentId || ''} zone={zone || ''} />
 		</WidgetErrorBoundary>
 	);
 });
 
-function WidgetSlotInner({ placement, component, scope, label }) {
+/**
+ * Wrappers are subgrid-safe:
+ * - a widget's wrapper is a real element carrying data-rp-placement + the instance's classes, so
+ *   it is the grid/flex item its parent block lays out (instance CSS targets it);
+ * - a block has no wrapper at all: the block's own root element carries data-rp-placement via
+ *   useBlock().rootProps, so a nested Grid is a direct grid child of its parent grid;
+ * - a layout's wrapper is display: contents.
+ */
+function WidgetSlotInner({ placement, component, scope, label, parentId, zone }) {
 	const isLayout = component.kind === 'layout';
+	const isBlock = component.kind === 'block';
 	useDiagCounter(isLayout ? 'layout' : `slot:${placement.id}`, { placement, scope });
 	const ref = useRef(null);
+	const portal = useContext(PortalContext);
 	const loaded = useComponentModule(component);
 	const buildId = component.build ? component.build.id : '';
+	// Where styles go: the wrapper's shadow root, or (blocks have no wrapper) the portal's.
+	const targetOf = () => (ref.current ? styleTarget(ref.current) : portal && portal.shadowRoot ? portal.shadowRoot : null);
 
 	useLayoutEffect(() => {
-		if (loaded.status === 'ready' && loaded.cssText) ensureStyle(styleTarget(ref.current), `widget:${buildId}`, loaded.cssText, 'widget');
+		if (loaded.status === 'ready' && loaded.cssText) ensureStyle(targetOf(), `widget:${buildId}`, loaded.cssText, 'widget');
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [loaded.status, loaded.cssText, buildId]);
 
+	// Instance CSS (classes, style tokens, grid layout, responsive option variables): once per
+	// placement, updated when it changes, removed when the placement is gone.
+	const instanceCss = placement.css || '';
+	useLayoutEffect(() => {
+		if (!instanceCss || isLayout) return undefined;
+		return acquireStyle(targetOf(), `placement:${placement.id}`, instanceCss, 'instance');
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [instanceCss, placement.id, isLayout]);
+
 	const initStore = useInstanceInit();
-	const record = useInstanceRecord(isLayout ? null : initStore, placement.id);
+	const record = useInstanceRecord(isLayout || isBlock ? null : initStore, placement.id);
 	const options = (record.entry && record.entry.options) || placement.options || EMPTY_OPTIONS;
 	const instance = useMemo(() => ({ placement, component, options, scope }), [placement, component, options, scope]);
 	const Rendered = useCountedComponent(loaded.Component, isLayout ? 'layout:component' : `widget:${placement.id}`);
+	const classes = placement.classes || '';
+
+	// Markers the page designer measures; the block root gets them through rootProps.
+	const markers = {
+		'data-rp-widget': buildId,
+		'data-rp-placement': placement.id,
+		'data-rp-component': component.uniqueId || '',
+		'data-rp-scope': scope || '',
+		'data-rp-parent': parentId || undefined,
+		'data-rp-zone': zone || undefined,
+		'data-rp-kind': component.kind || undefined
+	};
+	const block = useMemo(() => {
+		if (!isBlock) return null;
+		const rootProps = { ...markers, className: classes || undefined };
+		return {
+			placement,
+			scope,
+			api: { placementId: placement.id, options, regions: placement.regions || EMPTY_LIST, rootProps }
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isBlock, placement, scope, options, classes, buildId, parentId, zone]);
 
 	let body;
 	if (loaded.status === 'ready') {
 		// Runtime contract: widgets get { instanceId, options, region }; layouts get { regions }
-		// (the region definitions) and render <Region name=… /> for each.
+		// (the region definitions) and render <Region name=… /> for each; blocks read useBlock().
 		body = isLayout ? (
 			<Rendered regions={component.regions || EMPTY_LIST} />
 		) : (
@@ -164,18 +212,41 @@ function WidgetSlotInner({ placement, component, scope, label }) {
 		body = <div className="bg-muted/60 h-16 animate-pulse rounded-lg" data-rp-loading="" />;
 	}
 
+	if (isBlock) {
+		// No wrapper. Until the block renders its own root (loading / failed), stand in with one.
+		const content = <WidgetInstanceContext.Provider value={instance}>{body}</WidgetInstanceContext.Provider>;
+		return (
+			<BlockContext.Provider value={block}>
+				{loaded.status === 'ready' ? content : <div {...block.api.rootProps}>{content}</div>}
+			</BlockContext.Provider>
+		);
+	}
+
 	return (
-		<div
-			ref={ref}
-			data-rp-widget={buildId}
-			data-rp-placement={placement.id}
-			data-rp-component={component.uniqueId || ''}
-			data-rp-scope={scope || ''}
-			className={isLayout ? 'contents' : undefined}
-		>
-			<WidgetInstanceContext.Provider value={instance}>{body}</WidgetInstanceContext.Provider>
+		<div ref={ref} {...markers} className={isLayout ? 'contents' : classes || undefined}>
+			<BlockContext.Provider value={null}>
+				<WidgetInstanceContext.Provider value={instance}>{body}</WidgetInstanceContext.Provider>
+			</BlockContext.Provider>
 		</div>
 	);
+}
+
+/**
+ * useBlock() (blocks only) → { placementId, options, regions, rootProps }. Spread rootProps on the
+ * block's root element (merging className): it carries data-rp-placement (the instance CSS
+ * target) and the instance's classes. `regions` are the instance's resolved drop zones.
+ */
+export function useBlock() {
+	const block = useContext(BlockContext);
+	const instance = useWidgetInstance();
+	if (block) return block.api;
+	const placement = (instance && instance.placement) || {};
+	return {
+		placementId: placement.id || '',
+		options: (instance && instance.options) || EMPTY_OPTIONS,
+		regions: placement.regions || EMPTY_LIST,
+		rootProps: placement.id ? { 'data-rp-placement': placement.id, className: placement.classes || undefined } : {}
+	};
 }
 
 const EMPTY_OPTIONS = Object.freeze({});
@@ -234,9 +305,10 @@ function PageRegion({ name }) {
  * an outlet that RegionPortal contributions render into. Memoized: navigation never
  * re-renders a Region itself.
  */
-export const Region = memo(function Region({ name, className, as: Tag = 'div' }) {
+export const Region = memo(function Region({ name, className, contents, as: Tag = 'div' }) {
 	const layout = useLayout();
-	useDiagCounter(`region:${name}`, { name, className, layout });
+	const block = useBlockContext();
+	useDiagCounter(block ? `zone:${block.placement.id}:${name}` : `region:${name}`, { name, className, layout, block });
 	const outlets = layout ? layout.outlets : null;
 	const outletRef = useCallback(
 		(el) => {
@@ -244,11 +316,13 @@ export const Region = memo(function Region({ name, className, as: Tag = 'div' })
 		},
 		[outlets, name]
 	);
+	// Inside a block: that instance's children in this drop zone.
+	if (block) return <BlockZone block={block} name={name} className={className} contents={contents} Tag={Tag} />;
 	if (!layout) return null;
 	const placements = layout.regions[name] || EMPTY_LIST;
 	const isMain = name === layout.mainRegion;
 	return (
-		<Tag className={className} data-rp-region={name}>
+		<Tag className={className} style={contents ? CONTENTS_STYLE : undefined} data-rp-region={name}>
 			{placements.map((p) => (
 				<WidgetSlot key={`portal:${p.id}`} placement={p} scope="portal" />
 			))}
@@ -257,6 +331,25 @@ export const Region = memo(function Region({ name, className, as: Tag = 'div' })
 		</Tag>
 	);
 });
+
+const CONTENTS_STYLE = Object.freeze({ display: 'contents' });
+
+/**
+ * A block's drop zone. With `contents`, the zone renders no element of its own, so its children
+ * are direct DOM children of the block's root: grid/flex items for the block's CSS (`.rp-grid > *`)
+ * and for subgrid. Otherwise it renders one element (className applied).
+ */
+function BlockZone({ block, name, className, contents, Tag }) {
+	const list = (block.placement.children && block.placement.children[name]) || EMPTY_LIST;
+	const parentId = block.placement.id;
+	const items = list.map((p) => <WidgetSlot key={`${block.scope}:${p.id}`} placement={p} scope={block.scope} parentId={parentId} zone={name} />);
+	if (contents) return <>{items}</>;
+	return (
+		<Tag className={className} data-rp-zone={name} data-rp-parent={parentId}>
+			{items}
+		</Tag>
+	);
+}
 
 /**
  * <RegionPortal region="header">…</RegionPortal>: lets a page or widget contribute into a layout

@@ -1,0 +1,14 @@
+{
+    "type": "object",
+    "properties": {
+        "template": {
+            "type": "string",
+            "title": "Pane sizes",
+            "description": "grid-template-columns for the two panes",
+            "x-css-var": "--rp-split",
+            "x-presets": ["minmax(0, 1fr) minmax(0, 1fr)", "18rem minmax(0, 1fr)", "minmax(0, 1fr) 20rem", "minmax(0, 2fr) minmax(0, 1fr)"]
+        },
+        "gap": { "type": "string", "title": "Gap", "x-css-var": "--rp-split-gap" },
+        "divider": { "type": "boolean", "title": "Divider between panes" }
+    }
+}

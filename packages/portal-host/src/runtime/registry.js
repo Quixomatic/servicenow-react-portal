@@ -20,9 +20,10 @@ import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
 import { createStore } from './store';
-import { loadBuild } from './loader';
+import { loadBuild, loadComponent, peekComponent } from './loader';
 import { ensureStyle } from './styles';
 import { themeStore } from './theme-mode';
+import * as ReactQuery from '@tanstack/react-query';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './query-client';
 import { PortalPreview, invalidatePortal } from '#/portal/portal-preview';
@@ -41,7 +42,10 @@ const modules = {
 	'components:dropdown-menu': DropdownMenu,
 	'components:popover': Popover,
 	'components:separator': Separator,
-	'utilities:cn': cnModule
+	'utilities:cn': cnModule,
+	// TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
+	// build data hooks on it: import { useQuery } from 'utilities:react-query'.
+	'utilities:react-query': ReactQuery
 };
 
 const registry = (globalThis.__REACT_PORTAL__ = globalThis.__REACT_PORTAL__ || { modules: {} });
@@ -59,6 +63,9 @@ registry.internals = {
 	WidgetErrorBoundary,
 	createStore,
 	loadBuild,
+	// Loads a ComponentRef with its record imports (registered under their specifiers first).
+	loadComponent,
+	peekComponent,
 	ensureStyle,
 	// Light/dark/system preference: one store for the page, shared with Studio's React copy.
 	themeStore,

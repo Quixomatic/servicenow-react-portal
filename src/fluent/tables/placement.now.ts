@@ -8,6 +8,7 @@ import {
     ReferenceColumn,
     JsonColumn,
     IntegerColumn,
+    MultiLineTextColumn,
 } from '@servicenow/sdk/core'
 
 /**
@@ -37,7 +38,7 @@ export const x_312987_portal_placement = Table({
         component: ReferenceColumn({
             label: 'Component',
             referenceTable: 'x_312987_portal_component',
-            referenceQual: 'kind=widget^placeable=true',
+            referenceQual: 'kind=widget^placeable=true^NQkind=block',
             mandatory: true,
             cascadeRule: 'restrict',
         }),
@@ -47,6 +48,9 @@ export const x_312987_portal_placement = Table({
         options_json: JsonColumn({ label: 'Options', maxLength: 65000 }),
         style_tokens_json: JsonColumn({ label: 'Style tokens', maxLength: 8000 }),
         visibility_config_json: JsonColumn({ label: 'Visibility', maxLength: 8000 }),
+        layout_json: JsonColumn({ label: 'Grid layout', maxLength: 4000, hint: 'Position in the parent block grid: colSpan, rowSpan, colStart, order, alignSelf; tablet/mobile overrides' }),
+        classes: StringColumn({ label: 'Classes', maxLength: 1000, hint: 'Tailwind classes for this instance (compiled into Instance CSS)' }),
+        instance_css: MultiLineTextColumn({ label: 'Instance CSS', maxLength: 200000, readOnly: true, hint: 'Compiled from classes, style tokens, grid layout and responsive options' }),
     },
     index: [{ name: 'rp_placement_owner_region', element: ['owner_key', 'region', 'order'], unique: false }],
 })
@@ -78,7 +82,10 @@ Form({
                     elements: [
                         { field: 'options_json', type: 'table_field' },
                         { field: 'style_tokens_json', type: 'table_field' },
+                        { field: 'layout_json', type: 'table_field' },
+                        { field: 'classes', type: 'table_field' },
                         { field: 'visibility_config_json', type: 'table_field' },
+                        { field: 'instance_css', type: 'table_field' },
                     ],
                 },
             ],

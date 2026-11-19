@@ -13,10 +13,13 @@ widgets depend on all of them.
 
 | Export | Signature |
 | --- | --- |
-| `Region` | `<Region name="main" />`: renders a layout region (layouts only) |
+| `Region` | `<Region name="main" className? contents? />`: in a layout, renders that layout region; inside a block, renders the block instance's children in that drop zone (`contents`: no element of its own, so children are direct grid/flex items of the block root) |
+| `useBlock` | `() => { placementId, options, regions: RegionDef[], rootProps }` (blocks only): spread `rootProps` (`data-rp-placement`, `className` = the instance's classes) on the block's root element, merging your own `className`; `regions` are the instance's resolved drop zones |
 | `RegionPortal` | `<RegionPortal region="header">…</RegionPortal>`: contribute into a layout region |
 | `Link` | `<Link to="orders/42" recordId? q? className?>…</Link>`: portal-relative link (`''` = home) |
 | `useNavigate` | `() => (to, { recordId?, q?, portalSlug? }?) => void` |
+
+Blocks (`kind = 'block'`) are page-structure components (section, grid, columns, …). Each instance gets compiled instance CSS (style tokens, grid layout, `x-css-var` options, tablet/mobile via `@container rp-page`), injected once per placement; the page frame is the `rp-page` size container.
 
 ### Portal, page and component
 

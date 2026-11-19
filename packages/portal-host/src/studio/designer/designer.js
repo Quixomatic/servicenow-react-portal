@@ -21,6 +21,7 @@ import {
 	Eye,
 	FilePlus,
 	Globe,
+	LayoutGrid,
 	Home,
 	Laptop,
 	Loader2,
@@ -34,22 +35,23 @@ import {
 	Trash2,
 	Undo2
 } from 'lucide-react';
-import { Canvas, computeDropTarget } from './canvas';
+import { Canvas, computeDropTarget, deepestUnderPointer } from './canvas';
 import { OptionsForm, JsonEditor } from './options-form';
-import { findPlacement } from './designer-store';
+import { StyleSection, LayoutSection, ClassesField, DeviceSwitch } from './style-sections';
+import { findPlacement, siblingsOf } from './designer-store';
 import { ask } from '../dialogs';
 
 export function useDesigner(designer) {
 	return useSyncExternalStore(designer.subscribe, designer.get, designer.get);
 }
 
-/** Prefer the portal-wide strip when the pointer is inside it; keyboard drags fall back to rects. */
+/**
+ * The smallest droppable under the pointer wins: block zones nest inside blocks inside regions,
+ * and the thin portal-wide strip sits on a region's top edge. Keyboard drags fall back to rects.
+ */
 function collision(args) {
 	const hits = pointerWithin(args);
-	if (hits.length) {
-		const strip = hits.find((c) => String(c.id).indexOf('drop|portal|') === 0);
-		return [strip || hits[0]];
-	}
+	if (hits.length) return deepestUnderPointer(hits, args.droppableRects);
 	return rectIntersection(args);
 }
 
@@ -74,8 +76,9 @@ export default function Designer({ designer, studio, root }) {
 		setDrag(null);
 		setDropTarget(null);
 		if (!t) return;
-		if (d.type === 'new') designer.addPlacement(d.component, t.region, t.scope, t.index);
-		else if (d.type === 'placement') designer.movePlacement(d.id, t.region, t.scope, t.index);
+		const target = { region: t.region, scope: t.scope, parentId: t.parentId, index: t.index };
+		if (d.type === 'new') designer.addPlacement(d.component, target, undefined, undefined, d.options);
+		else if (d.type === 'placement') designer.movePlacement(d.id, target);
 	};
 	const onDragCancel = () => {
 		setDrag(null);
@@ -293,17 +296,7 @@ function Outline({ designer, state }) {
 							</span>
 						</div>
 						{portal.concat(own).map((p) => (
-							<div
-								key={p.id}
-								className={'rps-row' + (state.selection === p.id ? ' selected focused' : '')}
-								style={{ paddingLeft: 26, opacity: p.active === false ? 0.55 : 1 }}
-								onClick={() => designer.select(p.id)}
-								data-rpd-outline={p.id}
-							>
-								{p.scope === 'portal' ? <Globe size={12} color="var(--rps-accent)" /> : <span style={{ width: 12 }} />}
-								<span className="label">{p.component.name}</span>
-								{p.active === false ? <span className="desc">inactive</span> : null}
-							</div>
+							<OutlineItem key={p.id} p={p} depth={0} designer={designer} state={state} />
 						))}
 						{!portal.length && !own.length ? <div className="rps-empty" style={{ paddingLeft: 26, paddingTop: 0 }}>empty</div> : null}
 					</div>
@@ -313,23 +306,72 @@ function Outline({ designer, state }) {
 	);
 }
 
+/** One placement in the outline; a block lists its zones and their items beneath it. */
+function OutlineItem({ p, depth, designer, state }) {
+	const pad = 26 + depth * 14;
+	const isBlock = p.component.kind === 'block';
+	return (
+		<>
+			<div
+				className={'rps-row' + (state.selection === p.id ? ' selected focused' : '')}
+				style={{ paddingLeft: pad, opacity: p.active === false ? 0.55 : 1 }}
+				onClick={() => designer.select(p.id)}
+				data-rpd-outline={p.id}
+			>
+				{p.scope === 'portal' && !p.parentId ? <Globe size={12} color="var(--rps-accent)" /> : isBlock ? <LayoutGrid size={12} /> : <span style={{ width: 12 }} />}
+				<span className="label">{p.component.name}</span>
+				{p.active === false ? <span className="desc">inactive</span> : null}
+			</div>
+			{isBlock
+				? (p.regions || []).map((z) => {
+						const kids = (p.children && p.children[z.name]) || [];
+						return (
+							<div key={z.name}>
+								<div className="rps-row" style={{ paddingLeft: pad + 14, cursor: 'default', height: 18 }} data-rpd-outline-zone={`${p.id}|${z.name}`}>
+									<span className="label" style={{ color: 'var(--rps-muted)', fontSize: 11 }}>
+										{z.label || z.name}
+									</span>
+									{!kids.length ? <span className="desc">empty</span> : null}
+								</div>
+								{kids.map((c) => (
+									<OutlineItem key={c.id} p={c} depth={depth + 2} designer={designer} state={state} />
+								))}
+							</div>
+						);
+					})
+				: null}
+		</>
+	);
+}
+
 // ---- right: palette -------------------------------------------------------------------------
 
 function Palette({ designer, state }) {
 	const [query, setQuery] = useState('');
 	const palette = (state.design && state.design.palette) || [];
+	const blocks = (state.design && state.design.blocks) || [];
 	const q = query.trim().toLowerCase();
-	const list = palette.filter((c) => !q || (c.name || '').toLowerCase().includes(q) || (c.uniqueId || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q));
-	const mainRegion = state.page && state.page.layout && (state.page.layout.regions || []).some((r) => r.name === 'main') ? 'main' : state.page && state.page.layout && state.page.layout.regions && state.page.layout.regions[0] && state.page.layout.regions[0].name;
+	const match = (c) => !q || (c.name || '').toLowerCase().includes(q) || (c.uniqueId || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+	const list = palette.filter(match);
+	const blockList = blocks.filter(match);
+	const regions = (state.page && state.page.layout && state.page.layout.regions) || [];
+	const mainRegion = regions.some((r) => r.name === 'main') ? 'main' : regions[0] && regions[0].name;
+	const add = (c, options) => (state.page && mainRegion ? () => designer.addPlacement(c, mainRegion, 'page', undefined, options) : null);
 	return (
 		<div className="rps-sidebar" data-rpd-palette="">
-			<div className="rps-sidebar-title">Widgets</div>
+			<div className="rps-sidebar-title">Add</div>
 			<div className="rpd-pad">
-				<input placeholder="Search widgets" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: '100%' }} data-rpd-palette-search="" />
+				<input placeholder="Search widgets and blocks" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: '100%' }} data-rpd-palette-search="" />
 			</div>
 			<div className="rps-tree">
+				<div className="rps-group-label">Blocks</div>
+				{blockList.map((c) => (
+					<BlockPaletteItem key={c.id} component={c} add={add} />
+				))}
+				{!blockList.length ? <div className="rps-empty">{blocks.length ? 'No match' : 'No blocks'}</div> : null}
+				<div className="rps-group-label">Widgets</div>
 				{list.map((c) => (
-					<PaletteItem key={c.id} component={c} onAdd={state.page && mainRegion ? () => designer.addPlacement(c, mainRegion, 'page', undefined) : null} />
+					<PaletteItem key={c.id} component={c} onAdd={add(c)} />
 				))}
 				{!list.length ? <div className="rps-empty">{palette.length ? 'No match' : 'No placeable widgets'}</div> : null}
 			</div>
@@ -337,12 +379,54 @@ function Palette({ designer, state }) {
 	);
 }
 
-function PaletteItem({ component, onAdd }) {
+/** The presets a block's schema declares (x-presets), as { label, options }. */
+function presetsOf(component) {
+	const props = (component.optionsSchema && component.optionsSchema.properties) || {};
+	const out = [];
+	Object.keys(props).forEach((key) => {
+		(props[key]['x-presets'] || []).forEach((preset) => {
+			const isObj = preset && typeof preset === 'object' && !Array.isArray(preset) && 'value' in preset;
+			out.push({ key, label: isObj ? preset.label || String(preset.value) : String(preset), options: { [key]: isObj ? preset.value : preset } });
+		});
+	});
+	return out;
+}
+
+function BlockPaletteItem({ component, add }) {
+	const presets = presetsOf(component);
+	return (
+		<div data-rpd-block-item={component.uniqueId}>
+			<PaletteItem component={component} onAdd={add(component)} icon={<LayoutGrid size={13} />} />
+			{presets.length ? (
+				<div className="rpd-presets" data-rpd-presets={component.uniqueId}>
+					{presets.map((p) => (
+						<PresetChip key={p.key + p.label} component={component} preset={p} />
+					))}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function PresetChip({ component, preset }) {
+	const { attributes, listeners, setNodeRef } = useDraggable({
+		id: `new|${component.id}|${preset.key}|${preset.label}`,
+		data: { type: 'new', component, options: preset.options, name: `${component.name} ${preset.label}` }
+	});
+	return (
+		<button ref={setNodeRef} className="rpd-preset" title={`Drag a ${component.name} (${preset.label}) onto the page`} {...listeners} {...attributes} data-rpd-preset={preset.label}>
+			{preset.label}
+		</button>
+	);
+}
+
+function PaletteItem({ component, onAdd, icon }) {
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `new|${component.id}`, data: { type: 'new', component, name: component.name } });
 	return (
 		<div className={'rps-row rpd-palette-item' + (isDragging ? ' selected' : '')} style={{ paddingLeft: 10, height: 'auto', minHeight: 34, alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }} data-rpd-palette-item={component.uniqueId}>
-			<div ref={setNodeRef} {...listeners} {...attributes} className="rpd-palette-drag" title="Drag onto a region (or focus and press Space)">
-				<span className="label" style={{ fontWeight: 600 }}>
+			<div ref={setNodeRef} {...listeners} {...attributes} className="rpd-palette-drag" title="Drag onto a region or zone (or focus and press Space)">
+				<span className="label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+					{icon}
 					{component.name}
 				</span>
 				<span className="desc" style={{ whiteSpace: 'normal' }}>
@@ -376,18 +460,70 @@ function Inspector({ designer, studio, state }) {
 }
 
 function PlacementProperties({ designer, studio, state, found }) {
-	const { placement, scope } = found;
+	const { placement, scope, parent } = found;
+	const [device, setDevice] = useState('base');
 	const entry = designer.paletteEntry(placement.component.id);
-	const regions = ((state.page && state.page.layout && state.page.layout.regions) || []).map((r) => r.name);
-	const list = ((scope === 'portal' ? state.page.portalPlacements : state.page.placements) || {})[placement.region] || [];
+	const isBlock = placement.component.kind === 'block';
+	const zones = parent ? parent.regions || [] : null;
+	const regionChoices = zones ? zones.map((z) => ({ name: z.name, label: z.label || z.name })) : ((state.page && state.page.layout && state.page.layout.regions) || []).map((r) => ({ name: r.name, label: r.name }));
+	const list = siblingsOf(state, found);
 	const index = list.findIndex((p) => p.id === placement.id);
 	const busy = !!state.busy;
+	const childCount = Object.keys(placement.children || {}).reduce((n, z) => n + (placement.children[z] || []).length, 0);
+	const target = (over) => ({ region: placement.region, scope, parentId: parent ? parent.id : null, ...over });
+
+	// Options for the chosen device: base keys, or the tablet / mobile sub-object.
+	const own = placement.options || {};
+	const optValue = device === 'base' ? own : own[device] || {};
+	const optDefaults = device === 'base' ? placement.effectiveOptions || (entry && entry.defaultOptions) || {} : { ...(placement.effectiveOptions || {}), ...((placement.effectiveOptions || {})[device] || {}) };
+	const applyOptions = (next) => {
+		if (device === 'base') {
+			const keep = {};
+			['tablet', 'mobile'].forEach((d) => own[d] && (keep[d] = own[d]));
+			return designer.setOptions(placement.id, { ...(next || {}), ...keep });
+		}
+		const merged = { ...own };
+		if (next && Object.keys(next).length) merged[device] = next;
+		else delete merged[device];
+		return designer.setOptions(placement.id, merged);
+	};
+
+	const remove = async () => {
+		if (childCount) {
+			const choice = await ask(studio, {
+				type: 'confirm',
+				title: `Delete ${placement.component.name}`,
+				message: `This ${placement.component.name} contains ${childCount} item(s). Move them out to where the block is (undoable), or delete everything (can't be undone)?`,
+				buttons: [
+					{ label: 'Move contents out', value: 'lift', primary: true },
+					{ label: 'Delete everything', value: 'cascade' },
+					{ label: 'Cancel', value: null }
+				]
+			});
+			if (choice) designer.deletePlacement(placement.id, choice);
+			return;
+		}
+		const ok = await ask(studio, {
+			type: 'confirm',
+			title: 'Remove',
+			message: `Remove ${placement.component.name} from ${placement.region}? (Ctrl+Z undoes it)`,
+			buttons: [
+				{ label: 'Remove', value: true, primary: true },
+				{ label: 'Cancel', value: null }
+			]
+		});
+		if (ok) designer.deletePlacement(placement.id);
+	};
+
 	return (
 		<div className="rpd-form" data-rpd-placement-props={placement.id}>
 			<div>
-				<div style={{ fontWeight: 600 }}>{placement.component.name}</div>
+				<div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+					{isBlock ? <LayoutGrid size={13} /> : null}
+					{placement.component.name}
+				</div>
 				<div className="rpd-hint">
-					{placement.component.uniqueId} · {scope === 'portal' ? 'portal-wide' : 'this page'} · {placement.region}
+					{placement.component.uniqueId} · {scope === 'portal' ? 'portal-wide' : 'this page'} · {parent ? `${parent.component.name} › ${placement.region}` : placement.region}
 				</div>
 			</div>
 			<label className="rpd-field rpd-check">
@@ -395,58 +531,69 @@ function PlacementProperties({ designer, studio, state, found }) {
 				<span className="rpd-label">Active</span>
 			</label>
 			<label className="rpd-field">
-				<span className="rpd-label">Region</span>
-				<select value={placement.region} onChange={(e) => designer.movePlacement(placement.id, e.target.value, scope, undefined)} disabled={busy} data-rpd-region-select="">
-					{regions.map((r) => (
-						<option key={r} value={r}>
-							{r}
+				<span className="rpd-label">{parent ? 'Zone' : 'Region'}</span>
+				<select value={placement.region} onChange={(e) => designer.movePlacement(placement.id, target({ region: e.target.value, index: undefined }))} disabled={busy} data-rpd-region-select="">
+					{regionChoices.map((r) => (
+						<option key={r.name} value={r.name}>
+							{r.label}
 						</option>
 					))}
 				</select>
 			</label>
 			<div className="rpd-buttons">
-				<button className="rps-tbtn" disabled={busy || index <= 0} onClick={() => designer.movePlacement(placement.id, placement.region, scope, index - 1)} title="Move up">
+				<button className="rps-tbtn" disabled={busy || index <= 0} onClick={() => designer.movePlacement(placement.id, target({ index: index - 1 }))} title="Move up">
 					<ArrowUp size={13} /> Up
 				</button>
-				<button className="rps-tbtn" disabled={busy || index === -1 || index >= list.length - 1} onClick={() => designer.movePlacement(placement.id, placement.region, scope, index + 1)} title="Move down">
+				<button className="rps-tbtn" disabled={busy || index === -1 || index >= list.length - 1} onClick={() => designer.movePlacement(placement.id, target({ index: index + 1 }))} title="Move down">
 					<ArrowDown size={13} /> Down
 				</button>
-				<button className="rps-tbtn" disabled={busy} onClick={() => designer.movePlacement(placement.id, placement.region, scope === 'portal' ? 'page' : 'portal', undefined)} data-rpd-scope-toggle="">
-					<Globe size={13} /> {scope === 'portal' ? 'Move to this page' : 'Make portal-wide'}
-				</button>
-				<button
-					className="rps-tbtn"
-					disabled={busy}
-					onClick={async () => {
-						const ok = await ask(studio, {
-							type: 'confirm',
-							title: 'Remove widget',
-							message: `Remove ${placement.component.name} from ${placement.region}? (Ctrl+Z undoes it)`,
-							buttons: [
-								{ label: 'Remove', value: true, primary: true },
-								{ label: 'Cancel', value: null }
-							]
-						});
-						if (ok) designer.deletePlacement(placement.id);
-					}}
-					data-rpd-delete=""
-				>
-					<Trash2 size={13} /> Remove
+				{parent ? (
+					<button className="rps-tbtn" disabled={busy} onClick={() => designer.movePlacement(placement.id, outOf(state, parent, scope))} data-rpd-move-out="">
+						Move out of {parent.component.name}
+					</button>
+				) : (
+					<button className="rps-tbtn" disabled={busy} onClick={() => designer.movePlacement(placement.id, { region: placement.region, scope: scope === 'portal' ? 'page' : 'portal', parentId: null, index: undefined })} data-rpd-scope-toggle="">
+						<Globe size={13} /> {scope === 'portal' ? 'Move to this page' : 'Make portal-wide'}
+					</button>
+				)}
+				<button className="rps-tbtn" disabled={busy} onClick={remove} data-rpd-delete="">
+					<Trash2 size={13} /> {childCount ? 'Delete…' : 'Remove'}
 				</button>
 			</div>
-			<div className="rpd-label" style={{ marginTop: 6 }}>
-				Options
-			</div>
+
+			<DeviceSwitch value={device} onChange={setDevice} />
+
+			<div className="rpd-section-title">Options{device !== 'base' ? ` · ${device}` : ''}</div>
 			<OptionsForm
-				key={placement.id + ':' + JSON.stringify(placement.options)}
+				key={placement.id + ':' + device + ':' + JSON.stringify(optValue)}
 				schema={entry ? entry.optionsSchema : null}
-				value={placement.options || {}}
-				defaults={placement.effectiveOptions || (entry && entry.defaultOptions) || {}}
-				onApply={(next) => designer.setOptions(placement.id, next || {})}
+				value={optValue}
+				defaults={optDefaults}
+				onApply={applyOptions}
 				disabled={busy}
+				presets
 			/>
+
+			<StyleSection key={'s' + placement.id + device} placement={placement} device={device} disabled={busy} onApply={(styleTokens) => designer.setStyle(placement.id, { styleTokens }, 'Styled')} />
+			<LayoutSection
+				key={'l' + placement.id + device}
+				placement={placement}
+				device={device}
+				inBlock={!!parent}
+				disabled={busy}
+				onApply={(layout) => designer.setStyle(placement.id, { layout }, 'Updated grid layout of')}
+			/>
+			<ClassesField key={'c' + placement.id} placement={placement} disabled={busy} onApply={(classes) => designer.setStyle(placement.id, { classes }, 'Updated classes of')} />
 		</div>
 	);
+}
+
+/** One level up: into the block's own container (its zone, or its layout region), right after it. */
+function outOf(state, block, scope) {
+	const found = findPlacement(state, block.id);
+	const siblings = found ? siblingsOf(state, found) : [];
+	const at = siblings.findIndex((p) => p.id === block.id);
+	return { region: block.region, scope, parentId: found && found.parent ? found.parent.id : null, index: at === -1 ? undefined : at + 1 };
 }
 
 function PageSettings({ designer, studio, state }) {

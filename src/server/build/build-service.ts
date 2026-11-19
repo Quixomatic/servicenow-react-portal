@@ -6,9 +6,9 @@ import { isValidAssetPath, mimeFor } from '../lib/paths.ts'
 import { requireStudio } from '../security/access.ts'
 import { Owner, ownerRecordOf, ownerOfRecord, loadOwner } from '../source/owner.ts'
 import { compilerInputs } from '../source/project-files.ts'
-import { compileComponent, COMPILER_VERSION } from '../compiler/compiler.ts'
+import { compileComponent, COMPILER_VERSION, ENTRY, CompileResult } from '../compiler/compiler.ts'
 import { replaceDependencies, flagDependents } from './dependency-service.ts'
-import { componentRef, themeRef, buildRef, buildOf } from '../registry/registry.ts'
+import { componentRef, themeRef, buildRef, buildOf, findComponentByUniqueId, isUsableBuild } from '../registry/registry.ts'
 import { reprocessForOwner } from '../release/release-service.ts'
 import type { BuildSummary, CompleteBuildRequest, BuildState, BuildAssetDto } from '../../shared/contracts'
 
@@ -232,6 +232,45 @@ export function applyCompileResult(owner: Owner, build: GR, req: CompleteBuildRe
  * Promise settles before the calling script (business rule, REST handler, background
  * script) finishes.
  */
+/** Which component kinds each record-import prefix may reach. */
+const IMPORTABLE: Record<string, string[]> = { components: ['primitive', 'widget', 'block'], utilities: ['utility'] }
+
+/**
+ * Resolve a compile's record imports (components:<ns>/<key>, utilities:<ns>/<key>) to the imported
+ * components' builds. Problems become compile errors. Returns specifier → target build id.
+ */
+function resolveRecordImports(owner: Owner, result: CompileResult): Record<string, string> {
+    const targets: Record<string, string> = {}
+    const fail = (message: string) => result.diagnostics.errors.push({ file: ENTRY, message })
+    for (const d of result.dependencies) {
+        if (d.kind !== 'component') continue
+        const prefix = d.specifier.split(':')[0]
+        const comp = findComponentByUniqueId(d.resolvedEntry || '')
+        if (!comp) {
+            fail(`Import "${d.specifier}": no component with unique id "${d.resolvedEntry}"`)
+            continue
+        }
+        if (comp.getUniqueValue() === owner.id) {
+            fail(`Import "${d.specifier}": a component can't import itself`)
+            continue
+        }
+        const kind = str(comp, 'kind') || 'widget'
+        const allowed = IMPORTABLE[prefix] || []
+        if (allowed.indexOf(kind) < 0) {
+            fail(`Import "${d.specifier}": it's a ${kind}; ${prefix}: imports reach ${allowed.join(' or ')} components`)
+            continue
+        }
+        const b = buildOf('component', comp.getUniqueValue())
+        if (!b || !isUsableBuild(b)) {
+            fail(`Import "${d.specifier}": ${d.resolvedEntry} hasn't compiled successfully yet`)
+            continue
+        }
+        targets[d.specifier] = b.getUniqueValue()
+    }
+    if (result.diagnostics.errors.length) result.ok = false
+    return targets
+}
+
 export function compileOwner(owner: Owner, force = false): Promise<BuildSummary> {
     const requested = requestCompile(owner)
     if (requested.upToDate && !force) return Promise.resolve(buildSummary(requested.gr, { upToDate: true }))
@@ -257,6 +296,7 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
         tailwind: bool(owner.gr, 'tailwind'),
         label,
     }).then((result) => {
+        const importTargets = result.ok ? resolveRecordImports(owner, result) : {}
         const assets: BuildAssetDto[] = []
         if (result.ok) {
             assets.push({ path: 'index.js', kind: 'js', content: result.js, mimeType: 'text/javascript' })
@@ -275,6 +315,7 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
                 kind: d.kind,
                 hostExport: d.hostExport,
                 resolvedEntry: d.resolvedEntry,
+                targetBuild: d.kind === 'component' ? importTargets[d.specifier] : undefined,
             })),
             diagnostics: { ...result.diagnostics, ms: result.ms },
         })

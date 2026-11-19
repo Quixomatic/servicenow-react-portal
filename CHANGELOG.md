@@ -2,6 +2,69 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.5.0] - 2026-11-19
+
+Blocks: page-structure components with drop zones (grids with subgrid, columns, sections and
+more), per-instance styling compiled on the server, and the groundwork for primitives: a new
+`primitive` kind and imports from one component record into another.
+
+### Added
+- **Blocks: a new component kind, `block`.** Page-structure building blocks placed on pages:
+  - Each block declares its drop zones as data in `regions_json`: static names, or templates driven by the
+    instance's options (`{ "repeat": "tracks", "name": "col-{n}" }`).
+  - Instances nest through `placement.parent`, with `region` naming the drop zone, up to 6 levels deep.
+  - Six seed blocks: `app/section`, `app/container`, `app/grid` (a real CSS grid; nested grids can use
+    subgrid), `app/columns` (presets ½+½, ⅓+⅔, ⅔+⅓, ⅓×3, ¼×4, sidebar + main), `app/stack`, `app/split`.
+  - New `sp` page `layouts` demonstrates them.
+- **Per-instance styling.** Placements gain `layout_json` (span, start, order and self-alignment in the parent
+  grid), `classes` (Tailwind) and a read-only `instance_css`. The server compiles instance CSS from:
+  - the classes, through the server-side Tailwind compiler;
+  - style tokens (padding, background, radius, shadow…, where theme colour names map to theme variables);
+  - the grid layout;
+  - block options annotated with `"x-css-var"` in the options schema.
+
+  Every group supports `tablet` / `mobile` overrides, emitted as container queries against the page frame
+  (`rp-page`), so the designer's device widths render exactly. The CSS recompiles from the designer, and from a
+  business rule (`RP: Compile placement instance CSS`) when a placement is edited directly on the instance.
+- **The page designer supports blocks:**
+  - a Blocks group in the palette, with presets;
+  - nested drop zones and an outline that shows the tree;
+  - moving blocks with their subtrees;
+  - Styling, Grid and Classes sections with base / tablet / mobile editing;
+  - deleting a non-empty block asks whether to move its contents out or delete everything.
+- **Runtime:** `useBlock()` returns `{ placementId, options, regions, rootProps }`, and `<Region>` inside a block
+  renders that instance's children. Region gains `className` and `contents` (display: contents, so children are
+  direct grid or flex items). Instance CSS is injected once per placement.
+- **The `primitive` component kind:** reusable building blocks (fields, lists, forms) that widgets import and
+  that are never placed on a page. Studio has a starter for new ones.
+- **Imports between component records:**
+  - `components:<ns>/<key>` reaches a primitive, widget or block; `utilities:<ns>/<key>` reaches a utility.
+  - The compiler records these as component dependencies and fails clearly if the target is missing, the wrong
+    kind, not compiled yet, or the component itself.
+  - Compiled modules export every named export (`__rpExports`).
+  - The manifest lists each component's transitive imports, dependencies first. The host loads and registers
+    them before evaluating the component. Studio preview uses the same path.
+  - Recompiling a primitive reprocesses every portal that uses it, directly or through imports.
+- **Navigator:** Blocks, Primitives and Utilities modules.
+
+### Fixed
+- **Navigator filters weren't applied.** The Widgets, Layouts and Properties modules used the "List Filter" link
+  type, which only pre-fills the condition builder. They're now filtered lists.
+- **Widgets nested in blocks got no on-load data.** Batch initialize now includes placements inside blocks.
+
+### Changed
+- **Manifest version 2:** top-level region maps hold top-level placements only, and blocks carry their resolved
+  drop zones and nested children. Placements carry `layout`, `classes` and `css`.
+- **Compiler version `rp-server-compiler/3`:** builds recompile on their next compile.
+- **Placement validation** accepts widgets and blocks, and checks a child's region against its parent block's
+  resolved drop zones.
+
+### Internal
+- Docs: `docs/primitives/catalog.json` and `catalog.md`, a catalog of 333 Next Experience components plus 32
+  catalog variable-type mappings with a primitives roadmap, committed separately.
+- New server modules: `registry/block-regions.ts`, `design/instance-style.ts`, `lib/css-safe.ts` and
+  `lib/session-flags.ts`. `lib/session-flags.ts` is lightweight, so business rules don't load the compiler.
+
 ## [1.4.0] - 2026-11-19
 
 A drag-and-drop page designer in Portal Studio: lay out pages on a live canvas that renders the

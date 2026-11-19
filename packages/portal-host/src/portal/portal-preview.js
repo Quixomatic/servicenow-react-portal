@@ -11,6 +11,10 @@ import { normalizeLocation } from '#/runtime/location';
 import { createStore } from '#/runtime/store';
 import { PortalBoot } from './portal-app';
 
+// The page frame is the `rp-page` size container: instance CSS (placement.css) answers its
+// tablet/mobile container queries, so in the designer the device-width frame renders exactly.
+const PAGE_CONTAINER = Object.freeze({ containerType: 'inline-size', containerName: 'rp-page' });
+
 function locationOf(slug, page) {
 	return normalizeLocation({ mode: 'portal', portalSlug: slug, page: page || '', recordId: '', q: '' }, '');
 }
@@ -32,7 +36,7 @@ export function PortalPreview({ slug, page, version, target, height, onNavigate 
 			<LocationStoreContext.Provider value={store}>
 				<NavigationContext.Provider value={navigate}>
 					<div data-rp-root="" data-rp-preview-root="" className="relative flex flex-col" style={{ minHeight: height || '100%' }}>
-						<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" data-rp-layout-frame="">
+						<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="">
 							{slug && target ? <PortalBoot key={`${slug}:${version || 0}`} slug={slug} target={target} embedded /> : null}
 						</div>
 					</div>

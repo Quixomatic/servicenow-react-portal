@@ -377,3 +377,109 @@ export default function UtilsDemo() {
 	);
 }
 `;
+
+// ---- blocks (kind = 'block'): registry-style ports of scripts/seed/components/{section,…} ----
+
+const BLOCK_PRELUDE = PRELUDE + `
+const { useBlock } = M['@portal/runtime'];
+const cx = (...a) => a.filter(Boolean).join(' ');
+`;
+
+export const SECTION_JS = BLOCK_PRELUDE + `
+export default function Section() {
+	const { rootProps } = useBlock();
+	return h('section', { ...rootProps, className: cx('rp-section', rootProps.className) }, h(Region, { name: 'content', className: 'rp-section__inner' }));
+}
+`;
+export const SECTION_CSS = `
+.rp-section { padding-block: var(--rp-section-py, 2rem); }
+.rp-section__inner { display: flex; flex-direction: column; gap: var(--rp-section-gap, 1.5rem); max-width: var(--rp-section-max, none); margin-inline: auto; width: 100%; }
+`;
+
+export const CONTAINER_JS = BLOCK_PRELUDE + `
+export default function Container() {
+	const { rootProps } = useBlock();
+	return h('div', { ...rootProps, className: cx('rp-container', rootProps.className) }, h(Region, { name: 'content', contents: true }));
+}
+`;
+export const CONTAINER_CSS = `
+.rp-container { display: flex; flex-direction: column; gap: var(--rp-container-gap, 1.5rem); width: 100%; max-width: var(--rp-container-max, 72rem); margin-inline: auto; padding-inline: var(--rp-container-px, 1rem); box-sizing: border-box; }
+`;
+
+export const GRID_JS = BLOCK_PRELUDE + `
+export default function Grid() {
+	const { rootProps, options } = useBlock();
+	const subgrid = String(options.subgrid || 'none');
+	return h('div', { ...rootProps, className: cx('rp-grid', subgrid !== 'none' ? 'rp-grid--sub-' + subgrid : '', rootProps.className) }, h(Region, { name: 'items', contents: true }));
+}
+`;
+export const GRID_CSS = `
+.rp-grid { display: grid; grid-template-columns: var(--rp-grid-cols, repeat(12, minmax(0, 1fr))); grid-template-rows: var(--rp-grid-rows, none); grid-auto-flow: var(--rp-grid-flow, row); gap: var(--rp-grid-gap, 1rem); align-items: var(--rp-grid-align, stretch); justify-items: var(--rp-grid-justify, stretch); }
+:where(.rp-grid > *) { grid-column: span var(--rp-grid-span, 4); min-width: 0; }
+.rp-grid--sub-columns, .rp-grid--sub-both { grid-template-columns: subgrid; }
+.rp-grid--sub-rows, .rp-grid--sub-both { grid-template-rows: subgrid; }
+`;
+
+export const COLUMNS_JS = BLOCK_PRELUDE + `
+export default function Columns() {
+	const { rootProps, regions } = useBlock();
+	return h('div', { ...rootProps, className: cx('rp-cols', rootProps.className) }, regions.map((r) => h(Region, { key: r.name, name: r.name, className: 'rp-cols__col' })));
+}
+`;
+export const COLUMNS_CSS = `
+.rp-cols { display: grid; grid-template-columns: var(--rp-cols, minmax(0, 1fr) minmax(0, 1fr)); gap: var(--rp-cols-gap, 1.5rem); align-items: var(--rp-cols-align, start); }
+.rp-cols__col { display: flex; flex-direction: column; gap: var(--rp-cols-gap, 1.5rem); min-width: 0; }
+`;
+
+export const STACK_JS = BLOCK_PRELUDE + `
+export default function Stack() {
+	const { rootProps } = useBlock();
+	return h('div', { ...rootProps, className: cx('rp-stack', rootProps.className) }, h(Region, { name: 'items', contents: true }));
+}
+`;
+export const STACK_CSS = `
+.rp-stack { display: flex; flex-direction: var(--rp-stack-dir, column); flex-wrap: var(--rp-stack-wrap, nowrap); gap: var(--rp-stack-gap, 1rem); align-items: var(--rp-stack-align, stretch); justify-content: var(--rp-stack-justify, flex-start); }
+:where(.rp-stack > *) { min-width: 0; }
+`;
+
+export const SPLIT_JS = BLOCK_PRELUDE + `
+export default function Split() {
+	const { rootProps, options } = useBlock();
+	return h('div', { ...rootProps, className: cx('rp-split', options.divider ? 'rp-split--divider' : '', rootProps.className) },
+		h(Region, { name: 'start', className: 'rp-split__pane' }),
+		h(Region, { name: 'end', className: 'rp-split__pane' }));
+}
+`;
+export const SPLIT_CSS = `
+.rp-split { display: grid; grid-template-columns: var(--rp-split, minmax(0, 1fr) minmax(0, 1fr)); gap: var(--rp-split-gap, 1.5rem); align-items: start; }
+.rp-split__pane { display: flex; flex-direction: column; gap: var(--rp-split-gap, 1.5rem); min-width: 0; }
+.rp-split--divider > .rp-split__pane + .rp-split__pane { border-inline-start: 1px solid var(--border); padding-inline-start: var(--rp-split-gap, 1.5rem); }
+`;
+
+// ---- record imports (primitive / utility modules registered under their specifiers) ---------
+
+export const MOCK_FORMAT_JS = `
+export function shout(text) { return String(text).toUpperCase() + '!'; }
+export default { shout };
+`;
+
+export const MOCK_BADGE_JS = PRELUDE + `
+const { shout } = M['utilities:rp/mock-format'];
+export function MockBadge({ children }) {
+	return h('span', { className: 'rp-mock-badge', 'data-rp-mock-badge': '' }, shout(children));
+}
+export default MockBadge;
+`;
+
+export const MOCK_BADGE_CSS = `
+.rp-mock-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font-size: 0.75rem; font-weight: 600; }
+`;
+
+export const MOCK_IMPORTS_JS = PRELUDE + `
+const { MockBadge } = M['components:rp/mock-badge'];
+const { shout } = M['utilities:rp/mock-format'];
+export default function MockImports() {
+	return h('div', { className: 'rounded-lg border p-4 text-sm', 'data-rp-mock-imports': '' },
+		'Record imports: ', h(MockBadge, null, 'primitive'), ' ', shout('utility'));
+}
+`;

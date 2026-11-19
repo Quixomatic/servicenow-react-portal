@@ -5,12 +5,14 @@ import { parseJson, isPlainObject } from '../lib/util.ts'
 import { matchRoute } from '../lib/paths.ts'
 import { notFound, rpError } from '../lib/errors.ts'
 import { componentRef, themeRef, DEFAULT_REGIONS } from '../registry/registry.ts'
+import { parseRegionSpec, resolveRegions, RegionSpecEntry } from '../registry/block-regions.ts'
 import { currentUser } from '../security/user.ts'
 import { requirePortalAccess, canAccessPageConfig, PageAccessConfig, pageAccessConfig } from '../security/access.ts'
 import type {
     BootstrapData,
     ComponentRef,
     PlacementRef,
+    RegionDef,
     RegionMap,
     ResolvePageData,
     ThemeRef,
@@ -25,7 +27,12 @@ import type {
  *   each component's latest usable build (authoring / pre-release).
  */
 
-export const MANIFEST_VERSION = 1
+// v2: blocks — placements nest under their parent block (children by drop zone), plus
+// layout / classes / instance css per placement.
+export const MANIFEST_VERSION = 2
+
+/** Maximum block nesting depth (a block inside a block inside …). */
+export const MAX_BLOCK_DEPTH = 6
 
 export interface ManifestPage {
     id: string
@@ -57,9 +64,29 @@ export function defaultPortal(): GR | null {
     return findOne(T.portal, 'active=true^is_default=true')
 }
 
-/** Placements for one owner, grouped by region and ordered. */
+function regionSpecOf(component: GR): RegionSpecEntry[] {
+    try {
+        return parseRegionSpec(parseJson<unknown>(str(component, 'regions_json'), []))
+    } catch (e) {
+        return []
+    }
+}
+
+/** A block placement's resolved drop zones (null when the placement isn't a block). */
+export function blockRegionsOf(placement: GR): RegionDef[] | null {
+    const comp = getById(T.component, str(placement, 'component'))
+    if (!comp || str(comp, 'kind') !== 'block') return null
+    return resolveRegions(regionSpecOf(comp), mergeOptions(comp, placement))
+}
+
+/**
+ * Placements for one owner as a tree: top-level placements grouped by layout region, and each
+ * block's children grouped by its drop zones. Children of a missing or inactive parent are
+ * dropped (they reappear when the parent does).
+ */
 export function placementsFor(ownerQuery: string, layouts: Record<string, ComponentRef>): RegionMap {
-    const map: RegionMap = {}
+    const items: Record<string, PlacementRef> = {}
+    const order: string[] = []
     each(
         T.placement,
         `${ownerQuery}^active=true`,
@@ -68,21 +95,54 @@ export function placementsFor(ownerQuery: string, layouts: Record<string, Compon
             if (!comp || !bool(comp, 'active')) return
             const ref = componentRef(comp)
             if (ref.kind === 'layout') layouts[ref.id] = ref
-            const region = str(pl, 'region') || 'main'
             const item: PlacementRef = {
                 id: pl.getUniqueValue(),
-                region,
+                region: str(pl, 'region') || 'main',
                 order: int(pl, 'order', 100),
                 parentId: str(pl, 'parent') || null,
                 component: ref,
                 options: mergeOptions(comp, pl),
-                styleTokens: parseJson<Record<string, string>>(str(pl, 'style_tokens_json'), {}),
+                styleTokens: parseJson<Record<string, unknown>>(str(pl, 'style_tokens_json'), {}) || {},
+                layout: parseJson<PlacementRef['layout']>(str(pl, 'layout_json'), {}) || {},
+                classes: str(pl, 'classes'),
+                css: str(pl, 'instance_css'),
             }
-            ;(map[region] = map[region] || []).push(item)
+            if (ref.kind === 'block') {
+                item.regions = resolveRegions(regionSpecOf(comp), item.options)
+                item.children = {}
+            }
+            items[item.id] = item
+            order.push(item.id)
         },
         ['order', 'sys_created_on'],
     )
-    return map
+    const root: RegionMap = {}
+    for (const id of order) {
+        const item = items[id]
+        if (!item.parentId) {
+            ;(root[item.region] = root[item.region] || []).push(item)
+            continue
+        }
+        const parent = items[item.parentId]
+        if (!parent || !parent.children) continue
+        ;(parent.children[item.region] = parent.children[item.region] || []).push(item)
+    }
+    return root
+}
+
+/** Every placement in a region map, depth-first (blocks' children included). */
+export function flattenRegions(map: RegionMap): PlacementRef[] {
+    const out: PlacementRef[] = []
+    const walk = (m: RegionMap) => {
+        for (const r of Object.keys(m)) {
+            for (const pl of m[r]) {
+                out.push(pl)
+                if (pl.children) walk(pl.children)
+            }
+        }
+    }
+    walk(map)
+    return out
 }
 
 /** Effective options: component defaults overlaid by the placement's options. */
@@ -220,9 +280,8 @@ export function resolvePage(slug: string, path: string): { data: ResolvePageData
 /** Every placement in a manifest by id (portal-level and page-level). */
 export function placementIndex(manifest: Manifest): Record<string, { placement: PlacementRef; page: ManifestPage | null }> {
     const out: Record<string, { placement: PlacementRef; page: ManifestPage | null }> = {}
-    for (const region of Object.keys(manifest.regions)) for (const pl of manifest.regions[region]) out[pl.id] = { placement: pl, page: null }
-    for (const page of manifest.pages)
-        for (const region of Object.keys(page.regions)) for (const pl of page.regions[region]) out[pl.id] = { placement: pl, page }
+    for (const pl of flattenRegions(manifest.regions)) out[pl.id] = { placement: pl, page: null }
+    for (const page of manifest.pages) for (const pl of flattenRegions(page.regions)) out[pl.id] = { placement: pl, page }
     return out
 }
 

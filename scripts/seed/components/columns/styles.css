@@ -1,0 +1,13 @@
+.rp-cols {
+    display: grid;
+    grid-template-columns: var(--rp-cols, minmax(0, 1fr) minmax(0, 1fr));
+    gap: var(--rp-cols-gap, 1.5rem);
+    align-items: var(--rp-cols-align, start);
+}
+
+.rp-cols__col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--rp-cols-gap, 1.5rem);
+    min-width: 0;
+}

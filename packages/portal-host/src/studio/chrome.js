@@ -214,6 +214,7 @@ function Switcher({ studio }) {
 		[
 			['widget', 'Widgets'],
 			['layout', 'Layouts'],
+			['block', 'Blocks'],
 			['utility', 'Utilities']
 		].forEach(([kind, label]) => {
 			const list = (catalog.components || []).filter((c) => (c.kind || 'widget') === kind && match(c)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -591,6 +592,7 @@ export function Properties({ studio }) {
 						<select value={meta.kind || 'widget'} onChange={set('kind')}>
 							<option value="widget">Widget</option>
 							<option value="layout">Layout</option>
+					<option value="block">Block</option>
 							<option value="utility">Utility</option>
 						</select>
 					</label>

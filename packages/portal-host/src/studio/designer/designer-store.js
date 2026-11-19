@@ -129,28 +129,42 @@ export function createDesigner({ navigate, log }) {
 	}
 
 	// ---- placements -------------------------------------------------------------------------
+	// A target is { region, scope: 'page'|'portal', parentId?: block id, index? }: `region` is a
+	// layout region at the top level, or the block's drop zone when parentId is set.
 
 	function scopePage(scope) {
 		return scope === 'portal' ? null : state.pageId;
 	}
 
-	/** Index of a placement within its region list (same scope), from the current designs. */
-	function indexOf(placementId) {
-		const found = findPlacement(state, placementId);
-		if (!found) return -1;
-		const list = (found.scope === 'portal' ? state.page ? state.page.portalPlacements : state.design.portalPlacements : state.page.placements)[found.placement.region] || [];
-		return list.findIndex((p) => p.id === placementId);
+	function normalizeTarget(regionOrTarget, scope, index) {
+		if (regionOrTarget && typeof regionOrTarget === 'object') return { parentId: null, ...regionOrTarget };
+		return { region: regionOrTarget, scope, index, parentId: null };
 	}
 
-	function addPlacement(component, region, scope, index) {
-		const body = { portal: state.portalId, page: scopePage(scope), region, component: component.id, index };
+	function where(t) {
+		const zone = t.parentId ? findPlacement(state, t.parentId) : null;
+		const zoneLabel = zone ? ((zone.placement.regions || []).find((r) => r.name === t.region) || {}).label || t.region : null;
+		return zone ? `${zone.placement.component.name} › ${zoneLabel}` : `${t.region}${t.scope === 'portal' ? ' (portal-wide)' : ''}`;
+	}
+
+	/** Index of a placement among its siblings (same parent, same region/zone). */
+	function indexOf(placementId) {
+		const found = findPlacement(state, placementId);
+		return found ? siblingsOf(state, found).findIndex((p) => p.id === placementId) : -1;
+	}
+
+	/** Create a placement (widget or block) at a target, optionally with options (e.g. a preset). */
+	function addPlacement(component, regionOrTarget, scope, index, options) {
+		const t = normalizeTarget(regionOrTarget, scope, index);
+		const body = { portal: state.portalId, page: scopePage(t.scope), parent: t.parentId || null, region: t.region, component: component.id, index: t.index };
+		if (options) body.options = options;
 		const ref = { id: null };
-		return write(`Added ${component.name} to ${region}${scope === 'portal' ? ' (portal-wide)' : ''}`, async () => {
+		return write(`Added ${component.name} to ${where(t)}`, async () => {
 			const created = await designApi.createPlacement(body);
 			ref.id = created.id;
 			set({ selection: created.id });
 			return {
-				undo: () => designApi.deletePlacement(ref.id),
+				undo: () => designApi.deletePlacement(ref.id, 'cascade'),
 				redo: async () => {
 					const again = await designApi.createPlacement(body);
 					ref.id = again.id;
@@ -159,42 +173,68 @@ export function createDesigner({ navigate, log }) {
 		});
 	}
 
-	function movePlacement(placementId, region, scope, index) {
+	/** Move to a target (between regions, zones, blocks, page ↔ portal-wide). Blocks move with their subtree. */
+	function movePlacement(placementId, regionOrTarget, scope, index) {
 		const found = findPlacement(state, placementId);
 		if (!found) return null;
-		const from = { region: found.placement.region, page: found.scope === 'portal' ? null : state.pageId, index: indexOf(placementId) };
-		const to = { region, page: scopePage(scope), index };
-		if (from.region === to.region && from.page === to.page && from.index === to.index) return null;
-		return write(`Moved ${found.placement.component.name} to ${region}${scope === 'portal' ? ' (portal-wide)' : ''}`, async () => {
+		const t = normalizeTarget(regionOrTarget, scope, index);
+		const from = { region: found.placement.region, page: found.scope === 'portal' ? null : state.pageId, parent: found.parent ? found.parent.id : null, index: indexOf(placementId) };
+		const to = { region: t.region, page: scopePage(t.scope), parent: t.parentId || null, index: t.index };
+		if (from.region === to.region && from.page === to.page && from.parent === to.parent && (to.index === undefined || from.index === to.index)) return null;
+		if (to.parent && (to.parent === placementId || isInside(state, to.parent, placementId))) {
+			toast.error("A block can't be moved inside itself");
+			return null;
+		}
+		return write(`Moved ${found.placement.component.name} to ${where(t)}`, async () => {
 			await designApi.patchPlacement(placementId, to);
 			return { undo: () => designApi.patchPlacement(placementId, from), redo: () => designApi.patchPlacement(placementId, to) };
 		});
 	}
 
-	function deletePlacement(placementId) {
+	/**
+	 * Delete. A block with children needs a mode: 'lift' moves its children out to where the block
+	 * was (undoable: the block is re-created and its children moved back), 'cascade' deletes them
+	 * too (not undoable).
+	 */
+	function deletePlacement(placementId, mode) {
 		const found = findPlacement(state, placementId);
 		if (!found) return null;
+		const p0 = found.placement;
 		const index = indexOf(placementId);
+		const childOrder = [];
+		Object.keys(p0.children || {}).forEach((zone) => (p0.children[zone] || []).forEach((c, i) => childOrder.push({ id: c.id, zone, index: i })));
+		if (childOrder.length && mode !== 'lift' && mode !== 'cascade') {
+			toast.error(`${p0.component.name} contains ${childOrder.length} item(s): choose "Move contents out" or "Delete everything"`);
+			return null;
+		}
 		const ref = { id: placementId };
-		return write(`Removed ${found.placement.component.name}`, async () => {
-			const res = await designApi.deletePlacement(ref.id);
-			const p = (res && res.placement) || found.placement;
+		const label = mode === 'cascade' && childOrder.length ? `Deleted ${p0.component.name} and ${childOrder.length} item(s)` : mode === 'lift' && childOrder.length ? `Removed ${p0.component.name} (contents moved out)` : `Removed ${p0.component.name}`;
+		return write(label, async () => {
+			const res = await designApi.deletePlacement(ref.id, childOrder.length ? mode : undefined);
+			const p = (res && res.placement) || p0;
 			set({ selection: null });
+			if (mode === 'cascade' && childOrder.length) return null; // not undoable (the subtree is gone)
 			const body = {
 				portal: state.portalId,
 				page: p.scope === 'portal' ? null : p.pageId || p.page || state.pageId,
+				parent: p.parentId || null,
 				region: p.region,
 				component: p.component.id,
 				index,
-				options: p.options || {}
+				options: p.options || {},
+				styleTokens: p.styleTokens || {},
+				layout: p.layout || {},
+				classes: p.classes || ''
 			};
 			return {
 				undo: async () => {
 					const again = await designApi.createPlacement(body);
 					ref.id = again.id;
 					if (p.active === false) await designApi.patchPlacement(again.id, { active: false });
+					// lift: move the children back into the re-created block, zone by zone, in order
+					for (const c of childOrder) await designApi.patchPlacement(c.id, { parent: again.id, region: c.zone, index: c.index, page: body.page });
 				},
-				redo: () => designApi.deletePlacement(ref.id)
+				redo: () => designApi.deletePlacement(ref.id, childOrder.length ? 'lift' : undefined)
 			};
 		});
 	}
@@ -207,6 +247,19 @@ export function createDesigner({ navigate, log }) {
 		return write(`Updated options of ${found.placement.component.name}`, async () => {
 			await designApi.patchPlacement(placementId, { options });
 			return { undo: () => designApi.patchPlacement(placementId, { options: before }), redo: () => designApi.patchPlacement(placementId, { options }) };
+		});
+	}
+
+	/** Styling / grid layout / classes: patch = { styleTokens?, layout?, classes? } (whole values). */
+	function setStyle(placementId, patch, label) {
+		const found = findPlacement(state, placementId);
+		if (!found) return null;
+		const before = {};
+		Object.keys(patch).forEach((k) => (before[k] = found.placement[k] === undefined ? (k === 'classes' ? '' : {}) : found.placement[k]));
+		if (JSON.stringify(before) === JSON.stringify(patch)) return null;
+		return write(`${label || 'Updated styling of'} ${found.placement.component.name}`, async () => {
+			await designApi.patchPlacement(placementId, patch);
+			return { undo: () => designApi.patchPlacement(placementId, before), redo: () => designApi.patchPlacement(placementId, patch) };
 		});
 	}
 
@@ -299,6 +352,7 @@ export function createDesigner({ navigate, log }) {
 		movePlacement,
 		deletePlacement,
 		setOptions,
+		setStyle,
 		setActive,
 		createPage,
 		updatePage,
@@ -307,11 +361,25 @@ export function createDesigner({ navigate, log }) {
 		undo,
 		redo,
 		select: (id) => set({ selection: id }),
-		paletteEntry: (componentId) => ((state.design && state.design.palette) || []).find((c) => c.id === componentId) || null
+		paletteEntry: (componentId) =>
+			((state.design && state.design.palette) || []).concat((state.design && state.design.blocks) || []).find((c) => c.id === componentId) || null
 	};
 }
 
-/** Find a placement in the current page design (page-level first, then portal-wide). */
+/** Visit every placement of a design tree (blocks' children included). */
+export function eachPlacement(byRegion, fn, parent) {
+	Object.keys(byRegion || {}).forEach((region) =>
+		(byRegion[region] || []).forEach((p) => {
+			fn(p, parent || null);
+			if (p.children) eachPlacement(p.children, fn, p);
+		})
+	);
+}
+
+/**
+ * Find a placement in the current page design (page-level first, then portal-wide), at any
+ * depth: → { placement, scope: 'page'|'portal', parent: block DTO | null }.
+ */
 export function findPlacement(s, placementId) {
 	if (!placementId) return null;
 	const page = s.page;
@@ -320,12 +388,30 @@ export function findPlacement(s, placementId) {
 	const portalPlacements = (page && page.portalPlacements) || (s.design && s.design.portalPlacements);
 	if (portalPlacements) lists.push(['portal', portalPlacements]);
 	for (const [scope, byRegion] of lists) {
-		for (const region of Object.keys(byRegion)) {
-			const placement = byRegion[region].find((p) => p.id === placementId);
-			if (placement) return { placement, scope };
-		}
+		let hit = null;
+		eachPlacement(byRegion, (p, parent) => {
+			if (!hit && p.id === placementId) hit = { placement: p, scope, parent };
+		});
+		if (hit) return hit;
 	}
 	return null;
+}
+
+/** The sibling list a found placement sits in (its parent's zone, or its layout region). */
+export function siblingsOf(s, found) {
+	if (found.parent) return (found.parent.children && found.parent.children[found.placement.region]) || [];
+	const byRegion = found.scope === 'portal' ? (s.page ? s.page.portalPlacements : s.design.portalPlacements) : s.page.placements;
+	return (byRegion || {})[found.placement.region] || [];
+}
+
+/** True when `id` is somewhere inside the block `ancestorId`. */
+export function isInside(s, id, ancestorId) {
+	let found = findPlacement(s, id);
+	while (found && found.parent) {
+		if (found.parent.id === ancestorId) return true;
+		found = findPlacement(s, found.parent.id);
+	}
+	return false;
 }
 
 /** A concrete path for a route pattern, so the canvas can resolve it (orders/:id → orders/sample). */

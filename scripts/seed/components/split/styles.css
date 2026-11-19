@@ -1,0 +1,18 @@
+.rp-split {
+    display: grid;
+    grid-template-columns: var(--rp-split, minmax(0, 1fr) minmax(0, 1fr));
+    gap: var(--rp-split-gap, 1.5rem);
+    align-items: start;
+}
+
+.rp-split__pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--rp-split-gap, 1.5rem);
+    min-width: 0;
+}
+
+.rp-split--divider > .rp-split__pane + .rp-split__pane {
+    border-inline-start: 1px solid var(--border);
+    padding-inline-start: var(--rp-split-gap, 1.5rem);
+}

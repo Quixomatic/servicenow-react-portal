@@ -6,11 +6,39 @@
 //   theme     theme stylesheet(s): base styles for the portal          (first)
 //   framework the host's own CSS (Tailwind + shadcn), added by ui-core
 //   widget    one sheet per component build, scoped by [data-rp-widget]
+//   instance  one sheet per placement (placement.css: classes, style tokens, grid layout,
+//             responsive option variables), unlayered, so it wins over Tailwind utilities
 //   tokens    theme token variables (:host { --primary: … })            (last)
 
 import { recordStyle } from './diagnostics';
 
-const SLOT_ORDER = ['theme', 'widget', 'tokens'];
+const SLOT_ORDER = ['theme', 'widget', 'instance', 'tokens'];
+
+// Reference counts for shared sheets (a placement's instance CSS), per style target.
+const refCounts = new WeakMap(); // target -> Map(key -> count)
+
+/**
+ * Add (or update) a shared sheet and count the user; the returned release() removes the sheet
+ * when its last user is gone. Used for per-placement instance CSS.
+ */
+export function acquireStyle(target, key, cssText, slot) {
+	if (!target) return () => {};
+	ensureStyle(target, key, cssText, slot);
+	let counts = refCounts.get(target);
+	if (!counts) refCounts.set(target, (counts = new Map()));
+	counts.set(key, (counts.get(key) || 0) + 1);
+	let released = false;
+	return () => {
+		if (released) return;
+		released = true;
+		const n = (counts.get(key) || 1) - 1;
+		if (n > 0) counts.set(key, n);
+		else {
+			counts.delete(key);
+			removeStyle(target, key);
+		}
+	};
+}
 
 /** The node styles go into: the shadow root containing `node`, or document.head outside one. */
 export function styleTarget(node) {

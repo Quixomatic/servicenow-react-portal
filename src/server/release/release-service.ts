@@ -4,7 +4,7 @@ import { T } from '../lib/tables.ts'
 import { notFound } from '../lib/errors.ts'
 import { canonicalJson, sha256, nowValue, parseJson } from '../lib/util.ts'
 import { requireStudio } from '../security/access.ts'
-import { assembleManifest, Manifest } from '../runtime/portal-service.ts'
+import { assembleManifest, Manifest, flattenRegions } from '../runtime/portal-service.ts'
 import { buildOf } from '../registry/registry.ts'
 import type { ReleaseSummary, PlacementRef } from '../../shared/contracts'
 
@@ -36,9 +36,8 @@ export function releaseSummary(r: GR): ReleaseSummary {
 }
 
 function allPlacements(m: Manifest): PlacementRef[] {
-    const out: PlacementRef[] = []
-    for (const r of Object.keys(m.regions)) out.push(...m.regions[r])
-    for (const p of m.pages) for (const r of Object.keys(p.regions)) out.push(...p.regions[r])
+    const out: PlacementRef[] = flattenRegions(m.regions)
+    for (const p of m.pages) out.push(...flattenRegions(p.regions))
     return out
 }
 
@@ -151,15 +150,43 @@ export function reprocessForOwner(type: 'component' | 'theme', id: string): numb
     if (type === 'theme') {
         each(T.portal, `theme=${id}`, (p) => (portals[p.getUniqueValue()] = true))
     } else {
-        each(T.portal, `default_layout=${id}`, (p) => (portals[p.getUniqueValue()] = true))
-        each(T.page, `layout_override=${id}`, (pg) => (portals[str(pg, 'portal')] = true))
-        each(T.placement, `component=${id}`, (pl) => (portals[str(pl, 'portal')] = true))
+        // The component itself plus every component that imports it (transitively): a primitive's
+        // new build URL must reach the manifests of the widgets that use it.
+        const ids = [id].concat(importersOf(id))
+        for (const cid of ids) {
+            each(T.portal, `default_layout=${cid}`, (p) => (portals[p.getUniqueValue()] = true))
+            each(T.page, `layout_override=${cid}`, (pg) => (portals[str(pg, 'portal')] = true))
+            each(T.placement, `component=${cid}`, (pl) => (portals[str(pl, 'portal')] = true))
+        }
     }
     let n = 0
     for (const pid of Object.keys(portals)) {
         if (pid && processPortal(pid)) n++
     }
     return n
+}
+
+/** Components whose builds import `componentId`, transitively. */
+export function importersOf(componentId: string): string[] {
+    const found: Record<string, boolean> = { [componentId]: true }
+    const out: string[] = []
+    let frontier = [componentId]
+    for (let depth = 0; frontier.length && depth < 12; depth++) {
+        const next: string[] = []
+        for (const cid of frontier) {
+            each(T.buildDep, `kind=component^target_build.owner_key=component:${cid}`, (dep) => {
+                const b = getById(T.build, str(dep, 'build'))
+                const importer = b ? str(b, 'owner_key').replace(/^component:/, '') : ''
+                if (importer && !found[importer]) {
+                    found[importer] = true
+                    out.push(importer)
+                    next.push(importer)
+                }
+            })
+        }
+        frontier = next
+    }
+    return out
 }
 
 /** Studio: force-reprocess a portal (e.g. after changing properties that feed the manifest). */

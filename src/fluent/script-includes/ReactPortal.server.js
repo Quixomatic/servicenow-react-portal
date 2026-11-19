@@ -11,7 +11,7 @@
  */
 var ReactPortal = Class.create()
 
-ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.4.0/src/server/'
+ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.5.0/src/server/'
 
 ReactPortal.prototype = {
     initialize: function () {},

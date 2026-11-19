@@ -257,6 +257,10 @@ declare global {
                         table: 'sys_script'
                         id: '0962fbb02e4c466783c0db4daed48a24'
                     }
+                    'br-placement-instance-style': {
+                        table: 'sys_script'
+                        id: 'c1597a53918c44a2a887276fc305e9e2'
+                    }
                     'br-placement-validate': {
                         table: 'sys_script'
                         id: '76eaeabe8981495fae13ec2d8de6539b'
@@ -321,6 +325,10 @@ declare global {
                         table: 'sys_app_module'
                         id: '8d4cd177ee224f7b83734229ebfb2516'
                     }
+                    'module-blocks': {
+                        table: 'sys_app_module'
+                        id: 'd9592f79fcec4e549bd0427f506f3434'
+                    }
                     'module-builds': {
                         table: 'sys_app_module'
                         id: 'edb108de93e54eb2820fbb939a707778'
@@ -344,6 +352,10 @@ declare global {
                     'module-portals': {
                         table: 'sys_app_module'
                         id: '60c8307b91454c86918e3e14781fa880'
+                    }
+                    'module-primitives': {
+                        table: 'sys_app_module'
+                        id: 'd9d7e8c1c6c5452d82199ff800bbcceb'
                     }
                     'module-properties': {
                         table: 'sys_app_module'
@@ -376,6 +388,10 @@ declare global {
                     'module-themes': {
                         table: 'sys_app_module'
                         id: '8e8fe15740c54528b5990f37d06faba0'
+                    }
+                    'module-utilities': {
+                        table: 'sys_app_module'
+                        id: '27dba5732025437ab5088b7b42277c91'
                     }
                     'module-widgets': {
                         table: 'sys_app_module'
@@ -593,6 +609,10 @@ declare global {
                         table: 'sys_module'
                         id: '2c6ee7bff4794fd4a6a2274fe56c5abd'
                     }
+                    'src_server_automation_instance-style-rules_ts': {
+                        table: 'sys_module'
+                        id: '0a8505d7c90c40848ffe4c28141daf3e'
+                    }
                     'src_server_automation_page-rules_ts': {
                         table: 'sys_module'
                         id: 'd30679e67b304ff69b3052c27e69ad3d'
@@ -637,6 +657,14 @@ declare global {
                         table: 'sys_module'
                         id: '3b7b2fd8ad8442439ee73a308df35660'
                     }
+                    'src_server_design_instance-style_ts': {
+                        table: 'sys_module'
+                        id: 'c53ee18ad83f481b81f895cdc23d760a'
+                    }
+                    'src_server_lib_css-safe_ts': {
+                        table: 'sys_module'
+                        id: '52cca34ae4ec497cb5103a15eadab06e'
+                    }
                     src_server_lib_errors_ts: {
                         table: 'sys_module'
                         id: '189dccb60f084c5396dc2a521145d0ba'
@@ -649,6 +677,10 @@ declare global {
                         table: 'sys_module'
                         id: '167b743946854574b1c5729af38f6c64'
                     }
+                    'src_server_lib_session-flags_ts': {
+                        table: 'sys_module'
+                        id: '104389a4d9214291b73b7cb4da938c82'
+                    }
                     src_server_lib_tables_ts: {
                         table: 'sys_module'
                         id: '59b187e1485b4e0398625049f80e66a1'
@@ -660,6 +692,10 @@ declare global {
                     src_server_maintenance_maintenance_ts: {
                         table: 'sys_module'
                         id: '4e03c481343447118f0f4fc5b62132b7'
+                    }
+                    'src_server_registry_block-regions_ts': {
+                        table: 'sys_module'
+                        id: '454ba62a7057480aa07703dbcc976ad1'
                     }
                     src_server_registry_catalog_ts: {
                         table: 'sys_module'
@@ -883,6 +919,28 @@ declare global {
                         key: {
                             name: 'x_312987_portal_build_asset'
                             element: 'build'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: '057a6346c6044d158c49690ff0bab7e7'
+                        key: {
+                            sys_ui_section: {
+                                id: 'c764c9bf81c24b1fbcaa29a782d66074'
+                                key: {
+                                    name: 'x_312987_portal_placement'
+                                    caption: 'Placement'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'layout_json'
+                            position: '13'
                         }
                     },
                     {
@@ -1285,6 +1343,28 @@ declare global {
                         key: {
                             name: 'x_312987_portal_build_asset'
                             element: 'content'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: '13413dd563a84924930e00150393393e'
+                        key: {
+                            sys_ui_section: {
+                                id: 'c764c9bf81c24b1fbcaa29a782d66074'
+                                key: {
+                                    name: 'x_312987_portal_placement'
+                                    caption: 'Placement'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'visibility_config_json'
+                            position: '15'
                         }
                     },
                     {
@@ -2414,6 +2494,15 @@ declare global {
                                     name: 'x_312987_portal.admin'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '3055b4f9eb5047fa88430f21b9d4288e'
+                        key: {
+                            name: 'x_312987_portal_placement'
+                            element: 'instance_css'
+                            language: 'en'
                         }
                     },
                     {
@@ -3562,6 +3651,28 @@ declare global {
                     },
                     {
                         table: 'sys_ui_element'
+                        id: '4cb0142449944cdf97f793c4ca4da65c'
+                        key: {
+                            sys_ui_section: {
+                                id: 'c764c9bf81c24b1fbcaa29a782d66074'
+                                key: {
+                                    name: 'x_312987_portal_placement'
+                                    caption: 'Placement'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'instance_css'
+                            position: '16'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
                         id: '4d04e78d436549bfad17053911cb0bd9'
                         key: {
                             sys_ui_section: {
@@ -4437,6 +4548,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: '669664ff244a47a8a79f17772f3cae89'
+                        key: {
+                            name: 'x_312987_portal_placement'
+                            element: 'classes'
+                        }
+                    },
+                    {
                         table: 'sys_ui_element'
                         id: '66b8f431d7e4463b82541346223c5ea6'
                         key: {
@@ -4487,6 +4606,14 @@ declare global {
                             name: 'x_312987_portal_build'
                             element: 'runtime_abi_version'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '675ede009a11436eb906384196b2f1ff'
+                        key: {
+                            name: 'x_312987_portal_placement'
+                            element: 'layout_json'
                         }
                     },
                     {
@@ -5989,6 +6116,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: '933c3c290cc64dc396ce51cd0ba7278a'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074'
@@ -6306,6 +6434,15 @@ declare global {
                                     name: 'x_312987_portal.designer'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: 'a0564bb789dc4065a055c23fce92e25c'
+                        key: {
+                            name: 'x_312987_portal_placement'
+                            element: 'classes'
+                            language: 'en'
                         }
                     },
                     {
@@ -6667,6 +6804,14 @@ declare global {
                         key: {
                             logical_table_name: 'x_312987_portal_build_asset'
                             col_name_string: 'build,path'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'aa90cce60adf4728b5877f5897edac70'
+                        key: {
+                            name: 'x_312987_portal_placement'
+                            element: 'instance_css'
                         }
                     },
                     {
@@ -7600,6 +7745,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'c69a00efdb61454c8a1956e11a110c64'
+                        key: {
+                            name: 'x_312987_portal_placement'
+                            element: 'layout_json'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_ui_element'
                         id: 'c69e6db9f87b4c0fa2765949efbdd39a'
                         key: {
@@ -8009,6 +8163,28 @@ declare global {
                             }
                             element: 'description'
                             position: '13'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: 'cf56f8bf3c74439bb49be1ea5d22978c'
+                        key: {
+                            sys_ui_section: {
+                                id: 'c764c9bf81c24b1fbcaa29a782d66074'
+                                key: {
+                                    name: 'x_312987_portal_placement'
+                                    caption: 'Placement'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'classes'
+                            position: '14'
                         }
                     },
                     {
@@ -8499,6 +8675,17 @@ declare global {
                             }
                             element: 'hash'
                             position: '7'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'dde72d79f9ba45bb81e9ad7bf5d41f16'
+                        key: {
+                            name: 'x_312987_portal_component'
+                            element: 'kind'
+                            value: 'block'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -9090,6 +9277,17 @@ declare global {
                             name: 'x_312987_portal_build'
                             element: 'exports_snapshot'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'ee7c520733d0432db3374a6ddc48753d'
+                        key: {
+                            name: 'x_312987_portal_component'
+                            element: 'kind'
+                            value: 'primitive'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {

@@ -1,0 +1,12 @@
+.rp-section {
+    padding-block: var(--rp-section-py, 2rem);
+}
+
+.rp-section__inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--rp-section-gap, 1.5rem);
+    max-width: var(--rp-section-max, none);
+    margin-inline: auto;
+    width: 100%;
+}

@@ -146,6 +146,7 @@ function NewComponentDialog({ close }) {
 				<select value={kind} onChange={(e) => setKind(e.target.value)} data-rps-new-kind="">
 					<option value="widget">Widget</option>
 					<option value="layout">Layout</option>
+					<option value="block">Block</option>
 					<option value="utility">Utility</option>
 				</select>
 			</label>

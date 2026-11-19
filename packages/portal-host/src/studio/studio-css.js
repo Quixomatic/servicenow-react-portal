@@ -248,5 +248,30 @@ export const STUDIO_CSS = `
 .rpd-row { display: flex; align-items: center; gap: 4px; }
 .rpd-row > input, .rpd-row > select { flex: 1; min-width: 0; }
 .rpd-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* blocks in the designer */
+.rpd-zone { position: absolute; pointer-events: none; outline: 1px dashed transparent; outline-offset: -2px; }
+.rpd-zone.dragging { outline-color: color-mix(in srgb, #0ea5e9 55%, transparent); background: color-mix(in srgb, #0ea5e9 5%, transparent); }
+.rpd-zone.over { outline: 2px solid #0ea5e9; background: color-mix(in srgb, #0ea5e9 13%, transparent); }
+.rpd-zone-label { position: absolute; left: 3px; top: 2px; font: 10px/14px system-ui, sans-serif; padding: 0 5px; border-radius: 3px; background: #0ea5e9; color: #fff; text-transform: uppercase; letter-spacing: .03em; }
+.rpd-placement.block { outline-style: dashed; }
+.rpd-placement.block .rpd-chip { background: #0369a1; }
+.rpd-placement.block.selected { outline: 2px dashed #0ea5e9; }
+/* Design mode only: empty blocks and zones get room to drop into (the portal renders them as-is). */
+.rpd-mount.designing [data-rp-kind="block"]:empty, .rpd-mount.designing [data-rp-zone][data-rp-parent]:not([data-rp-placement]):empty { min-height: 3.5rem; outline: 1px dashed color-mix(in srgb, currentColor 25%, transparent); outline-offset: -2px; }
+.rpd-presets { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px 26px; }
+.rpd-presets.inline { padding: 0; }
+.rpd-preset { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--rps-border); background: var(--rps-bg); cursor: grab; white-space: nowrap; }
+.rpd-presets.inline .rpd-preset { cursor: pointer; }
+.rpd-preset:hover, .rpd-preset:focus-visible { border-color: var(--rps-focus); outline: none; }
+.rpd-preset.active { background: var(--rps-select-focus); color: #fff; border-color: var(--rps-select-focus); }
+.rpd-device { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--rps-border); border-radius: 6px; align-self: flex-start; }
+.rpd-device .rps-tbtn { height: 22px; }
+.rpd-section { border-top: 1px solid var(--rps-border); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.rpd-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--rps-muted); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+details.rpd-section > summary { list-style: none; }
+details.rpd-section > summary::before { content: '▸'; font-size: 10px; }
+details.rpd-section[open] > summary::before { content: '▾'; }
+.rpd-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .rpd-buttons .rps-tbtn { border: 1px solid var(--rps-border); }
 `;

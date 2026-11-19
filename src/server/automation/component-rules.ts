@@ -2,6 +2,7 @@ import { str, int } from '../lib/gr.ts'
 import { isValidJson, parseJson } from '../lib/util.ts'
 import { canonicalId, slugify, normalizeRegions, DEFAULT_REGIONS, DEFAULT_NAMESPACE } from '../registry/registry.ts'
 import { abort, anyChanged } from './guards.ts'
+import { parseRegionSpec } from '../registry/block-regions.ts'
 
 /**
  * Component business rules.
@@ -20,7 +21,7 @@ export const COMPONENT_BUILD_FIELDS = [
 ]
 
 const JSON_FIELDS = ['exports_json', 'options_schema_json', 'default_options_json', 'regions_json', 'dependency_spec_json']
-const KINDS = ['widget', 'layout', 'utility']
+const KINDS = ['widget', 'layout', 'block', 'primitive', 'utility']
 const SERVER_MODES = ['none', 'on-load', 'on-demand']
 
 /** before insert/update: normalize the definition, canonical id, revision tracking. */
@@ -36,7 +37,7 @@ export function normalizeComponent(current: any, previous: any): void {
     current.setValue('unique_id', canonicalId(namespace, key))
 
     const kind = str(current, 'kind') || 'widget'
-    if (KINDS.indexOf(kind) < 0) return abort(current, 'Kind must be widget, layout or utility.')
+    if (KINDS.indexOf(kind) < 0) return abort(current, 'Kind must be widget, layout, block, primitive or utility.')
     current.setValue('kind', kind)
     if (kind !== 'widget') current.setValue('placeable', false)
 
@@ -54,6 +55,14 @@ export function normalizeComponent(current: any, previous: any): void {
     if (kind === 'layout') {
         const regions = normalizeRegions(parseJson<unknown>(str(current, 'regions_json'), null))
         current.setValue('regions_json', JSON.stringify(regions.length ? regions : DEFAULT_REGIONS))
+    }
+    if (kind === 'block') {
+        // Drop zones are data: static names and option-driven templates ({ "repeat": "tracks", … }).
+        try {
+            current.setValue('regions_json', JSON.stringify(parseRegionSpec(parseJson<unknown>(str(current, 'regions_json'), []))))
+        } catch (e) {
+            return abort(current, `regions_json: ${(e as Error).message}`)
+        }
     }
 
     if (current.isNewRecord()) {

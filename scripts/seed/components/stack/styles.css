@@ -1,0 +1,12 @@
+.rp-stack {
+    display: flex;
+    flex-direction: var(--rp-stack-dir, column);
+    flex-wrap: var(--rp-stack-wrap, nowrap);
+    gap: var(--rp-stack-gap, 1rem);
+    align-items: var(--rp-stack-align, stretch);
+    justify-content: var(--rp-stack-justify, flex-start);
+}
+
+:where(.rp-stack > *) {
+    min-width: 0;
+}

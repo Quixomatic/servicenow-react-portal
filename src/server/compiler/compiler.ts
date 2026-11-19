@@ -14,7 +14,7 @@ import { compile as tailwindCompile, sheets as tailwindSheets, version as tailwi
  * Output (one build): index.js (default export = the component) and index.css.
  */
 
-export const COMPILER_VERSION = `rp-server-compiler/2 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
+export const COMPILER_VERSION = `rp-server-compiler/3 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`
 export const ENTRY = 'main.tsx'
 
 export interface CompilerFile {
@@ -41,7 +41,7 @@ export interface Diagnostic {
 
 export interface CompileDependency {
     specifier: string
-    kind: 'host' | 'relative'
+    kind: 'host' | 'relative' | 'component'
     hostExport?: string
     resolvedEntry?: string
 }
@@ -61,6 +61,9 @@ const HOST_EXACT = ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime
 const HOST_PREFIX = ['components:', 'utilities:']
 const CODE_EXT = ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json']
 const STYLE_EXT = ['.css']
+
+/** components:<namespace>/<key> or utilities:<namespace>/<key>: another component record (primitive, utility…). */
+export const RECORD_IMPORT = /^(components|utilities):([a-z][a-z0-9-]{0,39}\/[a-z][a-z0-9-]{0,79})$/
 
 function isHost(spec: string): boolean {
     return HOST_EXACT.indexOf(spec) >= 0 || HOST_PREFIX.some((p) => spec.indexOf(p) === 0)
@@ -180,7 +183,11 @@ function link(byPath: Record<string, CompilerFile>): Linked {
                 map[spec] = '@host:' + spec
                 if (!seenHost[spec]) {
                     seenHost[spec] = true
-                    linked.dependencies.push({ specifier: spec, kind: 'host', hostExport: spec })
+                    // Record imports load another component's build into the registry at runtime
+                    // (resolved and validated by the build service); the rest are host built-ins.
+                    const rec = RECORD_IMPORT.exec(spec)
+                    if (rec) linked.dependencies.push({ specifier: spec, kind: 'component', resolvedEntry: rec[2] })
+                    else linked.dependencies.push({ specifier: spec, kind: 'host', hostExport: spec })
                 }
             } else {
                 linked.errors.push({
@@ -219,6 +226,8 @@ function emitModule(linked: Linked, label: string): string {
         `  return module.exports;`,
         `}`,
         `const __rpEntry = __rpLoad(${JSON.stringify(ENTRY)});`,
+        // Every named export, so other records can import { useField } from 'components:app/field'.
+        `export const __rpExports = __rpEntry;`,
         `export default (__rpEntry && __rpEntry.__esModule ? __rpEntry.default : __rpEntry.default || __rpEntry);`,
         ``,
     ].join('\n')
@@ -227,7 +236,7 @@ function emitModule(linked: Linked, label: string): string {
 /* ---------------- Tailwind ---------------- */
 
 /** shadcn token names → Tailwind colors/radii, so bg-primary, text-muted-foreground, rounded-lg follow the portal theme. */
-const SHADCN_COLORS = [
+export const SHADCN_COLORS = [
     'background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'primary', 'primary-foreground',
     'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 'accent', 'accent-foreground', 'destructive',
     'destructive-foreground', 'border', 'input', 'ring', 'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5',
@@ -275,7 +284,7 @@ export function extractCandidates(sources: string[]): string[] {
     return Object.keys(set)
 }
 
-function compileTailwind(candidates: string[]): Promise<string> {
+export function compileTailwind(candidates: string[]): Promise<string> {
     return tailwindCompile(TAILWIND_INPUT, {
         base: '/',
         loadStylesheet: (id, base) => {

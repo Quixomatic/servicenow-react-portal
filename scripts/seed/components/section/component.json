@@ -1,0 +1,7 @@
+{
+    "name": "Section",
+    "kind": "block",
+    "tailwind": false,
+    "regions": [{ "name": "content", "label": "Content" }],
+    "defaults": { "paddingY": "2rem", "maxWidth": "none", "gap": "1.5rem" }
+}

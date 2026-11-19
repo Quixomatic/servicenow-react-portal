@@ -44,7 +44,8 @@ function componentMeta(gr: any): ComponentMetaDto {
         exports: parseJson<unknown>(str(gr, 'exports_json'), null),
         optionsSchema: parseJson<unknown>(str(gr, 'options_schema_json'), null),
         defaultOptions: parseJson<Record<string, unknown>>(str(gr, 'default_options_json'), {}),
-        regions: normalizeRegions(parseJson<unknown>(str(gr, 'regions_json'), null)),
+        // Blocks keep their spec as written (templates like { repeat: 'tracks' }); layouts are normalized.
+        regions: str(gr, 'kind') === 'block' ? (parseJson<unknown>(str(gr, 'regions_json'), []) as ComponentMetaDto['regions']) : normalizeRegions(parseJson<unknown>(str(gr, 'regions_json'), null)),
         dependencySpec: parseJson<unknown>(str(gr, 'dependency_spec_json'), null),
     }
 }
@@ -310,6 +311,38 @@ const STARTERS: Record<string, string> = {
         '}',
         '',
     ].join('\n'),
+    primitive: [
+        '/** A primitive: a reusable building block that widgets import, e.g.',
+        " *  import Thing from 'components:app/my-primitive'. Never placed on a page directly. */",
+        'type Props = { label?: string; children?: React.ReactNode }',
+        '',
+        'export default function Primitive({ label, children }: Props) {',
+        '    return (',
+        '        <div className="flex flex-col gap-1.5">',
+        '            {label ? <span className="text-sm font-medium">{label}</span> : null}',
+        '            {children}',
+        '        </div>',
+        '    )',
+        '}',
+        '',
+    ].join('\n'),
+    block: [
+        "import { Region, useBlock } from '@portal/runtime'",
+        '',
+        '/** A block: page structure with drop zones. regions.json declares the zones; rootProps carry the',
+        " *  instance's styling, grid position and classes, so spread them on the root element. */",
+        'export default function Block() {',
+        '    const { rootProps, regions } = useBlock()',
+        '    return (',
+        '        <div {...rootProps} className={`flex flex-col gap-4 ${rootProps.className}`}>',
+        '            {regions.map((r) => (',
+        '                <Region key={r.name} name={r.name} />',
+        '            ))}',
+        '        </div>',
+        '    )',
+        '}',
+        '',
+    ].join('\n'),
     layout: [
         "import { Region } from '@portal/runtime'",
         '',
@@ -332,7 +365,7 @@ export function createComponent(req: { name?: string; kind?: string; namespace?:
     requireStudio('author')
     const name = String((req && req.name) || '').trim()
     if (!name) throw badRequest('name is required')
-    const kind = req.kind === 'layout' || req.kind === 'utility' ? req.kind : 'widget'
+    const kind = ['layout', 'utility', 'block', 'primitive'].indexOf(String(req.kind)) >= 0 ? String(req.kind) : 'widget'
     const gr = newGR(T.component)
     gr.initialize()
     gr.setValue('name', name)
@@ -342,6 +375,7 @@ export function createComponent(req: { name?: string; kind?: string; namespace?:
     gr.setValue('client_script', STARTERS[kind])
     gr.setValue('tailwind', true)
     gr.setValue('active', true)
+    if (kind === 'block') gr.setValue('regions_json', JSON.stringify([{ name: 'content', label: 'Content' }]))
     if (kind === 'layout') gr.setValue('regions_json', JSON.stringify([{ name: 'header', acceptsContributions: true }, { name: 'main', acceptsContributions: false }, { name: 'footer', acceptsContributions: true }]))
     setSkipCompile(true)
     let id: string | null

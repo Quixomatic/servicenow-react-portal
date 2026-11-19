@@ -2,7 +2,8 @@ import { getById, findOne, str } from '../lib/gr.ts'
 import { T } from '../lib/tables.ts'
 import { isValidJson, parseJson, isPlainObject } from '../lib/util.ts'
 import { normalizeRoutePattern } from '../lib/paths.ts'
-import { effectiveRegionNames } from '../runtime/portal-service.ts'
+import { effectiveRegionNames, blockRegionsOf, MAX_BLOCK_DEPTH } from '../runtime/portal-service.ts'
+import { classTokens } from '../lib/css-safe.ts'
 import { abort } from './guards.ts'
 
 /**
@@ -36,7 +37,8 @@ export function validatePage(current: any, previous: any): void {
 
 /**
  * before insert/update on placement: exactly one owner (a page, or the portal itself),
- * region exists on the effective layout, placeable widget, parent in the same owner, no cycles.
+ * region exists on the effective layout (or the parent block's drop zones), widget or block,
+ * parent in the same owner, no cycles, bounded nesting.
  */
 export function validatePlacement(current: any, previous: any): void {
     const pageId = str(current, 'page')
@@ -55,34 +57,53 @@ export function validatePlacement(current: any, previous: any): void {
 
     const component = getById(T.component, str(current, 'component'))
     if (!component) return abort(current, 'Component is required.')
-    if (str(component, 'kind') !== 'widget') return abort(current, 'Only widgets can be placed; layouts are chosen on the portal or page.')
+    const kind = str(component, 'kind')
+    if (kind !== 'widget' && kind !== 'block') {
+        return abort(current, 'Only widgets and blocks can be placed; layouts are chosen on the portal or page.')
+    }
 
     const region = (str(current, 'region') || 'main').trim().toLowerCase()
     current.setValue('region', region)
-    const regions = effectiveRegionNames(portalId, pageId || null)
-    if (regions && regions.indexOf(region) < 0) {
-        return abort(current, `Region "${region}" doesn't exist on the effective layout (${regions.join(', ')}).`)
+    const parentId = str(current, 'parent')
+    if (parentId) {
+        // Inside a block: the region must be one of the block instance's drop zones.
+        const parent = getById(T.placement, parentId)
+        if (!parent) return abort(current, 'Parent placement not found.')
+        const zones = blockRegionsOf(parent)
+        if (!zones) return abort(current, 'Only blocks can contain placements.')
+        const names = zones.map((z) => z.name)
+        if (names.indexOf(region) < 0) {
+            return abort(current, `Region "${region}" isn't a drop zone of the parent block (${names.join(', ') || 'none'}).`)
+        }
+    } else {
+        const regions = effectiveRegionNames(portalId, pageId || null)
+        if (regions && regions.indexOf(region) < 0) {
+            return abort(current, `Region "${region}" doesn't exist on the effective layout (${regions.join(', ')}).`)
+        }
     }
 
-    for (const f of ['options_json', 'style_tokens_json', 'visibility_config_json']) {
+    const classes = str(current, 'classes')
+    if (classes) current.setValue('classes', classTokens(classes).join(' '))
+
+    for (const f of ['options_json', 'style_tokens_json', 'visibility_config_json', 'layout_json']) {
         if (!isValidJson(str(current, f))) return abort(current, `${f} is not valid JSON.`)
     }
 
-    // Parent: same owner, no cycles.
-    let parentId = str(current, 'parent')
-    if (parentId) {
+    // Parent: same owner, no cycles, bounded depth.
+    let ancestor = parentId
+    if (ancestor) {
         const seen: Record<string, boolean> = { [current.getUniqueValue()]: true }
         let depth = 0
-        while (parentId) {
-            if (seen[parentId]) return abort(current, 'Placement parents form a cycle.')
-            seen[parentId] = true
-            const parent = getById(T.placement, parentId)
+        while (ancestor) {
+            if (seen[ancestor]) return abort(current, 'Placement parents form a cycle.')
+            seen[ancestor] = true
+            const parent = getById(T.placement, ancestor)
             if (!parent) return abort(current, 'Parent placement not found.')
             if (depth === 0 && str(parent, 'owner_key') !== str(current, 'owner_key')) {
                 return abort(current, 'Parent placement must belong to the same portal or page.')
             }
-            parentId = str(parent, 'parent')
-            if (++depth > 32) return abort(current, 'Placement nesting is too deep.')
+            ancestor = str(parent, 'parent')
+            if (++depth > MAX_BLOCK_DEPTH) return abort(current, `Blocks can nest at most ${MAX_BLOCK_DEPTH} levels deep.`)
         }
     }
 }

@@ -5,7 +5,12 @@
  * Every scripted REST response body is an Envelope; the platform wraps it as { result: Envelope }.
  */
 
-export type ComponentKind = 'widget' | 'layout' | 'utility'
+/**
+ * widget: placeable content · layout: a page's frame · block: page-structure building block placed on
+ * pages (has drop zones) · primitive: reusable UI building block imported by widgets (fields, lists,
+ * forms…), never placed directly · utility: shared code.
+ */
+export type ComponentKind = 'widget' | 'layout' | 'block' | 'primitive' | 'utility'
 export type ServerMode = 'none' | 'on-load' | 'on-demand'
 /** pending: compile requested, no output yet · ready: has compiled output · failed: never compiled successfully. */
 export type BuildState = 'pending' | 'ready' | 'failed'
@@ -40,6 +45,22 @@ export interface BuildRef {
 export interface RegionDef {
     name: string
     acceptsContributions: boolean
+    /** Display label (block regions, e.g. "Column 2"). */
+    label?: string
+}
+
+/** Per-device overrides: the base keys apply everywhere; `tablet` (≤1023px) and `mobile` (≤639px) override them. */
+export type Responsive<T> = T & { tablet?: Partial<T>; mobile?: Partial<T> }
+
+/** How an instance sits in its parent block's grid (any placement). */
+export interface PlacementLayout {
+    colSpan?: number | 'full'
+    rowSpan?: number
+    colStart?: number
+    rowStart?: number
+    order?: number
+    alignSelf?: string
+    justifySelf?: string
 }
 
 export interface ComponentRef {
@@ -51,6 +72,20 @@ export interface ComponentRef {
     build: BuildRef | null
     /** Layouts only. */
     regions?: RegionDef[]
+    /**
+     * Other component records this build imports (components:<ns>/<key>, utilities:<ns>/<key>),
+     * transitively, dependencies first. The host loads each build and registers its module under
+     * the specifier before evaluating this component.
+     */
+    imports?: ComponentImport[]
+}
+
+export interface ComponentImport {
+    specifier: string
+    id: string
+    uniqueId: string
+    kind: ComponentKind
+    build: BuildRef | null
 }
 
 export interface PlacementRef {
@@ -60,7 +95,20 @@ export interface PlacementRef {
     parentId: string | null
     component: ComponentRef
     options: Record<string, unknown>
-    styleTokens: Record<string, string>
+    /** Instance styling tokens (padding, background, radius, …) with tablet/mobile overrides. */
+    styleTokens: Record<string, unknown>
+    /** Position in the parent block's grid, with tablet/mobile overrides. */
+    layout: Responsive<PlacementLayout>
+    /** Per-instance Tailwind classes, applied to the instance's root element. */
+    classes: string
+    /**
+     * Compiled instance CSS: the classes' utilities plus the style-token, layout and responsive
+     * option rules, scoped to [data-rp-placement="<id>"]. The host injects it once per placement.
+     */
+    css: string
+    /** Blocks only: the instance's resolved drop zones and the placements inside them. */
+    regions?: RegionDef[]
+    children?: RegionMap
 }
 
 export type RegionMap = Record<string, PlacementRef[]>

@@ -1,0 +1,25 @@
+.rp-grid {
+    display: grid;
+    grid-template-columns: var(--rp-grid-cols, repeat(12, minmax(0, 1fr)));
+    grid-template-rows: var(--rp-grid-rows, none);
+    grid-auto-flow: var(--rp-grid-flow, row);
+    gap: var(--rp-grid-gap, 1rem);
+    align-items: var(--rp-grid-align, stretch);
+    justify-items: var(--rp-grid-justify, stretch);
+}
+
+/* Items without their own grid layout span the grid's default (zero specificity: any instance rule wins). */
+:where(.rp-grid > *) {
+    grid-column: span var(--rp-grid-span, 4);
+    min-width: 0;
+}
+
+/* Subgrid: line up on the parent grid's tracks (the instance's own span comes from its grid layout). */
+.rp-grid--sub-columns,
+.rp-grid--sub-both {
+    grid-template-columns: subgrid;
+}
+.rp-grid--sub-rows,
+.rp-grid--sub-both {
+    grid-template-rows: subgrid;
+}

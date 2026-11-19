@@ -1,0 +1,12 @@
+{
+    "name": "Columns",
+    "kind": "block",
+    "tailwind": false,
+    "regions": [{ "repeat": "tracks", "name": "col-{n}", "label": "Column {n}" }],
+    "defaults": {
+        "tracks": [{ "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 2fr)" }],
+        "gap": "1.5rem",
+        "align": "start",
+        "mobile": { "tracks": [{ "size": "minmax(0, 1fr)" }] }
+    }
+}
