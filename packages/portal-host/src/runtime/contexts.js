@@ -46,12 +46,12 @@ export function usePortal() {
 		navigate: ctx.navigate,
 		get page() {
 			tracked.current.page = true;
-			const data = leafData(router.state);
+			const data = router ? leafData(router.state) : null;
 			return data ? data.page : null;
 		},
 		get path() {
 			tracked.current.page = true;
-			const data = leafData(router.state);
+			const data = router ? leafData(router.state) : null;
 			return data ? data.path : '';
 		},
 		get location() {

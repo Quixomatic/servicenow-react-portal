@@ -12,6 +12,8 @@ import {
     buildCompleteRoute,
     buildPreviewRoute,
     processRoute,
+    createComponentRoute,
+    componentCheckRoute,
 } from '../../server/api/studio-api'
 
 /**
@@ -59,7 +61,27 @@ export const studioApi = RestApi({
             script: componentSaveRoute,
             version: 1,
             requestExample: '{"expectedRevision":3,"files":[{"path":"index.tsx","target":"client","content":"…"}]}',
-            shortDescription: 'Revision-checked save of fields and files; requests a compile',
+            shortDescription: 'Revision-checked save of fields and files; compiles and returns the build',
+        },
+        {
+            $id: Now.ID['rest-studio-component-create'],
+            name: 'component create',
+            method: 'POST',
+            path: '/components',
+            script: createComponentRoute,
+            version: 1,
+            requestExample: '{"name":"Account Summary","kind":"widget"}',
+            shortDescription: 'Create a component with a starter client script (compiled on create)',
+        },
+        {
+            $id: Now.ID['rest-studio-component-check'],
+            name: 'component check',
+            method: 'POST',
+            path: '/components/{id}/check',
+            script: componentCheckRoute,
+            version: 1,
+            requestExample: '{"files":[{"path":"main.tsx","content":"…"}]}',
+            shortDescription: 'Dry-run compile of unsaved buffers over the saved project; nothing is written',
         },
         { $id: Now.ID['rest-studio-theme-project'], name: 'theme project', method: 'GET', path: '/themes/{id}/project', script: themeProjectRoute, version: 1 },
         { $id: Now.ID['rest-studio-theme-save'], name: 'theme save', method: 'POST', path: '/themes/{id}/save', script: themeSaveRoute, version: 1 },

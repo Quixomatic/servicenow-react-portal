@@ -158,17 +158,23 @@ export interface SourceFileDto {
     deleted?: boolean
     /**
      * True for files backed by record fields rather than source_file rows:
-     * main.tsx ← component.client_script, styles.css ← component.css,
-     * server.js ← component.script (server only, never compiled for the client),
-     * theme.css ← theme.stylesheet.
+     * See VIRTUAL_FILES: component client/CSS/server/options/regions fields and theme
+     * stylesheet/tokens. server.js and the JSON files are never compiled for the client.
      */
     virtual?: boolean
 }
 
 /** Virtual file paths and the record fields behind them. */
 export const VIRTUAL_FILES = {
-    component: { 'main.tsx': 'client_script', 'styles.css': 'css', 'server.js': 'script' },
-    theme: { 'theme.css': 'stylesheet' },
+    component: {
+        'main.tsx': 'client_script',
+        'styles.css': 'css',
+        'server.js': 'script',
+        'options.schema.json': 'options_schema_json',
+        'options.defaults.json': 'default_options_json',
+        'regions.json': 'regions_json', // layouts only
+    },
+    theme: { 'theme.css': 'stylesheet', 'tokens.json': 'tokens_json' },
 } as const
 
 export interface ComponentMetaDto {
@@ -241,6 +247,12 @@ export interface SaveData {
  *   used in main.tsx and the extra client files (compiled against the portal theme tokens),
  *   FOLLOWED BY styles.css (the css field) and any extra style files — author CSS wins.
  */
+export interface CheckData {
+    ok: boolean
+    diagnostics: { errors: { file?: string; line?: number; column?: number; message: string }[]; warnings: { file?: string; line?: number; column?: number; message: string }[] }
+    ms: number
+}
+
 export interface BuildAssetDto {
     path: string
     kind: 'js' | 'css' | 'map' | 'wasm' | 'other'

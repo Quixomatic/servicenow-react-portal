@@ -6,9 +6,11 @@ import { normalizeSourcePath, inferTarget, mimeFor } from '../lib/paths.ts'
 import { normalizeRegions, buildOf } from '../registry/registry.ts'
 import { requireStudio } from '../security/access.ts'
 import { loadOwner, Owner, OwnerType } from './owner.ts'
-import { requestCompile, buildSummary } from '../build/build-service.ts'
-import { VIRTUAL, virtualFiles, listExtraFiles, compilerInputs } from './project-files.ts'
-import type { ComponentMetaDto, ProjectData, SaveData, SaveRequest, SourceFileDto, SourceTarget } from '../../shared/contracts'
+import { gs } from '@servicenow/glide'
+import { compileOwner, buildSummary, runtimeAbiVersion } from '../build/build-service.ts'
+import { compileComponent, CompilerFile } from '../compiler/compiler.ts'
+import { virtualMapFor, VirtualFile, RESERVED_VIRTUAL_PATHS, virtualFiles, listExtraFiles, compilerInputs } from './project-files.ts'
+import type { ComponentMetaDto, ProjectData, SaveData, SaveRequest, SourceFileDto, SourceTarget, CheckData } from '../../shared/contracts'
 
 /**
  * RPSourceService: component/theme projects, revision-checked saves.
@@ -111,8 +113,49 @@ function applyThemeMeta(gr: any, meta: SaveRequest['meta']): void {
     if (meta.stylesheet !== undefined) gr.setValue('stylesheet', meta.stylesheet)
 }
 
-/** Revision-checked save of fields + files, then request a compile of the new revision. */
-export function save(type: OwnerType, id: string, req: SaveRequest): SaveData {
+/** Session flag that tells the compile-on-save business rules to stand down during a Studio save. */
+export const SKIP_COMPILE_KEY = 'x_312987_portal.skip_compile'
+
+function setSkipCompile(on: boolean): void {
+    const session: any = gs.getSession()
+    if (on) session.putClientData(SKIP_COMPILE_KEY, 'true')
+    else session.putClientData(SKIP_COMPILE_KEY, '') // scoped GlideSession has no clearClientData
+}
+
+export function compileSuppressed(): boolean {
+    const session: any = gs.getSession()
+    return String(session.getClientData(SKIP_COMPILE_KEY) || '') === 'true'
+}
+
+/** Normalize a virtual file's incoming content into the stored field value ('' = field empty). */
+function virtualFieldValue(path: string, v: VirtualFile, content: string, currentRaw: string): string | null {
+    const trimmed = content.trim()
+    // Saving the "empty" placeholder (e.g. "{}") back onto an empty field is a no-op.
+    if (!currentRaw && (trimmed === '' || trimmed === v.empty)) return null
+    if (v.json) {
+        if (trimmed === '') return ''
+        try {
+            JSON.parse(trimmed)
+        } catch (e) {
+            throw badRequest(`${path} is not valid JSON: ${String((e as Error).message || e)}`)
+        }
+        // Unchanged if semantically equal to what's stored.
+        try {
+            if (currentRaw && JSON.stringify(JSON.parse(currentRaw)) === JSON.stringify(JSON.parse(trimmed))) return null
+        } catch (e) {
+            /* stored value isn't valid JSON: overwrite it */
+        }
+        return trimmed
+    }
+    return content === currentRaw ? null : content
+}
+
+/**
+ * Revision-checked save of fields + files, compiled once at the end. Resolves with the finished
+ * compile result (Studio shows errors straight from the save response). The compile-on-save
+ * business rules are suppressed for the batch so a multi-file save compiles once, not per file.
+ */
+export function save(type: OwnerType, id: string, req: SaveRequest): Promise<SaveData> {
     requireStudio(capabilityFor(type))
     let owner = loadOwner(type, id)
     if (!req || typeof req.expectedRevision !== 'number') throw badRequest('expectedRevision is required')
@@ -126,7 +169,7 @@ export function save(type: OwnerType, id: string, req: SaveRequest): SaveData {
     if (files.length > maxFiles) throw badRequest(`Too many files (max ${maxFiles})`)
 
     // Validate everything before writing anything.
-    const virtualMap = VIRTUAL[type]
+    const virtualMap = virtualMapFor(owner)
     const fieldUpdates: Record<string, string> = {}
     const seen: Record<string, boolean> = {}
     const ops: { path: string; dto: SourceFileDto }[] = []
@@ -140,9 +183,11 @@ export function save(type: OwnerType, id: string, req: SaveRequest): SaveData {
         if (virtual) {
             if (f.deleted) throw badRequest(`"${path}" is a baseline file and can't be deleted (save it empty instead)`)
             if (typeof f.content !== 'string') throw badRequest(`File "${path}" needs string content`)
-            fieldUpdates[virtual.field] = f.content
+            const value = virtualFieldValue(path, virtual, f.content, str(owner.gr, virtual.field))
+            if (value !== null) fieldUpdates[virtual.field] = value
             continue
         }
+        if (RESERVED_VIRTUAL_PATHS.indexOf(path.toLowerCase()) >= 0) throw badRequest(`"${path}" is reserved for a record field`)
         if (!f.deleted) {
             if (typeof f.content !== 'string') throw badRequest(`File "${path}" needs string content`)
             if (f.target && TARGETS.indexOf(f.target) < 0) throw badRequest(`File "${path}" has an invalid target`)
@@ -150,47 +195,161 @@ export function save(type: OwnerType, id: string, req: SaveRequest): SaveData {
         ops.push({ path, dto: f })
     }
 
-    let ownerDirty = false
-    if (req.meta && isPlainObject(req.meta)) {
-        if (type === 'component') applyComponentMeta(owner.gr, req.meta)
-        else applyThemeMeta(owner.gr, req.meta)
-        ownerDirty = true
-    }
-    for (const field of Object.keys(fieldUpdates)) {
-        owner.gr.setValue(field, fieldUpdates[field])
-        ownerDirty = true
-    }
-    if (ownerDirty) owner.gr.update()
+    setSkipCompile(true)
+    try {
+        let ownerDirty = false
+        if (req.meta && isPlainObject(req.meta)) {
+            if (type === 'component') applyComponentMeta(owner.gr, req.meta)
+            else applyThemeMeta(owner.gr, req.meta)
+            ownerDirty = true
+        }
+        for (const field of Object.keys(fieldUpdates)) {
+            owner.gr.setValue(field, fieldUpdates[field])
+            ownerDirty = true
+        }
+        if (ownerDirty) owner.gr.update()
 
-    for (const op of ops) {
-        const existing = findOne(T.sourceFile, `owner_key=${owner.key}^path=${op.path}`)
-        if (op.dto.deleted) {
-            if (existing) existing.deleteRecord()
-            continue
+        for (const op of ops) {
+            const existing = findOne(T.sourceFile, `owner_key=${owner.key}^path=${op.path}`)
+            if (op.dto.deleted) {
+                if (existing) existing.deleteRecord()
+                continue
+            }
+            if (existing && str(existing, 'content_text') === op.dto.content && (!op.dto.target || str(existing, 'target') === op.dto.target)) {
+                continue // unchanged
+            }
+            const gr = existing || newGR(T.sourceFile)
+            if (!existing) {
+                gr.initialize()
+                gr.setValue(type, id)
+                gr.setValue('path', op.path)
+            }
+            gr.setValue('target', op.dto.target || inferTarget(op.path))
+            gr.setValue('content_text', op.dto.content)
+            gr.setValue('encoding', op.dto.encoding || 'utf8')
+            gr.setValue('mime_type', op.dto.mimeType || mimeFor(op.path))
+            if (existing) gr.update()
+            else gr.insert()
         }
-        if (existing && str(existing, 'content_text') === op.dto.content && (!op.dto.target || str(existing, 'target') === op.dto.target)) {
-            continue // unchanged
-        }
-        const gr = existing || newGR(T.sourceFile)
-        if (!existing) {
-            gr.initialize()
-            gr.setValue(type, id)
-            gr.setValue('path', op.path)
-        }
-        gr.setValue('target', op.dto.target || inferTarget(op.path))
-        gr.setValue('content_text', op.dto.content)
-        gr.setValue('encoding', op.dto.encoding || 'utf8')
-        gr.setValue('mime_type', op.dto.mimeType || mimeFor(op.path))
-        if (existing) gr.update()
-        else gr.insert()
+    } finally {
+        setSkipCompile(false)
     }
 
     owner = loadOwner(type, id) // pick up the revision advanced by business rules
-    const compile = requestCompile(owner)
-    return {
-        revision: int(owner.gr, 'source_revision'),
-        build: buildSummary(compile.gr, { upToDate: compile.upToDate || undefined }),
-        files: compilerInputs(owner),
-        registry: { runtimeAbiVersion: compile.runtimeAbiVersion },
+    return compileOwner(owner).then((build) => {
+        const fresh = loadOwner(type, id)
+        return {
+            revision: int(fresh.gr, 'source_revision'),
+            build,
+            files: virtualFiles(fresh).concat(listExtraFiles(fresh, true)),
+            registry: { runtimeAbiVersion: runtimeAbiVersion() },
+        }
+    })
+}
+
+/**
+ * Dry-run compile of unsaved editor buffers merged over the saved project. Nothing is written.
+ * Drives Studio's live Problems panel.
+ */
+export function check(type: OwnerType, id: string, files: { path: string; content: string }[]): Promise<CheckData> {
+    requireStudio(capabilityFor(type))
+    const owner = loadOwner(type, id)
+    const started = Date.now()
+    if (type === 'theme') return Promise.resolve({ ok: true, diagnostics: { errors: [], warnings: [] }, ms: 0 })
+
+    const merged: Record<string, CompilerFile> = {}
+    for (const f of compilerInputs(owner)) merged[f.path] = { path: f.path, content: f.content, target: f.target as CompilerFile['target'] }
+    const map = virtualMapFor(owner)
+    const errors: CheckData['diagnostics']['errors'] = []
+    for (const f of Array.isArray(files) ? files : []) {
+        if (!f || typeof f.path !== 'string' || typeof f.content !== 'string') continue
+        const path = normalizeSourcePath(f.path)
+        if (!path) continue
+        const v = map[path]
+        if (v && v.json) {
+            // Metadata files aren't compiled, but a broken one would fail on save: check it here.
+            if (f.content.trim()) {
+                try {
+                    JSON.parse(f.content)
+                } catch (e) {
+                    errors.push({ file: path, message: `Invalid JSON: ${String((e as Error).message || e)}` })
+                }
+            }
+            continue
+        }
+        if (v && !v.compile) continue // server.js: not part of the client build
+        const target = v ? v.target : inferTarget(path)
+        if (target !== 'client' && target !== 'style') continue
+        merged[path] = { path, content: f.content, target: target as CompilerFile['target'] }
     }
+    return compileComponent({
+        files: Object.keys(merged).map((k) => merged[k]),
+        tailwind: bool(owner.gr, 'tailwind'),
+        label: str(owner.gr, 'unique_id'),
+    }).then((r) => {
+        const all = errors.concat(r.diagnostics.errors)
+        return { ok: all.length === 0, diagnostics: { errors: all, warnings: r.diagnostics.warnings }, ms: Date.now() - started }
+    })
+}
+
+const STARTERS: Record<string, string> = {
+    widget: [
+        "import { Card, CardHeader, CardTitle, CardContent } from 'components:card'",
+        '',
+        'type Props = { options?: { title?: string } }',
+        '',
+        'export default function Widget({ options = {} }: Props) {',
+        '    return (',
+        '        <Card>',
+        '            <CardHeader>',
+        "                <CardTitle>{options.title || 'New widget'}</CardTitle>",
+        '            </CardHeader>',
+        '            <CardContent className="text-sm text-muted-foreground">Edit main.tsx to get started.</CardContent>',
+        '        </Card>',
+        '    )',
+        '}',
+        '',
+    ].join('\n'),
+    layout: [
+        "import { Region } from '@portal/runtime'",
+        '',
+        'export default function Layout() {',
+        '    return (',
+        '        <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto] bg-background text-foreground">',
+        '            <header className="border-b"><Region name="header" /></header>',
+        '            <main className="min-h-0 overflow-auto p-6"><Region name="main" /></main>',
+        '            <footer className="border-t px-6 py-3 text-xs text-muted-foreground"><Region name="footer" /></footer>',
+        '        </div>',
+        '    )',
+        '}',
+        '',
+    ].join('\n'),
+    utility: ['// Shared helpers for other components.', 'export function hello(name: string): string {', '    return `Hello, ${name}`', '}', ''].join('\n'),
+}
+
+/** Create a component with a starter client script, compile it, and return its project. */
+export function createComponent(req: { name?: string; kind?: string; namespace?: string; key?: string }): Promise<ProjectData> {
+    requireStudio('author')
+    const name = String((req && req.name) || '').trim()
+    if (!name) throw badRequest('name is required')
+    const kind = req.kind === 'layout' || req.kind === 'utility' ? req.kind : 'widget'
+    const gr = newGR(T.component)
+    gr.initialize()
+    gr.setValue('name', name)
+    gr.setValue('kind', kind)
+    if (req.namespace) gr.setValue('namespace', String(req.namespace))
+    if (req.key) gr.setValue('key', String(req.key))
+    gr.setValue('client_script', STARTERS[kind])
+    gr.setValue('tailwind', true)
+    gr.setValue('active', true)
+    if (kind === 'layout') gr.setValue('regions_json', JSON.stringify([{ name: 'header', acceptsContributions: true }, { name: 'main', acceptsContributions: false }, { name: 'footer', acceptsContributions: true }]))
+    setSkipCompile(true)
+    let id: string | null
+    try {
+        id = gr.insert()
+    } finally {
+        setSkipCompile(false)
+    }
+    if (!id) throw badRequest(`Could not create component: ${gs.getErrorMessages ? gs.getErrorMessages() : 'insert failed'}`)
+    return compileOwner(loadOwner('component', id)).then(() => getProject('component', id as string))
 }

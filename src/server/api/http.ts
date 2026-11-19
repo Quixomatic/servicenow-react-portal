@@ -58,18 +58,15 @@ export function send(response: any, status: number, body: unknown): void {
     response.setBody(body as any)
 }
 
-/** Run a handler and write the envelope / error body. */
-export function handle(request: any, response: any, fn: (req: Req) => HandlerResult): void {
+/**
+ * Run a handler and write the envelope / error body. A handler may return a Promise (compiles
+ * are async because Tailwind's compile() is); on the instance it settles before the request's
+ * script finishes, so the body is still written before the response is sent.
+ */
+export function handle(request: any, response: any, fn: (req: Req) => HandlerResult | Promise<HandlerResult>): void {
     const started = Date.now()
     let req: Req | null = null
-    try {
-        req = wrap(request)
-        const result = fn(req)
-        const meta: EnvelopeMeta = { correlationId: req.correlationId, durationMs: Date.now() - started, ...(result.meta || {}) }
-        const body: Record<string, unknown> = { data: result.data, meta }
-        if (result.options) body.options = result.options
-        send(response, result.status || 200, body)
-    } catch (e) {
+    const fail = (e: unknown) => {
         const cid = req ? req.correlationId : newCorrelationId()
         const status = isRPError(e) ? e.status : 500
         const code = isRPError(e) ? e.code : 'internal_error'
@@ -78,6 +75,20 @@ export function handle(request: any, response: any, fn: (req: Req) => HandlerRes
         const error: Record<string, unknown> = { status, code, message }
         if (isRPError(e) && e.details !== undefined) error.details = e.details
         send(response, status, { error, meta: { correlationId: cid, durationMs: Date.now() - started } })
+    }
+    const ok = (result: HandlerResult) => {
+        const meta: EnvelopeMeta = { correlationId: (req as Req).correlationId, durationMs: Date.now() - started, ...(result.meta || {}) }
+        const body: Record<string, unknown> = { data: result.data, meta }
+        if (result.options) body.options = result.options
+        send(response, result.status || 200, body)
+    }
+    try {
+        req = wrap(request)
+        const result = fn(req)
+        if (result && typeof (result as Promise<HandlerResult>).then === 'function') (result as Promise<HandlerResult>).then(ok, fail)
+        else ok(result as HandlerResult)
+    } catch (e) {
+        fail(e)
     }
 }
 

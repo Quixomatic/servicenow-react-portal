@@ -4,6 +4,7 @@ import { sha256, byteLength, propInt } from '../lib/util.ts'
 import { normalizeSourcePath, inferTarget, mimeFor } from '../lib/paths.ts'
 import { ownerOfRecord, ownerKey, ownerTable } from '../source/owner.ts'
 import { abort } from './guards.ts'
+import { RESERVED_VIRTUAL_PATHS } from '../source/project-files.ts'
 
 /**
  * Source file business rules.
@@ -12,7 +13,7 @@ import { abort } from './guards.ts'
 const TARGETS = ['client', 'server', 'style', 'asset']
 
 /** Virtual files backed by component fields; never stored as source_file rows. */
-export const RESERVED_PATHS = ['main.tsx', 'styles.css', 'server.js', 'theme.css']
+export const RESERVED_PATHS = RESERVED_VIRTUAL_PATHS
 
 /** before insert/update: one owner, safe path, size limit, hash, per-file revision. */
 export function validateSourceFile(current: any, previous: any): void {
@@ -25,7 +26,7 @@ export function validateSourceFile(current: any, previous: any): void {
     if (!path) return abort(current, `Invalid source path "${str(current, 'path')}". Paths are relative and can't contain "..".`)
     current.setValue('path', path)
     if (RESERVED_PATHS.indexOf(path.toLowerCase()) >= 0) {
-        return abort(current, `"${path}" is reserved: it is the ${path === 'styles.css' ? 'CSS' : path === 'server.js' ? 'server script' : path === 'theme.css' ? "theme's stylesheet" : 'client script'} field of the record.`)
+        return abort(current, `"${path}" is reserved: it is a field of the component/theme record (edit it there or in Studio).`)
     }
 
     const dup = findOne(T.sourceFile, `owner_key=${ownerKey(owner.type, owner.id)}^path=${path}^sys_id!=${current.getUniqueValue()}`)

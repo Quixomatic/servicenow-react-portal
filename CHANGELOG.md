@@ -2,6 +2,50 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.2.0] - 2026-11-18
+
+Portal Studio: a VS Code-style editor for components and themes, running in the host on a
+`studio` page, with save compiling on the server and live problems while you type.
+
+### Added
+- **Portal Studio (host `mode = studio`).** A workbench in `packages/portal-host/src/studio/`:
+  - title bar with a searchable component/theme switcher, New component, Save (Ctrl+S) and a
+    build badge with compile time
+  - an explorer showing each component's virtual files (Client, Styles, Server, Options schema,
+    Defaults, Regions) and its extra files as a folder tree, with new file/folder, rename and delete
+  - CodeMirror 6 editors in split editor groups (allotment): preview and pinned tabs, drag tabs
+    between groups or onto an edge to split, Open to the Side, Ctrl+\ split, quick open (Ctrl+P)
+  - VS Code light/dark themes, a Problems panel driven by the server's check endpoint, an
+    Output log, properties for component metadata, a status bar
+  - a Preview that renders the latest build through the host runtime, unsaved-change guards,
+    a 409 conflict banner (reload or overwrite), and per-component tab/layout persistence
+  - routing through the host's `recordId` (the studio page's optional `id` URL parameter)
+- **Studio ships as its own chunk** (`portal-studio.jsdbx`, ~1 MB): portal pages don't download the
+  editor; the portal bundle is unchanged.
+- **More virtual files.** Components now expose `options.schema.json`, `options.defaults.json` and
+  (layouts) `regions.json`; themes expose `tokens.json`. JSON is pretty-printed for editing,
+  validated on save, and an unchanged placeholder (`{}` / `[]`) saves as a no-op.
+- **`POST /components/{id}/check`** (Studio API): dry-run compile of unsaved buffers merged over the
+  saved project; returns errors with file/line/column (and invalid JSON) without writing anything.
+- **`POST /components`** (Studio API): create a widget, layout or utility with a starter client
+  script, compiled on create.
+
+### Changed
+- **Save compiles synchronously.** `POST /components/{id}/save` (and themes) returns the finished
+  compile result, so Studio shows errors straight from the save response. Compile-on-save business
+  rules stand down during a Studio save so a multi-file save compiles once.
+- **REST handlers may return a Promise** (`src/server/api/http.ts`); it settles before the request's
+  script finishes, so the response body is still written.
+
+### Fixed
+- **Scoped `GlideSession` has no `clearClientData`**: the compile-suppression flag is cleared with
+  `putClientData(key, '')`.
+
+### UI Builder setup
+- Page `studio`, no required URL parameters, optional `id`. React Portal Host with Mode = `studio`
+  and Record id bound to `@context.props.id`; Portal navigate → Link to destination → `studio` with
+  `id` = payload Record id.
+
 ## [1.1.0] - 2026-11-18
 
 First working cut of React Portal: a Service Portal successor on Next Experience, where portals,

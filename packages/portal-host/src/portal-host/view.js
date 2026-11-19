@@ -11,6 +11,38 @@ import { nextInstanceId, recordMount, recordProperties, recordUnmount } from '#/
 import PortalApp from '#/portal/portal-app';
 import StudioPlaceholder from '#/studio/studio-placeholder';
 
+// Portal Studio is a separate chunk: only mode = studio downloads CodeMirror, allotment and the
+// editor (spec §12). The deployed chunk is a standalone bundle with its own React, so it mounts
+// its own root into a container here (see src/portal-studio.js) and gets only plain objects.
+function Studio({ locationStore, navigate }) {
+	const containerRef = useRef(null);
+	const [state, setState] = useState({ status: 'loading' });
+	useEffect(() => {
+		let alive = true;
+		let handle = null;
+		import(/* webpackChunkName: "portal-studio" */ '../portal-studio')
+			.then((mod) => {
+				if (!alive || !containerRef.current) return;
+				const mount = mod.mount || mod.default;
+				handle = mount(containerRef.current, { locationStore, navigate, root: containerRef.current.getRootNode() });
+				setState({ status: 'ready' });
+			})
+			.catch((error) => alive && setState({ status: 'error', error }));
+		return () => {
+			alive = false;
+			// Unmount the other root outside this commit.
+			if (handle) setTimeout(() => handle.unmount(), 0);
+		};
+	}, [locationStore, navigate]);
+	return (
+		<>
+			{state.status === 'loading' ? <StudioPlaceholder loading /> : null}
+			{state.status === 'error' ? <StudioPlaceholder error={state.error} /> : null}
+			<div ref={containerRef} data-rps-container="" />
+		</>
+	);
+}
+
 // Host view: normalize the properties once, publish them through a per-instance store, pick the
 // mode. The view re-renders on every property change; nothing below it does unless it reads
 // the location (usePortalLocation / usePortal().location) or the router moves.
@@ -56,7 +88,7 @@ export default function PortalHostView({ properties, dispatch }) {
 			<LocationStoreContext.Provider value={locationStore}>
 				<NavigationContext.Provider value={navigate}>
 					<div ref={rootRef} className="contents" data-rp-host-root="">
-						{location.mode === 'studio' ? <StudioPlaceholder /> : <PortalApp portalSlug={location.portalSlug} hostId={instanceId} />}
+						{location.mode === 'studio' ? <Studio locationStore={locationStore} navigate={navigate} /> : <PortalApp portalSlug={location.portalSlug} hostId={instanceId} />}
 					</div>
 				</NavigationContext.Provider>
 			</LocationStoreContext.Provider>

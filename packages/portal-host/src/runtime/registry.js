@@ -16,6 +16,12 @@ import * as Card from '#/components/ui/card';
 import * as DropdownMenu from '#/components/ui/dropdown-menu';
 import * as Popover from '#/components/ui/popover';
 import * as Separator from '#/components/ui/separator';
+import { PortalContext, WidgetInstanceContext } from './contexts';
+import { NavigationContext } from './navigation';
+import { WidgetErrorBoundary } from './widgets';
+import { createStore } from './store';
+import { loadBuild } from './loader';
+import { ensureStyle } from './styles';
 
 const modules = {
 	react: React,
@@ -37,6 +43,19 @@ const registry = (globalThis.__REACT_PORTAL__ = globalThis.__REACT_PORTAL__ || {
 Object.assign(registry.modules, modules);
 registry.abi = PortalRuntime.RUNTIME_ABI;
 registry.reactVersion = React.version;
+
+// Host internals for Portal Studio's preview. The Studio chunk is a separate bundle with its own
+// React, so it renders widget previews through the host's React and these host instances (the
+// contexts widgets read via @portal/runtime). Not part of the widget API.
+registry.internals = {
+	PortalContext,
+	WidgetInstanceContext,
+	NavigationContext,
+	WidgetErrorBoundary,
+	createStore,
+	loadBuild,
+	ensureStyle
+};
 
 /** Register more modules at runtime (e.g. 'components:<widget>' for widgets other widgets use). */
 registry.register = function register(name, mod) {

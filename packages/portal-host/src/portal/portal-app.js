@@ -1,5 +1,6 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAvailableHeight } from '#/runtime/use-available-height';
 import { useNavigate } from '#/runtime/navigation';
 import { styleTarget } from '#/runtime/styles';
 import { useDiagCounter } from '#/runtime/diag-hooks';
@@ -40,33 +41,6 @@ const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
 });
 
 export default PortalApp;
-
-/** Height from the element's top edge to the bottom of the visible viewport (min 320px). */
-function useAvailableHeight(el) {
-	const [height, setHeight] = useState('100dvh');
-	useEffect(() => {
-		if (!el) return undefined;
-		let frame = 0;
-		const measure = () => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(() => {
-				const top = Math.max(0, el.getBoundingClientRect().top + (window.scrollY || 0));
-				const viewport = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-				setHeight(Math.max(320, Math.floor(viewport - top)) + 'px');
-			});
-		};
-		measure();
-		window.addEventListener('resize', measure);
-		const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-		if (ro) ro.observe(document.documentElement);
-		return () => {
-			cancelAnimationFrame(frame);
-			window.removeEventListener('resize', measure);
-			if (ro) ro.disconnect();
-		};
-	}, [el]);
-	return height;
-}
 
 /** Bootstrap the portal, then build its router (rebuilt only if the page routes change). */
 function PortalBoot({ slug, target }) {

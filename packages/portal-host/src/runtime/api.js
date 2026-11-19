@@ -67,7 +67,17 @@ function headers(hasBody) {
 }
 
 async function request(method, path, body) {
-	const response = await fetch(API_BASE + path, {
+	return requestAt(API_BASE, method, path, body);
+}
+
+export const STUDIO_API_BASE = '/api/x_312987_portal/rp_studio';
+
+/**
+ * Scripted REST call against `base`: session cookie + X-UserToken, { result: { data } } unwrapped,
+ * errors thrown as ApiError with status, code and details. Studio uses it with STUDIO_API_BASE.
+ */
+export async function requestAt(base, method, path, body) {
+	const response = await fetch(base + path, {
 		method,
 		credentials: 'same-origin',
 		headers: headers(body !== undefined),
@@ -87,6 +97,7 @@ async function request(method, path, body) {
 			(err && (err.message || err.detail)) || `${method} ${path} failed: HTTP ${response.status}`;
 		const apiError = new ApiError(message, (err && err.status) || response.status, json);
 		apiError.code = err && err.code;
+		apiError.details = err && err.details;
 		throw apiError;
 	}
 	if (!envelope || typeof envelope !== 'object' || !('data' in envelope)) {

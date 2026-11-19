@@ -4,6 +4,7 @@ import { loadOwner, ownerOfRecord, OwnerType } from '../source/owner.ts'
 import { compileOwner } from '../build/build-service.ts'
 import { COMPONENT_BUILD_FIELDS } from './component-rules.ts'
 import { anyChanged } from './guards.ts'
+import { compileSuppressed } from '../source/source-service.ts'
 
 /**
  * Compile on save. Each rule compiles the owner's current sources on the server and writes
@@ -13,6 +14,7 @@ import { anyChanged } from './guards.ts'
  */
 
 function run(type: OwnerType, id: string, reason: string): void {
+    if (compileSuppressed()) return // a Studio save compiles once at the end of its batch
     let owner
     try {
         owner = loadOwner(type, id)

@@ -9,6 +9,8 @@
 
 /* Scan component sources for class names. */
 @source "../";
+/* Portal Studio has its own plain stylesheet (studio-css.js) and ships in a separate chunk. */
+@source not "../studio";
 
 /* Dark mode follows a .dark class on the component host. The renderer copies host classes
  * onto the overlay layer too, so dialogs and menus follow it. */

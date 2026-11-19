@@ -457,6 +457,14 @@ declare global {
                         table: 'sys_ws_operation'
                         id: 'cc913ab2d2ec47ceaa9464e8359ea7f7'
                     }
+                    'rest-studio-component-check': {
+                        table: 'sys_ws_operation'
+                        id: '1d78c004180b466280ef4e8355c9647f'
+                    }
+                    'rest-studio-component-create': {
+                        table: 'sys_ws_operation'
+                        id: '0b32481988664a949a6359794c1b07ae'
+                    }
                     'rest-studio-component-project': {
                         table: 'sys_ws_operation'
                         id: '51bdc3ddf71d4bb7a2b5f8c65e6f265c'
