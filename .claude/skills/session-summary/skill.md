@@ -1,6 +1,6 @@
 ---
 name: session-summary
-description: Before a compaction (or at the end of a big arc), write an extreme-detail dated session summary to .docs/summaries/ and refresh ONLY the "Where we are" block of .docs/RESUME_PROMPT.md, so a fresh context can pick up exactly where this one left off. Invoke with /session-summary.
+description: Only right before a compaction (end of session / context nearly full — not after each release), write an extreme-detail dated session summary to .docs/summaries/ and refresh ONLY the "Where we are" block of .docs/RESUME_PROMPT.md, so a fresh context can pick up exactly where this one left off. Invoke with /session-summary.
 ---
 
 # Session summary
@@ -20,8 +20,8 @@ Captures everything a fresh context needs after compaction. Two outputs:
 /session-summary [optional focus or slug hint]
 ```
 
-Also run it unprompted when the context is getting long or right after finishing a big arc (a release,
-a new subsystem), before James asks.
+Run it unprompted only when a compaction is genuinely near (context nearly full / end of session).
+Never run it just because a release or arc finished: that's not when James compacts.
 
 ## Step 1 — Gather facts (don't write from memory alone)
 
