@@ -2,3 +2,10 @@
 .rp-subheader [data-rp-hslot][data-filled] ~ .rp-sub-default {
 	display: none;
 }
+
+/* Narrow frames wrap the bar (left row, then right row); an unfilled right side takes no row. */
+@media (max-width: 639px) {
+	.rp-subheader > .rp-sub-right:not(:has([data-rp-hslot][data-filled])) {
+		display: none;
+	}
+}

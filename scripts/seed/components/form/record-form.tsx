@@ -32,6 +32,12 @@ export type RecordFormProps = {
     /** Hide the UI action bar. */
     hideActions?: boolean
     className?: string
+    /**
+     * Render the header into a page header's slots instead of the card header (e.g. app/app-subheader
+     * via utilities:app/header-slots): `left` gets the table label, record title and state badges,
+     * `right` the UI actions, view switcher and headerActions. Each function wraps its node.
+     */
+    headerSlots?: { left?: (node: any) => any; right?: (node: any) => any }
 }
 
 /** A record form with header, view switcher, sections, dirty tracking and save. */
@@ -91,13 +97,39 @@ function RecordHeader({ form, actions, viewSwitcher, actionBar }: { form: Record
     )
 }
 
-function ViewSwitcher({ table, sysId, view, onChange }: { table: string; sysId: string; view: string; onChange?: (v: string) => void }) {
+/** The compact header for a page header bar: table label, title, state and read-only badges. */
+function SlotTitle({ form }: { form: RecordFormModel }) {
+    const boot = form.bootstrap!
+    const titleField = HEADER_FIELDS.find((f) => f in boot.values) || ''
+    const title = useValue(form, titleField)
+    const subtitle = useValue(form, titleField === 'number' ? 'short_description' : '')
+    const state = useValue(form, 'state')
+    return (
+        <div className="flex min-w-0 items-center gap-2" data-rp-record-title="">
+            <span className="shrink-0 text-xs font-medium tracking-wide text-muted-foreground uppercase max-sm:hidden">{form.isNew ? `New ${boot.tableLabel}` : boot.tableLabel}</span>
+            <h1 className="m-0 min-w-0 truncate text-sm font-semibold">{title || (form.isNew ? 'New record' : boot.sysId)}</h1>
+            {state ? (
+                <Badge variant="secondary" className="shrink-0" data-rp-record-state="">
+                    {state}
+                </Badge>
+            ) : null}
+            {form.readOnly ? (
+                <Badge variant="outline" className="shrink-0">
+                    Read only
+                </Badge>
+            ) : null}
+            {subtitle ? <span className="min-w-0 truncate text-sm text-muted-foreground max-lg:hidden">{subtitle}</span> : null}
+        </div>
+    )
+}
+
+function ViewSwitcher({ table, sysId, view, onChange, compact }: { table: string; sysId: string; view: string; onChange?: (v: string) => void; compact?: boolean }) {
     const views = useFormViews(table, sysId)
     const list = (views.data && views.data.views) || []
     const items = list.length ? list.map((v) => ({ value: v.name, label: v.label })) : [{ value: view, label: view || 'Default view' }]
     if (items.every((i) => i.value !== view)) items.unshift({ value: view, label: view })
     return (
-        <div className="w-56" data-rp-view-switcher="">
+        <div className={compact ? 'w-40 max-md:hidden' : 'w-56'} data-rp-view-switcher="">
             <Select aria-label="Form view" size="sm" value={view} items={items} loading={views.isFetching} onChange={(i) => onChange && onChange(i.value === 'Default view' ? '' : i.value)} />
         </div>
     )
@@ -160,16 +192,29 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
 
     const dirtyCount = meta.dirtyFields.length
     const canSave = !form.readOnly && (form.isNew || dirtyCount > 0) && !form.saving
+    const actionBar = props.hideActions ? null : <UiActionBar form={form} onRun={run} maxButtons={props.headerSlots ? 2 : undefined} />
+    const viewSwitcher = props.showViews ? <ViewSwitcher table={boot.table} sysId={form.isNew ? '-1' : boot.sysId} view={boot.view} onChange={props.onViewChange} compact={!!props.headerSlots} /> : null
+    const slots = props.headerSlots
     return (
         <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`}>
-            <CardHeader>
-                <RecordHeader
-                    form={form}
-                    actions={props.headerActions}
-                    actionBar={props.hideActions ? null : <UiActionBar form={form} onRun={run} />}
-                    viewSwitcher={props.showViews ? <ViewSwitcher table={boot.table} sysId={form.isNew ? '-1' : boot.sysId} view={boot.view} onChange={props.onViewChange} /> : null}
-                />
-            </CardHeader>
+            {slots ? (
+                <>
+                    {slots.left ? slots.left(<SlotTitle form={form} />) : null}
+                    {slots.right
+                        ? slots.right(
+                              <>
+                                  {actionBar}
+                                  {viewSwitcher}
+                                  {props.headerActions}
+                              </>,
+                          )
+                        : null}
+                </>
+            ) : (
+                <CardHeader>
+                    <RecordHeader form={form} actions={props.headerActions} actionBar={actionBar} viewSwitcher={viewSwitcher} />
+                </CardHeader>
+            )}
             <CardContent>
                 <FormProvider form={form}>
                     <form
@@ -309,12 +354,14 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
  * save bar. Client actions run their onclick script through the g_form layer; others go
  * straight to the server (POST /api/now/ui/ui_action/:id).
  */
-export function UiActionBar({ form, onRun }: { form: RecordFormModel; onRun: (a: UiAction) => Promise<unknown> }) {
+export function UiActionBar({ form, onRun, maxButtons }: { form: RecordFormModel; onRun: (a: UiAction) => Promise<unknown>; maxButtons?: number }) {
     const [running, setRunning] = useState('')
     const all = ((form.bootstrap && form.bootstrap.actions) || []).filter((a) => a.label && SAVE_ACTIONS.indexOf(a.name) < 0)
     if (!all.length) return null
-    const buttons = all.filter((a) => a.type === 'button')
-    const menu = all.filter((a) => a.type !== 'button')
+    // maxButtons (a header bar): the first N form buttons stay buttons, the rest join the More menu.
+    const allButtons = all.filter((a) => a.type === 'button')
+    const buttons = maxButtons ? allButtons.slice(0, maxButtons) : allButtons
+    const menu = (maxButtons ? allButtons.slice(maxButtons) : []).concat(all.filter((a) => a.type !== 'button'))
     const go = (a: UiAction) => {
         if (running) return
         setRunning(a.sysId)
@@ -322,7 +369,7 @@ export function UiActionBar({ form, onRun }: { form: RecordFormModel; onRun: (a:
     }
     const busy = !!running || form.saving
     return (
-        <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Record actions" data-rp-action-bar="">
+        <div className={cx('flex items-center gap-2', maxButtons ? 'flex-nowrap' : 'flex-wrap')} role="toolbar" aria-label="Record actions" data-rp-action-bar="">
             {buttons.map((a) => (
                 <Button
                     key={a.sysId}

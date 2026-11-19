@@ -20,6 +20,15 @@
       "enum": ["footer", "header", "none"],
       "enumNames": ["In the footer", "In the header", "Hidden"]
     },
-    "brand": { "type": "string", "title": "Brand text", "description": "Defaults to the portal name" }
+    "brand": { "type": "string", "title": "Brand text", "description": "Defaults to the portal name" },
+    "brandIcon": { "type": "string", "title": "Brand icon (lucide name)", "default": "layers" },
+    "logo": { "type": "string", "title": "Brand logo URL", "description": "Replaces the brand icon tile" },
+    "tints": { "type": "boolean", "title": "Tinted icon tiles", "description": "Off = neutral tiles", "default": true },
+    "footerNote": {
+      "type": "string",
+      "title": "Footer note",
+      "enum": ["release", "none"],
+      "enumNames": ["Brand and release revision", "Hidden"]
+    }
   }
 }

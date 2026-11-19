@@ -38,7 +38,7 @@ export default function ListCard({ options = {} }: { options?: Options }) {
     const pages: any[] = (portal && portal.pages) || []
     const hasForm = !!target && pages.some((p) => [p.route, p.routePattern, p.route_pattern, p.path].indexOf(target) >= 0)
     const open = (row: ListRow, t: string) => {
-        if (hasForm) navigate(target, { q: new URLSearchParams({ table: row.className || t, sys_id: row.sysId }).toString() })
+        if (hasForm) navigate(target, { table: row.className || t, sysId: row.sysId })
         else window.open(`/${row.className || t}.do?sys_id=${row.sysId}`, '_blank', 'noopener')
     }
     return (

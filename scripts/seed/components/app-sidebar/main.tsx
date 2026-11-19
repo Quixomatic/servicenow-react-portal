@@ -27,6 +27,14 @@ type Options = {
     variant?: 'inset' | 'sidebar' | 'floating'
     userMenu?: 'footer' | 'header' | 'none'
     brand?: string
+    /** Lucide icon in the brand tile (default "layers"); ignored when `logo` is set. */
+    brandIcon?: string
+    /** Image URL for the brand tile (replaces the icon). */
+    logo?: string
+    /** Tinted icon tiles (chart-1…5); false = neutral tiles. */
+    tints?: boolean
+    /** Footer note under the user menu: 'release' (brand · rev N, default) or 'none'. */
+    footerNote?: 'release' | 'none'
 }
 
 /**
@@ -41,6 +49,8 @@ export default function AppSidebar({ options = {} }: { options?: Options }) {
     const brand = options.brand || portal?.name || 'Portal'
     const loose = nav.items.filter((i: any) => i.type !== 'group')
     const groups = nav.items.filter((i: any) => i.type === 'group')
+    const tints = options.tints !== false
+    const brandIcon = options.brandIcon || 'layers'
 
     return (
         <Sidebar collapsible={options.collapsible || 'icon'} variant={options.variant || 'inset'} label={brand + ' navigation'}>
@@ -51,9 +61,13 @@ export default function AppSidebar({ options = {} }: { options?: Options }) {
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton size="lg" tooltip={brand} className="h-10 group-data-rail:justify-center group-data-rail:p-0!" render={<Link to="" />}>
-                                <span className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                                    <Icon name="layers" className="size-4!" />
-                                </span>
+                                {options.logo ? (
+                                    <img src={options.logo} alt="" className="size-7 shrink-0 rounded-md object-contain" />
+                                ) : (
+                                    <span className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                                        <Icon name={brandIcon} className="size-4!" />
+                                    </span>
+                                )}
                                 <span className="truncate text-sm font-semibold group-data-rail:hidden">{brand}</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -65,24 +79,26 @@ export default function AppSidebar({ options = {} }: { options?: Options }) {
                     <SidebarGroup className="pt-0">
                         <SidebarMenu>
                             {loose.map((item: any) => (
-                                <NavEntry key={item.id} item={item} />
+                                <NavEntry key={item.id} item={item} tints={tints} />
                             ))}
                         </SidebarMenu>
                     </SidebarGroup>
                 ) : null}
                 {groups.map((group: any, i: number) => (
-                    <NavGroup key={group.id} group={group} first={!loose.length && i === 0} />
+                    <NavGroup key={group.id} group={group} first={!loose.length && i === 0} tints={tints} />
                 ))}
             </SidebarContent>
             <SidebarFooter>
                 {userMenu === 'footer' ? <UserMenu side="top" /> : null}
-                <div className="flex items-center justify-center gap-1.5 px-2 py-1 text-[11px] font-medium text-sidebar-foreground/60 group-data-rail:hidden">
-                    <Icon name="layers" className="size-3.5" />
-                    <span className="truncate">
-                        {brand}
-                        {release ? ' · rev ' + release.version : ''}
-                    </span>
-                </div>
+                {options.footerNote !== 'none' ? (
+                    <div className="flex items-center justify-center gap-1.5 px-2 py-1 text-[11px] font-medium text-sidebar-foreground/60 group-data-rail:hidden">
+                        <Icon name={brandIcon} className="size-3.5" />
+                        <span className="truncate">
+                            {brand}
+                            {release ? ' · rev ' + release.version : ''}
+                        </span>
+                    </div>
+                ) : null}
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>
@@ -90,7 +106,7 @@ export default function AppSidebar({ options = {} }: { options?: Options }) {
 }
 
 /** A collapsible section: title button (hidden on the icon rail) over its items. */
-function NavGroup({ group, first }: { group: any; first?: boolean }) {
+function NavGroup({ group, first, tints }: { group: any; first?: boolean; tints: boolean }) {
     const [open, setOpen] = useState(group.open !== false)
     const shown = open || group.active
     return (
@@ -115,7 +131,7 @@ function NavGroup({ group, first }: { group: any; first?: boolean }) {
                 <CollapsibleContent>
                     <SidebarMenu>
                         {group.children.map((item: any) => (
-                            <NavEntry key={item.id} item={item} />
+                            <NavEntry key={item.id} item={item} tints={tints} />
                         ))}
                     </SidebarMenu>
                 </CollapsibleContent>
@@ -124,7 +140,7 @@ function NavGroup({ group, first }: { group: any; first?: boolean }) {
     )
 }
 
-function NavEntry({ item }: { item: any }) {
+function NavEntry({ item, tints }: { item: any; tints: boolean }) {
     const { setOpenMobile } = useSidebar()
     const close = () => setOpenMobile(false)
     if (item.type === 'separator') return <SidebarSeparator className="my-1" />
@@ -132,7 +148,7 @@ function NavEntry({ item }: { item: any }) {
     return (
         <SidebarMenuItem>
             <SidebarMenuButton isActive={item.active} tooltip={item.tooltip || item.label} className="group-data-rail:p-1.5!" render={render}>
-                <TintTile icon={item.icon} tint={item.tint} label={item.label} />
+                <TintTile icon={item.icon} tint={tints ? item.tint : undefined} label={item.label} />
                 <span>{item.label}</span>
             </SidebarMenuButton>
             {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}

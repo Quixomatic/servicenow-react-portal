@@ -2,6 +2,54 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.11.0] - 2026-11-19
+
+Service Portal on the app shell, generic list and form pages with explicit URL params, and a
+refreshed catalog coverage map.
+
+### Changed
+- **The `sp` portal uses `app/app-shell`** (plain texture), in its own `sp-light` theme and brand:
+  - a full-height collapsible sidebar (icon rail, Ctrl/⌘+B) with the header beside it, an inset main card, and the sub-header with slots;
+  - the user account menu in the sidebar footer;
+  - **no footer**;
+  - a primary menu in three groups (Service desk / Components / More) with icons, and a new `account` menu.
+
+  `sp-light` gains `sidebar-*` and `chart-1…5` tokens for light and dark.
+- **Lists and forms navigate with explicit `table` / `sys-id` / `view` / `query` URL params** instead of packing them
+  into `q`. Search, sort and page still ride in `q`, and older links that pack params into `q` still work.
+- **The seed deactivates (never deletes)** menu items and portal placements it no longer defines.
+
+### Added
+- **sp `list` page** ("Record list", full bleed): a generic `list-view` for any table via URL params (default
+  incident), with the toolbar in the sub-header slots, the table as the only scroller, and live updates.
+- **`form` page on sp and app** ("Record form", full bleed). `RecordForm` gains `headerSlots`: title, number,
+  badges and short description go left; UI actions (`UiActionBar maxButtons`), view switcher and New go right.
+  - `record-form` options: `headerPlacement`, and `listPage` (a back-to-list button that carries the table).
+  - The app portal gets a form page and a menu entry.
+- **Widget options:**
+  - `app-sidebar`: `brandIcon`, `logo`, `tints`, `footerNote`;
+  - `app-header`: `tints`, `brand`;
+  - `app-subheader`: wraps on narrow frames.
+- **Docs:** `docs/primitives/catalog.json` / `catalog.md` coverage refreshed against what's built. Every entry has
+  `ourMatch` / `ourComponent` / `coverageNotes`.
+
+  | Tier | Match | Partial | None |
+  |---|---|---|---|
+  | All 365 | 127 | 62 | 176 |
+  | High | 68 | 31 | 5 |
+
+  New sections cover wave status and what's built.
+
+### Notes
+- **Root cause of the recurring `hidden sm:block` bug:** each widget's CSS carries its own Tailwind `@layer utilities`.
+  Same-named layers merge, so a later widget's base utility (e.g. `.grid`) beats an earlier widget's responsive
+  variant at equal specificity.
+  - Temporary workaround: important variants (`max-sm:flex!`) in `app-subheader`.
+  - The fix (variants in a later sub-layer) is next on the backlog.
+- **Not honoured yet:** view rules. Workspace's form query ignores classic view rules, and Workspace view rules need a
+  view-rule config id. It's on the backlog.
+- **User criteria** are feasible: `sn_uc.UserCriteriaLoader` works in scope. On the backlog.
+
 ## [1.10.0] - 2026-11-19
 
 A large feature release: lists, full record forms with the platform's form runtime, embedded widgets,

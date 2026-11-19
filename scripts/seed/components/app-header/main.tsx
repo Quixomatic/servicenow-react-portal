@@ -1,12 +1,12 @@
 import { Fragment } from 'react'
-import { Link, usePortal, useNavigation } from '@portal/runtime'
+import { Link, usePortal, useNavigation, useSidebar } from '@portal/runtime'
 import { SidebarTrigger } from 'components:sidebar'
 import { Button } from 'components:button'
 import { Icon } from 'components:icon'
 import { ModeToggle } from './parts/ModeToggle'
 
 type Action = { label: string; to?: string; href?: string; icon?: string }
-type Options = { menu?: string; sidebarTrigger?: boolean; center?: string; actions?: Action[] }
+type Options = { menu?: string; sidebarTrigger?: boolean; center?: string; actions?: Action[]; tints?: boolean; brand?: string }
 
 // Tile tints on theme tokens (same palette as the app sidebar).
 const TINTS: Record<string, string> = {
@@ -35,14 +35,21 @@ export default function AppHeader({ options = {} }: { options?: Options }) {
     if (title && (!crumbs.length || crumbs[crumbs.length - 1].label.toLowerCase() !== title.toLowerCase())) crumbs.push({ label: title })
     const lead = nav.activePath.find((i: any) => i.icon)
     const actions = Array.isArray(options.actions) ? options.actions : []
+    // Brand link only on pages without a sidebar (e.g. a Centered Layout page): the sidebar shows it otherwise.
+    const { available } = useSidebar()
 
     return (
         <div className="grid h-(--rp-shell-header,3.5rem) shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3">
             <div className="flex min-w-0 items-center gap-3 justify-self-start">
                 {options.sidebarTrigger !== false ? <SidebarTrigger /> : null}
+                {options.brand && !available ? (
+                    <Link to="" className="shrink-0 text-sm font-semibold text-foreground no-underline">
+                        {options.brand}
+                    </Link>
+                ) : null}
                 <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm font-medium">
                     {lead ? (
-                        <span aria-hidden="true" className={'inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] border ' + (TINTS[lead.tint] || 'border-border bg-background text-foreground/80')}>
+                        <span aria-hidden="true" className={'inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] border ' + ((options.tints !== false && TINTS[lead.tint]) || 'border-border bg-background text-foreground/80')}>
                             <Icon name={lead.icon} className="size-3!" />
                         </span>
                     ) : null}

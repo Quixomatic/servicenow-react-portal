@@ -56,9 +56,10 @@ function pick(...values: unknown[]): string {
  * the page height). Made for pages with content width "Full bleed".
  *
  * table / query / view come from the widget options, else the route params, else the URL params
- * (table, query, view; also accepted packed inside q). With syncUrl (default) the filter, search,
- * sort and page live in the URL: query=<encoded filter>&kw=<search>&sort=-number&page=2.
- * Rows open the portal's `form` page (recordPage) with table + sys_id. On a layout with header slots
+ * (table, query, view; older links that packed them inside q still work). With syncUrl (default) the
+ * filter, search, sort and page live in the URL: the filter as the explicit `query` param (with `table`
+ * when the widget has no fixed table), search / sort / page inside q (kw=…&sort=-number&page=2).
+ * Rows open the portal's `form` page (recordPage) with explicit table + sys_id params. On a layout with header slots
  * (app/app-subheader) the title and toolbar move into the header (toolbarPlacement).
  */
 export default function ListView({ options = {} }: { options?: Options }) {
@@ -68,13 +69,15 @@ export default function ListView({ options = {} }: { options?: Options }) {
     const { instanceId } = useComponent() as { instanceId?: string }
     const route = (portal && portal.page && portal.page.params) || {}
     const qp = useMemo(() => new URLSearchParams(typeof loc.q === 'string' ? loc.q : ''), [loc.q])
-    // q keys + explicit URL params (location.query is the encoded-query param, a string).
-    const urlObj = loc.params && typeof loc.params === 'object' ? loc.params : loc.query && typeof loc.query === 'object' ? loc.query : {}
-    const urlQuery = typeof loc.query === 'string' ? loc.query : pick(urlObj.query, qp.get('query'))
+    // Explicit URL params (table / query / view) win; location.params also carries the q keys
+    // (kw / sort / page, and older links that packed table / query into q).
+    const urlObj = loc.params && typeof loc.params === 'object' ? loc.params : {}
+    const urlQuery = pick(typeof loc.query === 'string' ? loc.query : '', urlObj.query, qp.get('query'))
 
     const rawTable = pick(options.table, route.table, loc.table, urlObj.table, qp.get('table'), 'incident')
     const table = NAME.test(rawTable) ? rawTable : 'incident'
-    const view = pick(options.view, route.view, loc.mode === 'studio' ? '' : loc.view,urlObj.view, qp.get('view'))
+    const urlView = loc.mode === 'studio' ? '' : pick(loc.view, urlObj.view, qp.get('view'))
+    const view = pick(options.view, route.view, urlView)
     const sync = options.syncUrl !== false
     const page = String(loc.page || '')
 
@@ -88,18 +91,26 @@ export default function ListView({ options = {} }: { options?: Options }) {
           }
         : undefined
 
+    // List state → URL: table / query / view as explicit params; search, sort and page in q.
     const writeUrl = (s: ListState) => {
         const next = new URLSearchParams(typeof loc.q === 'string' ? loc.q : '')
         const set = (k: string, v: string, dflt = '') => (v && v !== dflt ? next.set(k, v) : next.delete(k))
-        if (!options.table && table) next.set('table', table)
-        // An explicitly empty filter is kept (query=) when the widget has a default filter.
-        if (s.filter) next.set('query', s.filter)
-        else if (options.query) next.set('query', '')
-        else next.delete('query')
+        // Older links packed these into q; they now travel as explicit params.
+        next.delete('table')
+        next.delete('view')
+        next.delete('query')
+        // An explicitly cleared filter is kept as q's query= when the widget has a default filter
+        // (an empty explicit param is dropped from the URL).
+        if (!s.filter && options.query) next.set('query', '')
         set('kw', s.keywords)
         set('sort', s.orderBy, options.orderBy || '')
         set('page', s.page ? String(s.page + 1) : '')
-        navigate(page, { q: next.toString() })
+        navigate(page, {
+            table: options.table ? undefined : table,
+            view: options.view ? undefined : urlView || undefined,
+            query: s.filter || undefined,
+            q: next.toString(),
+        })
     }
 
     const hasFormPage = useMemo(() => {
@@ -111,8 +122,7 @@ export default function ListView({ options = {} }: { options?: Options }) {
 
     const openRow = (row: ListRow, t: string) => {
         if (hasFormPage) {
-            const q = new URLSearchParams({ table: row.className || t, sys_id: row.sysId })
-            navigate(hasFormPage, { q: q.toString() })
+            navigate(hasFormPage, { table: row.className || t, sysId: row.sysId })
         } else window.open(`/${row.className || t}.do?sys_id=${row.sysId}`, '_blank', 'noopener')
     }
 

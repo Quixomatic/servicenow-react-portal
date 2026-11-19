@@ -1,25 +1,41 @@
 import { useEffect, useMemo, useState } from 'react'
-import { usePortal, usePortalLocation, useNavigate } from '@portal/runtime'
+import { usePortal, usePortalLocation, useNavigate, Link } from '@portal/runtime'
 import { Card, CardContent } from 'components:card'
 import { Button } from 'components:button'
+import { Icon } from 'components:icon'
 import { useGraphQL, useDebouncedValue, useTableMeta, safeName } from 'utilities:app/graphql'
 import { IconPlus, IconSearch, useFormMeta } from 'components:app/field'
 import { Combobox } from 'components:app/combobox'
 import type { ComboItem } from 'components:app/combobox'
 import { RecordForm, useRecordForm } from 'components:app/form'
+import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 
 /**
  * components:app/record-form: a record's real form view (app/form) as a page widget.
  *
  * Like Service Portal's form widget: table / sys_id / view come from the widget options, else the
  * route params, else the URL params (table, sys_id, view; sys_id=-1 is a new record), so one
- * generic `form` page serves any table. With `picker` (a demo convenience), a search box finds
- * records of the table (number / short description) and "New" opens a new record (the platform
- * reserves its number on load).
+ * generic `form` page serves any table. It navigates with explicit table / sys-id / view params.
+ * With `picker` (a demo convenience), a search box finds records of the table (number / short
+ * description) and "New" opens a new record (the platform reserves its number on load).
  *
- * Options: { table, sysId, view, picker, showViews, pickerQuery }
+ * On a layout with header slots (app/app-subheader) the record's title and state go to the left
+ * slot, the UI actions, view switcher and New to the right (the picker shows only with no record open)
+ * (headerPlacement: 'auto' | 'header' | 'inline'). `listPage` adds a back button to a list page.
+ *
+ * Options: { table, sysId, view, picker, showViews, pickerQuery, headerPlacement, listPage }
  */
-type Options = { table?: string; sysId?: string; view?: string; picker?: boolean; showViews?: boolean; pickerQuery?: string }
+type Options = {
+    table?: string
+    sysId?: string
+    view?: string
+    picker?: boolean
+    showViews?: boolean
+    pickerQuery?: string
+    headerPlacement?: 'auto' | 'header' | 'inline'
+    /** Portal page with the list (back button; gets the table param). '' = none. */
+    listPage?: string
+}
 
 function confirmDiscard(dirty: boolean) {
     return !dirty || window.confirm('Discard your unsaved changes?')
@@ -38,42 +54,101 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
     const portal = usePortal() as any
     const navigate = useNavigate()
     const loc = location || {}
-    // URL params: today location.query is the parsed query object; the standard-params plumbing
-    // adds location.params (and location.query becomes the `query` URL param). Read both.
-    const query = (loc.params && typeof loc.params === 'object' ? loc.params : null) || (loc.query && typeof loc.query === 'object' ? loc.query : {})
+    // location.params = the q keys plus the explicit table / sys_id / view / query params (explicit win).
+    const query = loc.params && typeof loc.params === 'object' ? loc.params : {}
     const route = (portal && portal.page && portal.page.params) || {}
-    // Like Service Portal's form widget: widget options, then route params, then URL params
-    // (usePortalLocation's table / sysId / view, else the raw query string).
+    // Like Service Portal's form widget: widget options, then route params, then URL params.
     const rawTable = pick(options.table, route.table, loc.table, query.table, 'incident')
     const table = NAME.test(rawTable) ? rawTable : 'incident'
     const sysId = pick(options.sysId, route.sys_id, route.sysId, loc.sysId, query.sys_id)
-    const view = pick(options.view, route.view, loc.view, query.view)
+    const view = pick(options.view, route.view, loc.mode === 'studio' ? '' : loc.view, query.view)
     // Encoded query presetting a new record (g_aw.openRecord(table, '-1', { query })).
     const presetQuery = pick(typeof loc.query === 'string' ? loc.query : '', query.query)
     const page = String(loc.page || '')
     const go = (next: { sysId?: string; view?: string; table?: string; query?: string }) => {
-        const params = new URLSearchParams()
         const id = next.sysId !== undefined ? next.sysId : sysId
         const v = next.view !== undefined ? next.view : view
-        params.set('table', next.table || table)
-        if (id) params.set('sys_id', id)
-        if (v && !next.table) params.set('view', v)
-        if (next.query) params.set('query', next.query)
-        navigate(page, { q: params.toString() })
+        navigate(page, {
+            table: next.table || table,
+            sysId: id || undefined,
+            view: next.table ? next.view || undefined : v || undefined,
+            query: next.query || undefined,
+        })
     }
     const [dirty, setDirty] = useState(false)
 
+    // Header slots on this layout (app-shell sub-header)?
+    const leftSlot = useHeaderSlot('left')
+    const rightSlot = useHeaderSlot('right')
+    const toHeader = options.headerPlacement !== 'inline' && !!(leftSlot && rightSlot)
+
+    const listPage = useMemo(() => {
+        const target = options.listPage || ''
+        if (!target) return ''
+        const pages: any[] = (portal && portal.pages) || []
+        return pages.some((p) => [p.route, p.routePattern, p.route_pattern, p.path].indexOf(target) >= 0) ? target : ''
+    }, [portal && portal.pages, options.listPage])
+
+    const back = listPage ? (
+        <Button variant="ghost" size="icon-sm" aria-label="Back to the list" title="Back to the list" className="shrink-0" render={<Link to={listPage} table={table} />} data-rp-form-back="">
+            <Icon name="arrow-left" />
+        </Button>
+    ) : null
+    const newButton = (
+        <Button variant="outline" size={toHeader ? 'sm' : 'default'} onClick={() => confirmDiscard(dirty) && go({ sysId: '-1' })} data-rp-new-record="">
+            <IconPlus size={14} /> New
+        </Button>
+    )
+    const picker = <RecordPicker table={table} baseQuery={options.pickerQuery || ''} onPick={(id) => confirmDiscard(dirty) && go({ sysId: id })} />
+    const headerSlots = toHeader
+        ? {
+              left: (node: any) => (
+                  <HeaderSlot name="left">
+                      <div className="flex min-w-0 items-center gap-2">
+                          {back}
+                          {node}
+                      </div>
+                  </HeaderSlot>
+              ),
+              right: (node: any) => (
+                  <HeaderSlot name="right">
+                      <div className="flex min-w-0 items-center justify-end gap-1.5">{node}</div>
+                  </HeaderSlot>
+              ),
+          }
+        : undefined
+
     return (
-        <div className="flex flex-col gap-4" data-rp-record-form-widget="">
+        <div className="flex min-w-0 flex-col gap-4" data-rp-record-form-widget="">
             {options.picker !== false ? (
-                <Card>
-                    <CardContent className="flex flex-wrap items-center gap-3">
-                        <RecordPicker table={table} baseQuery={options.pickerQuery || ''} onPick={(id) => confirmDiscard(dirty) && go({ sysId: id })} />
-                        <Button variant="outline" onClick={() => confirmDiscard(dirty) && go({ sysId: '-1' })} data-rp-new-record="">
-                            <IconPlus size={14} /> New
-                        </Button>
-                    </CardContent>
-                </Card>
+                toHeader ? (
+                    // Header bar: New sits with the record's actions (headerActions). The picker only
+                    // shows while no record is open (the bar has no room next to the UI actions; the
+                    // list page is the way to find records). No record yet: New goes to the right slot.
+                    !sysId ? (
+                        <>
+                            <HeaderSlot name="right">
+                                <div className="flex items-center justify-end gap-1.5">{newButton}</div>
+                            </HeaderSlot>
+                            <Card>
+                                <CardContent className="flex flex-wrap items-center gap-3">{picker}</CardContent>
+                            </Card>
+                        </>
+                    ) : null
+                ) : (
+                    <Card>
+                        <CardContent className="flex flex-wrap items-center gap-3">
+                            {back}
+                            {picker}
+                            {newButton}
+                        </CardContent>
+                    </Card>
+                )
+            ) : null}
+            {toHeader && !sysId && back ? (
+                <HeaderSlot name="left">
+                    <div className="flex min-w-0 items-center gap-2">{back}<h1 className="m-0 truncate text-sm font-medium">{portal && portal.page ? portal.page.title || portal.page.name : ''}</h1></div>
+                </HeaderSlot>
             ) : null}
             {sysId ? (
                 <FormFor
@@ -83,6 +158,8 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     view={view}
                     query={presetQuery}
                     showViews={options.showViews !== false}
+                    headerSlots={headerSlots}
+                    headerActions={toHeader && options.picker !== false ? newButton : undefined}
                     onDirty={setDirty}
                     onViewChange={(v) => confirmDiscard(dirty) && go({ view: v })}
                     onCreated={(id) => go({ sysId: id })}
@@ -97,7 +174,19 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
     )
 }
 
-function FormFor(props: { table: string; sysId: string; view: string; query: string; showViews: boolean; onDirty: (d: boolean) => void; onViewChange: (v: string) => void; onCreated: (id: string) => void; onOpenRecord: (table: string, sysId: string, params?: Record<string, unknown>) => void }) {
+function FormFor(props: {
+    table: string
+    sysId: string
+    view: string
+    query: string
+    showViews: boolean
+    headerSlots?: { left?: (node: any) => any; right?: (node: any) => any }
+    headerActions?: any
+    onDirty: (d: boolean) => void
+    onViewChange: (v: string) => void
+    onCreated: (id: string) => void
+    onOpenRecord: (table: string, sysId: string, params?: Record<string, unknown>) => void
+}) {
     const form = useRecordForm({
         table: props.table,
         sysId: props.sysId,
@@ -111,7 +200,7 @@ function FormFor(props: { table: string; sysId: string; view: string; query: str
     const meta = useFormMeta(form)
     const { onDirty } = props
     useEffect(() => onDirty(meta.isDirty), [meta.isDirty, onDirty])
-    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} />
+    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} />
 }
 
 /** Columns the picker searches and shows, when the table has them (first = label). */

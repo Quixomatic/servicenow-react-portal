@@ -1,1 +1,1 @@
-{ "name": "App Sidebar", "kind": "widget", "tailwind": true, "defaults": { "menu": "primary", "collapsible": "icon", "variant": "inset", "userMenu": "footer", "brand": "" } }
+{ "name": "App Sidebar", "kind": "widget", "tailwind": true, "defaults": { "menu": "primary", "collapsible": "icon", "variant": "inset", "userMenu": "footer", "brand": "", "brandIcon": "layers", "logo": "", "tints": true, "footerNote": "release" } }

@@ -4,6 +4,8 @@
     "menu": { "type": "string", "title": "Menu", "description": "Menu key for the breadcrumbs (useNavigation)", "default": "primary" },
     "sidebarTrigger": { "type": "boolean", "title": "Sidebar toggle button", "description": "Shown only on pages with a collapsible sidebar", "default": true },
     "center": { "type": "string", "title": "Centre text" },
+    "brand": { "type": "string", "title": "Brand link", "description": "Shown only on pages without a sidebar (links home)" },
+    "tints": { "type": "boolean", "title": "Tinted breadcrumb icon", "description": "Off = neutral tile", "default": true },
     "actions": {
       "type": "array",
       "title": "Action buttons",
