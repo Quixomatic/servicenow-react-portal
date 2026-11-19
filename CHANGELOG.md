@@ -2,6 +2,57 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.6.0] - 2026-11-19
+
+Primitives, wave 1: a shared GraphQL utility, the `app/field` base, and 15 field primitives built on
+it. They're all real component records that widgets import, and they bind to live ServiceNow
+metadata, choices and reference search.
+
+### Added
+- **`utilities:app/graphql` (utility).**
+  - `graphql()` sends `POST /api/now/graphql` with X-UserToken; also `gql`, `restGet`, `GraphQLError`.
+  - TanStack Query hooks:
+    - `useTableMeta` / `useFieldMeta`: `/api/now/ui/meta/{table}` (labels, types, choices, references, max lengths; cached 10 min).
+    - `useFormBootstrap`: `GlideLayout_Query.formLayout` (values, display values, field states, sections).
+    - `useChoices`: `choiceDataRetriever` with the unsaved dependent values.
+    - `useReferenceSearch`: `referenceDataRetriever`, so the server applies the field's reference qualifier against the unsaved form state.
+    - `useRecordValues` / `useReferenceDisplay`: `GlideRecord_Query`.
+    - Plus `useGraphQL`, `useDebouncedValue` and `useGraphQLClient`.
+- **`components:app/field` (primitive).**
+  - `useField`: value + displayValue, staged/dirty/touched, mandatory/readOnly/visible/disabled, messages and
+    validation, ids for accessibility. Precedence: explicit props → form overrides → server state → dictionary.
+  - `FieldShell`: label, required marker, hint, polite live-region messages, an unsaved-changes marker, a
+    selectable read-only view, horizontal/vertical layouts and a fieldset mode.
+  - `FormProvider` / `useForm` and a form store with a `g_form`-style API (getValue/getDisplayValue/setValue,
+    setMandatory/setReadOnly/setVisible/setDisabled/setLabel, field and form messages, isDirty, serialize,
+    validate, reset, onChange), layered so a `g_form` shim can sit on top later.
+  - A field-type registry: `registerFieldType`, `resolveFieldComponent`.
+- **Field primitives:**
+  - `app/combobox`: an accessible editable combobox plus a select-only Select. Popups render in the top layer,
+    so they escape clipped cards.
+  - String, textarea, number (integer and decimal, locale-aware, stepping), boolean (checkbox or switch), choice
+    (select, radio or scale; dependent values), reference (recent picks, search, extra columns), list (chips).
+  - Date and date/time (converted to the user's ServiceNow time zone, daylight-saving aware).
+  - Email, URL, phone, password (show/hide, confirm), currency, duration.
+  - `app/field-control` picks the right primitive from the dictionary type.
+- **`app/field-demo` widget and an `sp` page `fields`:** every primitive standalone, and bound to a real incident
+  in a form context.
+- **Host:** `utilities:react-query` registered for utilities. Record imports load in parallel and evaluate in
+  dependency order.
+- **Seed:** `build-seed.mjs` orders component folders by their record imports, and the seed recompiles the
+  import graph in dependency order, so one seed run builds everything.
+
+### Notes
+- Verified live on dev189813:
+  - reference search returns real users;
+  - subcategory follows the unsaved category;
+  - "Assigned to" search is scoped to the unsaved assignment group;
+  - keyboard use, validation with aria wiring, dirty/serialize/reset, read-only, light and dark.
+- `useFormBootstrap` for a new record (`sysId = -1`) evaluates defaults, which reserves the next number (e.g. INC);
+  it never refetches a new record in the background.
+- Not yet built: HTML and journal fields (they fall back to textarea), attachment and time fields, a custom
+  calendar popover, and saving from `useForm`.
+
 ## [1.5.0] - 2026-11-19
 
 Blocks: page-structure components with drop zones (grids with subgrid, columns, sections and

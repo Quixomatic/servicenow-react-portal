@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.5.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.6.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -174,9 +174,7 @@
         })
     })
     importChain.then(
-        function () { gs.info('[seed] record-import compiles (dependency order):
-' + importLog.join('
-')) },
+        function () { gs.info('[seed] record-import compiles (dependency order): ' + importLog.join(' | ')) },
         function (e) { gs.error('[seed] record-import compile pass failed: ' + e) }
     )
 
