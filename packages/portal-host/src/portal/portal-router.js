@@ -211,7 +211,19 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 			}
 			return { layout, regions: boot.regions || {}, outlets: createOutletStore(), mainRegion: mainRegionOf(layout) };
 		}, [layoutId]);
-		return <LayoutHost value={value} />;
+		// The page's effective content width reaches every layout as --rp-content-max (inherited
+		// through a display:contents wrapper, so the layout itself never remounts).
+		const contentWidth = useRouterState({
+			select: (state) => {
+				const data = leafData(state);
+				return (data && data.page && data.page.contentWidth) || '';
+			}
+		});
+		return (
+			<div style={{ display: 'contents', '--rp-content-max': contentMax(contentWidth) }} data-rp-content-width={contentWidth || 'none'}>
+				<LayoutHost value={value} />
+			</div>
+		);
 	}
 
 	/** The matched page route: renders the page's placements for the layout's main region. */
@@ -326,6 +338,12 @@ function ShellSkeleton() {
 
 function MainPending() {
 	return <div className="bg-muted/60 h-32 animate-pulse rounded-xl" data-rp-page-pending="" />;
+}
+
+/** ContentWidth → CSS length (Tailwind's container sizes); unknown/full = no limit. */
+const CONTENT_MAX = { '7xl': '80rem', '6xl': '72rem', '5xl': '64rem', '4xl': '56rem', '3xl': '48rem' };
+function contentMax(width) {
+	return CONTENT_MAX[width] || 'none';
 }
 
 function PageErrorView({ error }) {

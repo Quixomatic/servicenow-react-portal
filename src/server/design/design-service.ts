@@ -116,6 +116,7 @@ function pageDto(pg: GR) {
         order: int(pg, 'order', 100),
         active: bool(pg, 'active'),
         layoutOverride: str(pg, 'layout_override') || null,
+        contentWidth: str(pg, 'content_width') || 'inherit',
         access: parseJson<Record<string, unknown>>(str(pg, 'access_config_json'), {}),
         portalId: str(pg, 'portal'),
     }
@@ -469,13 +470,30 @@ export function deletePlacement(id: string, mode?: string): { deleted: true; pla
 
 /* ---------------- Page & portal writes ---------------- */
 
-type PageReq = { portal?: string; name?: string; title?: string; route?: string; layoutOverride?: string | null; order?: number; active?: boolean; access?: Record<string, unknown> }
+type PageReq = {
+    portal?: string
+    name?: string
+    title?: string
+    route?: string
+    layoutOverride?: string | null
+    contentWidth?: string | null
+    order?: number
+    active?: boolean
+    access?: Record<string, unknown>
+}
+
+const PAGE_WIDTHS = ['inherit', 'full', '7xl', '6xl', '5xl', '4xl', '3xl']
 
 function applyPage(pg: GR, req: PageReq): void {
     if (req.name !== undefined) pg.setValue('name', String(req.name))
     if (req.title !== undefined) pg.setValue('title', String(req.title))
     if (req.route !== undefined) pg.setValue('route_pattern', String(req.route))
     if (req.layoutOverride !== undefined) pg.setValue('layout_override', req.layoutOverride || '')
+    if (req.contentWidth !== undefined) {
+        const w = req.contentWidth || 'inherit'
+        if (PAGE_WIDTHS.indexOf(w) < 0) throw badRequest(`contentWidth must be one of ${PAGE_WIDTHS.join(', ')}`)
+        pg.setValue('content_width', w)
+    }
     if (req.order !== undefined) pg.setValue('order', Number(req.order))
     if (req.active !== undefined) pg.setValue('active', !!req.active)
     if (req.access !== undefined) pg.setValue('access_config_json', JSON.stringify(isPlainObject(req.access) ? req.access : {}))

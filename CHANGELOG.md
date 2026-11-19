@@ -2,6 +2,24 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.8.0] - 2026-11-19
+
+Content width: pages no longer stretch edge to edge. Each page picks a max width for its main
+content, or full bleed, with a portal-wide default.
+
+### Added
+- **Page setting `content_width`:** Portal default (the default) / Full bleed / 7xl (80rem) / 6xl (72rem) /
+  5xl (64rem) / 4xl (56rem) / 3xl (48rem). It's on the page form and in the page designer's page panel.
+- **Portal default `settings.contentWidth`,** set under "Default content width" in the designer's portal
+  settings. If it's unset, 7xl.
+- **Resolve returns `page.contentWidth`,** the effective width: page, then portal, then 7xl.
+- **The host exposes it as `--rp-content-max`** around the layout (a `display: contents` wrapper, so layouts
+  don't remount), in the portal and the designer canvas. Any layout can use it.
+
+### Changed
+- **Standard Layout** centres its main content and caps it at `--rp-content-max`.
+- **Centered Layout** uses it as its column width when one is set, else its own 760px.
+
 ## [1.7.0] - 2026-11-19
 
 Primitives, wave 2: catalog variables. Catalog items and record producers render from the

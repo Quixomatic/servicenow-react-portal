@@ -2,6 +2,6 @@
 .rp-ctr { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; width: 100%; min-height: 0; overflow: hidden; background: var(--muted); color: var(--foreground); }
 .rp-ctr__header { border-bottom: 1px solid var(--border); background: var(--background); }
 .rp-ctr__main { min-width: 0; min-height: 0; overflow: auto; }
-.rp-ctr__main > [data-rp-region] { display: grid; gap: 16px; align-content: start; width: min(760px, 100%); margin: 0 auto; padding: 32px 16px; box-sizing: border-box; }
+.rp-ctr__main > [data-rp-region] { display: grid; gap: 16px; align-content: start; width: min(var(--rp-content-max, 760px), 100%); margin: 0 auto; padding: 32px 16px; box-sizing: border-box; }
 .rp-ctr__footer { padding: 12px; text-align: center; color: var(--muted-foreground); font-size: 12px; }
 .rp-ctr__header:not(:has([data-rp-widget])), .rp-ctr__footer:not(:has([data-rp-widget])) { display: none; }

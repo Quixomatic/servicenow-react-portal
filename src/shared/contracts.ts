@@ -172,8 +172,12 @@ export interface ResolvePageRequest {
     page: string
 }
 
+/** Max width of a page's main content: 'full' (full bleed) or a Tailwind container size. */
+export type ContentWidth = 'full' | '7xl' | '6xl' | '5xl' | '4xl' | '3xl'
+
 export interface ResolvePageData {
-    page: PageSummary & { params: Record<string, string> }
+    /** contentWidth is the effective width: the page's own, else the portal default (settings.contentWidth), else 7xl. */
+    page: PageSummary & { params: Record<string, string>; contentWidth: ContentWidth }
     layout: ComponentRef | null
     regions: RegionMap
 }

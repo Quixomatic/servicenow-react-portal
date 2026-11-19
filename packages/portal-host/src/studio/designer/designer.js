@@ -627,6 +627,17 @@ function PageSettings({ designer, studio, state }) {
 					))}
 				</select>
 			</label>
+			<label className="rpd-field">
+				<span className="rpd-label">Content width</span>
+				<select value={page.contentWidth || 'inherit'} onChange={(e) => designer.updatePage(page.id, { contentWidth: e.target.value })} disabled={busy} data-rpd-content-width="">
+					<option value="inherit">Portal default ({(design.portal.settings && design.portal.settings.contentWidth) || '7xl'})</option>
+					{CONTENT_WIDTH_OPTIONS.map(([v, label]) => (
+						<option key={v} value={v}>
+							{label}
+						</option>
+					))}
+				</select>
+			</label>
 			<label className="rpd-field rpd-check">
 				<input type="checkbox" checked={page.active !== false} onChange={(e) => designer.updatePage(page.id, { active: e.target.checked })} disabled={busy} />
 				<span className="rpd-label">Active</span>
@@ -662,6 +673,15 @@ function PageSettings({ designer, studio, state }) {
 		</div>
 	);
 }
+
+const CONTENT_WIDTH_OPTIONS = [
+	['full', 'Full bleed'],
+	['7xl', '7xl (80rem)'],
+	['6xl', '6xl (72rem)'],
+	['5xl', '5xl (64rem)'],
+	['4xl', '4xl (56rem)'],
+	['3xl', '3xl (48rem)']
+];
 
 function PortalSettings({ designer, state }) {
 	const design = state.design;
@@ -707,6 +727,21 @@ function PortalSettings({ designer, state }) {
 					{(design.layouts || []).map((l) => (
 						<option key={l.id} value={l.id}>
 							{l.name}
+						</option>
+					))}
+				</select>
+			</label>
+			<label className="rpd-field">
+				<span className="rpd-label">Default content width</span>
+				<select
+					value={(portal.settings && portal.settings.contentWidth) || '7xl'}
+					onChange={(e) => designer.updatePortal({ settings: { ...(portal.settings || {}), contentWidth: e.target.value } })}
+					disabled={busy}
+					data-rpd-portal-content-width=""
+				>
+					{CONTENT_WIDTH_OPTIONS.map(([v, label]) => (
+						<option key={v} value={v}>
+							{label}
 						</option>
 					))}
 				</select>

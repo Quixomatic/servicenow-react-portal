@@ -1098,6 +1098,28 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_element'
+                        id: '0a26d60dad0a4323ba4e9775e8275975'
+                        key: {
+                            sys_ui_section: {
+                                id: 'cfde6ccc55e249938a8122a8285015bf'
+                                key: {
+                                    name: 'x_312987_portal_page'
+                                    caption: 'Page'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: '.end_split'
+                            position: '10'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '0a944fe1ccb1480c8e9b9940355c0b11'
                         key: {
@@ -2704,6 +2726,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '345d01c6527246d1933fa89b9d7cd9cc'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: '7xl'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: '345f1328bcbb4588a0b62a6c9fa34a0a'
                         key: {
@@ -2783,6 +2816,17 @@ declare global {
                             }
                             element: 'built_revision'
                             position: '4'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '367adbc0e905420e9109988db90ce64e'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: '3xl'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -3162,6 +3206,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: '40abd39639c74d388af02adff3cfe28f'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: 'cfde6ccc55e249938a8122a8285015bf'
@@ -3232,6 +3277,14 @@ declare global {
                                     name: 'x_312987_portal.designer'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '42da7206a3544345b2b39b32b193a6b6'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
                         }
                     },
                     {
@@ -4299,6 +4352,28 @@ declare global {
                     },
                     {
                         table: 'sys_ui_element'
+                        id: '62674d0c61cc49278a27f0280346fd11'
+                        key: {
+                            sys_ui_section: {
+                                id: 'cfde6ccc55e249938a8122a8285015bf'
+                                key: {
+                                    name: 'x_312987_portal_page'
+                                    caption: 'Page'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'order'
+                            position: '8'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
                         id: '6311786257744be1b9aab9d2019a205e'
                         key: {
                             sys_ui_section: {
@@ -4606,6 +4681,17 @@ declare global {
                             name: 'x_312987_portal_build'
                             element: 'runtime_abi_version'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '67022341f43c4a18aa50d14ddd7f8142'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: '4xl'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -5325,6 +5411,17 @@ declare global {
                         key: {
                             name: 'x_312987_portal_theme'
                             element: 'stylesheet'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '7fb244f0b77d4dd78132ff06fec41ac9'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: 'inherit'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -6204,6 +6301,28 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_element'
+                        id: '95cd9791fc3c4f2592fb28ed41276dfe'
+                        key: {
+                            sys_ui_section: {
+                                id: 'cfde6ccc55e249938a8122a8285015bf'
+                                key: {
+                                    name: 'x_312987_portal_page'
+                                    caption: 'Page'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'access_config_json'
+                            position: '11'
+                        }
+                    },
+                    {
                         table: 'sys_ui_section'
                         id: '95d2fd117a3049d396667ef0ccb34240'
                         key: {
@@ -6216,6 +6335,17 @@ declare global {
                                 }
                             }
                             sys_domain: 'global'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '96cdcd4a62cc4e9a897009f50ebc25c7'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: '6xl'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -6421,6 +6551,28 @@ declare global {
                         key: {
                             name: 'x_312987_portal_build'
                             element: 'completed_at'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_element'
+                        id: 'a02abc895edc4cb8b4df567020f3d725'
+                        key: {
+                            sys_ui_section: {
+                                id: 'cfde6ccc55e249938a8122a8285015bf'
+                                key: {
+                                    name: 'x_312987_portal_page'
+                                    caption: 'Page'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'active'
+                            position: '9'
                         }
                     },
                     {
@@ -6901,6 +7053,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: 'adb4285a502a4c31a0df4fb3db213aae'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: 'cfde6ccc55e249938a8122a8285015bf'
@@ -7143,6 +7296,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: 'b4bb0cd4d16d47adbcc73b2c298dc4c5'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: 'cfde6ccc55e249938a8122a8285015bf'
@@ -7706,6 +7860,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: 'c3feaebb204845e1a934ca3136e686b5'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: 'full'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: 'c4d227a077d7434088c6a1d64eeb74ec'
                         key: {
@@ -7866,6 +8031,15 @@ declare global {
                             }
                             element: 'target_build'
                             position: '5'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: 'c8f2b17710394fdba688083fe8c1b546'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            language: 'en'
                         }
                     },
                     {
@@ -8314,6 +8488,28 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_element'
+                        id: 'd22f64f95edb480796902ca8025ce169'
+                        key: {
+                            sys_ui_section: {
+                                id: 'cfde6ccc55e249938a8122a8285015bf'
+                                key: {
+                                    name: 'x_312987_portal_page'
+                                    caption: 'Page'
+                                    view: {
+                                        id: 'Default view'
+                                        key: {
+                                            name: 'NULL'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'content_width'
+                            position: '7'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: 'd23e66ecad604ec082c5d816aeea7332'
                         key: {
@@ -8422,6 +8618,14 @@ declare global {
                             }
                             element: 'byte_length'
                             position: '9'
+                        }
+                    },
+                    {
+                        table: 'sys_choice_set'
+                        id: 'd582f03dcc2b4ec2be2f819a270d0555'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
                         }
                     },
                     {
@@ -9467,6 +9671,7 @@ declare global {
                     {
                         table: 'sys_ui_element'
                         id: 'f42419f4b26d4dedbbbfa8323489632b'
+                        deleted: true
                         key: {
                             sys_ui_section: {
                                 id: 'cfde6ccc55e249938a8122a8285015bf'
@@ -9558,6 +9763,17 @@ declare global {
                                     name: 'x_312987_portal.publisher'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'f6cf91176d644bd496b87b5dead7237f'
+                        key: {
+                            name: 'x_312987_portal_page'
+                            element: 'content_width'
+                            value: '5xl'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {

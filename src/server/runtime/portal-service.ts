@@ -11,6 +11,7 @@ import { requirePortalAccess, canAccessPageConfig, PageAccessConfig, pageAccessC
 import type {
     BootstrapData,
     ComponentRef,
+    ContentWidth,
     PlacementRef,
     RegionDef,
     RegionMap,
@@ -41,6 +42,8 @@ export interface ManifestPage {
     order: number
     layoutId: string | null
     access: PageAccessConfig
+    /** The page's own setting: 'inherit' or a ContentWidth. */
+    contentWidth: string
     regions: RegionMap
 }
 
@@ -185,6 +188,7 @@ export function assembleManifest(portal: GR): Manifest {
                 order: int(pg, 'order', 100),
                 layoutId,
                 access: pageAccessConfig(pg),
+                contentWidth: str(pg, 'content_width') || 'inherit',
                 regions: placementsFor(`page=${pg.getUniqueValue()}`, layouts),
             })
         },
@@ -249,6 +253,16 @@ export function bootstrap(slug: string): { data: BootstrapData; release: Resolve
     }
 }
 
+export const CONTENT_WIDTHS = ['full', '7xl', '6xl', '5xl', '4xl', '3xl']
+
+/** Effective content width: the page's own, else the portal default, else 7xl. */
+export function effectiveContentWidth(manifest: Manifest, page: ManifestPage): ContentWidth {
+    const own = page.contentWidth
+    if (own && CONTENT_WIDTHS.indexOf(own) >= 0) return own as ContentWidth
+    const portalDefault = String((manifest.portal.settings || {}).contentWidth || '')
+    return (CONTENT_WIDTHS.indexOf(portalDefault) >= 0 ? portalDefault : '7xl') as ContentWidth
+}
+
 /** Find the best-matching accessible page for a decoded portal-relative path. */
 export function matchPage(manifest: Manifest, path: string): { page: ManifestPage; params: Record<string, string> } | null {
     const target = (path || '').replace(/^\/+|\/+$/g, '') || manifest.portal.homeRoute || ''
@@ -270,7 +284,13 @@ export function resolvePage(slug: string, path: string): { data: ResolvePageData
     return {
         release,
         data: {
-            page: { id: match.page.id, route: match.page.route, title: match.page.title, params: match.params },
+            page: {
+                id: match.page.id,
+                route: match.page.route,
+                title: match.page.title,
+                params: match.params,
+                contentWidth: effectiveContentWidth(manifest, match.page),
+            },
             layout: layoutId ? manifest.layouts[layoutId] || null : null,
             regions: match.page.regions,
         },

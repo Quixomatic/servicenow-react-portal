@@ -8,6 +8,7 @@ import {
     ReferenceColumn,
     JsonColumn,
     IntegerColumn,
+    ChoiceColumn,
 } from '@servicenow/sdk/core'
 
 /** A portal page. Portal A's "/" and portal B's "/" are different rows. */
@@ -36,6 +37,21 @@ export const x_312987_portal_page = Table({
             cascadeRule: 'restrict',
         }),
         access_config_json: JsonColumn({ label: 'Access', maxLength: 4000, hint: '{"roles": ["itil"]}; empty = portal audience' }),
+        content_width: ChoiceColumn({
+            label: 'Content width',
+            dropdown: 'dropdown_without_none',
+            default: 'inherit',
+            hint: 'Max width of the main content; Portal default comes from the portal settings (contentWidth)',
+            choices: {
+                inherit: { label: 'Portal default', sequence: 0 },
+                full: { label: 'Full bleed', sequence: 1 },
+                '7xl': { label: '7xl (80rem)', sequence: 2 },
+                '6xl': { label: '6xl (72rem)', sequence: 3 },
+                '5xl': { label: '5xl (64rem)', sequence: 4 },
+                '4xl': { label: '4xl (56rem)', sequence: 5 },
+                '3xl': { label: '3xl (48rem)', sequence: 6 },
+            },
+        }),
         order: IntegerColumn({ label: 'Order', default: 100 }),
         active: BooleanColumn({ label: 'Active', default: true }),
     },
@@ -59,6 +75,7 @@ Form({
                     ],
                     rightElements: [
                         { field: 'layout_override', type: 'table_field' },
+                        { field: 'content_width', type: 'table_field' },
                         { field: 'order', type: 'table_field' },
                         { field: 'active', type: 'table_field' },
                     ],
