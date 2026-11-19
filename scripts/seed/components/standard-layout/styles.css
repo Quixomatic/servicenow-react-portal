@@ -1,0 +1,9 @@
+/* Fills the frame the host gives it; main takes all remaining space and is the only scroller. */
+.rp-std { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; width: 100%; min-height: 0; overflow: hidden; background: var(--background); color: var(--foreground); }
+.rp-std__header { border-bottom: 1px solid var(--border); }
+.rp-std__body { display: grid; grid-template-columns: auto minmax(0, 1fr); min-height: 0; }
+.rp-std__sidebar { width: 220px; overflow-y: auto; border-right: 1px solid var(--border); padding: 16px 12px; box-sizing: border-box; }
+.rp-std__main { min-width: 0; min-height: 0; overflow: auto; }
+.rp-std__main > [data-rp-region] { display: grid; gap: 16px; align-content: start; padding: 24px; min-height: 100%; box-sizing: border-box; }
+.rp-std__footer { border-top: 1px solid var(--border); padding: 12px 24px; color: var(--muted-foreground); font-size: 12px; }
+.rp-std__header:not(:has([data-rp-widget])), .rp-std__sidebar:not(:has([data-rp-widget])), .rp-std__footer:not(:has([data-rp-widget])) { display: none; }

@@ -5,3 +5,9 @@ node_modules/
 target/
 *.tsbuildinfo
 .jest_cache
+
+# Local-only docs and plans (design notes, project plan, scratch SQL, etc.)
+.docs/
+.plans/
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json

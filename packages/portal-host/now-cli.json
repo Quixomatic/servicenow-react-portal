@@ -1,0 +1,47 @@
+{
+  "development": {
+    "proxy": {
+      "proxies": [
+        "/api"
+      ],
+      "timeout": 5000
+    },
+    "devServer": {
+      "client": {
+        "overlay": false
+      }
+    }
+  },
+  "version": "2",
+  "build": {
+    "pack": {
+      "esmExternalModules": {
+        "build": {
+          "allow": [
+            "externals"
+          ],
+          "deny": [
+            "**"
+          ]
+        },
+        "bundle": {
+          "allow": [
+            "**"
+          ],
+          "deny": [
+            "@servicenow/*",
+            "@servicenow/**",
+            "@devsnc/*",
+            "@devsnc/**",
+            "@seismic/*",
+            "@seismic/**",
+            "@tectonic/*",
+            "@tectonic/**",
+            "sn-*",
+            "sn-*/**"
+          ]
+        }
+      }
+    }
+  }
+}

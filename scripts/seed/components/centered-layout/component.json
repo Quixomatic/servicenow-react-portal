@@ -1,0 +1,10 @@
+{
+    "name": "Centered Layout",
+    "kind": "layout",
+    "tailwind": false,
+    "regions": [
+        { "name": "header", "acceptsContributions": true },
+        { "name": "main", "acceptsContributions": false },
+        { "name": "footer", "acceptsContributions": true }
+    ]
+}

@@ -1,6 +1,26 @@
 {
-  "scope": "x_312987_portal",
-  "scopeId": "3947d92c83901310e8fbc9a6feaad3f7",
-  "name": "React Portal",
-  "tsconfigPath": "./src/server/tsconfig.json"
+    "scope": "x_312987_portal",
+    "scopeId": "3947d92c83901310e8fbc9a6feaad3f7",
+    "name": "React Portal",
+    "tsconfigPath": "./src/server/tsconfig.json",
+    "ignoreTransformTableList": [
+        "sys_ux_lib_component",
+        "sys_ux_lib_component_attr",
+        "sys_ux_lib_component_m2m_asset",
+        "sys_ux_macroponent",
+        "sys_uib_toolbox_component",
+        "sys_ux_event",
+        "db_image",
+        "x_312987_portal_portal",
+        "x_312987_portal_theme",
+        "x_312987_portal_component",
+        "x_312987_portal_source_file",
+        "x_312987_portal_page",
+        "x_312987_portal_placement",
+        "x_312987_portal_build",
+        "x_312987_portal_build_asset",
+        "x_312987_portal_build_dep",
+        "x_312987_portal_release",
+        "x_312987_portal_release_entry"
+    ]
 }

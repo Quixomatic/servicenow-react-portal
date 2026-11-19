@@ -1,0 +1,1 @@
+{ "name": "Navigation Sidebar", "kind": "widget", "tailwind": true, "defaults": { "title": "Pages" } }

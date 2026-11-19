@@ -1,0 +1,11 @@
+{
+    "name": "Standard Layout",
+    "kind": "layout",
+    "tailwind": false,
+    "regions": [
+        { "name": "header", "acceptsContributions": true },
+        { "name": "sidebar", "acceptsContributions": true },
+        { "name": "main", "acceptsContributions": false },
+        { "name": "footer", "acceptsContributions": true }
+    ]
+}

@@ -1,0 +1,1 @@
+{ "name": "Server Clock", "kind": "widget", "tailwind": true, "serverMode": "on-load" }
