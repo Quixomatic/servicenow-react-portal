@@ -7,6 +7,7 @@ import { useCatalogItem, useItemPrice, submitCatalogItem } from 'utilities:app/c
 import type { CatalogItem as CatalogItemData, SubmitResult } from 'utilities:app/catalog'
 import { useCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable'
 import { useClientScripts } from 'utilities:app/gform'
+import { DialogOutlet } from 'components:app/confirm-dialog'
 import type { CatalogForm, VariableSpec } from 'components:app/variable'
 import { VariableLayout } from 'components:app/variable-container'
 import { cx, Spinner, IconAlert, IconCheck, useFormMeta } from 'components:app/field'
@@ -85,6 +86,8 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
     if (result) return <Submitted item={item.data} result={result} href={props.recordHref} onAgain={restart} />
     return (
         <CatalogFormProvider form={form}>
+            {/* g_modal dialogs from catalog client scripts. */}
+            <DialogOutlet />
             <ItemForm
                 item={item.data}
                 form={form}

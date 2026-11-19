@@ -21,7 +21,9 @@ import * as Sidebar from '#/components/ui/sidebar';
 import * as Tooltip from '#/components/ui/tooltip';
 import * as Collapsible from '#/components/ui/collapsible';
 import * as Tabs from '#/components/ui/tabs';
+import * as Dialog from '#/components/ui/dialog';
 import * as Icon from '#/components/ui/icon';
+import * as Calendar from '#/components/ui/calendar';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -57,6 +59,10 @@ const modules = {
 	'components:collapsible': Collapsible,
 	// shadcn Tabs on Base UI (tablist, roving focus, arrow/Home/End keys, aria wiring).
 	'components:tabs': Tabs,
+	// shadcn Dialog on Base UI (modal focus trap, Escape / outside click, focus return), in the overlay layer.
+	'components:dialog': Dialog,
+	// Calendar grid (no date library): 'YYYY-MM-DD' in/out, Intl month/weekday names, WAI-ARIA grid keys.
+	'components:calendar': Calendar,
 	// Curated lucide icons by name: <Icon name="layout-dashboard" />.
 	'components:icon': Icon,
 	'utilities:cn': cnModule,

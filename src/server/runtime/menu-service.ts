@@ -2,7 +2,7 @@ import { gs, GlideScopedEvaluator } from '@servicenow/glide'
 import { GR, getById, each, str, bool } from '../lib/gr.ts'
 import { T } from '../lib/tables.ts'
 import { parseJson, isPlainObject, splitList } from '../lib/util.ts'
-import { canAccessPageConfig, hasAnyRole, PageAccessConfig } from '../security/access.ts'
+import { canAccessManifestPage, hasAnyRole, ucAllowed, PageAccessConfig } from '../security/access.ts'
 import type { MenuMap, NavItem, NavItemType } from '../../shared/contracts'
 
 /**
@@ -10,8 +10,8 @@ import type { MenuMap, NavItem, NavItemType } from '../../shared/contracts'
  *
  * - assembleMenus(): the definitions the release manifest stores, per portal, keyed by menu key.
  *   Only active menus and active items; scripts are stored as text.
- * - resolveMenus(): the per-user tree bootstrap and $sp.getMenu() return (roles, condition
- *   scripts, page access, empty groups).
+ * - resolveMenus(): the per-user tree bootstrap and $sp.getMenu() return (roles, user criteria,
+ *   condition scripts, page access incl. the page's user criteria, empty groups).
  *
  * Phase 2 (not evaluated yet): badge_script and dynamic items (script). Dynamic items are dropped
  * at runtime; badge scripts are not part of the manifest.
@@ -279,6 +279,7 @@ export function evaluateCondition(item: ManifestMenuItem, ctx: MenuResolveContex
 function resolveItem(item: ManifestMenuItem, ctx: MenuResolveContext, pagesById: Record<string, MenuPage>, depth: number): NavItem | null {
     if (depth > MAX_MENU_DEPTH) return null
     if (!hasAnyRole(item.roles)) return null
+    if (!ucAllowed('item', ctx.portal.id, item.id)) return null
     if (item.type === 'dynamic') return null // phase 2
     if (!evaluateCondition(item, ctx)) return null
 
@@ -302,7 +303,7 @@ function resolveItem(item: ManifestMenuItem, ctx: MenuResolveContext, pagesById:
     }
     if (item.type === 'page') {
         const page = item.pageId ? pagesById[item.pageId] : null
-        if (!page || !canAccessPageConfig(page.access)) return null
+        if (!page || !canAccessManifestPage(ctx.portal.id, page)) return null
         const to = fillRoute(page.route, item.params)
         if (to === null) return null
         nav.to = to

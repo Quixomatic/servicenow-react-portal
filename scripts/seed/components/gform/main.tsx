@@ -9,13 +9,16 @@
  *                         hooks UI policy run-scripts; stop() unbinds
  *   useClientScripts({ … })   the same as a React hook (re-runs when `runKey` changes)
  *   createScriptEnvironment(options)   the environment alone (g_form, g_user, runOnSubmit, …)
+ *   createGForm(store, { table, sysId, user })   g_form & co. on ANY form store (no scripts run)
+ *   attachGForm(store, { …, scripts, policies }) the same plus the script lifecycle → { env, stop }
+ *   hostFor(store, options)                      the ScriptHost for a store
  *   compileScript(script, exports)     the sandbox (window, document, jQuery, $, $j, angular = null)
  *   createGlideAjaxClass / createGlideRecordClass
  */
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@portal/runtime'
 import type { ClientScripts } from 'utilities:app/graphql'
-import type { AttachedPolicies } from 'components:app/field'
+import type { AttachedPolicies, FormStore } from 'components:app/field'
 import { createScriptEnvironment } from './environment'
 import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser } from './environment'
 
@@ -49,6 +52,56 @@ export function startScriptEnvironment(options: StartOptions): { env: ScriptEnvi
             if (options.policies) options.policies.setOnResult(undefined)
         },
     }
+}
+
+export type GFormOptions = {
+    table?: string
+    sysId?: string
+    isNew?: boolean
+    view?: string
+    user: ScriptUser
+    /** Field name / alias → store name. */
+    resolve?: (name: string) => string
+    /** g_form.submit / save handler (default: not available). */
+    submit?: ScriptHost['submit']
+    openRecord?: ScriptHost['openRecord']
+    hasField?: ScriptHost['hasField']
+    sectionNames?: ScriptHost['sectionNames']
+}
+
+/** A host for any form store (not only RecordForm): table / sys_id / view from the options. */
+export function hostFor(store: FormStore, o: GFormOptions): ScriptHost {
+    return {
+        store,
+        resolve: o.resolve,
+        table: () => o.table || store.table || '',
+        sysId: () => o.sysId || store.sysId || '-1',
+        isNew: () => (o.isNew !== undefined ? o.isNew : !(o.sysId || store.sysId) || (o.sysId || store.sysId) === '-1'),
+        view: () => o.view || '',
+        encodedRecord: () => store.encodedRecord || '',
+        submit: o.submit,
+        openRecord: o.openRecord,
+        hasField: o.hasField,
+        sectionNames: o.sectionNames,
+    }
+}
+
+/**
+ * The legacy g_form / g_user / GlideAjax / g_modal environment on ANY form store (a widget's own
+ * createFormStore / useForm, a catalog form, a field dialog…), without starting scripts:
+ *   const env = createGForm(store, { table: 'incident', sysId, user: scriptUserFrom(useUser()) })
+ *   env.g_form.setValue('state', '2'); env.runClientAction(action)
+ */
+export function createGForm(store: FormStore, options: GFormOptions & { scripts?: ClientScripts; scratchpad?: Record<string, unknown>; onError?: (e: ScriptError) => void }): ScriptEnvironment {
+    return createScriptEnvironment({ host: hostFor(store, options), user: options.user, scripts: options.scripts, scratchpad: options.scratchpad, onError: options.onError })
+}
+
+/** createGForm + the script lifecycle (onLoad, onChange, policy run-scripts); returns { env, stop }. */
+export function attachGForm(
+    store: FormStore,
+    options: GFormOptions & { scripts?: ClientScripts; scratchpad?: Record<string, unknown>; policies?: AttachedPolicies; onError?: (e: ScriptError) => void },
+): { env: ScriptEnvironment; stop: () => void } {
+    return startScriptEnvironment({ host: hostFor(store, options), user: options.user, scripts: options.scripts, scratchpad: options.scratchpad, policies: options.policies, onError: options.onError })
 }
 
 /** Map the runtime user (useUser) to g_user's source. */

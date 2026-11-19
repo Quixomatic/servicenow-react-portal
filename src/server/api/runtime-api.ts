@@ -3,6 +3,7 @@ import { bootstrap, resolvePage, exposedProperties, translateMessages } from '..
 import { execute, initialize, InitializeEntry } from '../runtime/component-executor.ts'
 import { getAsset } from '../runtime/asset-service.ts'
 import { badRequest, isRPError } from '../lib/errors.ts'
+import { resetAccessCache } from '../security/access.ts'
 import { isPlainObject } from '../lib/util.ts'
 import type { EmbedRequest, ExecuteAction } from '../../shared/contracts'
 
@@ -55,7 +56,8 @@ function initializeEntry(v: unknown): InitializeEntry {
     if (!isPlainObject(v)) return String(v)
     const id = typeof v.id === 'string' ? v.id : ''
     const placement = typeof v.placement === 'string' ? v.placement : ''
-    if (!id || id.length > 400 || !/^[0-9a-f]{32}$/.test(placement)) throw badRequest('embed descriptors need an id and a placement sys_id')
+    // The root: a placement sys_id, or layout:<component sys_id> (embeds under a layout).
+    if (!id || id.length > 400 || !/^(layout:)?[0-9a-f]{32}$/.test(placement)) throw badRequest('embed descriptors need an id and a placement sys_id (or layout:<component sys_id>)')
     if (!Array.isArray(v.path) || (v.path as unknown[]).some((p) => typeof p !== 'string')) throw badRequest('embed descriptor path must be an array of component ids')
     if (v.keys !== undefined && !Array.isArray(v.keys)) throw badRequest('embed descriptor keys must be an array')
     if (v.options !== undefined && v.options !== null && !isPlainObject(v.options)) throw badRequest('embed descriptor options must be an object')
@@ -113,6 +115,7 @@ export function executeRoute(request: any, response: any): void {
 export function assetRoute(request: any, response: any): void {
     let req
     try {
+        resetAccessCache()
         req = wrap(request)
         const asset = getAsset(requiredParam(req, 'build'), requiredParam(req, 'file'))
         const etag = `"${asset.hash}"`

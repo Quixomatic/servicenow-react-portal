@@ -66,11 +66,13 @@ export default function Dashboard() {
 | `embedKey` | `[A-Za-z0-9_-]{1,64}`, stable within the parent instance. Optional for one embed; give one per row in lists. Repeats without a key get `key-2`, `key-3`… (mount order, warned); a duplicate explicit key renders a placeholder |
 | `model` | An `EmbedModel` from `$sp.getWidget` / `getWidget()`: seeds the instance (no request); its signed options are kept on later calls |
 | `fallback` | `(error, retry) => ReactNode` instead of the default crash placeholder |
+| `lazy` | `true` or `{ rootMargin?, height? }`: render a placeholder (`height`, default `10rem`) and skip initialize until it comes within `rootMargin` (default `200px`) of the viewport. Embeds that scroll into view together still share one batched initialize. Ignored with `model` (nothing to fetch) |
 | other props | Client-only React props (callbacks, `children`, refs): never sent to the server |
 | `.Raw` | The unwrapped component (today's presentational behaviour) |
 | `Embed` | `<Embed model={…} />`: renders the widget a model names (must be a widget this component imports) |
 | `useEmbeddedWidget` | `(component \| 'app/x', options?, { key?, enabled? }) => { model, pending, error, refetch }`: fetches a model on mount and when the inputs change |
 | `useGetWidget` | `() => (component \| 'app/x', options?, { key? }) => Promise<EmbedModel>` (also `usePortalUtils().getWidget`): the `spUtils.get` equivalent for modals and handlers |
+| `useInViewOnce` | `({ rootMargin?, disabled? }) => [ref, inView]`: the hook behind `lazy`, for any component that defers work until it's scrolled into view. `inView` turns true once; one shared IntersectionObserver per `rootMargin` |
 
 The child receives `{ instanceId, options, region, embedded: true, ...passThroughProps }`; its
 `useComponent()` / `useServer()` work unchanged. Ids are `<placement>~<key>[~<key>…]`, at most 4
@@ -82,7 +84,19 @@ placed component's build really imports, step by step along the import chain; an
 404. Embeds render inside `<div style="display:contents" data-rp-embed data-rp-component
 data-rp-embed-root data-rp-embed-depth>` (no `data-rp-placement`: the designer treats them as
 part of their placement); live embeds are listed on `globalThis.__REACT_PORTAL__.embeds`
-(`rp-embeds-change` event). No server in Studio's single-component preview or under layouts.
+(`rp-embeds-change` event; a lazy embed not yet in view has status `deferred`). No server in
+Studio's single-component preview.
+
+**Under layouts.** A layout can import widgets and embed them the same way (for example a header
+layout with a user menu that has a server script). Embeds under a layout are rooted at
+`layout:<layout sys_id>` instead of a placement: `layout:<id>~<key>[~<key>…]`. The server
+authorizes that root against the request page's **effective** layout (the page's layout override,
+else the portal's default layout; a page the user can't open, or any other layout, is a 404), then
+walks the import chain exactly as for placements. A layout with `serverMode: 'on-load'` gets its
+own server script too: it initializes once when the layout mounts (in the same batched request),
+runs with the effective layout options, can call `$sp.getWidget`, and `useServer()` /
+`useComponent()` inside the layout read it. It isn't re-initialized on navigation between pages
+that share the layout.
 
 ### URL parameters
 
@@ -177,6 +191,17 @@ record, raw }`.
 (`variant` default|line), `TabsTrigger` (`value`, `disabled`), `TabsContent` / `TabsPanel` (`value`,
 `keepMounted`). Base UI supplies roving focus with arrow keys, Home / End, `aria-selected`,
 `aria-controls` / `aria-labelledby` and `data-active` on the selected tab.
+
+`components:dialog`: `Dialog` (`open` / `defaultOpen` / `onOpenChange`), `DialogTrigger`, `DialogContent`
+(`showCloseButton`, renders into the overlay layer), `DialogHeader`, `DialogTitle`, `DialogDescription`,
+`DialogFooter` (`showCloseButton`), `DialogClose`, `DialogOverlay`, `DialogPortal`. Base UI supplies the modal
+focus trap, Escape / outside-click dismissal and focus return to the trigger.
+
+`components:calendar`: `Calendar` (`value` / `onSelect` as `'YYYY-MM-DD'`, `min`, `max`, `isDisabled(ymd)`, `locale`,
+`weekStartsOn` (default from `Intl.Locale` weekInfo), `today`, `defaultMonth`, `onMonthChange`, `autoFocus`, `footer`),
+plus `weekStartFor(locale)`, `parseYmd`, `toYmd`. No date library: UTC day math, Intl names. A WAI-ARIA date grid with a
+roving tabindex: arrows, Home / End, PageUp / PageDown (Shift = year), Enter / Space; the caption opens month and year grids.
+Pure UI: time zones and glide values belong to the field primitives (`app/date-field`).
 
 `components:sidebar` is shadcn's Sidebar wired to `useSidebar()` (no provider to render):
 `Sidebar` (`variant` sidebar|floating|inset, `collapsible` offcanvas|icon|none, `width`), `SidebarTrigger`

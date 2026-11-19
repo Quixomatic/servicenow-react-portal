@@ -150,6 +150,8 @@ export type ComboboxProps = {
     status?: string
     className?: string
     footer?: any
+    /** Option to make active when the list opens or its items change (e.g. the current time), else the first. */
+    activeValue?: string
 }
 
 /**
@@ -175,7 +177,9 @@ export function Combobox(props: ComboboxProps) {
 
     // Reset the active option when results change.
     useEffect(() => {
-        setActive(open && items.length ? nextEnabled(items, -1, 1) : -1)
+        const preferred = props.activeValue !== undefined ? items.findIndex((i) => i.value === props.activeValue && !i.disabled) : -1
+        setActive(open && items.length ? (preferred >= 0 ? preferred : nextEnabled(items, -1, 1)) : -1)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [items, open])
 
     const pick = (item: ComboItem) => {
@@ -319,6 +323,13 @@ export type SelectProps = {
     onBlur?: () => void
     /** Label for the selected value when it isn't among the items (e.g. a retired choice). */
     fallbackLabel?: string
+    /** 'inline': a borderless compact trigger for use inside another control's frame (currency code, phone country). */
+    variant?: 'default' | 'inline'
+    /** What the trigger shows for the selected item (default: its label), e.g. just the code. */
+    renderValue?: (item: ComboItem) => any
+    renderItem?: (item: ComboItem, state: { active: boolean; selected: boolean }) => any
+    /** Minimum popup width in px (inline triggers are narrower than their options). */
+    popupMinWidth?: number
 }
 
 /**
@@ -358,7 +369,12 @@ export function Select(props: SelectProps) {
         const q = t.text.toLowerCase()
         const start = open ? active : selectedIndex
         const order = items.map((_, i) => (start + 1 + i) % items.length)
-        const hit = order.find((i) => !items[i].disabled && items[i].label.toLowerCase().startsWith(q))
+        // Prefix of the label, of a later word in it, or of the description (codes and names both work).
+        const matches = (it: ComboItem) => {
+            const l = it.label.toLowerCase()
+            return l.startsWith(q) || l.split(/[\s·()+-]+/).some((w) => !!w && w.startsWith(q)) || (!!it.description && it.description.toLowerCase().startsWith(q))
+        }
+        const hit = order.find((i) => !items[i].disabled && matches(items[i]))
         if (hit === undefined) return
         if (open) setActive(hit)
         else commit(hit)
@@ -392,7 +408,7 @@ export function Select(props: SelectProps) {
     }
 
     return (
-        <div className={cx('relative w-full', props.className)}>
+        <div className={cx(props.variant === 'inline' ? 'relative shrink-0' : 'relative w-full', props.className)}>
             <div
                 ref={trigger}
                 id={id}
@@ -409,7 +425,11 @@ export function Select(props: SelectProps) {
                 aria-required={props.required || undefined}
                 aria-disabled={props.disabled || undefined}
                 autoFocus={props.autoFocus}
-                className={cx(controlClass({ size: props.size, invalid: props.invalid }), 'cursor-default justify-between gap-2 pr-2 select-none')}
+                className={
+                    props.variant === 'inline'
+                        ? cx('rpf-inline-select flex h-7 shrink-0 cursor-default items-center gap-1 rounded-sm px-1.5 text-sm text-foreground outline-none select-none hover:bg-accent focus-visible:bg-accent', props.disabled ? 'opacity-50' : '')
+                        : cx(controlClass({ size: props.size, invalid: props.invalid }), 'cursor-default justify-between gap-2 pr-2 select-none')
+                }
                 onClick={() => !props.disabled && setOpen(!open)}
                 onKeyDown={onKeyDown}
                 onBlur={() => {
@@ -417,14 +437,14 @@ export function Select(props: SelectProps) {
                     if (props.onBlur) props.onBlur()
                 }}
             >
-                <span className={cx('truncate', label ? '' : 'text-muted-foreground')}>{label || props.placeholder || 'Select…'}</span>
+                <span className={cx('truncate', label ? '' : 'text-muted-foreground')}>{selected && props.renderValue ? props.renderValue(selected) : label || props.placeholder || 'Select…'}</span>
                 <span className="flex items-center gap-1 text-muted-foreground">
                     {props.loading ? <Spinner label="Loading choices" /> : null}
                     <IconChevronDown size={14} />
                 </span>
             </div>
-            <Popup anchor={trigger} open={open} onDismiss={() => setOpen(false)} id={listId} role="listbox" aria-labelledby={props['aria-labelledby']}>
-                <Listbox id={listId} items={items} activeIndex={active} selected={(item) => item.value === props.value} onPick={(item) => commit(items.indexOf(item))} onHover={setActive} />
+            <Popup anchor={trigger} open={open} onDismiss={() => setOpen(false)} id={listId} role="listbox" aria-labelledby={props['aria-labelledby']} aria-label={props['aria-labelledby'] ? undefined : props['aria-label']} minWidth={props.popupMinWidth}>
+                <Listbox id={listId} items={items} activeIndex={active} selected={(item) => item.value === props.value} onPick={(item) => commit(items.indexOf(item))} onHover={setActive} renderItem={props.renderItem} />
             </Popup>
         </div>
     )

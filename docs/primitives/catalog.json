@@ -505,7 +505,7 @@
       "name": "app/field (FieldDecoration slot)",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "partial: components:app/field, utilities:app/gform — Not yet: reference preview hover card / open-record decoration.",
     "sourceRef": "https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-record-file-attachment.map.jsdbx",
     "sharedProps": [
       "autofocus",
@@ -647,8 +647,11 @@
         "note": "from source property schema"
       }
     ],
-    "ourComponent": [],
-    "coverageNotes": "No decoration/adornment slot in FieldShell; g_form.addDecoration/removeDecoration are no-ops in utilities:app/gform."
+    "ourComponent": [
+      "components:app/field",
+      "utilities:app/gform"
+    ],
+    "coverageNotes": "FieldShell adornment slot (prop `adornment`) plus label decorations from g_form.addDecoration / removeDecoration (platform icon-* names map to Lucide, colour, accessible title). Not yet: reference preview hover card / open-record decoration."
   },
   {
     "tag": "now-input",
@@ -1447,7 +1450,7 @@
       "name": "app/phone-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/phone-field — no country-code picker or E.164 validation",
+    "ourMatch": "match: components:app/phone-field",
     "sourceRef": "sys_ux_macroponent:838ba46920544c30b09458bec4acf33c | sys_ux_lib_component:b51c6164d5a1fa456bb9952452193031 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "sharedProps": [
       "size",
@@ -1507,7 +1510,7 @@
     "ourComponent": [
       "components:app/phone-field"
     ],
-    "coverageNotes": "Loose validation and tel: link only; the form layout ships countryCodes but the field ignores them."
+    "coverageNotes": "E.164 mode (phone_number_e164 or `e164`): country picker (app/combobox inline Select, typeahead on name or code) from the layout countryCodes (else the platform default list), national number grouped per country, value +<digits>, max 15 digits, typing +44… switches country, trunk 0 dropped; ph_number keeps the loose tel input. Read-only tel: link."
   },
   {
     "tag": "sn-record-input-connected",
@@ -5044,7 +5047,7 @@
       "name": "app/date-field / app/datetime-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/date-field, components:app/datetime-field — native date input, no custom calendar popover; user date format shown at rest only",
+    "ourMatch": "match: components:app/date-field, components:app/datetime-field, components:calendar",
     "sourceRef": "sys_ux_lib_component:b617d017f6bd60c255b2d096eca2d513 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -5107,9 +5110,10 @@
     ],
     "ourComponent": [
       "components:app/date-field",
-      "components:app/datetime-field"
+      "components:app/datetime-field",
+      "components:calendar"
     ],
-    "coverageNotes": "Date/time edits wall time in the user's ServiceNow time zone (DST aware), \"Now\" button."
+    "coverageNotes": "Typed entry in the user's date / date-time format (g_date_time_format), parsed leniently (any separator, 2-digit years, month names, ISO, today/tomorrow); calendar popover (host kit components:calendar in components:popover) with WAI-ARIA grid keys, month/year grids, Escape and focus return; min/max (props or min/max attributes); date-time edits wall time in the user's ServiceNow time zone (DST aware) with a time box, Now and Done. Better than Workspace: Intl month/weekday names and week start per locale, no date library."
   },
   {
     "tag": "now-date-time",
@@ -5326,7 +5330,7 @@
       "name": "ui/date-picker",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/date-field, components:app/datetime-field — no standalone ui/date-picker with calendar popover",
+    "ourMatch": "match: components:app/date-field, components:app/datetime-field, components:calendar",
     "sourceRef": "sys_ux_macroponent:d55a7d371eb1cb0b10c4be0e368a6352 | sys_ux_lib_component:78427766963437859fc2941e8ae361da | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "size",
@@ -5448,9 +5452,10 @@
     ],
     "ourComponent": [
       "components:app/date-field",
-      "components:app/datetime-field"
+      "components:app/datetime-field",
+      "components:calendar"
     ],
-    "coverageNotes": "Native inputs themed via color-scheme."
+    "coverageNotes": "Standalone use: <DateField value onChange /> / <DateTimeField /> with the calendar popover; the generic grid is the host kit's components:calendar ('YYYY-MM-DD' in/out, min/max/isDisabled, locale, weekStartsOn)."
   },
   {
     "tag": "now-date-range-picker",
@@ -5810,7 +5815,7 @@
       "name": "app/time-field",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/time-field",
     "sourceRef": "sys_ux_lib_component:833145e30946cef8ccd6e01dbd1f98e8 | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -5857,8 +5862,10 @@
       "utc_time",
       "integer_time"
     ],
-    "ourComponent": [],
-    "coverageNotes": "glide_time not registered in field-control (falls to \"field type not supported\")."
+    "ourComponent": [
+      "components:app/time-field"
+    ],
+    "coverageNotes": "glide_time: typed entry in the user's time pattern ('9', '930', '9:30 pm', 'noon'), a suggestion list every `step` minutes opening at the current value (app/combobox), zone label; keeps the value shape it was given ('HH:mm:ss' wall time from formLayout, or '1970-01-01 HH:mm:ss' UTC converted on 1970-01-01 like the platform). Single text box instead of hour/minute/second segments."
   },
   {
     "tag": "sn-record-duration",
@@ -6402,7 +6409,7 @@
     "ourComponent": [
       "components:app/currency-field"
     ],
-    "coverageNotes": "Standalone mode with `currencies` prop."
+    "coverageNotes": "Standalone mode with `currencies` prop. Currency code picker is app/combobox’s inline Select (typeahead on code or name, top-layer popup), not a native select."
   },
   {
     "tag": "sn-record-price-connected",
@@ -6981,7 +6988,7 @@
       "name": "app/phone-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/phone-field — no country codes / E.164 strict mode",
+    "ourMatch": "match: components:app/phone-field",
     "sourceRef": "sys_ux_lib_component:5693cc4707c0b73374d2f6c54d772357 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -7146,7 +7153,7 @@
     "ourComponent": [
       "components:app/phone-field"
     ],
-    "coverageNotes": "no country codes / E.164 strict mode"
+    "coverageNotes": "phone_number_e164 renders the country code + national number editor (countryCodes from GlideLayout PhoneNumberElementType); display value formatted (+1 (858) 864-9999)."
   },
   {
     "tag": "now-record-html-editor",
@@ -9165,7 +9172,7 @@
       "name": "app/table-name-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/string-field — table_name renders as plain text, no table picker",
+    "ourMatch": "match: components:app/table-name-field",
     "sourceRef": "sys_ux_lib_component:d9a382f763504edc09834c9b30104d0f | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -9273,9 +9280,9 @@
       "short_table_name"
     ],
     "ourComponent": [
-      "components:app/string-field"
+      "components:app/table-name-field"
     ],
-    "coverageNotes": "table_name renders as plain text, no table picker"
+    "coverageNotes": "table_name (and catalog Table Name variables, type 40): searchable combobox over sys_db_object by label and name; `base_table` attribute limits to a table and its extensions; value = name, display = label."
   },
   {
     "tag": "sn-record-fieldname-connected",
@@ -9507,7 +9514,7 @@
       "name": "app/field-name-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/string-field — field_name renders as plain text; a FieldPicker exists in app/condition-builder but is not wired as a field type",
+    "ourMatch": "match: components:app/field-name-field",
     "sourceRef": "sys_ux_lib_component:9c4b9c64dd1a295b955f19a3bacdcd4a | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -9669,9 +9676,10 @@
       "field_name"
     ],
     "ourComponent": [
-      "components:app/string-field"
+      "components:app/field-name-field",
+      "components:app/condition-builder"
     ],
-    "coverageNotes": "field_name renders as plain text; a FieldPicker exists in app/condition-builder but is not wired as a field type"
+    "coverageNotes": "field_name: app/condition-builder's FieldPicker on the table from the `table` attribute or the dependent field's value (follows it live); `tree_picker=true` allows dot-walked paths; value = column, display = label."
   },
   {
     "tag": "sn-record-field-list-connected",
@@ -10150,7 +10158,7 @@
       "name": "app/condition-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/condition-builder — conditions dictionary type falls back to textarea; ConditionBuilder exists but is not registered as the conditions field control",
+    "ourMatch": "match: components:app/conditions-field",
     "sourceRef": "sys_ux_lib_component:58872e842e85b5743981a53e02d3b3fc | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -10312,9 +10320,10 @@
       "conditions"
     ],
     "ourComponent": [
+      "components:app/conditions-field",
       "components:app/condition-builder"
     ],
-    "coverageNotes": "Easy win: registerFieldType(\"conditions\", …) over ConditionBuilder with the dependent table field."
+    "coverageNotes": "conditions: live ConditionBuilder (AND/OR, new criteria, dot-walk) committing the encoded query; table from `table` / `staticDependent` attributes or the dependent field's value; read-only shows the platform's condition labels. Rows respond to the field's width (container query), so it fits half-width form columns and phones."
   },
   {
     "tag": "sn-record-code-editor",
@@ -11833,7 +11842,7 @@
       "name": "app/form-annotation",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/form-annotation, components:app/form",
     "sourceRef": "sys_ux_lib_component:940889ecdb86ba7f6f86664990011727 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "fieldLayout"
@@ -11871,9 +11880,10 @@
       }
     ],
     "ourComponent": [
+      "components:app/form-annotation",
       "components:app/form"
     ],
-    "coverageNotes": "FormLayout does not render annotations: the bootstrap query does not request formLayout.annotations. Catalog label variables are separate (app/variable)."
+    "coverageNotes": "app/form-annotation renders formLayout.annotations (requested in the form bootstrap) where the section rows list them: info box (blue), warning (red), success (green), plain text / section details, line separator, line break. HTML sanitised unless isPlainText; unevaluated ${...} Jelly dropped."
   },
   {
     "tag": "now-record-field-lookup-connected",
@@ -18137,13 +18147,13 @@
       "name": "app/form",
       "kind": "widget"
     },
-    "ourMatch": "partial: components:app/form, components:app/record-form — no annotations, formatters are placeholders, no collapsible sections / section tabs, no related lists, no activity/attachments, no form personalisation",
+    "ourMatch": "partial: components:app/form, components:app/record-form — Missing: related lists, activity stream, attachments, formatters (placeholders), form personalisation.",
     "sourceRef": "sys_ux_lib_component:ec69984ec18644891353bc47dbf325b3 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
       "components:app/form",
       "components:app/record-form"
     ],
-    "coverageNotes": "RecordForm: header, view switcher, sections and 1/2 columns, error summary, sticky save bar, unsaved-changes guard, UI action bar, live update banner."
+    "coverageNotes": "RecordForm: header (banner / bar / inline), cog settings (view, stacked / tabs), collapsible sections, tabs mode, annotations, 2-4 column splits, UI action bar, Save / Discard in the header, conflict check, per-field remote-change markers, remembered view. Missing: related lists, activity stream, attachments, formatters (placeholders), form personalisation."
   },
   {
     "tag": "now-record-form-section-connected",
@@ -18245,12 +18255,13 @@
       "name": "app/form-section",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/form — no collapse, no section menu, g_form.setSectionDisplay is a no-op",
+    "ourMatch": "match: components:app/form-section, components:app/form",
     "sourceRef": "sys_ux_macroponent:f4d3254a798ef092d9023d408f257789 | sys_ux_lib_component:0cdc4c02281164ba49ff1f356c378b58 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
+      "components:app/form-section",
       "components:app/form"
     ],
-    "coverageNotes": "FormSection renders caption headings (captionDisplay) and rows."
+    "coverageNotes": "Collapsible section headings (app/form-section on components:collapsible; state per user + table in x_312987_portal.form.<table>.collapsed); g_form.setSectionDisplay / getSectionNames; a section with every field hidden disappears; error badges; sections holding errors open. No section jump menu."
   },
   {
     "tag": "now-record-form-section-column-layout",
@@ -18505,12 +18516,12 @@
       "name": "app/form-columns",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/form — rows render 1 or 2 columns from md; split markers are pre-resolved but begin_split/end_split column spans and >2 columns are not modelled",
+    "ourMatch": "match: components:app/form",
     "sourceRef": "sys_ux_macroponent:cdf8d604a3fda59e69ccd6dd407263d6 | sys_ux_lib_component:36cbf0f7e16917fc368da00c4d7ebc6c | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
       "components:app/form"
     ],
-    "coverageNotes": "rows render 1 or 2 columns from md; split markers are pre-resolved but begin_split/end_split column spans and >2 columns are not modelled"
+    "coverageNotes": "Split rows (.begin_split / .split / .end_split arrive resolved as columns): full-width rows, 2 or 3 columns from md, 4+ wrap 2-up then all from xl."
   },
   {
     "tag": "now-record-form-blob",
@@ -20868,12 +20879,14 @@
       "name": "app/scripted-modal",
       "kind": "primitive"
     },
-    "ourMatch": "partial: utilities:app/gform — g_modal alert/confirm use window.alert/confirm; showFields rejects; showFrame opens a tab",
+    "ourMatch": "partial: utilities:app/gform, components:app/confirm-dialog, components:app/field-dialog — showFrame still opens a new tab; showWidget / custom modal content not supported.",
     "sourceRef": "sys_ux_lib_component:58ec25737fd500fc15397151709c766a | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
-      "utilities:app/gform"
+      "utilities:app/gform",
+      "components:app/confirm-dialog",
+      "components:app/field-dialog"
     ],
-    "coverageNotes": "g_modal alert/confirm use window.alert/confirm; showFields rejects; showFrame opens a tab"
+    "coverageNotes": "g_modal.alert / confirm (callback + promise) on app/confirm-dialog; g_modal.showFields on app/field-dialog ({ updatedFields }, rejects on cancel). showFrame still opens a new tab; showWidget / custom modal content not supported."
   },
   {
     "tag": "sn-record-watcher",
@@ -25053,7 +25066,7 @@
       "name": "app/mrvs (row editor)",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/mrvs — row form has no g_form scope (row policies/scripts do not run)",
+    "ourMatch": "partial: components:app/mrvs, components:dialog — Still missing: a g_form scope for the row (row policies / scripts do not run).",
     "sourceRef": "https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-form.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-form/index.min.js.map.jsdbx",
     "sharedProps": [
       "disabled",
@@ -25229,9 +25242,10 @@
       }
     ],
     "ourComponent": [
-      "components:app/mrvs"
+      "components:app/mrvs",
+      "components:dialog"
     ],
-    "coverageNotes": "row form has no g_form scope (row policies/scripts do not run)"
+    "coverageNotes": "Row editor on components:dialog (same behaviour). Still missing: a g_form scope for the row (row policies / scripts do not run)."
   },
   {
     "tag": "sc-multi-row-header-action-button",
@@ -26672,10 +26686,13 @@
       "name": "ui/tabs",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:tabs, components:app/form-tabs",
     "sourceRef": "sys_ux_lib_component:96cdcc9245ec90377dca25a30203f249 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "No ui/tabs primitive (needed for related-list tabs and the tabbed sections mode)."
+    "ourComponent": [
+      "components:tabs",
+      "components:app/form-tabs"
+    ],
+    "coverageNotes": "Host kit components:tabs (shadcn on Base UI Tabs) + app/form-tabs (sections as tabs: error / required badges, validation reveals the tab, tab= in q for Back and deep links)."
   },
   {
     "tag": "now-uxf-tab-set",
@@ -27132,12 +27149,15 @@
       "name": "ui/dialog",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/mrvs — only a private native <dialog> inside app/mrvs; no shared ui/dialog primitive",
+    "ourMatch": "match: components:dialog, components:app/confirm-dialog, components:app/field-dialog, components:app/mrvs",
     "sourceRef": "sys_ux_lib_component:4f4183c45abc5dbc8fc5d7f686ee174d | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "ourComponent": [
+      "components:dialog",
+      "components:app/confirm-dialog",
+      "components:app/field-dialog",
       "components:app/mrvs"
     ],
-    "coverageNotes": "only a private native <dialog> inside app/mrvs; no shared ui/dialog primitive"
+    "coverageNotes": "Host kit components:dialog (shadcn on Base UI Dialog, in the shadow-root overlay: focus trap, Escape, focus return). Record primitives: app/confirm-dialog (confirm / alert, DialogOutlet queue, useDialog / useConfirm), app/field-dialog (fields spec → form). MRVS row editor uses it."
   },
   {
     "tag": "now-modeless-dialog",
@@ -29247,10 +29267,12 @@
       "name": "ui/confirm-dialog",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/confirm-dialog",
     "sourceRef": "sys_ux_macroponent:71f1d86e8da97cc031fc30e03896cbe1 | sys_ux_lib_component:1d9e434f3cfcc8666d63ca5ef579f255 | https://dev189813.service-now.com/uxab/_servicenow_now-confirmation-message.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-confirmation-message/index.min.js.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Discard/confirm use window.confirm."
+    "ourComponent": [
+      "components:app/confirm-dialog"
+    ],
+    "coverageNotes": "app/confirm-dialog: confirmDialog / alertDialog / useConfirm; replaces window.confirm in record-form (discard prompt) and g_modal.confirm."
   },
   {
     "tag": "now-badge",
@@ -32633,12 +32655,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "partial: components:app/mrvs — see now-modal",
+    "ourMatch": "match: components:dialog",
     "sourceRef": "sys_ux_lib_component:1624ff5ba8c0dfcd2a710a36b16753e9 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/mrvs"
+      "components:dialog"
     ],
-    "coverageNotes": "see now-modal"
+    "coverageNotes": "components:dialog (DialogContent without the close button / footer)."
   },
   {
     "tag": "now-loader-skeleton-custom",

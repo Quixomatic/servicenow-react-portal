@@ -51,8 +51,9 @@ export function createInstanceInitStore(queryClient, getContext) {
 			// The server takes 50 descriptors per request.
 			for (let i = 0; i < list.length; i += 50) {
 				const chunk = list.slice(i, i + 50);
-				// The client-side options hash isn't part of the wire descriptor.
-				const wire = chunk.map(({ hash, ...d }) => d); // eslint-disable-line no-unused-vars
+				// The client-side options hash isn't part of the wire descriptor; plain instances
+				// (a layout root, requestInstance) go as their id string.
+				const wire = chunk.map(({ hash, plain, ...d }) => (plain ? d.id : d)); // eslint-disable-line no-unused-vars
 				initializeInstances(portal, page, wire, context).then(
 					(data) => {
 						const instances = (data && data.instances) || {};
@@ -75,6 +76,23 @@ export function createInstanceInitStore(queryClient, getContext) {
 		});
 	};
 
+	/** Queue one entry for the next microtask flush (skipped when id + hash is cached or in flight). */
+	const enqueue = (portal, page, descriptor, hash, context) => {
+		if (embedHashes.get(descriptor.id) === hash) {
+			const r = records.get(descriptor.id);
+			if (r && (r.entry || r.pending)) return;
+		}
+		embedHashes.set(descriptor.id, hash);
+		const prev = records.get(descriptor.id);
+		setRecord(descriptor.id, { entry: prev ? prev.entry : undefined, pending: true, error: null });
+		queue.push({ portal, page: page || '', descriptor: { ...descriptor, hash }, context: context || null });
+		if (!flushScheduled) {
+			flushScheduled = true;
+			queueMicrotask(flushEmbeds);
+		}
+		notify();
+	};
+
 	return {
 		/**
 		 * Embedded widgets: put a known result (a server-built model) under `id` without a request.
@@ -95,19 +113,14 @@ export function createInstanceInitStore(queryClient, getContext) {
 		 * Skipped when the same id + options hash is cached or in flight.
 		 */
 		requestEmbed(portal, page, descriptor, hash, context) {
-			if (embedHashes.get(descriptor.id) === hash) {
-				const r = records.get(descriptor.id);
-				if (r && (r.entry || r.pending)) return;
-			}
-			embedHashes.set(descriptor.id, hash);
-			const prev = records.get(descriptor.id);
-			setRecord(descriptor.id, { entry: prev ? prev.entry : undefined, pending: true, error: null });
-			queue.push({ portal, page: page || '', descriptor: { ...descriptor, hash }, context: context || null });
-			if (!flushScheduled) {
-				flushScheduled = true;
-				queueMicrotask(flushEmbeds);
-			}
-			notify();
+			enqueue(portal, page, descriptor, hash, context);
+		},
+		/**
+		 * Queue a plain instance id (an on-load layout's root, 'layout:<component sys_id>') into the
+		 * same batched initialize. Fetched once per id; it stays cached while the store lives.
+		 */
+		requestInstance(portal, page, id, context) {
+			if (id) enqueue(portal, page, { id, plain: true }, 'instance', context);
 		},
 		record: (id) => records.get(id) || EMPTY,
 		get: (id) => (records.get(id) || EMPTY).entry,

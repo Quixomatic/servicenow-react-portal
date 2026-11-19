@@ -1,5 +1,6 @@
 import { gs } from '@servicenow/glide'
 import { isRPError, sanitizeError } from '../lib/errors.ts'
+import { resetAccessCache } from '../security/access.ts'
 import { correlationId as newCorrelationId, isPlainObject } from '../lib/util.ts'
 import type { EnvelopeMeta } from '../../shared/contracts'
 
@@ -83,6 +84,7 @@ export function handle(request: any, response: any, fn: (req: Req) => HandlerRes
         send(response, result.status || 200, body)
     }
     try {
+        resetAccessCache() // per-request user-criteria cache
         req = wrap(request)
         const result = fn(req)
         if (result && typeof (result as Promise<HandlerResult>).then === 'function') (result as Promise<HandlerResult>).then(ok, fail)

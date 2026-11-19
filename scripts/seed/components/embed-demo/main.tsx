@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Embed, useEmbeddedWidget, useServer } from '@portal/runtime'
+import { Embed, Link, useEmbeddedWidget, useServer } from '@portal/runtime'
 import ServerClock from 'components:app/server-clock'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'
 import { Badge } from 'components:badge'
@@ -16,6 +16,8 @@ export default function EmbedDemo({ options }: { options: { title?: string } }) 
     // spUtils.get equivalent: fetched on demand (and again whenever the options change).
     const fetched = useEmbeddedWidget(ServerClock, { title: 'Fetched (useEmbeddedWidget)', format }, { key: 'fetched' })
     const built = (data as any)?.built
+    // Section 5: lazy embeds (stable embedKeys from data, like a list).
+    const lazyKeys = ['1', '2', '3']
 
     return (
         <Card>
@@ -23,7 +25,11 @@ export default function EmbedDemo({ options }: { options: { title?: string } }) 
                 <CardTitle>{options?.title || 'Embedded widgets'}</CardTitle>
                 <CardDescription>
                     Each clock below is Server Clock running as its own instance inside this widget. The client-declared clocks initialize in one
-                    batched request; the server-built clock arrives with this widget's own data.
+                    batched request; the server-built clock arrives with this widget's own data. Layouts can embed widgets too:{' '}
+                    <Link to="embeds/layout" className="underline underline-offset-2">
+                        layout-rooted embeds
+                    </Link>
+                    .
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
@@ -65,6 +71,17 @@ export default function EmbedDemo({ options }: { options: { title?: string } }) 
                         <div className="h-40 animate-pulse rounded-lg bg-muted/60" aria-busy="true" />
                     )}
                     {fetched.pending && fetched.model ? <Badge variant="secondary">refetching…</Badge> : null}
+                </section>
+                <section aria-label="Lazy" className="space-y-2 md:col-span-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">5 · Lazy (lazy prop: initializes when scrolled into view)</h3>
+                    <p className="text-xs text-muted-foreground">
+                        Placeholders until they reach the viewport; the clocks that come into view together share one batched initialize.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-3">
+                        {lazyKeys.map((k) => (
+                            <ServerClock key={k} lazy={{ rootMargin: '0px', height: 240 }} embedKey={`lazy-${k}`} options={{ title: `Lazy ${k}`, format: 'time' }} />
+                        ))}
+                    </div>
                 </section>
             </CardContent>
         </Card>

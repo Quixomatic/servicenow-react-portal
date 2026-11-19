@@ -24,7 +24,8 @@ export type { RecordForm as RecordFormModel, UseRecordFormOptions, SaveOutcome }
 export { RecordForm } from './record-form'
 export type { RecordFormProps } from './record-form'
 export { FormLayout, FormSection, FormElement, SectionRows, isFormatter, isSplitMarker, sectionName, sectionElements, sectionOfField, useVisibleSections } from './layout'
-export { useOwnPreference, useCollapsedSections, usePresentationPreference, formPreferenceName } from './preferences'
+export { useOwnPreference, useCollapsedSections, usePresentationPreference, useRememberedView, formPreferenceName } from './preferences'
+// formPreferenceName.view(table): the remembered form view (x_312987_portal.form.<table>.view).
 export type { FormPresentation } from './preferences'
 export type { FormLayoutProps } from './layout'
 

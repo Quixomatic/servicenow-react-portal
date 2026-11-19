@@ -3,7 +3,7 @@ import { toast, useUser, useRecordWatch } from '@portal/runtime'
 import { useQueryClient } from 'utilities:react-query'
 import { useFormBootstrap, executeUiAction, fetchRecordValues, UiActionError } from 'utilities:app/graphql'
 import type { FormBootstrap, UiAction, UiActionResult, SessionNotification } from 'utilities:app/graphql'
-import { useForm, attachPolicies } from 'components:app/field'
+import { useForm, attachPolicies, applyRemoteValues } from 'components:app/field'
 import type { Form, ValidationResult } from 'components:app/field'
 import { startScriptEnvironment, scriptUserFrom } from 'utilities:app/gform'
 import type { ScriptEnvironment, ScriptError } from 'utilities:app/gform'
@@ -229,11 +229,13 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
         setSaveError(null)
         try {
             // Optimistic concurrency: re-read sys_mod_count before writing.
-            if (!isNew && !opts.force && data.modCount != null) {
+            // Baseline: what we loaded, or the remote change already merged field by field (D8).
+            const baseline = mergedMod.current != null && data.modCount != null && mergedMod.current > data.modCount ? mergedMod.current : data.modCount
+            if (!isNew && !opts.force && baseline != null) {
                 const now = await fetchRecordValues(data.table, { sysId }, ['sys_mod_count']).catch(() => null)
                 const server = now && now.sys_mod_count ? Number(now.sys_mod_count.value) : NaN
-                if (!isNaN(server) && server !== data.modCount) {
-                    const error = new ConflictError(data.modCount, server)
+                if (!isNaN(server) && server !== baseline) {
+                    const error = new ConflictError(baseline, server)
                     setConflict(error)
                     return { ok: false, reason: 'conflict', error }
                 }
@@ -326,6 +328,22 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
 
     // ---- live: someone else changed this record (AMB record watch; sys_mod_count ordering) ----
     const [remoteChange, setRemoteChange] = useState<RemoteChange | null>(null)
+    // Per-field merge of a remote change on a dirty form (D8): clean fields take the new value
+    // silently; dirty fields whose server value changed get a marker (Use theirs / Keep mine).
+    const mergedMod = useRef<number | null>(null)
+    const mergeRemote = async (changes: string[], modCount: number | null) => {
+        const data = bootRef.current
+        if (!data) return
+        const form = baseRef.current
+        const state = form.getState()
+        const onForm = Object.keys(data.meta).filter((n) => n in state.fields)
+        const names = changes.length ? changes.filter((n) => onForm.indexOf(n) >= 0) : onForm
+        if (!names.length) return
+        const fresh = await fetchRecordValues(data.table, { sysId }, names).catch(() => null)
+        if (!fresh) return
+        applyRemoteValues(form, fresh)
+        if (modCount != null) mergedMod.current = modCount
+    }
     const seenMod = useRef(-1)
     useRecordWatch(
         table,
@@ -347,6 +365,7 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
                 return
             }
             setRemoteChange({ deleted: false, modCount: e.modCount, by: e.fromUser, changes: e.changes || [] })
+            mergeRemote(e.changes || [], e.modCount)
         },
         { enabled: !isNew && !!table && options.live !== false, invalidate: false },
     )

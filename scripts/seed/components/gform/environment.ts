@@ -3,6 +3,8 @@ import type { ClientScript, ClientScripts, UiAction, UiPolicy } from 'utilities:
 import type { FormStore } from 'components:app/field'
 import { createGlideRecordClass } from './glide-record'
 import { createGlideAjaxClass } from './glide-ajax'
+import { confirmDialog, alertDialog } from 'components:app/confirm-dialog'
+import { showFieldsDialog } from 'components:app/field-dialog'
 
 /**
  * The legacy client-script environment (a compatibility layer: only legacy client scripts, UI
@@ -13,7 +15,7 @@ import { createGlideAjaxClass } from './glide-ajax'
  * and inside async callbacks) are caught, reported to onError / env.errors and never break the form.
  *
  * APIs in scope: g_form, g_user, g_scratchpad, GlideAjax, GlideRecord (async), getMessage,
- * getMessages, g_modal (alert / confirm), g_aw (openRecord), g_navigation, g_service_catalog,
+ * getMessages, g_modal (alert / confirm / showFields), g_aw (openRecord), g_navigation, g_service_catalog,
  * g_i18n, gsftSubmit.
  */
 
@@ -347,8 +349,9 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         getRelatedListNames: () => [],
         enableAttachments: () => {},
         disableAttachments: () => {},
-        addDecoration: () => {},
-        removeDecoration: () => {},
+        // Decorations next to the field label: (field, icon, title, color?) — 'icon-star' etc. map to Lucide icons.
+        addDecoration: (n: string, icon: string, title: string, color?: string) => store.addDecoration(resolve(n), str(icon), str(title), color ? str(color) : undefined),
+        removeDecoration: (n: string, icon?: string, title?: string) => store.removeDecoration(resolve(n), icon === undefined ? undefined : str(icon), title === undefined ? undefined : str(title)),
         isLiveUpdating: () => false,
         getControl: () => null,
         getElement: () => null,
@@ -372,13 +375,34 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         getClientData: () => '',
     }
 
+    // g_modal on our dialogs (app/confirm-dialog, app/field-dialog). Messages may carry HTML (Workspace
+    // passes rich text): sanitised by the dialog's text rendering, i.e. shown as text here.
+    const textOf = (v: unknown) => String(v == null ? '' : v).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
     const g_modal: any = {
-        alert: (title: string, message?: string) => {
-            window.alert([title, message].filter(Boolean).join('\n\n'))
-            return Promise.resolve()
-        },
-        confirm: (title: string, message?: string) => (window.confirm([title, message].filter(Boolean).join('\n\n')) ? Promise.resolve(true) : Promise.reject(false)),
-        showFields: () => Promise.reject(new Error('g_modal.showFields is not supported in React Portal yet')),
+        alert: (title: string, message?: string, callback?: () => void) =>
+            alertDialog({ title: textOf(title), description: message ? textOf(message) : undefined }).then(() => {
+                if (typeof callback === 'function') wrap(callback)()
+            }),
+        // confirm(title, message, callback?, options?): callback(confirmed); the promise resolves true on
+        // confirm and, on cancel, resolves false when a callback is given, else rejects (Workspace).
+        confirm: (title: string, message?: string, callback?: (ok: boolean) => void, options?: { confirmTitle?: string; cancelTitle?: string; confirmType?: string }) =>
+            confirmDialog({
+                title: textOf(title),
+                description: message ? textOf(message) : undefined,
+                confirmLabel: options && options.confirmTitle ? textOf(options.confirmTitle) : undefined,
+                cancelLabel: options && options.cancelTitle ? textOf(options.cancelTitle) : undefined,
+                destructive: !!(options && options.confirmType === 'destructive'),
+            }).then((ok) => {
+                if (typeof callback === 'function') {
+                    wrap(callback)(ok)
+                    return ok
+                }
+                if (!ok) throw false
+                return true
+            }),
+        // showFields({ title, fields, instruction?, confirmTitle?, cancelTitle?, size? }) → { updatedFields } / rejects on cancel.
+        showFields: (spec: { title?: string; fields?: unknown[]; [k: string]: unknown }) =>
+            showFieldsDialog({ ...(spec as any), fields: Array.isArray(spec && spec.fields) ? (spec.fields as any[]) : [] }),
         showFrame: (opts: { url?: string }) => {
             if (opts && opts.url) window.open(opts.url, '_blank', 'noopener')
             return Promise.resolve()

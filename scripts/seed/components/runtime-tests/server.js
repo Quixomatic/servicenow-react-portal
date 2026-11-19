@@ -39,6 +39,11 @@
     if (input.raiseError) throw new Error('Test error thrown by the Runtime Tests server script')
     // Embedded widgets: a server-built model (signed options; badge is server-only in Server Clock's schema).
     if (context.action === 'initialize') data.embedModel = $sp.getWidget('app/server-clock', { title: 'Runtime Tests (server-built)', badge: 'signed' }, { key: 'rt-srv' })
+    // Layout-rooted embeds: the Embed Test Layout's sys_id (the sp page embeds/layout uses it).
+    if (context.action === 'initialize') {
+        var lay = new GlideRecord('x_312987_portal_component')
+        if (lay.get('unique_id', 'app/embed-test-layout')) data.testLayout = lay.getUniqueValue()
+    }
     data.action = context.action
     data.input = input
     data.startKeys = startKeys

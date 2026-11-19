@@ -12,9 +12,11 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.12.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.13.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
+    // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
+    var UC_ITIL = '2f137fb2eb303010e0ef83c45e52287c'
     var log = []
 
     function upsert(table, query, fields) {
@@ -36,6 +38,21 @@
         var id = isNew ? gr.insert() : dirty ? (gr.update(), gr.getUniqueValue()) : gr.getUniqueValue()
         if (!id) throw new Error('Could not write ' + table + ' ' + query + ': ' + gs.getErrorMessages())
         return id
+    }
+
+    // User criteria m2m rows ("Available for" / "Not available for") for a portal, page or menu item:
+    // def.availableFor / def.notAvailableFor are arrays of existing user_criteria sys_ids. Additive:
+    // rows are upserted, never removed. kind: 'portal' | 'page' | 'item' (table x_312987_portal_<kind>_uc[_no]).
+    function seedCriteria(kind, ownerField, ownerId, def) {
+        var lists = [['_uc', def.availableFor || []], ['_uc_no', def.notAvailableFor || []]]
+        for (var l = 0; l < lists.length; l++) {
+            for (var c = 0; c < lists[l][1].length; c++) {
+                var ucId = lists[l][1][c]
+                var fields = { user_criteria: ucId }
+                fields[ownerField] = ownerId
+                upsert(kind + lists[l][0], ownerField + '=' + ownerId + '^user_criteria=' + ucId, fields)
+            }
+        }
     }
 
     /* ---------------- Themes ---------------- */
@@ -264,7 +281,8 @@
     //   { url: 'https://…', label, target? }               → external URL item
     //   { label, children: [...], collapsed? }             → group
     //   { type: 'separator' }
-    // Common: icon (lucide kebab-case), tooltip, match ('exact' | 'prefix'), roles ('a,b'), badge.
+    // Common: icon (lucide kebab-case), tooltip, match ('exact' | 'prefix'), roles ('a,b'), badge,
+    // availableFor / notAvailableFor (user_criteria sys_ids, see seedCriteria).
     // The menu business rules validate each write; one release reprocess runs at the end of seedPortal.
     function seedMenuItems(menuId, parentId, list, counts) {
         var keep = {}
@@ -302,6 +320,7 @@
             var where = 'menu=' + menuId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') +
                 (type === 'separator' ? '^type=separator^order=' + order : '^label=' + (it.label || ''))
             var id = upsert('menu_item', where, fields)
+            seedCriteria('item', 'menu_item', id, it)
             keep[id] = true
             counts.items++
             if (it.children) seedMenuItems(menuId, id, it.children, counts)
@@ -366,6 +385,7 @@
                 layout_options_json: pg.layoutOptions || '',
                 content_width: pg.contentWidth || 'inherit',
             })
+            seedCriteria('page', 'page', pageIds[pg.route], pg)
             placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main')
         }
         var portalWidgets = def.portalWidgets || [
@@ -432,6 +452,10 @@
                 { label: 'More', children: [
                     { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
                     { page: 'about', label: 'About', icon: 'info' },
+                    // User criteria demo: the page item drops for users the page's criteria exclude; the
+                    // URL item carries its own criteria. Both: "Users with 'itil' role" (existing OOB record).
+                    { page: 'agents', label: 'Agents only', icon: 'shield-check' },
+                    { url: 'https://www.servicenow.com/docs/r/it-service-management/incident-management/c_IncidentManagement.html', label: 'Agent handbook', icon: 'book-marked', availableFor: [UC_ITIL] },
                 ] },
             ] },
             // No footer on sp (James): the old `footer` menu's links are all in primary; Lucide icons
@@ -493,6 +517,11 @@
             { route: 'embeds', name: 'Embedded Widgets', widgets: [
                 { c: 'embed-demo', options: { title: 'Embedded widgets' } },
             ] },
+            // Layout-rooted embeds (test page, not in the menus): the Embed Test Layout imports Server
+            // Clock and embeds it client-side and from its own server script ($sp.getWidget).
+            { route: 'embeds/layout', name: 'Layout embeds', layout: 'embed-test-layout', widgets: [
+                { c: 'hello-card', options: { title: 'Layout-rooted embeds', body: 'The two clocks above are embedded by the page\'s layout (Embed Test Layout), rooted at layout:<sys_id> and authorized against this page\'s effective layout. Runtime Tests use this page for its layout-root checks.', links: [{ label: 'Back to Embedded Widgets', to: 'embeds' }, { label: 'Runtime Tests', to: 'tests' }] } },
+            ] },
             // Blocks demo: a ⅓ + ⅔ Columns block; the wide column holds a 12-track Grid whose cards
             // span 6, plus a nested Grid that uses subgrid to line up on the parent's tracks.
             { route: 'layouts', name: 'Layouts', widgets: [
@@ -553,6 +582,11 @@
             ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },
+            ] },
+            // User criteria demo: "Available for" = Users with 'itil' role. Others get the page-not-found
+            // path, and its menu item drops (admins and studio users always see it).
+            { route: 'agents', name: 'Agents only', availableFor: [UC_ITIL], widgets: [
+                { c: 'hello-card', options: { title: 'Agents only', body: "This page is available for the user criteria \"Users with 'itil' role\" (Page Available For). Users who don't match never see it in the menu, and its URL answers page-not-found." } },
             ] },
         ],
     })

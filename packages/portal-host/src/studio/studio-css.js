@@ -84,6 +84,9 @@ export const STUDIO_CSS = `
 .rps-row .desc { color: var(--rps-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .rps-row.selected.focused .desc { color: #ddd; }
 .rps-row .dirty { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .8; }
+.rps-row .rps-badge-unused { margin-left: auto; flex: none; padding: 0 5px; border: 1px solid var(--rps-border, #3c3c3c); border-radius: 3px; color: var(--rps-muted); font-size: 10.5px; line-height: 15px; white-space: nowrap; }
+.rps-row .rps-badge-unused + .dirty { margin-left: 6px; }
+.rps-row[data-rps-unused] .label { opacity: .75; font-style: italic; }
 .rps-row.err .label { color: var(--rps-error); }
 .rps-row.warn .label { color: var(--rps-warn); }
 .rps-empty { padding: 8px 20px; color: var(--rps-muted); font-size: 12px; }
@@ -118,7 +121,11 @@ export const STUDIO_CSS = `
 .rps-dropzone .hl { position: absolute; background: var(--rps-drop); transition: all .08s; }
 .rps-welcome { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--rps-muted); padding: 24px; text-align: center; }
 .rps-welcome h2 { margin: 0; font-weight: 400; font-size: 26px; color: var(--rps-fg); }
-.rps-welcome .keys { display: grid; grid-template-columns: auto auto; gap: 6px 18px; font-size: 12px; text-align: left; }
+.rps-welcome .rps-welcome-col { width: 320px; max-width: 100%; }
+.rps-welcome .keys { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 18px; padding: 0 10px; box-sizing: border-box; font-size: 12px; text-align: left; }
+.rps-welcome .rps-option { justify-content: space-between; }
+.rps-welcome .keys .keys-combo { display: inline-flex; justify-content: flex-end; gap: 4px; }
+.rps-btn.rps-btn-icon { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .rps-kbd { font-family: inherit; font-size: 11px; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rps-border); background: rgba(128,128,128,.12); }
 
 /* panel */
@@ -159,6 +166,7 @@ export const STUDIO_CSS = `
 .rps-dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--rps-muted); }
 .rps-dialog .row { display: flex; justify-content: flex-end; gap: 8px; }
 .rps-dialog .error { color: var(--rps-error); font-size: 12px; }
+.rps-dialog .hint { color: var(--rps-muted); font-size: 11.5px; margin-top: -6px; }
 .rps-quick { width: min(600px, calc(100% - 32px)); background: var(--rps-menu); border: 1px solid var(--rps-border); border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.45); overflow: hidden; }
 .rps-quick input { width: calc(100% - 12px); margin: 6px; }
 .rps-quick .rps-list { max-height: 50vh; overflow: auto; padding-bottom: 6px; }

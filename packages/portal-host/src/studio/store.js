@@ -246,6 +246,7 @@ export function createStudio({ navigate }) {
 			layout,
 			activeGroup,
 			build: project.latestBuild || null,
+			kindFiles: project.kindFiles || s.kindFiles || null,
 			problems: problemsFromBuild(project.latestBuild, 'build'),
 			conflict: null,
 			loadVersion: s.loadVersion + 1,
@@ -383,7 +384,15 @@ export function createStudio({ navigate }) {
 			if (serverFiles) {
 				// Merge in server-side metadata (ids, hashes, virtual flags) and files we don't have yet.
 				const byPath = new Map(serverFiles.map((f) => [f.path, f]));
-				files2 = files2.map((f) => (byPath.has(f.path) ? { ...f, ...withoutContent(byPath.get(f.path)) } : f));
+				// Baseline files follow the kind (x_312987_portal.studio.kind_files): drop the ones the
+				// server no longer returns (kind changed, or a "Not used" file was emptied).
+				const dropped = files2.filter((f) => f.virtual && !byPath.has(f.path) && !(docs.get(f.path) && sentTexts.get(f.path) && !docs.get(f.path).text.eq(sentTexts.get(f.path)))).map((f) => f.path);
+				if (dropped.length) {
+					files2 = files2.filter((f) => !dropped.includes(f.path));
+					dropped.forEach((p) => docs.delete(p));
+					set((s) => ({ layout: L.pruneTabs(s.layout, (p) => !dropped.includes(p)) }));
+				}
+				files2 = files2.map((f) => (byPath.has(f.path) ? { ...f, ...withoutContent(byPath.get(f.path)), unused: byPath.get(f.path).unused } : f));
 				serverFiles.forEach((f) => {
 					if (!files2.some((x) => x.path === f.path)) {
 						files2.push(withoutContent(f));
@@ -476,7 +485,12 @@ export function createStudio({ navigate }) {
 		const clean = cleanPath(path);
 		if (!clean) return { error: 'Enter a file name' };
 		if (hasPath(clean)) return { error: `${clean} already exists` };
-		if (virtualLabel(clean)) return { error: `${clean} is reserved for the component's ${virtualLabel(clean).label.toLowerCase()} file` };
+		if (virtualLabel(clean)) {
+			const kind = (state.meta && state.meta.kind) || 'widget';
+			const listed = state.owner && state.owner.type === 'component' ? kindFilesFor(state.kindFiles, kind) : null;
+			if (listed && listed.indexOf(clean) < 0) return { error: `${clean} isn't used by ${kind} components (x_312987_portal.studio.kind_files)` };
+			return { error: `${clean} is reserved for the component's ${virtualLabel(clean).label.toLowerCase()} file` };
+		}
 		docs.set(clean, { text: textOf(content || ''), saved: textOf(''), views: new Set(), isNew: true });
 		set((s) => ({
 			files: sortFiles(s.files.concat({ path: clean, target: targetFor(clean), isNew: true })),
@@ -737,6 +751,19 @@ export function createStudio({ navigate }) {
 }
 
 // ---- helpers --------------------------------------------------------------------------------
+
+/** Baseline files of a component kind: the server's map (x_312987_portal.studio.kind_files) or the built-in default. */
+const DEFAULT_KIND_FILES = {
+	widget: ['main.tsx', 'styles.css', 'server.js', 'options.schema.json', 'options.defaults.json'],
+	layout: ['main.tsx', 'styles.css', 'server.js', 'regions.json', 'options.schema.json', 'options.defaults.json'],
+	block: ['main.tsx', 'styles.css', 'regions.json', 'options.schema.json', 'options.defaults.json'],
+	primitive: ['main.tsx', 'styles.css'],
+	utility: ['main.tsx']
+};
+export function kindFilesFor(map, kind) {
+	const m = map || DEFAULT_KIND_FILES;
+	return m[kind] || DEFAULT_KIND_FILES[kind] || m.widget || DEFAULT_KIND_FILES.widget;
+}
 
 const VIRTUAL_ORDER = ['main.tsx', 'styles.css', 'server.js', 'options.schema.json', 'options.defaults.json', 'regions.json', 'theme.css', 'tokens.json'];
 

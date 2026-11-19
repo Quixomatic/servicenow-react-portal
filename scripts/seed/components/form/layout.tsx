@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { FieldControl } from 'components:app/field-control'
 import { cx, useFormContext, isFieldVisible } from 'components:app/field'
 import { FormSectionFrame, sectionName, sectionElements } from 'components:app/form-section'
+import { FormAnnotation } from 'components:app/form-annotation'
 import type { FieldLayout } from 'components:app/field'
 import type { FormBootstrap, FormSection as FormSectionData } from 'utilities:app/graphql'
 
@@ -85,7 +86,7 @@ export function useVisibleSections(bootstrap: FormBootstrap, hideFormatters?: bo
                     if (form.getSectionDisplay(name) === false) return false
                     const elements = sectionElements(s).filter((n) => !isSplitMarker(n))
                     const fields = elements.filter((n) => !!bootstrap.meta[n])
-                    const shownFormatter = !hideFormatters && elements.some((n) => isFormatter(n, bootstrap))
+                    const shownFormatter = (!hideFormatters && elements.some((n) => isFormatter(n, bootstrap))) || elements.some((n) => !!(bootstrap.annotations && bootstrap.annotations[n]))
                     if (!fields.length) return shownFormatter || !elements.length
                     return shownFormatter || fields.some((n) => isFieldVisible(state, n))
                 })
@@ -114,16 +115,22 @@ export function FormElement(props: { name: string } & Omit<FormLayoutProps, 'cla
         if (custom !== undefined) return custom
     }
     if (bootstrap.meta[name]) return <FieldControl name={name} layout={props.fieldLayout} readOnly={readOnly ? true : undefined} />
+    const annotation = bootstrap.annotations && bootstrap.annotations[name]
+    if (annotation) return <FormAnnotation type={annotation.type} text={annotation.text} isPlainText={annotation.isPlainText} />
     if (isFormatter(name, bootstrap)) return props.hideFormatters ? null : <FormatterPlaceholder name={name} />
     return null
 }
 
-/** A section's rows (1 column, or 2 side by side from md up). */
+const SPLIT_COLUMNS: Record<number, string> = { 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-2 xl:grid-cols-4' }
+
+/** A section's rows: full-width rows, and split rows with 2, 3 (or more) columns. */
 export function SectionRows(props: { section: FormSectionData } & Omit<FormLayoutProps, 'className'>) {
     return (
         <>
             {props.section.rows.map((row, ri) => (
-                <div key={ri} className={cx('grid gap-x-6 gap-y-4', row.length > 1 ? 'md:grid-cols-2' : '')}>
+                // Splits (.begin_split / .split / .end_split) arrive resolved as columns: 1 column = a
+                // full-width row, 2 or 3 side by side from md, 4+ wrap 2-up then all from xl.
+                <div key={ri} className={cx('grid gap-x-6 gap-y-4', SPLIT_COLUMNS[Math.min(row.length, 4)] || '')} data-rp-form-row={row.length}>
                     {row.map((col, ci) => (
                         <div key={ci} className="flex min-w-0 flex-col gap-4">
                             {col.map((name) => (

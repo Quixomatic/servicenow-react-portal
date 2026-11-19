@@ -2,8 +2,8 @@
  * components:app/mrvs: multi-row variable sets.
  *
  * A grid of rows (columns = the set's variables not hidden on the grid) with Add, Edit and Remove.
- * Rows are edited in a modal dialog (native <dialog>: top layer, inert background, Escape closes,
- * focus returns to the button that opened it). Each row editor is its own form store, with the
+ * Rows are edited in a modal dialog (host kit components:dialog: overlay layer, focus trap, Escape
+ * closes, focus returns to the button that opened it). Each row editor is its own form store, with the
  * row form metadata the platform evaluates for the set (fetched once per set and cached), so the
  * same field primitives render the row's variables.
  *
@@ -16,6 +16,7 @@ import { useField, FieldShell, FormProvider, createFormStore, cx, adornmentButto
 import type { FieldLayout } from 'components:app/field'
 import { FieldControl } from 'components:app/field-control'
 import { Button } from 'components:button'
+import { Dialog, DialogContent, DialogTitle } from 'components:dialog'
 import { useMrvsRowForm } from 'utilities:app/catalog'
 import type { CatalogVariable, MrvsRowField } from 'utilities:app/catalog'
 import { variableSpec } from 'components:app/variable'
@@ -197,15 +198,8 @@ function RowDialog(props: {
     onCancel: () => void
     onSave: (row: Row) => void
 }) {
-    const ref = useRef<HTMLDialogElement | null>(null)
     const meta = useMrvsRowForm(props.setId, props.itemId, props.sourceTable)
     const [error, setError] = useState('')
-    const titleId = `rpv-mrvs-${props.setId}-title`
-
-    useEffect(() => {
-        const d = ref.current as any
-        if (d && !d.open && typeof d.showModal === 'function') d.showModal()
-    }, [])
 
     // One child form store per row editor, loaded with the row form metadata and the row's values.
     const child = useMemo(() => {
@@ -251,63 +245,54 @@ function RowDialog(props: {
     }
 
     return (
-        <dialog
-            ref={ref}
-            aria-labelledby={titleId}
-            className="rpf-popup m-auto w-[min(40rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/50"
-            onCancel={(e: any) => {
-                e.preventDefault()
-                props.onCancel()
-            }}
-        >
-            <form
-                method="dialog"
-                className="flex max-h-[85vh] flex-col"
-                onSubmit={(e: any) => {
-                    e.preventDefault()
-                    save()
-                }}
-            >
-                <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                    <h2 id={titleId} className="text-base font-semibold">
-                        {props.title}
-                    </h2>
-                    <button type="button" className={adornmentButtonClass} aria-label="Close" onClick={props.onCancel}>
-                        <IconX size={16} />
-                    </button>
-                </div>
-                <div className="flex-1 overflow-y-auto px-5 py-4">
-                    {meta.error ? (
-                        <p role="alert" className="text-sm text-destructive">
-                            {(meta.error as Error).message}
-                        </p>
-                    ) : !child ? (
-                        <Spinner label="Loading the row form" />
-                    ) : (
-                        <FormProvider form={child.form}>
-                            <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-                                {child.specs.map((s: any, i: number) =>
-                                    s.kind === 'field' ? <FieldControl key={s.name} name={s.name} type={s.fieldType} autoFocus={i === 0} {...(s.fieldProps || {})} /> : null,
-                                )}
-                            </div>
-                        </FormProvider>
-                    )}
-                    {error ? (
-                        <p role="alert" className="mt-4 text-sm text-destructive">
-                            {error}
-                        </p>
-                    ) : null}
-                </div>
-                <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
-                    <Button type="button" variant="outline" onClick={props.onCancel}>
-                        Cancel
-                    </Button>
-                    <Button type="button" disabled={!child} onClick={save}>
-                        {props.row ? 'Save row' : 'Add row'}
-                    </Button>
-                </div>
-            </form>
-        </dialog>
+        <Dialog open onOpenChange={(open: boolean) => !open && props.onCancel()}>
+            <DialogContent showCloseButton={false} className="flex max-h-[85vh] w-[min(40rem,calc(100vw-2rem))] max-w-none flex-col gap-0 p-0 sm:max-w-none" data-rp-mrvs-dialog="">
+                <form
+                    className="flex min-h-0 flex-1 flex-col"
+                    onSubmit={(e: any) => {
+                        e.preventDefault()
+                        save()
+                    }}
+                >
+                    <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                        <DialogTitle className="text-base font-semibold">{props.title}</DialogTitle>
+                        <button type="button" className={adornmentButtonClass} aria-label="Close" onClick={props.onCancel}>
+                            <IconX size={16} />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-5 py-4">
+                        {meta.error ? (
+                            <p role="alert" className="text-sm text-destructive">
+                                {(meta.error as Error).message}
+                            </p>
+                        ) : !child ? (
+                            <Spinner label="Loading the row form" />
+                        ) : (
+                            <FormProvider form={child.form}>
+                                <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+                                    {child.specs.map((s: any, i: number) =>
+                                        s.kind === 'field' ? <FieldControl key={s.name} name={s.name} type={s.fieldType} autoFocus={i === 0} {...(s.fieldProps || {})} /> : null,
+                                    )}
+                                </div>
+                            </FormProvider>
+                        )}
+                        {error ? (
+                            <p role="alert" className="mt-4 text-sm text-destructive">
+                                {error}
+                            </p>
+                        ) : null}
+                    </div>
+                    <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+                        <Button type="button" variant="outline" onClick={props.onCancel}>
+                            Cancel
+                        </Button>
+                        <Button type="button" disabled={!child} onClick={save}>
+                            {props.row ? 'Save row' : 'Add row'}
+                        </Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
     )
 }
 

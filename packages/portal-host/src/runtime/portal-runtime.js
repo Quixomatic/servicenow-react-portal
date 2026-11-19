@@ -8,6 +8,7 @@ import { usePortalContainer } from './overlay';
 import { Region, RegionPortal, useBlock, useComponent } from './widgets';
 import { useTheme } from './theme-mode';
 import { Embed, useEmbeddedWidget, useGetWidget } from './embed';
+import { useInViewOnce } from './in-view';
 import {
 	format,
 	toast,
@@ -56,6 +57,7 @@ export {
 	Embed,
 	useEmbeddedWidget,
 	useGetWidget,
+	useInViewOnce,
 	useRecordWatch,
 	useAmbChannel,
 	useAmbStatus
@@ -90,6 +92,7 @@ export const RUNTIME_EXPORTS = [
 	'Embed',
 	'useEmbeddedWidget',
 	'useGetWidget',
+	'useInViewOnce',
 	'useRecordWatch',
 	'useAmbChannel',
 	'useAmbStatus'

@@ -124,7 +124,7 @@ export interface EmbedModel {
 export interface EmbedDescriptor {
     /** Composite instance id (<placement>~<key>…), echoed as the result key. */
     id: string
-    /** Root placement sys_id. */
+    /** Root placement sys_id, or 'layout:<component sys_id>' for an embed under the effective layout. */
     placement: string
     /** Embedded components' unique ids, outermost first (max 4). */
     path: string[]
@@ -389,6 +389,12 @@ export interface SourceFileDto {
      * stylesheet/tokens. server.js and the JSON files are never compiled for the client.
      */
     virtual?: boolean
+    /**
+     * Virtual files only: the component's kind doesn't list this baseline file
+     * (x_312987_portal.studio.kind_files), but its field still has content. Shown so nothing is
+     * hidden; it drops out once emptied.
+     */
+    unused?: boolean
 }
 
 /** Virtual file paths and the record fields behind them. */
@@ -399,7 +405,7 @@ export const VIRTUAL_FILES = {
         'server.js': 'script',
         'options.schema.json': 'options_schema_json',
         'options.defaults.json': 'default_options_json',
-        'regions.json': 'regions_json', // layouts only
+        'regions.json': 'regions_json', // per kind: x_312987_portal.studio.kind_files
     },
     theme: { 'theme.css': 'stylesheet', 'tokens.json': 'tokens_json' },
 } as const
@@ -432,6 +438,8 @@ export interface ProjectData {
     /** Virtual baseline files first, then the extra source files. */
     files: SourceFileDto[]
     latestBuild: BuildSummary | null
+    /** Components: kind → baseline virtual files (x_312987_portal.studio.kind_files, defaults applied). */
+    kindFiles?: Record<string, string[]>
 }
 
 export interface SaveRequest {

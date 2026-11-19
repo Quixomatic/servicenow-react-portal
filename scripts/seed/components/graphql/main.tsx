@@ -68,6 +68,7 @@ export type {
     FormBootstrap,
     FormSection,
     FormView,
+    FormAnnotation,
     PolicyFlag,
     UiPolicy,
     ClientScript,

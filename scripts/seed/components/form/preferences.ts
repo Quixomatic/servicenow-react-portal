@@ -17,6 +17,8 @@ import { fetchUserPreferenceValue, saveUserPreferenceValue } from 'utilities:app
 export const formPreferenceName = {
     collapsed: (table: string) => `x_312987_portal.form.${String(table).replace(/[^A-Za-z0-9_]/g, '_')}.collapsed`,
     presentation: () => 'x_312987_portal.form.presentation',
+    /** The form view the user last chose for a table (used when the URL names none). Never <table>.view. */
+    view: (table: string) => `x_312987_portal.form.${String(table).replace(/[^A-Za-z0-9_]/g, '_')}.view`,
 }
 
 /** Writes per preference name run one after another (the last value always lands last). */
@@ -33,7 +35,7 @@ function writeInOrder(name: string, value: string): Promise<void> {
     return next
 }
 
-export function useOwnPreference(name: string | undefined, options: { enabled?: boolean } = {}): [string | null, (value: string) => void] {
+export function useOwnPreference(name: string | undefined, options: { enabled?: boolean } = {}): [string | null, (value: string) => void, boolean] {
     const user = useUser() as { sysId?: string }
     const userId = (user && user.sysId) || ''
     const enabled = !!name && options.enabled !== false
@@ -92,7 +94,9 @@ export function useOwnPreference(name: string | undefined, options: { enabled?: 
         },
         [enabled, name, storageKey, userId, qc],
     )
-    return [value, setValue]
+    // ready: the stored value is known (fetched, failed, or nothing to fetch).
+    const ready = !enabled || (!!userId && (remote.isFetched || remote.isError)) || touched.current
+    return [value, setValue, ready]
 }
 
 /** Collapsed sections of a table's form (by section name). */
@@ -110,6 +114,16 @@ export function useCollapsedSections(table: string | undefined, options: { enabl
         [raw, setRaw],
     )
     return { collapsed: set, isCollapsed: (name: string) => set.has(name), setCollapsed: toggle }
+}
+
+/**
+ * The form view a user last chose for a table (x_312987_portal.form.<table>.view, never <table>.view):
+ * [view, setView, ready]. Use it when the URL / options name no view; wait for `ready` so the form
+ * loads once, in the right view.
+ */
+export function useRememberedView(table: string | undefined): [string, (view: string) => void, boolean] {
+    const [raw, setRaw, ready] = useOwnPreference(table ? formPreferenceName.view(table) : undefined)
+    return [raw || '', setRaw, ready]
 }
 
 export type FormPresentation = 'stacked' | 'tabs'

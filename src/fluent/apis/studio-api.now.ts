@@ -14,6 +14,7 @@ import {
     processRoute,
     createComponentRoute,
     componentCheckRoute,
+    componentDependenciesRoute,
     designTargetRoute,
     portalDesignRoute,
     pageDesignRoute,
@@ -33,6 +34,8 @@ import {
     updateMenuItemRoute,
     deleteMenuItemRoute,
     iconsRoute,
+    usersRoute,
+    portalAudienceRoute,
 } from '../../server/api/studio-api'
 
 /**
@@ -101,6 +104,15 @@ export const studioApi = RestApi({
             version: 1,
             requestExample: '{"files":[{"path":"main.tsx","content":"…"}]}',
             shortDescription: 'Dry-run compile of unsaved buffers over the saved project; nothing is written',
+        },
+        {
+            $id: Now.ID['rest-studio-component-dependencies'],
+            name: 'component dependencies',
+            method: 'GET',
+            path: '/components/{id}/dependencies',
+            script: componentDependenciesRoute,
+            version: 1,
+            shortDescription: 'Component records this build imports directly, and the components that import it (build_dep edges)',
         },
         { $id: Now.ID['rest-studio-theme-project'], name: 'theme project', method: 'GET', path: '/themes/{id}/project', script: themeProjectRoute, version: 1 },
         { $id: Now.ID['rest-studio-theme-save'], name: 'theme save', method: 'POST', path: '/themes/{id}/save', script: themeSaveRoute, version: 1 },
@@ -296,6 +308,24 @@ export const studioApi = RestApi({
             script: iconsRoute,
             version: 1,
             shortDescription: 'Lucide icon names for pickers (?q=search&limit=200)',
+        },
+        {
+            $id: Now.ID['rest-studio-users'],
+            name: 'users',
+            method: 'GET',
+            path: '/users',
+            script: usersRoute,
+            version: 1,
+            shortDescription: 'Active users for the View-as-user picker (?q=search&limit=20)',
+        },
+        {
+            $id: Now.ID['rest-studio-portal-audience'],
+            name: 'portal audience',
+            method: 'GET',
+            path: '/portals/{id}/audience',
+            script: portalAudienceRoute,
+            version: 1,
+            shortDescription: "What the portal's user criteria hide from a user (?user=<sys_id>): portal, pages, menu items",
         },
     ],
 })

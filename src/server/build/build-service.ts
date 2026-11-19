@@ -5,7 +5,7 @@ import { canonicalJson, sha256, byteLength, nowValue, parseJson, prop, propInt }
 import { isValidAssetPath, mimeFor } from '../lib/paths.ts'
 import { requireStudio } from '../security/access.ts'
 import { Owner, ownerRecordOf, ownerOfRecord, loadOwner } from '../source/owner.ts'
-import { compilerInputs } from '../source/project-files.ts'
+import { compilerInputs, serverScriptOf } from '../source/project-files.ts'
 import { compileComponent, COMPILER_VERSION, ENTRY, CompileResult } from '../compiler/compiler.ts'
 import { replaceDependencies, flagDependents } from './dependency-service.ts'
 import { componentRef, themeRef, buildRef, buildOf, findComponentByUniqueId, isUsableBuild } from '../registry/registry.ts'
@@ -74,7 +74,8 @@ function snapshotOf(owner: Owner): Snapshot {
     const c = owner.type === 'component'
     return {
         files,
-        script: c ? str(g, 'script') : '',
+        // Only when server.js applies to the kind (or holds legacy content): see serverScriptOf.
+        script: c ? serverScriptOf(owner) : '',
         clientScriptHash: c ? sha256(str(g, 'client_script')) : '',
         cssHash: c ? sha256(str(g, 'css')) : '',
         tailwind: c ? bool(g, 'tailwind') : false,

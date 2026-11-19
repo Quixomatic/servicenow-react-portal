@@ -76,7 +76,7 @@ export const QUESTION_TYPES: Record<string, string> = {
     '14': 'macro', '15': 'ui_page', '16': 'string', '17': 'macro_with_label', '18': 'lookup_select_box',
     '19': 'container_start', '20': 'container_end', '21': 'glide_list', '22': 'lookup_multiple_choice',
     '23': 'html', '24': 'container_split', '25': 'masked', '26': 'email', '27': 'url', '28': 'ip_address',
-    '29': 'glide_duration', '31': 'requested_for', '32': 'rich_text_label', '33': 'attachment',
+    '29': 'glide_duration', '31': 'requested_for', '32': 'rich_text_label', '33': 'attachment', '40': 'table_name',
 }
 
 const YES_NO = [

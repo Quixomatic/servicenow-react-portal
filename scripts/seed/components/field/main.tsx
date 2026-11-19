@@ -14,11 +14,11 @@ import { FieldShell, controlA11y } from './shell'
 import { controlClass } from './ui'
 
 export { useField } from './use-field'
-export { FieldShell, FieldMessages, ReadOnlyValue, controlA11y } from './shell'
+export { FieldShell, FieldMessages, ReadOnlyValue, controlA11y, FieldDecorationIcon } from './shell'
 export type { FieldShellProps } from './shell'
 export { FormProvider, useForm, useFormContext, useFormValue, useFormMeta } from './form'
 export type { Form, UseFormOptions, FormProviderProps } from './form'
-export { createFormStore, isFieldVisible, isFieldMissing } from './store'
+export { createFormStore, isFieldVisible, isFieldMissing, applyRemoteValues } from './store'
 export { attachPolicies, evaluatePolicy, evaluateTerm, computePolicyLayer } from './policies'
 export type { AttachedPolicies, PolicyEvaluation } from './policies'
 export type { FormStore, FormState, ValidationResult, ValueInput } from './store'
@@ -52,7 +52,7 @@ export {
     IconAlert,
     IconInfo,
 } from './ui'
-export type { FieldProps, FieldMessage, FieldMessageKind, FieldOverrides, PolicyState, FieldState, FieldLayout, FieldSize, UseFieldResult, FieldMeta, GlideType } from './types'
+export type { FieldProps, FieldMessage, FieldMessageKind, FieldOverrides, PolicyState, FieldDecoration, FieldState, FieldLayout, FieldSize, UseFieldResult, FieldMeta, GlideType } from './types'
 
 /** Preview (Studio): the base contract with a plain input. */
 export default function FieldPreview() {

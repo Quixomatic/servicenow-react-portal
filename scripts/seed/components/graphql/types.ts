@@ -149,6 +149,8 @@ export interface FormBootstrap {
     tableLabel: string
     /** Formatter element names in this view (activity.xml, …). */
     formatters: string[]
+    /** Annotations by sys_id (rows list the annotation's sys_id where it sits). */
+    annotations: Record<string, FormAnnotation>
     policies: UiPolicy[]
     actions: UiAction[]
     /** Client scripts (onLoad / onChange / onSubmit) for this view, plus pre-translated messages. */
@@ -167,6 +169,9 @@ export type ClientScript = { name: string; sysId: string; script: string; type: 
 export type ClientScripts = { onLoad: ClientScript[]; onChange: ClientScript[]; onSubmit: ClientScript[]; messages: Record<string, string> }
 
 export type FormView = { name: string; label: string }
+
+/** A form annotation (sys_ui_annotation): type is the display value ('Info Box Blue', 'Line Separator', …). */
+export type FormAnnotation = { sysId: string; text: string; type: string; typeId: string; isPlainText: boolean }
 
 export type ReferenceItem = {
     value: string

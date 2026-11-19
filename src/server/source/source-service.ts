@@ -10,7 +10,7 @@ import { gs } from '@servicenow/glide'
 import { clearSessionFlag } from '../lib/session-flags.ts'
 import { compileOwner, buildSummary, runtimeAbiVersion } from '../build/build-service.ts'
 import { compileComponent, CompilerFile } from '../compiler/compiler.ts'
-import { virtualMapFor, VirtualFile, RESERVED_VIRTUAL_PATHS, virtualFiles, listExtraFiles, compilerInputs } from './project-files.ts'
+import { virtualMapFor, VirtualFile, RESERVED_VIRTUAL_PATHS, virtualFiles, listExtraFiles, compilerInputs, VIRTUAL, hasVirtualContent, kindFiles, listedFilesFor, componentKind, KIND_FILES_PROPERTY } from './project-files.ts'
 import type { ComponentMetaDto, ProjectData, SaveData, SaveRequest, SourceFileDto, SourceTarget, CheckData } from '../../shared/contracts'
 
 /**
@@ -76,7 +76,23 @@ export function getProject(type: OwnerType, id: string): ProjectData {
         revision: int(owner.gr, 'source_revision'),
         files: virtualFiles(owner).concat(listExtraFiles(owner, true)),
         latestBuild: build ? buildSummary(build) : null,
+        kindFiles: type === 'component' ? kindFiles() : undefined,
     }
+}
+
+/** Why a baseline file can't get content: its kind doesn't list it and its field is empty. */
+function unlistedMessage(path: string, kind: string): string {
+    return `${path} isn't used by ${kind} components (${KIND_FILES_PROPERTY}), so it can't be given content`
+}
+
+/** Meta keys that write a virtual file's field (the same rule applies as to the file itself). */
+const META_FILE_FIELDS: Record<string, string> = {
+    clientScript: 'main.tsx',
+    css: 'styles.css',
+    script: 'server.js',
+    optionsSchema: 'options.schema.json',
+    defaultOptions: 'options.defaults.json',
+    regions: 'regions.json',
 }
 
 function applyComponentMeta(gr: any, meta: ComponentMetaDto): void {
@@ -170,8 +186,21 @@ export function save(type: OwnerType, id: string, req: SaveRequest): Promise<Sav
     const maxFiles = propInt('max_files_per_owner', 200)
     if (files.length > maxFiles) throw badRequest(`Too many files (max ${maxFiles})`)
 
-    // Validate everything before writing anything.
-    const virtualMap = virtualMapFor(owner)
+    // Validate everything before writing anything. Baseline files follow the (possibly new) kind's
+    // list in KIND_FILES_PROPERTY; unlisted files keep working only while they hold legacy content.
+    const kind = type === 'component' ? String((req.meta && req.meta.kind) || componentKind(owner)) : ''
+    const virtualMap = virtualMapFor(owner, kind || undefined)
+    const allVirtual = VIRTUAL[type]
+    if (type === 'component' && req.meta && isPlainObject(req.meta)) {
+        const meta = req.meta as Record<string, unknown>
+        for (const key of Object.keys(META_FILE_FIELDS)) {
+            const path = META_FILE_FIELDS[key]
+            const v = meta[key]
+            if (v === undefined || virtualMap[path]) continue
+            const text = typeof v === 'string' ? v : v === null ? '' : JSON.stringify(v)
+            if (hasVirtualContent(allVirtual[path], text)) throw badRequest(unlistedMessage(path, kind))
+        }
+    }
     const fieldUpdates: Record<string, string> = {}
     const seen: Record<string, boolean> = {}
     const ops: { path: string; dto: SourceFileDto }[] = []
@@ -187,6 +216,12 @@ export function save(type: OwnerType, id: string, req: SaveRequest): Promise<Sav
             if (typeof f.content !== 'string') throw badRequest(`File "${path}" needs string content`)
             const value = virtualFieldValue(path, virtual, f.content, str(owner.gr, virtual.field))
             if (value !== null) fieldUpdates[virtual.field] = value
+            continue
+        }
+        if (allVirtual[path]) {
+            // A baseline file the kind doesn't list and that has no legacy content: saving it empty
+            // (or its placeholder) is a no-op; giving it content is refused.
+            if (!f.deleted && typeof f.content === 'string' && hasVirtualContent(allVirtual[path], f.content)) throw badRequest(unlistedMessage(path, kind))
             continue
         }
         if (RESERVED_VIRTUAL_PATHS.indexOf(path.toLowerCase()) >= 0) throw badRequest(`"${path}" is reserved for a record field`)
@@ -268,6 +303,11 @@ export function check(type: OwnerType, id: string, files: { path: string; conten
         const path = normalizeSourcePath(f.path)
         if (!path) continue
         const v = map[path]
+        if (!v && VIRTUAL.component[path]) {
+            // Unlisted baseline file without legacy content: content here would be refused on save.
+            if (hasVirtualContent(VIRTUAL.component[path], f.content)) errors.push({ file: path, message: unlistedMessage(path, componentKind(owner)) })
+            continue
+        }
         if (v && v.json) {
             // Metadata files aren't compiled, but a broken one would fail on save: check it here.
             if (f.content.trim()) {
@@ -376,8 +416,10 @@ export function createComponent(req: { name?: string; kind?: string; namespace?:
     gr.setValue('client_script', STARTERS[kind])
     gr.setValue('tailwind', true)
     gr.setValue('active', true)
-    if (kind === 'block') gr.setValue('regions_json', JSON.stringify([{ name: 'content', label: 'Content' }]))
-    if (kind === 'layout') gr.setValue('regions_json', JSON.stringify([{ name: 'header', acceptsContributions: true }, { name: 'main', acceptsContributions: false }, { name: 'footer', acceptsContributions: true }]))
+    // Starters only fill baseline files the kind lists (KIND_FILES_PROPERTY).
+    const regionsListed = listedFilesFor(kind).indexOf('regions.json') >= 0
+    if (regionsListed && kind === 'block') gr.setValue('regions_json', JSON.stringify([{ name: 'content', label: 'Content' }]))
+    if (regionsListed && kind === 'layout') gr.setValue('regions_json', JSON.stringify([{ name: 'header', acceptsContributions: true }, { name: 'main', acceptsContributions: false }, { name: 'footer', acceptsContributions: true }]))
     setSkipCompile(true)
     let id: string | null
     try {

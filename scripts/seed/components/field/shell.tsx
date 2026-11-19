@@ -1,3 +1,4 @@
+import { Icon } from 'components:icon'
 import { cx, IconAlert, IconInfo, IconCheck, Spinner } from './ui'
 import type { FieldLayout, FieldMessage, FieldSize, UseFieldResult } from './types'
 
@@ -33,6 +34,8 @@ export type FieldShellProps = {
     className?: string
     /** Extra content in the label row, right-aligned (counters, actions). */
     labelAside?: any
+    /** Adornments after the label (icons, chips); field decorations (g_form.addDecoration) render here too. */
+    adornment?: any
 }
 
 export function FieldShell(props: FieldShellProps) {
@@ -74,6 +77,14 @@ export function FieldShell(props: FieldShellProps) {
                 </span>
             ) : null}
             {field.loading ? <Spinner className="text-muted-foreground" label="Loading field" /> : null}
+            {field.decorations.length || props.adornment ? (
+                <span className="rpf-adornment inline-flex items-center gap-1" data-rp-field-adornment="">
+                    {field.decorations.map((d, i) => (
+                        <FieldDecorationIcon key={i} decoration={d} />
+                    ))}
+                    {props.adornment}
+                </span>
+            ) : null}
             {labelAside ? <span className="ml-auto text-xs text-muted-foreground">{labelAside}</span> : null}
         </RowTag>
     )
@@ -87,6 +98,7 @@ export function FieldShell(props: FieldShellProps) {
                 </p>
             ) : null}
             <FieldMessages id={field.ids.messages} messages={field.messages} />
+            {field.remote ? <RemoteChange field={field} /> : null}
         </div>
     )
 
@@ -121,6 +133,55 @@ const kindStyles: Record<string, string> = {
 }
 
 /** Message list for a field. Errors are announced (polite live region). */
+/** Platform icon names (g_form.addDecoration('x', 'icon-star', …)) → Lucide names. */
+const DECORATION_ICONS: Record<string, string> = {
+    'icon-star': 'star',
+    'icon-alert': 'triangle-alert',
+    'icon-warning': 'triangle-alert',
+    'icon-error': 'circle-alert',
+    'icon-info': 'info',
+    'icon-help': 'circle-help',
+    'icon-user': 'user',
+    'icon-vip': 'star',
+    'icon-lock': 'lock',
+    'icon-check': 'check',
+    'icon-flag': 'flag',
+}
+
+/** One decoration: an icon with an accessible title (tooltip on hover). */
+export function FieldDecorationIcon({ decoration }: { decoration: { icon: string; title: string; color?: string } }) {
+    const raw = String(decoration.icon || '')
+    const name = DECORATION_ICONS[raw] || raw.replace(/^icon-/, '') || 'circle'
+    const color = decoration.color && /^(color-)?(red|green|blue|yellow|orange|grey|gray)/.test(decoration.color) ? decoration.color.replace(/^color-/, '') : ''
+    const tone =
+        color === 'red' ? 'text-destructive' : color === 'green' ? 'text-emerald-600 dark:text-emerald-400' : color === 'yellow' || color === 'orange' ? 'text-amber-500' : color === 'blue' ? 'text-primary' : 'text-amber-500'
+    return (
+        <span className={cx('inline-flex', tone)} title={decoration.title} data-rp-decoration={raw}>
+            <Icon name={name} className="size-3.5" aria-hidden="true" />
+            <span className="sr-only">{decoration.title}</span>
+        </span>
+    )
+}
+
+/** Someone else saved this field while it had unsaved edits: show their value, take it or keep mine. */
+function RemoteChange({ field }: { field: UseFieldResult }) {
+    const r = field.remote!
+    return (
+        <div role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs" data-rp-remote-field={field.name}>
+            <IconAlert size={14} className="shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+                <span className="font-medium">Changed by someone else:</span> <span className="break-words">{r.displayValue || r.value || '(empty)'}</span>
+            </span>
+            <button type="button" className="rounded px-1.5 py-0.5 font-medium text-primary outline-none hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={field.acceptRemote} data-rp-remote-accept="">
+                Use theirs
+            </button>
+            <button type="button" className="rounded px-1.5 py-0.5 font-medium text-muted-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={field.dismissRemote} data-rp-remote-keep="">
+                Keep mine
+            </button>
+        </div>
+    )
+}
+
 export function FieldMessages({ id, messages }: { id: string; messages: FieldMessage[] }) {
     return (
         <div id={id} aria-live="polite" className={messages.length ? 'flex flex-col gap-1' : 'sr-only'}>

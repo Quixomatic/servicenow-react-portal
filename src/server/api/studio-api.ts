@@ -15,8 +15,10 @@ import { getProject, save, check, createComponent } from '../source/source-servi
 import { completeBuild, previewContext } from '../build/build-service.ts'
 import { reprocess } from '../release/release-service.ts'
 import { listComponents, listThemes, listPortals } from '../registry/catalog.ts'
+import { componentDependencies } from '../registry/dependencies.ts'
 import { listMenus, createMenu, updateMenu, deleteMenu, createMenuItem, updateMenuItem, deleteMenuItem, iconSearch } from '../design/menu-design-service.ts'
 import { studioContext, requireReactPortalScope } from '../security/scope.ts'
+import { searchUsers, portalAudience } from '../design/audience-service.ts'
 import { requireStudio } from '../security/access.ts'
 import type { CompleteBuildRequest, SaveRequest } from '../../shared/contracts'
 
@@ -96,6 +98,11 @@ export function componentCheckRoute(request: any, response: any): void {
         const files = Array.isArray(req.body.files) ? (req.body.files as { path: string; content: string }[]) : []
         return check('component', requiredParam(req, 'id'), files).then((data) => ({ data }))
     })
+}
+
+/** GET /components/{id}/dependencies: direct component-record imports and importers (build_dep edges). */
+export function componentDependenciesRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: componentDependencies(requiredParam(req, 'id')) }))
 }
 
 /* ---------------- Page designer ---------------- */
@@ -200,6 +207,18 @@ export function updateMenuItemRoute(request: any, response: any): void {
 /** DELETE /menu-items/{id}?mode=lift|cascade (mode is required when the group has children) */
 export function deleteMenuItemRoute(request: any, response: any): void {
     handle(request, response, (req) => write(() => ({ data: deleteMenuItem(requiredParam(req, 'id'), queryParam(req, 'mode') || undefined) })))
+}
+
+/* ---------------- View as user (user criteria preview) ---------------- */
+
+/** GET /users?q=&limit=: active users for the View-as picker. */
+export function usersRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: searchUsers(queryParam(req, 'q'), parseInt(queryParam(req, 'limit'), 10) || 20) }))
+}
+
+/** GET /portals/{id}/audience?user=<sys_id>: what the portal's user criteria hide from that user. */
+export function portalAudienceRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: portalAudience(requiredParam(req, 'id'), queryParam(req, 'user')) }))
 }
 
 /** GET /icons?q=&limit=: lucide icon names for pickers. */

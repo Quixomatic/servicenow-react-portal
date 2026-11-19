@@ -4,8 +4,8 @@ import { T } from '../lib/tables.ts'
 import { badRequest, isRPError, notFound, rpError, sanitizeError } from '../lib/errors.ts'
 import { correlationId as newCorrelationId, isPlainObject } from '../lib/util.ts'
 import { isUsableBuild } from '../registry/registry.ts'
-import { canAccessPageConfig, requirePortalAccess } from '../security/access.ts'
-import { currentManifest, findPortalBySlug, placementIndex, matchPage, Manifest, ManifestPage } from './portal-service.ts'
+import { canAccessManifestPage, requirePortalAccess } from '../security/access.ts'
+import { currentManifest, findPortalBySlug, placementIndex, matchPage, effectiveLayoutOptions, Manifest, ManifestPage } from './portal-service.ts'
 import { logExecution } from './diagnostics.ts'
 import { createServerApi } from './server-api.ts'
 import { drainSessionMessages } from '../lib/global-helpers.ts'
@@ -26,6 +26,9 @@ import type { ComponentImport, EmbedDescriptor, EmbedModel, EmbedRequest, Execut
  * - embedded instances: a widget another component's build imports and renders, addressed as
  *   root placement + embed path (see .plans/embedded-widgets.md §4.4, §5). They have no record:
  *   each request is authorized against the sealed manifest's direct import edges.
+ * Either can also hang off a layout root, 'layout:<component sys_id>': the layout's own server
+ * script, and widgets the layout's build imports. Authorized against the request's effective
+ * layout (layoutRootOf).
  *
  * Transport-agnostic: REST handlers (and a future Data Broker) are thin adapters.
  */
@@ -95,17 +98,20 @@ interface PreparedPortal {
     release: { id: string; version: number } | null
     index: ReturnType<typeof placementIndex>
     params: Record<string, string>
+    /** The page the request's `page` path matches (layout roots authorize against its layout). */
+    match: { page: ManifestPage; params: Record<string, string> } | null
 }
 
 function preparePortal(slug: string, pagePath: string | undefined): PreparedPortal {
     const portal = requirePortalAccess(findPortalBySlug(slug))
     const { manifest, release } = currentManifest(portal)
     let params: Record<string, string> = {}
+    let match: PreparedPortal['match'] = null
     if (pagePath !== undefined) {
-        const m = matchPage(manifest, pagePath)
-        if (m) params = m.params
+        match = matchPage(manifest, pagePath)
+        if (match) params = match.params
     }
-    return { portal, manifest, release, index: placementIndex(manifest), params }
+    return { portal, manifest, release, index: placementIndex(manifest), params, match }
 }
 
 /* ---------------- targets ---------------- */
@@ -135,10 +141,52 @@ interface Target {
 
 const NOT_FOUND = 'Component instance not found in this portal'
 
+/** Layout roots: 'layout:<component sys_id>' (embeds under a layout, and the layout's own script). */
+const LAYOUT_ROOT = /^layout:([0-9a-f]{32})$/
+
+export function isLayoutRoot(id: string): boolean {
+    return LAYOUT_ROOT.test(String(id || ''))
+}
+
+/**
+ * A layout as an instance root. Layouts aren't placements, so the root is authorized against the
+ * EFFECTIVE layout of the request: the matched page's layout override, else the portal's default
+ * layout (no page, or a path no page matches). A page the user can't open, or any other layout
+ * (another page's override, an inactive or unknown one), is the same 404 as a missing placement.
+ * The synthetic placement carries the effective layout options (layout defaults → portal
+ * settings.layoutOptions → the page's own), exactly what the host renders the layout with.
+ */
+function layoutRootOf(prep: PreparedPortal, rootId: string): { placement: PlacementRef; page: ManifestPage | null } {
+    const m = LAYOUT_ROOT.exec(rootId)
+    if (!m) throw notFound(NOT_FOUND)
+    const page = prep.match ? prep.match.page : null
+    if (page && !canAccessManifestPage(prep.manifest.portal.id, page)) throw notFound(NOT_FOUND)
+    const effective = (page && page.layoutId) || prep.manifest.defaultLayoutId
+    const ref = effective ? prep.manifest.layouts[effective] : null
+    if (!ref || effective !== m[1] || ref.kind !== 'layout') throw notFound(NOT_FOUND)
+    return {
+        placement: {
+            id: rootId,
+            region: 'layout',
+            order: 0,
+            parentId: null,
+            component: ref,
+            options: effectiveLayoutOptions(prep.manifest, effective, page),
+            styleTokens: {},
+            layout: {},
+            classes: '',
+            css: '',
+        },
+        page,
+    }
+}
+
 function rootOf(prep: PreparedPortal, placementId: string): { placement: PlacementRef; page: ManifestPage | null } {
+    if (isLayoutRoot(placementId)) return layoutRootOf(prep, placementId)
     const found = prep.index[placementId]
     if (!found) throw notFound(NOT_FOUND)
-    if (found.page && !canAccessPageConfig(found.page.access)) throw notFound(NOT_FOUND)
+    // Embeds resolve through their root placement, so its page's roles and user criteria cover them.
+    if (found.page && !canAccessManifestPage(prep.manifest.portal.id, found.page)) throw notFound(NOT_FOUND)
     return found
 }
 
@@ -175,6 +223,11 @@ function importEdge(root: PlacementRef, importerId: string, uid: string): Compon
         if (Array.isArray(imp.importers) && imp.importers.indexOf(importerId) >= 0) return imp
     }
     return null
+}
+
+/** The execution log's placement reference: null for layout roots (the instance column names them). */
+function logPlacementId(id: string): string | null {
+    return isLayoutRoot(id) ? null : id
 }
 
 function embedNotImported(): any {
@@ -518,7 +571,7 @@ export function execute(p: ExecuteParams): ExecuteResult {
             durationMs: result.durationMs,
             releaseId: prep.release ? prep.release.id : null,
             buildId: result.buildId,
-            placementId: p.placementId,
+            placementId: logPlacementId(p.placementId),
             componentId: target.component.id,
             instanceId: target.instanceId,
             portalId: prep.manifest.portal.id,
@@ -533,7 +586,7 @@ export function execute(p: ExecuteParams): ExecuteResult {
             outcome: status === 403 || status === 401 || (isRPError(e) && e.code === 'embed_not_imported') ? 'denied' : 'error',
             durationMs: Date.now() - started,
             releaseId: prep && prep.release ? prep.release.id : null,
-            placementId: p.placementId,
+            placementId: logPlacementId(p.placementId),
             instanceId: p.embed && Array.isArray(p.embed.keys) ? [p.placementId].concat(p.embed.keys.map(String)).join('~').substring(0, 255) : null,
             portalId: prep ? prep.manifest.portal.id : null,
             error: sanitizeError(e),
@@ -595,7 +648,7 @@ export function initialize(params: {
                 durationMs: r.durationMs,
                 releaseId: prep.release ? prep.release.id : null,
                 buildId: r.buildId,
-                placementId,
+                placementId: logPlacementId(placementId),
                 componentId: r.target.component.id,
                 instanceId: r.target.instanceId,
                 portalId: prep.manifest.portal.id,
@@ -615,8 +668,8 @@ export function initialize(params: {
                 outcome: code === 'embed_not_imported' ? 'denied' : 'error',
                 durationMs: Date.now() - started,
                 releaseId: prep.release ? prep.release.id : null,
-                placementId,
-                instanceId: isEmbed ? resultKey.substring(0, 255) : null,
+                placementId: logPlacementId(placementId),
+                instanceId: isEmbed || isLayoutRoot(placementId) ? resultKey.substring(0, 255) : null,
                 portalId: prep.manifest.portal.id,
                 error: sanitizeError(e),
             })

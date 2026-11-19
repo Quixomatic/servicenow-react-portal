@@ -7,7 +7,8 @@ import { useGraphQL, useDebouncedValue, useTableMeta, safeName } from 'utilities
 import { IconPlus, IconSearch, useFormMeta } from 'components:app/field'
 import { Combobox } from 'components:app/combobox'
 import type { ComboItem } from 'components:app/combobox'
-import { RecordForm, useRecordForm } from 'components:app/form'
+import { RecordForm, useRecordForm, useRememberedView } from 'components:app/form'
+import { confirmDialog, DialogOutlet } from 'components:app/confirm-dialog'
 import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 
 /**
@@ -40,8 +41,10 @@ type Options = {
     listPage?: string
 }
 
-function confirmDiscard(dirty: boolean) {
-    return !dirty || window.confirm('Discard your unsaved changes?')
+/** Resolves true when there's nothing to lose or the user agrees to discard (app/confirm-dialog). */
+function confirmDiscard(dirty: boolean): Promise<boolean> {
+    if (!dirty) return Promise.resolve(true)
+    return confirmDialog({ title: 'Discard your unsaved changes?', description: 'Changes on this form that are not saved will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true })
 }
 
 const NAME = /^[a-z0-9_]+$/i
@@ -64,7 +67,11 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
     const rawTable = pick(options.table, route.table, loc.table, query.table, 'incident')
     const table = NAME.test(rawTable) ? rawTable : 'incident'
     const sysId = pick(options.sysId, route.sys_id, route.sysId, loc.sysId, query.sys_id)
-    const view = pick(options.view, route.view, loc.mode === 'studio' ? '' : loc.view, query.view)
+    const urlView = pick(options.view, route.view, loc.mode === 'studio' ? '' : loc.view, query.view)
+    // The view the user last chose for this table (our preference, never <table>.view), when the
+    // options / route / URL name none. The form waits for it so it loads once, in the right view.
+    const [savedView, setSavedView, viewReady] = useRememberedView(table)
+    const view = urlView || savedView || ''
     // Encoded query presetting a new record (g_aw.openRecord(table, '-1', { query })).
     const presetQuery = pick(typeof loc.query === 'string' ? loc.query : '', query.query)
     const page = String(loc.page || '')
@@ -98,11 +105,11 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
         </Button>
     ) : null
     const newButton = (
-        <Button variant="outline" size={toHeader ? 'sm' : 'default'} onClick={() => confirmDiscard(dirty) && go({ sysId: '-1' })} data-rp-new-record="">
+        <Button variant="outline" size={toHeader ? 'sm' : 'default'} onClick={() => confirmDiscard(dirty).then((ok) => ok && go({ sysId: '-1' }))} data-rp-new-record="">
             <IconPlus size={14} /> New
         </Button>
     )
-    const picker = <RecordPicker table={table} baseQuery={options.pickerQuery || ''} onPick={(id) => confirmDiscard(dirty) && go({ sysId: id })} />
+    const picker = <RecordPicker table={table} baseQuery={options.pickerQuery || ''} onPick={(id) => confirmDiscard(dirty).then((ok) => ok && go({ sysId: id }))} />
     const headerSlots = toHeader
         ? {
               left: (node: any) => (
@@ -123,6 +130,8 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
 
     return (
         <div className="flex min-w-0 flex-col gap-4" data-rp-record-form-widget="">
+            {/* Queued dialogs (discard confirmation, g_modal from client scripts) render here. */}
+            <DialogOutlet />
             {options.picker !== false ? (
                 toHeader ? (
                     // Header bar: New sits with the record's actions (headerActions). The picker only
@@ -154,7 +163,7 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     <div className="flex min-w-0 items-center gap-2">{back}<h1 className="m-0 truncate text-sm font-medium">{portal && portal.page ? portal.page.title || portal.page.name : ''}</h1></div>
                 </HeaderSlot>
             ) : null}
-            {sysId ? (
+            {sysId && !urlView && !viewReady ? null : sysId ? (
                 <FormFor
                     key={`${table}|${sysId}|${view}|${presetQuery}`}
                     table={table}
@@ -165,9 +174,15 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     headerSlots={headerSlots}
                     presentation={options.presentation === 'tabs' ? 'tabs' : options.presentation === 'stacked' ? 'stacked' : undefined}
                     onDirty={setDirty}
-                    onViewChange={(v) => confirmDiscard(dirty) && go({ view: v })}
+                    onViewChange={(v) => {
+                        confirmDiscard(dirty).then((ok) => {
+                            if (!ok) return
+                            setSavedView(v)
+                            go({ view: v })
+                        })
+                    }}
                     onCreated={(id) => go({ sysId: id })}
-                    onOpenRecord={(t, id, params) => confirmDiscard(dirty) && go({ table: t, sysId: id, view: '', query: params && params.query ? String(params.query) : undefined })}
+                    onOpenRecord={(t, id, params) => confirmDiscard(dirty).then((ok) => ok && go({ table: t, sysId: id, view: '', query: params && params.query ? String(params.query) : undefined }))}
                 />
             ) : (
                 <Card>

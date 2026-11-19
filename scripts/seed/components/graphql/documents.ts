@@ -14,6 +14,7 @@ import type {
     UiPolicy,
     ClientScript,
     ClientScripts,
+    FormAnnotation,
 } from './types'
 
 /**
@@ -232,6 +233,7 @@ export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query
               recordMetadata { modCount }
               sectionLayout { sysId caption captionDisplay rows { fields } }
               formatters { name }
+              annotations { sysId text annotationType typeDisplayValue isPlainText }
               recordValues { name value displayValue }
               fieldStates { name hidden mandatory readonly }
               elementsData {
@@ -264,6 +266,16 @@ export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query
     }
   }
 }`
+
+/** Form annotations by sys_id (the id the section rows carry in place of a field name). */
+function annotationsOf(list: any): Record<string, FormAnnotation> {
+    const out: Record<string, FormAnnotation> = {}
+    for (const a of Array.isArray(list) ? list : []) {
+        if (!a || !a.sysId) continue
+        out[String(a.sysId)] = { sysId: String(a.sysId), text: String(a.text || ''), type: String(a.typeDisplayValue || ''), typeId: String(a.annotationType || ''), isPlainText: bool(a.isPlainText) }
+    }
+    return out
+}
 
 const flag = (v: unknown): 'true' | 'false' | 'ignore' => (v === true || v === 'true' ? 'true' : v === false || v === 'false' ? 'false' : 'ignore')
 
@@ -367,6 +379,7 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
         view: (U && U.view) || view || '',
         tableLabel: (sections[0] && sections[0].label) || table,
         formatters: (L.formatters || []).map((f: any) => String(f.name || '')).filter(Boolean),
+        annotations: annotationsOf(L.annotations),
         policies: ((S && S.ClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
         actions: ((A && A.formActions) || []).map(normalizeAction).sort((a: UiAction, b: UiAction) => a.order - b.order),
         scripts: normalizeClientScripts(S && S.ClientScriptingEnvironment_Scripts),

@@ -2,6 +2,98 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.13.0] - 2026-11-19
+
+User criteria for portals, pages and menu items; related lists on every table; dialogs and
+`g_modal.showFields`; new field types and a calendar; embeds under layouts and lazy embeds;
+a Studio Dependencies panel; per-kind Studio files; and permanent documentation.
+
+### Added: user criteria
+- **"Available for" / "Not available for" on portals, pages and menu items**, as m2m tables following the catalog, Knowledge and Employee Center pattern:
+  - `x_312987_portal_portal_uc` / `_portal_uc_no`, `page_uc` / `page_uc_no`, `item_uc` / `item_uc_no`;
+  - 24 ACLs and related lists on the forms.
+- **Rules:**
+  - an empty "Available for" means everyone, and "Not available for" always wins;
+  - criteria AND with the existing role checks, which are unchanged;
+  - studio users and admins bypass;
+  - no widget-level criteria.
+- **Enforcement:**
+  - the portal check covers bootstrap, resolve, the executor, properties and assets;
+  - the bootstrap page list is filtered per user, and a hidden page returns the usual page-not-found;
+  - menu page items drop for hidden pages, and menu items can carry their own criteria;
+  - placements, embeds and layout roots on hidden pages are refused.
+- **Cost:** one `sn_uc.UserCriteriaLoader.getMatchingCriteria` call per request. Rows are read live, so the release manifest stays the same for every user.
+- **Studio "View as user":** a user picker in the page designer and the Menus preview shows which pages and items a user's criteria hide (`GET /rp_studio/users`, `/portals/{id}/audience`).
+- **Demo:** an sp "Agents only" page and an "Agent handbook" menu item, restricted to "Users with 'itil' role".
+
+### Added: related lists everywhere
+- Every classic form shows its children:
+  - portal: pages, menus, placements, releases, criteria;
+  - page: placements, menu items, criteria;
+  - menu → items; menu item → child items and criteria;
+  - component: source files, builds, imports, imported by, placements, pages and portals using it as a layout;
+  - theme: portals, source files, builds;
+  - build: assets, dependencies, imported by;
+  - release → entries;
+  - placement → child placements.
+- 29 related lists with their own columns, plus "Imports" / "Imported by" relationships.
+
+### Added: dialogs and form runtime
+- **Host kit `components:dialog`** (shadcn on Base UI). On top of it:
+  - `app/confirm-dialog`: `confirm` / `alert`, `useConfirm` / `useDialog`, and a dialog queue. It replaces `window.confirm`; the discard prompt is now "Keep editing / Discard".
+  - `app/field-dialog`: a fields spec as a modal form (`showFields`, `useFieldsDialog`).
+- **`g_modal.showFields`** resolves `{ updatedFields }`; `g_modal.confirm` / `alert` use the dialogs.
+- **Multi-row variable sets:** the row editor uses `components:dialog`.
+- **Forms:**
+  - annotations (`app/form-annotation`);
+  - 2-, 3- and 4-column split rows;
+  - per-field "Changed by someone else" markers with Use theirs / Keep mine;
+  - the chosen view is remembered per table in `x_312987_portal.form.<table>.view`;
+  - `g_form.addDecoration` / `removeDecoration` with a FieldShell adornment slot.
+- **Reusable:** `createGForm` / `attachGForm` put `g_form` on any form store; also `applyRemoteValues`, `useRememberedView`, `useCollapsedSections`, `usePresentationPreference`, `useOwnPreference` and `useFormTabState`.
+
+### Added: fields
+- **Host kit `components:calendar`:** an Intl-based grid with no date library. It uses the locale's week start, has month and year grids, and full keyboard support.
+- **`app/date-field` / `app/datetime-field`:** typed entry in the user's ServiceNow format with lenient parsing, plus a calendar popover (Today, time box, zone, Done) and min/max.
+- **`app/time-field`** (`glide_time`).
+- **`app/conditions-field`:** the condition builder for the `conditions` type.
+- **`app/table-name-field` / `app/field-name-field`.**
+- **Phone:** E.164 with a country picker.
+- **Currency:** the code picker is our combobox select.
+- **`utilities:app/datetime`:** reusable zone, format, parse and calendar helpers.
+- **Condition builder** rows adapt to their container width.
+- **Field demo:** the new types, standalone and bound to real records.
+
+### Added: embeds
+- **Studio Dependencies panel:** imports (kind badges; widgets marked embeddable) and "Used by", each opening that component, plus an "Embedded by N components" badge. New endpoint `GET /rp_studio/components/{id}/dependencies`.
+- **Lazy embeds:** the `lazy` prop (`true` or `{ rootMargin, height }`) defers initialize until the embed nears the viewport. New runtime hook `useInViewOnce`.
+- **Embeds under layouts:** rooted at `layout:<sys_id>` and authorised against the page's effective layout (otherwise 404), with the same import-edge walk, option filtering, signed tokens and limits as placements. Layouts can have their own server script. Test page: sp `embeds/layout`.
+
+### Added: Studio
+- **Per-kind baseline files,** driven by the new property `x_312987_portal.studio.kind_files` (JSON, kind → files; built-in fallback):
+
+  | Kind | Files |
+  |---|---|
+  | widget | `main.tsx`, `styles.css`, `server.js`, options |
+  | layout | `main.tsx`, `styles.css`, `server.js`, `regions.json`, options |
+  | block | `main.tsx`, `styles.css`, `regions.json`, options |
+  | primitive | `main.tsx`, `styles.css` |
+  | utility | `main.tsx` |
+
+  - Extra source files work for every kind.
+  - Legacy content in an unlisted file stays visible, flagged "Not used by \<kind\>", until emptied.
+  - The rule is enforced on save, on check, by the compiler and by builds.
+  - The New component dialog shows each kind's files and offers Primitive.
+- **Landing page:** the 5 most recently opened components, aligned shortcut list, and the New component button no longer wraps.
+
+### Added: documentation
+- **`docs/guide/`:** 62 pages plus `_nav.json`, covering concepts, authoring, the client runtime API, the `$sp` server API, primitives, REST APIs, Studio, security, platform internals and reference. Written for a future docs portal.
+
+### Notes
+- Runtime Tests: 31/31 live (new: lazy embed, layout-rooted embed, another page's layout returns 404).
+- Catalog coverage refreshed by the agents (`docs/primitives/catalog.*`).
+- The docs pass found stale comments and unused properties: `build.retention_days`, `visibility_config_json`, the publisher role's "publish/rollback" wording. They're backlog cleanup.
+
 ## [1.12.0] - 2026-11-19
 
 Record forms get collapsible sections, a tabbed mode and a proper page header. The app-shell

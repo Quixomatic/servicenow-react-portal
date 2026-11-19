@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useFieldMeta } from 'utilities:app/graphql'
 import { useFormContext } from './form'
-import type { FieldMessage, FieldMeta, FieldProps, FieldSnapshot, PolicyState, UseFieldResult } from './types'
+import type { FieldDecoration, FieldMessage, FieldMeta, FieldProps, FieldSnapshot, PolicyState, UseFieldResult } from './types'
 
 const NO_SNAPSHOT: FieldSnapshot = { entry: undefined, server: undefined, meta: undefined, submitted: false }
 const noopSubscribe = () => () => {}
 const NO_MESSAGES: FieldMessage[] = []
 const NO_POLICY: PolicyState = {}
+const NO_DECORATIONS: FieldDecoration[] = []
 
 function isEmpty(v: string | undefined): boolean {
     return v == null || String(v).trim() === ''
@@ -204,5 +205,9 @@ export function useField(input: string | FieldProps): UseFieldResult {
         describedBy,
         lookup,
         autoFocus: props.autoFocus,
+        decorations: (entry && entry.decorations) || NO_DECORATIONS,
+        remote: entry && entry.remote,
+        acceptRemote: () => bound && form!.acceptRemote(name),
+        dismissRemote: () => bound && form!.dismissRemote(name),
     }
 }

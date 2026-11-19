@@ -23,6 +23,7 @@ import { useStudioTheme } from './theme';
 import { PREVIEW_TAB, languageOf, useStudio, virtualLabel } from './store';
 import * as L from './layout';
 import { switchToReactPortal, useScope } from './scope';
+import { DependenciesSection, EmbeddedByBadge } from './dependencies';
 
 // ---- switching with unsaved changes ---------------------------------------------------------
 
@@ -145,6 +146,7 @@ function ComponentTitlebar({ studio }) {
 				<Plus size={15} /> New
 			</button>
 			<span className="rps-spacer" />
+			{owner ? <EmbeddedByBadge studio={studio} /> : null}
 			{owner ? <BuildBadge build={build} busy={busy} checking={checking} /> : null}
 			{owner ? (
 				<span className="rps-badge" title="Saved revision" data-rps-revision="">
@@ -697,6 +699,7 @@ export function Properties({ studio }) {
 							<option value="widget">Widget</option>
 							<option value="layout">Layout</option>
 					<option value="block">Block</option>
+							<option value="primitive">Primitive</option>
 							<option value="utility">Utility</option>
 						</select>
 					</label>
@@ -726,6 +729,8 @@ export function Properties({ studio }) {
 				{owner.id}
 			</div>
 			<div style={{ color: 'var(--rps-muted)' }}>Changes are saved with the files (Ctrl+S).</div>
+			<DependenciesSection studio={studio} onOpen={(e) => guardedOpen(studio, { type: 'component', id: e.id, name: e.name })} />
+
 		</div>
 	);
 }

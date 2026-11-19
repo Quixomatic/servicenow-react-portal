@@ -83,6 +83,15 @@ export interface FormStore {
     /** Drop every section override (a client-script restart). */
     clearSectionDisplay(): void
 
+    // decorations (g_form.addDecoration / removeDecoration)
+    addDecoration(name: string, icon: string, title: string, color?: string): void
+    removeDecoration(name: string, icon?: string, title?: string): void
+
+    // remote changes (live record watch): mark, take theirs, keep mine
+    setRemoteValue(name: string, value: string, displayValue?: string): void
+    acceptRemote(name: string): void
+    dismissRemote(name: string): void
+
     // lifecycle
     load(input: { values?: Record<string, ValueInput>; server?: Record<string, ServerFieldState>; meta?: Record<string, FieldMeta>; table?: string; sysId?: string; encodedRecord?: string; replace?: boolean }): void
     mergeMeta(meta: Record<string, FieldMeta>, overwrite?: boolean): void
@@ -116,6 +125,31 @@ function norm(v: ValueInput, dv?: string): { value: string; displayValue: string
 }
 
 let seq = 0
+
+/**
+ * Merge values someone else saved (live record watch, a re-read) into a form store: fields with no
+ * unsaved edit take the new value silently; fields being edited get a remote marker (the field shows
+ * "Changed by someone else" with Use theirs / Keep mine). Returns { applied, marked } field names.
+ */
+export function applyRemoteValues(store: FormStore, values: Record<string, { value: string; displayValue?: string }>): { applied: string[]; marked: string[] } {
+    const applied: string[] = []
+    const marked: string[] = []
+    const clean: Record<string, { value: string; displayValue: string }> = {}
+    for (const n of Object.keys(values)) {
+        const v = values[n]
+        const e = store.getState().fields[n]
+        if (!v || !e || v.value === e.originalValue) continue
+        if (e.value !== e.originalValue) {
+            store.setRemoteValue(n, v.value, v.displayValue)
+            marked.push(n)
+        } else {
+            clean[n] = { value: v.value, displayValue: v.displayValue == null ? v.value : v.displayValue }
+            applied.push(n)
+        }
+    }
+    if (applied.length) store.load({ values: clean })
+    return { applied, marked }
+}
 
 /** Mandatory, writable, visible and empty: what a save would reject (same layers as useField). */
 export function isFieldMissing(state: FormState, name: string): boolean {
@@ -299,6 +333,35 @@ export function createFormStore(init: { table?: string; sysId?: string; values?:
             set({ ...state, sections: { ...state.sections, [key]: !!on } })
         },
         getSectionDisplay: (name) => state.sections[String(name || '').toLowerCase()],
+        addDecoration(name, icon, title, color) {
+            const list = (entry(name).decorations || []).filter((d) => !(d.icon === icon && d.title === title))
+            patchField(name, { decorations: list.concat({ icon: String(icon || ''), title: String(title || ''), color: color || undefined }) })
+        },
+        removeDecoration(name, icon, title) {
+            const list = entry(name).decorations || []
+            const next = icon === undefined ? [] : list.filter((d) => !(d.icon === icon && (title === undefined || d.title === title)))
+            if (next.length !== list.length) patchField(name, { decorations: next })
+        },
+        setRemoteValue(name, value, displayValue) {
+            const e = entry(name)
+            const v = value == null ? '' : String(value)
+            const dv = displayValue == null ? v : String(displayValue)
+            // The remote value is the new original; mark it only while the user's edit differs from it.
+            if (e.value === v) {
+                patchField(name, { originalValue: v, originalDisplayValue: dv, remote: undefined })
+                return
+            }
+            patchField(name, { originalValue: v, originalDisplayValue: dv, remote: { value: v, displayValue: dv } })
+        },
+        acceptRemote(name) {
+            const r = entry(name).remote
+            if (!r) return
+            patchField(name, { remote: undefined })
+            store.setValue(name, r.value, r.displayValue)
+        },
+        dismissRemote(name) {
+            if (entry(name).remote) patchField(name, { remote: undefined })
+        },
         clearSectionDisplay() {
             if (Object.keys(state.sections).length) set({ ...state, sections: {} })
         },

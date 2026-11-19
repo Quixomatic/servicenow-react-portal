@@ -26,17 +26,22 @@ import { PasswordField } from 'components:app/password-field'
 import { CurrencyField } from 'components:app/currency-field'
 import { DurationField } from 'components:app/duration-field'
 import { ListField } from 'components:app/list-field'
+import { TimeField } from 'components:app/time-field'
+import { ConditionsField } from 'components:app/conditions-field'
+import { TableNameField } from 'components:app/table-name-field'
+import { FieldNameField } from 'components:app/field-name-field'
 
 /** Glide types each built-in primitive handles. */
 export const BUILT_IN_TYPES: Record<string, string[]> = {
-    string: ['string', 'sys_class_name', 'table_name', 'field_name', 'GUID', 'domain_id', 'ip_address', 'color', 'translated_field', 'user_input'],
-    textarea: ['multi_two_lines', 'journal', 'journal_input', 'journal_list', 'html', 'translated_html', 'translated_text', 'script', 'script_plain', 'conditions', 'wiki_text'],
+    string: ['string', 'sys_class_name', 'GUID', 'domain_id', 'ip_address', 'color', 'translated_field', 'user_input'],
+    textarea: ['multi_two_lines', 'journal', 'journal_input', 'journal_list', 'html', 'translated_html', 'translated_text', 'script', 'script_plain', 'wiki_text'],
     number: ['integer', 'longint', 'decimal', 'float', 'numeric', 'percent_complete', 'order_index'],
     boolean: ['boolean'],
     choice: ['choice'],
     reference: ['reference', 'requested_for'],
     date: ['glide_date'],
     datetime: ['glide_date_time', 'due_date', 'calendar_date_time'],
+    time: ['glide_time'],
     email: ['email'],
     url: ['url'],
     phone: ['ph_number', 'phone_number_e164'],
@@ -44,6 +49,9 @@ export const BUILT_IN_TYPES: Record<string, string[]> = {
     currency: ['currency', 'price', 'currency2'],
     duration: ['glide_duration', 'timer'],
     list: ['glide_list'],
+    conditions: ['conditions'],
+    table: ['table_name'],
+    fieldname: ['field_name'],
 }
 
 const COMPONENTS: Record<string, any> = {
@@ -62,6 +70,10 @@ const COMPONENTS: Record<string, any> = {
     currency: CurrencyField,
     duration: DurationField,
     list: ListField,
+    time: TimeField,
+    conditions: ConditionsField,
+    table: TableNameField,
+    fieldname: FieldNameField,
 }
 
 let registered = false

@@ -642,3 +642,257 @@ Acl({
     adminOverrides: true,
     description: 'React Portal: delete on menu_item',
 })
+
+/* ---- User criteria m2m tables (Available for / Not available for): edited with their owner ---- */
+
+/* ---- x_312987_portal_portal_uc ---- */
+
+Acl({
+    $id: Now.ID['acl-portal-uc-read'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on portal_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-portal-uc-write'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on portal_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-portal-uc-create'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on portal_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-portal-uc-delete'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on portal_uc',
+})
+
+/* ---- x_312987_portal_portal_uc_no ---- */
+
+Acl({
+    $id: Now.ID['acl-portal-uc-no-read'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc_no',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on portal_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-portal-uc-no-write'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc_no',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on portal_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-portal-uc-no-create'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc_no',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on portal_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-portal-uc-no-delete'],
+    type: 'record',
+    table: 'x_312987_portal_portal_uc_no',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on portal_uc_no',
+})
+
+/* ---- x_312987_portal_page_uc ---- */
+
+Acl({
+    $id: Now.ID['acl-page-uc-read'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on page_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-page-uc-write'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on page_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-page-uc-create'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on page_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-page-uc-delete'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on page_uc',
+})
+
+/* ---- x_312987_portal_page_uc_no ---- */
+
+Acl({
+    $id: Now.ID['acl-page-uc-no-read'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc_no',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on page_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-page-uc-no-write'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc_no',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on page_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-page-uc-no-create'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc_no',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on page_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-page-uc-no-delete'],
+    type: 'record',
+    table: 'x_312987_portal_page_uc_no',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on page_uc_no',
+})
+
+/* ---- x_312987_portal_item_uc ---- */
+
+Acl({
+    $id: Now.ID['acl-item-uc-read'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on item_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-item-uc-write'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on item_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-item-uc-create'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on item_uc',
+})
+
+Acl({
+    $id: Now.ID['acl-item-uc-delete'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on item_uc',
+})
+
+/* ---- x_312987_portal_item_uc_no ---- */
+
+Acl({
+    $id: Now.ID['acl-item-uc-no-read'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc_no',
+    operation: 'read',
+    roles: [developerRole, designerRole, publisherRole],
+    adminOverrides: true,
+    description: 'React Portal: read on item_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-item-uc-no-write'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc_no',
+    operation: 'write',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: write on item_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-item-uc-no-create'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc_no',
+    operation: 'create',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: create on item_uc_no',
+})
+
+Acl({
+    $id: Now.ID['acl-item-uc-no-delete'],
+    type: 'record',
+    table: 'x_312987_portal_item_uc_no',
+    operation: 'delete',
+    roles: [designerRole],
+    adminOverrides: true,
+    description: 'React Portal: delete on item_uc_no',
+})

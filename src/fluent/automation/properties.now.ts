@@ -81,3 +81,13 @@ Property({
     value: 'Hello from a system property',
     description: 'Demo: properties under x_312987_portal.public. are readable from widgets via useProperty().',
 })
+
+Property({
+    $id: Now.ID['prop-studio-kind-files'],
+    name: 'x_312987_portal.studio.kind_files',
+    type: 'string',
+    value: '{"widget":["main.tsx","styles.css","server.js","options.schema.json","options.defaults.json"],"layout":["main.tsx","styles.css","server.js","regions.json","options.schema.json","options.defaults.json"],"block":["main.tsx","styles.css","regions.json","options.schema.json","options.defaults.json"],"primitive":["main.tsx","styles.css"],"utility":["main.tsx"]}',
+    description:
+        'Studio: which baseline files each component kind has. JSON object, kind → array of file names from main.tsx, styles.css, server.js, options.schema.json, options.defaults.json, regions.json. main.tsx is always included; unknown names are ignored; a kind left out uses its built-in default; invalid JSON falls back to the built-in default (with a log warning). Applies to Studio, saves, the compiler and server scripts (e.g. add "server.js" to "block" to give blocks a server script). A file a kind does not list stays visible and editable, flagged "Not used", while its field still has content. Extra source files are not affected. Themes always have theme.css and tokens.json.',
+    roles: { read: [adminRole], write: [adminRole] },
+})

@@ -6,7 +6,9 @@
 //   'all'    every active item (empty groups stay, so new groups are visible while building)
 //   'none'   a user with no roles: items with roles are dropped
 //   '<role>' a user with exactly that role
-// Role-filtered views drop empty groups and tidy separators, like the server.
+// hidden (View as user): { portal, pages: Set, items: Set } from the server's user-criteria verdicts;
+// those items, and page items of those pages, drop like at runtime.
+// Filtered views (a role or a user) drop empty groups and tidy separators, like the server.
 
 /** Fill a page route pattern with params; a sample value when a param is missing (preview only). */
 function fillRoute(pattern, params) {
@@ -45,6 +47,8 @@ function allowed(item, viewAs) {
 function resolve(item, ctx, depth) {
 	if (depth > 4 || item.active === false) return null;
 	if (!allowed(item, ctx.viewAs)) return null;
+	if (ctx.hidden && ctx.hidden.items.has(item.id)) return null;
+	if (ctx.hidden && item.type === 'page' && ctx.hidden.pages.has(item.pageId || (item.page && item.page.id))) return null;
 	if (item.type === 'dynamic') return null; // phase 2 on the server too
 	const nav = { id: item.id, type: item.type, label: item.label || (item.page && item.page.title) || '', children: [] };
 	if (item.icon) nav.icon = item.icon;
@@ -53,12 +57,12 @@ function resolve(item, ctx, depth) {
 	if (item.type === 'separator') return nav;
 	if (item.type === 'group') {
 		nav.children = resolveList(item.children || [], ctx, depth + 1);
-		if (ctx.viewAs !== 'all' && !nav.children.some((c) => c.type !== 'separator')) return null;
+		if (ctx.filtering && !nav.children.some((c) => c.type !== 'separator')) return null;
 		nav.open = !item.collapsed;
 		return nav;
 	}
 	if (item.type === 'url') {
-		if (!item.url) return ctx.viewAs === 'all' ? { ...nav, href: '#', target: '_blank' } : null;
+		if (!item.url) return !ctx.filtering ? { ...nav, href: '#', target: '_blank' } : null;
 		nav.href = item.url;
 		nav.target = item.target === '_self' ? '_self' : '_blank';
 		return nav;
@@ -86,17 +90,19 @@ function resolveList(items, ctx, depth) {
 	(items || []).forEach((item) => {
 		const nav = resolve(item, ctx, depth);
 		if (!nav) return;
-		if (ctx.viewAs !== 'all' && nav.type === 'separator' && (!out.length || out[out.length - 1].type === 'separator')) return;
+		if (ctx.filtering && nav.type === 'separator' && (!out.length || out[out.length - 1].type === 'separator')) return;
 		out.push(nav);
 	});
-	if (ctx.viewAs !== 'all') while (out.length && out[out.length - 1].type === 'separator') out.pop();
+	if (ctx.filtering) while (out.length && out[out.length - 1].type === 'separator') out.pop();
 	return out;
 }
 
 /** MenuDto → NavItem[] for the preview. */
-export function previewNav(menu, { viewAs, portalSlug }) {
+export function previewNav(menu, { viewAs, portalSlug, hidden }) {
 	if (!menu) return [];
-	return resolveList(menu.items || [], { viewAs: viewAs || 'all', portalSlug }, 0);
+	const v = viewAs || 'all';
+	if (hidden && hidden.portal) return [];
+	return resolveList(menu.items || [], { viewAs: v, portalSlug, hidden: hidden || null, filtering: v !== 'all' || !!hidden }, 0);
 }
 
 /** Every role named by a menu's items (for the "View as" switch). */

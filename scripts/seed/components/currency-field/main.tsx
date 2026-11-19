@@ -3,11 +3,15 @@
  *
  * Value format: 'CODE;amount' (e.g. 'USD;1234.50'), the platform's form format for currency
  * fields; a bare amount is accepted on input and takes the default code. The code list comes
- * from the form layout's currencyCodes, else the `currencies` prop.
+ * from the form layout's currencyCodes, else the `currencies` prop. The code picker is
+ * app/combobox's select-only Select (inline variant): typeahead on code or currency name, a
+ * top-layer popup, names from the layout or Intl.DisplayNames.
  */
 import { useMemo } from 'react'
 import { useUser } from '@portal/runtime'
-import { useField, FieldShell, controlA11y, controlClass, bareInputClass, cx } from 'components:app/field'
+import { useField, FieldShell, controlA11y, controlClass, bareInputClass } from 'components:app/field'
+import { Select } from 'components:app/combobox'
+import type { ComboItem } from 'components:app/combobox'
 import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field'
 import { parseNumberInput } from 'components:app/number-field'
 
@@ -36,6 +40,27 @@ export function CurrencyField(props: CurrencyFieldProps) {
         return fromMeta.length ? fromMeta : props.currencies || ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
     }, [field.meta.currencyCodes, props.currencies])
     const fallback = props.defaultCurrency || codes[0] || 'USD'
+    const items = useMemo<ComboItem[]>(() => {
+        let names: any = null
+        try {
+            names = new (Intl as any).DisplayNames(locale ? [locale] : undefined, { type: 'currency' })
+        } catch (e) {
+            names = null
+        }
+        const meta = field.meta.currencyCodes || []
+        return codes.map((c) => {
+            const m = meta.find((x) => x.code === c)
+            let name = (m && m.name) || ''
+            if (!name && names) {
+                try {
+                    name = names.of(c) || ''
+                } catch (e) {
+                    name = ''
+                }
+            }
+            return { value: c, label: c, description: name && name !== c ? name : undefined }
+        })
+    }, [codes, field.meta.currencyCodes, locale])
     const current = field.staged ?? field.value
     const { code, amount } = splitCurrency(current, fallback)
     const committed = splitCurrency(field.value, fallback)
@@ -57,20 +82,22 @@ export function CurrencyField(props: CurrencyFieldProps) {
     return (
         <FieldShell field={field} layout={props.layout} size={props.size} showOptional={props.showOptional} className={props.className} readOnlyValue={committed.amount ? format(committed.code, committed.amount) : undefined}>
             <div className={controlClass({ size: props.size, invalid: field.invalid, className: 'gap-2 pl-1' })}>
-                <select
+                <Select
+                    variant="inline"
                     aria-label={`${field.label} currency`}
                     value={code}
+                    items={items.some((i) => i.value === code) ? items : [{ value: code, label: code }].concat(items)}
                     disabled={field.state.disabled}
-                    className={cx('h-7 rounded-sm bg-transparent px-1 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/60')}
-                    onChange={(e: any) => commit(e.target.value, amount)}
-                >
-                    {codes.indexOf(code) < 0 ? <option value={code}>{code}</option> : null}
-                    {codes.map((c) => (
-                        <option key={c} value={c}>
-                            {c}
-                        </option>
-                    ))}
-                </select>
+                    popupMinWidth={224}
+                    renderValue={(i) => <span className="font-medium tabular-nums">{i.value}</span>}
+                    renderItem={(i) => (
+                        <span className="flex min-w-0 items-baseline gap-2">
+                            <span className="w-9 shrink-0 font-medium">{i.value}</span>
+                            {i.description ? <span className="truncate text-muted-foreground">{i.description}</span> : null}
+                        </span>
+                    )}
+                    onChange={(i) => commit(i.value, amount)}
+                />
                 <span aria-hidden="true" className="h-5 w-px bg-border" />
                 <input
                     {...controlA11y(field)}

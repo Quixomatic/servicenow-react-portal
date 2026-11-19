@@ -6,10 +6,13 @@
 //   <ServerClock embedKey="utc" options={{ title: 'UTC' }} onTick={…} />
 //   <ServerClock.Raw />                                      // presentational, parent's instance
 //   <Embed model={data.clock} />                             // a model from $sp.getWidget / getWidget()
+//   <ServerClock lazy embedKey="below" />                    // initialize once scrolled into view
 //
-// Identity: <parentInstanceId>~<key> (the root segment is always a placement sys_id). Server
-// calls go to /instances/<root placement>/execute with an `embed` body; the server authorizes the
-// chain against the manifest's direct import edges, so only imported widgets ever run.
+// Identity: <parentInstanceId>~<key>. The root segment is a placement sys_id, or
+// 'layout:<component sys_id>' for embeds under a layout. Server calls go to
+// /instances/<root>/execute with an `embed` body; the server authorizes the chain against the
+// manifest's direct import edges (a layout root against the page's effective layout), so only
+// imported widgets ever run.
 import React, { forwardRef, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { BlockContext, PortalContext, WidgetInstanceContext, useInstanceInit, useWidgetInstance } from './contexts';
 import { useInstanceRecord } from './instance-init';
@@ -17,6 +20,7 @@ import { esModule, setImportWrapper } from './loader';
 import { executeInstanceEnvelope, isMock } from './api';
 import { useDiagCounter } from './diag-hooks';
 import { requestContextOf } from './location';
+import { DEFAULT_ROOT_MARGIN, useInViewOnce } from './in-view';
 import { WidgetErrorBoundary, WidgetPlaceholder, ServerErrorBanner, reportServerError, toServerError } from './widgets';
 
 export const MAX_EMBED_DEPTH = 4;
@@ -47,11 +51,21 @@ function defaultKey(uniqueId) {
 	return last.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64) || 'embed';
 }
 
-/** The embed chain of an instance context: { root, rootComponent, path, keys, ids } (empty for a placement). */
+/**
+ * The embed chain of an instance context: { root, rootComponent, path, keys, ids } (empty for a
+ * placement). A layout's instance carries `rootId` ('layout:<component sys_id>'), the server
+ * root for embeds under it (its placement id stays 'layout' for the designer's markers).
+ */
 function chainOf(instance) {
 	const placement = (instance && instance.placement) || {};
 	if (placement.embed) return placement.embed;
-	return { root: placement.id || '', rootComponent: placement.component || (instance && instance.component) || null, path: NO_LIST, keys: NO_LIST, ids: NO_LIST };
+	return { root: placement.rootId || placement.id || '', rootComponent: placement.component || (instance && instance.component) || null, path: NO_LIST, keys: NO_LIST, ids: NO_LIST };
+}
+
+/** The id embeds under this instance hang off: an embed's composite id, a layout's root, else the placement id. */
+function parentIdOf(instance) {
+	const placement = (instance && instance.placement) || {};
+	return (placement.embed ? placement.id : placement.rootId || placement.id) || 'no-instance';
 }
 
 /** True when `parentComponentId` imports widget `uid` directly in the root's import tree. */
@@ -60,9 +74,28 @@ function importEdge(rootComponent, parentComponentId, uid) {
 	return list.find((imp) => imp.uniqueId === uid && imp.kind === 'widget' && Array.isArray(imp.importers) && imp.importers.indexOf(parentComponentId) >= 0) || null;
 }
 
-/** Placement ids the server can execute under (not the layout, not Studio's preview). */
+/**
+ * Roots the server can execute under: a placement sys_id, or a layout root
+ * ('layout:<component sys_id>', authorized against the page's effective layout). Not Studio's
+ * preview ('studio-preview') or a layout without a component.
+ */
 function serverRootOk(root) {
-	return !!root && /^[0-9a-f]{32}$/.test(root);
+	return !!root && /^(layout:)?[0-9a-f]{32}$/.test(root);
+}
+
+// ---- lazy embeds (in-view.js: IntersectionObserver, shared per rootMargin) ---------------------
+
+const LAZY_HEIGHT = '10rem';
+
+/** `lazy` prop → { height, rootMargin } (true = defaults), or null when not lazy. */
+function lazySettings(lazy) {
+	if (!lazy) return null;
+	const o = typeof lazy === 'object' ? lazy : EMPTY;
+	const h = o.height;
+	return {
+		height: typeof h === 'number' ? `${h}px` : typeof h === 'string' && h ? h : LAZY_HEIGHT,
+		rootMargin: typeof o.rootMargin === 'string' && o.rootMargin ? o.rootMargin : DEFAULT_ROOT_MARGIN
+	};
 }
 
 // ---- wrapped imports -------------------------------------------------------------------------
@@ -163,8 +196,8 @@ function releaseKey(parentId, key, token) {
 
 /** Reserved props on an embeddable widget; everything else passes through to the component. */
 function splitProps(props) {
-	const { options, embedKey, model, fallback, lazy, ...rest } = props || {}; // eslint-disable-line no-unused-vars
-	return { options, embedKey, model, fallback, rest };
+	const { options, embedKey, model, fallback, lazy, ...rest } = props || {};
+	return { options, embedKey, model, fallback, lazy, rest };
 }
 
 function toError(value) {
@@ -175,10 +208,10 @@ function EmbeddedWidget({ Component, imp, props, forwardedRef }) {
 	const parent = useWidgetInstance();
 	const portal = useContext(PortalContext);
 	const initStore = useInstanceInit();
-	const { options: requestedProp, embedKey, model, fallback, rest } = splitProps(props);
+	const { options: requestedProp, embedKey, model, fallback, lazy, rest } = splitProps(props);
 	const chain = chainOf(parent);
 	const parentPlacement = (parent && parent.placement) || {};
-	const parentId = parentPlacement.id || 'no-instance';
+	const parentId = parentIdOf(parent);
 	const parentComponentId = (parent && parent.component && parent.component.id) || '';
 	const depth = chain.path.length + 1;
 	const token = useRef(null);
@@ -205,6 +238,12 @@ function EmbeddedWidget({ Component, imp, props, forwardedRef }) {
 	const serverMode = imp.serverMode || 'none';
 	const authorized = !!importEdge(chain.rootComponent, parentComponentId, imp.uniqueId) || isMock();
 
+	// lazy: render a placeholder and skip initialize until the placeholder nears the viewport. A
+	// server-built model has nothing to fetch, so lazy is ignored there.
+	const lazyCfg = model && model.$embed ? null : lazySettings(lazy);
+	const [lazyRef, inView] = useInViewOnce({ rootMargin: lazyCfg ? lazyCfg.rootMargin : undefined, disabled: !lazyCfg });
+	const deferred = !!lazyCfg && !inView;
+
 	// Seed from a server-built model before the first render of the subtree (no request).
 	const seededRef = useRef(null);
 	if (model && model.$embed && initStore && seededRef.current !== model) {
@@ -221,11 +260,11 @@ function EmbeddedWidget({ Component, imp, props, forwardedRef }) {
 	// Client-declared on-load embeds: one batched initialize per commit (deduped by id + options).
 	useLayoutEffect(() => {
 		if (model && model.$embed) return;
-		if (!initStore || serverMode !== 'on-load' || depth > MAX_EMBED_DEPTH || !claim.ok || !rootOk || !authorized) return;
+		if (deferred || !initStore || serverMode !== 'on-load' || depth > MAX_EMBED_DEPTH || !claim.ok || !rootOk || !authorized) return;
 		const descriptor = { id: compositeId, placement: chain.root, path, keys, options: stableRequested, token: null };
 		initStore.requestEmbed(portal ? portal.slug : '', portal && portal.getPath ? portal.getPath() : '', descriptor, hash, requestContextOf(portal && portal.locationStore ? portal.locationStore.get() : null));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [initStore, compositeId, hash, serverMode, depth, claim.ok, rootOk, authorized]);
+	}, [initStore, compositeId, hash, serverMode, depth, claim.ok, rootOk, authorized, deferred]);
 
 	const record = useInstanceRecord(initStore, compositeId);
 	const entry = record.entry;
@@ -262,7 +301,7 @@ function EmbeddedWidget({ Component, imp, props, forwardedRef }) {
 	);
 
 	// Designer / diagnostics view of live embeds.
-	const status = entry ? (entry.ok === false ? 'error' : 'ready') : record.pending ? 'loading' : serverMode === 'on-load' ? 'idle' : 'no-init';
+	const status = deferred ? 'deferred' : entry ? (entry.ok === false ? 'error' : 'ready') : record.pending ? 'loading' : serverMode === 'on-load' ? 'idle' : 'no-init';
 	useEffect(() => {
 		live.set(compositeId, {
 			id: compositeId,
@@ -310,6 +349,9 @@ function EmbeddedWidget({ Component, imp, props, forwardedRef }) {
 		body = <WidgetPlaceholder label={label} error={`embedKey "${explicit}" must match [A-Za-z0-9_-]{1,64}`} />;
 	} else if (!claim.ok) {
 		body = <WidgetPlaceholder label={label} error={`Duplicate embedKey "${key}" in ${parentId}`} />;
+	} else if (deferred) {
+		// The observed element (the marker wrapper is display: contents, so it has no box).
+		body = <div ref={lazyRef} className="bg-muted/60 animate-pulse rounded-lg" style={{ minHeight: lazyCfg.height }} aria-busy="true" aria-label={`${label}: loads when scrolled into view`} data-rp-lazy="" />;
 	} else {
 		body = (
 			<>

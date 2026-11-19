@@ -40,7 +40,14 @@ export type FieldEntry = {
     overrides: FieldOverrides
     /** UI policy layer (setPolicyLayer). */
     policy?: PolicyState
+    /** Decorations next to the label (g_form.addDecoration). */
+    decorations?: FieldDecoration[]
+    /** A newer value saved by someone else while this field had unsaved edits (live record watch). */
+    remote?: { value: string; displayValue: string }
 }
+
+/** A label decoration: a Lucide icon name (or a platform 'icon-*' name), its title, an optional colour. */
+export type FieldDecoration = { icon: string; title: string; color?: string }
 
 export type FieldState = { mandatory: boolean; readOnly: boolean; visible: boolean; disabled: boolean }
 
@@ -128,4 +135,11 @@ export interface UseFieldResult {
     /** For lookups: the form's record, encoded snapshot and unsaved values. */
     lookup: { sysId: string; encodedRecord: string; getChanges: () => Record<string, string> }
     autoFocus: boolean | undefined
+    /** Label decorations (g_form.addDecoration). */
+    decorations: FieldDecoration[]
+    /** Someone else saved a different value while this field was being edited. */
+    remote: { value: string; displayValue: string } | undefined
+    /** Take the other person's value / keep mine (clears the marker). */
+    acceptRemote: () => void
+    dismissRemote: () => void
 }

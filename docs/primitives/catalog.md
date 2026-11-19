@@ -89,45 +89,47 @@ All 365 entries, including the 32 variable-type mappings (counted under `catalog
 | catalog | 29 | 10 | 2 | 17 |
 | catalog-variable | 43 | 33 | 10 | 0 |
 | data-display | 42 | 1 | 6 | 35 |
-| feedback | 15 | 3 | 9 | 3 |
-| field | 78 | 28 | 15 | 35 |
-| form | 36 | 5 | 6 | 25 |
-| layout | 52 | 25 | 9 | 18 |
+| feedback | 15 | 4 | 9 | 2 |
+| field | 78 | 37 | 9 | 32 |
+| form | 36 | 7 | 4 | 25 |
+| layout | 52 | 28 | 7 | 17 |
 | list | 48 | 22 | 4 | 22 |
 | other | 17 | 0 | 0 | 17 |
 | search | 5 | 0 | 1 | 4 |
-| **Total** | **365** | **127** | **62** | **176** |
+| **Total** | **365** | **142** | **52** | **171** |
 
 | Usefulness | Entries | Match | Partial | None |
 |---|---|---|---|---|
-| high | 104 | 68 | 31 | 5 |
-| medium | 76 | 25 | 15 | 36 |
-| low | 185 | 34 | 16 | 135 |
+| high | 104 | 74 | 26 | 4 |
+| medium | 76 | 32 | 12 | 32 |
+| low | 185 | 36 | 14 | 135 |
 
-- **High-usefulness with no match (5):** `now-record-related-list-tab-content`, `now-record-common-attachments-connected`, `now-activity-stream-connected`, `now-activity-stream-compose-connected`, `now-tabs`. All five are wave-4 form furniture (related lists, attachments, activity) plus the tabs primitive they need.
-- **High-usefulness partials (31)** cluster in three places:
+- **High-usefulness with no match (4):** `now-record-related-list-tab-content`, `now-record-common-attachments-connected`, `now-activity-stream-connected`, `now-activity-stream-compose-connected`. All are wave-4 form furniture (related lists, attachments, activity).
+- **High-usefulness partials (26)** cluster in three places:
   - form presentation: form shell, sections, column layout, header;
-  - rich field types: journal, HTML, file attachment, date picker popover;
-  - design-system primitives that exist only inside a widget: alert, empty state, skeleton, chip, avatar, breadcrumbs, dialog, accordion, highlighted value.
+  - rich field types: journal, HTML, file attachment;
+  - design-system primitives that exist only inside a widget: alert, empty state, skeleton, chip, avatar, breadcrumbs, accordion, highlighted value.
 - **Variable types:** 26 of 32 match. The 6 partials are custom (14), UI page (15), custom with label (17), HTML (23), requested for (31: no delegation UI) and MRVS (no row policies/scripts).
 - **Low-usefulness:** most are inventory rows that nobody reviewed by hand. A `none` there is expected, not a gap.
 
 **Our current library** (details in §13):
-- **Host UI kit** (`packages/portal-host/src/components/ui`, registered as `components:<name>`): `badge`, `button`, `card`, `collapsible`, `dropdown-menu`, `icon` (any Lucide icon), `popover`, `separator`, `sheet`, `sidebar`, `sonner`, `tooltip`.
+- **Host UI kit** (`packages/portal-host/src/components/ui`, registered as `components:<name>`): `badge`, `button`, `card`, `collapsible`, `dialog`, `dropdown-menu`, `icon` (any Lucide icon), `calendar` (date grid), `popover`, `separator`, `sheet`, `sidebar`, `sonner`, `tabs`, `tooltip`.
 - **Primitives** (`kind = primitive`):
   - `app/field` (useField, FieldShell, form store, policies, registry);
-  - 15 field primitives, `app/combobox` and `app/field-control`;
+  - 19 field primitives (since the fields pass: `app/time-field`, `app/conditions-field`, `app/table-name-field`, `app/field-name-field`), `app/combobox` and `app/field-control`;
   - `app/variable`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`;
-  - `app/condition-builder`, `app/data-table` and `app/form`.
-- **Utilities:** `app/graphql`, `app/list-data`, `app/catalog`, `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
-- **Runtime:** `useRecordWatch`, `useAmbChannel`, `useAmbStatus`, `Link`/`navigate` with table/sysId/view/query params, `usePortalLocation`, embedded widgets (`$sp.getWidget`, `useEmbeddedWidget`, `<Embed>`).
+  - `app/condition-builder`, `app/data-table` and `app/form`;
+  - form pieces: `app/form-section` (collapsible section), `app/form-tabs` (sections as tabs), `app/form-annotation`;
+  - dialogs: `app/confirm-dialog` (confirm / alert, dialog queue, `useDialog` / `useConfirm`), `app/field-dialog` (fields spec → modal form, `showFields`).
+- **Utilities:** `app/graphql`, `app/datetime` (zones, user formats, date/time format and parse), `app/list-data`, `app/catalog`, `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
+- **Runtime:** `useRecordWatch`, `useAmbChannel`, `useAmbStatus`, `Link`/`navigate` with table/sysId/view/query params, `usePortalLocation`, embedded widgets (`$sp.getWidget`, `useEmbeddedWidget`, `<Embed>`, the `lazy` prop, embeds under layouts), `useInViewOnce`.
 - **Widgets:**
   - catalog: `app/catalog-item`, `app/catalog-picker`;
   - lists and forms: `app/list-view`, `app/list-card`, `app/record-form`;
   - app shell: `app/app-header`, `app/app-sidebar`, `app/app-subheader`;
   - site: site-header, nav-sidebar, site-footer;
   - demos: field-demo, embed-demo, incident-list, record-detail, hello-card, server-clock, runtime-tests.
-- **Blocks:** section, container, grid, columns, stack, split. **Layouts:** standard, centered, app-shell.
+- **Blocks:** section, container, grid, columns, stack, split. **Layouts:** standard, centered, app-shell (plus `app/embed-test-layout`, a test layout for layout-rooted embeds).
 
 ---
 
@@ -138,11 +140,11 @@ Refreshed for v1.10.0. Low-usefulness rows and the 32 variable-type mappings are
 | Tag | Category | Usefulness | Proposed primitive | Our match |
 |---|---|---|---|---|
 | `now-checkbox` | field | high | `ui/checkbox` | partial: components:app/boolean-field — no indeterminate state, no standalone ui/checkbox |
-| `now-date-time` | field | high | `ui/date-picker` | partial: components:app/date-field, components:app/datetime-field — no standalone ui/date-picker with calendar popover |
+| `now-date-time` | field | high | `ui/date-picker` | match: components:app/date-field, components:app/datetime-field, components:calendar |
 | `now-input` | field | high | `app/string-field` | match: components:app/string-field |
 | `now-radio-buttons` | field | high | `ui/radio-group` | match: components:app/choice-field |
 | `now-record-checkbox` | field | high | `app/boolean-field` | match: components:app/boolean-field |
-| `now-record-date-picker` | field | high | `app/date-field / app/datetime-field` | partial: components:app/date-field, components:app/datetime-field — native date input, no custom calendar popover; user date format shown at rest only |
+| `now-record-date-picker` | field | high | `app/date-field / app/datetime-field` | match: components:app/date-field, components:app/datetime-field, components:calendar |
 | `now-record-html-editor` | field | high | `app/html-field` | partial: components:app/textarea-field — html/translated_html fall back to a plain textarea (raw HTML), no rich-text editor |
 | `now-record-number` | field | high | `app/number-field` | match: components:app/number-field |
 | `now-record-typeahead` | field | high | `ui/combobox` | match: components:app/combobox |
@@ -162,23 +164,23 @@ Refreshed for v1.10.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-currency-input` | field | medium | `app/currency-field` | match: components:app/currency-field |
 | `now-date-range-picker` | field | medium | `ui/date-range-picker` | none |
 | `now-input-password` | field | medium | `app/password-field` | match: components:app/password-field |
-| `now-input-phone` | field | medium | `app/phone-field` | partial: components:app/phone-field — no country-code picker or E.164 validation |
+| `now-input-phone` | field | medium | `app/phone-field` | match: components:app/phone-field |
 | `now-input-url` | field | medium | `app/url-field` | match: components:app/url-field |
 | `now-radio-group` | field | medium | `app/choice-field (variant=radio)` | match: components:app/choice-field |
-| `now-record-time` | field | medium | `app/time-field` | none |
+| `now-record-time` | field | medium | `app/time-field` | match: components:app/time-field |
 | `now-typeahead` | field | medium | `ui/combobox` | match: components:app/combobox |
-| `sn-interactive-decoration` | field | medium | `app/field (FieldDecoration slot)` | none |
+| `sn-interactive-decoration` | field | medium | `app/field (FieldDecoration slot)` | partial: components:app/field, utilities:app/gform — FieldShell adornment slot + g_form.addDecoration / removeDecoration; no reference preview hover card yet |
 | `sn-list-selector` | field | medium | `ui/transfer-list` | partial: components:app/data-table — column chooser only; no generic transfer-list / slushbucket |
-| `sn-record-annotation` | field | medium | `app/form-annotation` | none |
+| `sn-record-annotation` | field | medium | `app/form-annotation` | match: components:app/form-annotation, components:app/form |
 | `sn-record-choice` | field | medium | `app/choice-field` | match: components:app/choice-field, components:app/combobox |
 | `sn-record-code-editor` | field | medium | `app/code-field` | partial: components:app/textarea-field — script types fall back to textarea, no code editor |
-| `sn-record-conditions-connected` | field | medium | `app/condition-field` | partial: components:app/condition-builder — conditions dictionary type falls back to textarea; ConditionBuilder exists but is not registered as the conditions field control |
+| `sn-record-conditions-connected` | field | medium | `app/condition-field` | match: components:app/conditions-field |
 | `sn-record-currency-connected` | field | medium | `app/currency-field` | match: components:app/currency-field |
 | `sn-record-email` | field | medium | `app/email-field` | match: components:app/email-field |
 | `sn-record-input` | field | medium | `app/string-field` | match: components:app/string-field |
 | `sn-record-list-select` | field | medium | `app/slushbucket` | none |
-| `sn-record-phone-connected` | field | medium | `app/phone-field` | partial: components:app/phone-field — no country codes / E.164 strict mode |
-| `sn-record-tablename-connected` | field | medium | `app/table-name-field` | partial: components:app/string-field — table_name renders as plain text, no table picker |
+| `sn-record-phone-connected` | field | medium | `app/phone-field` | match: components:app/phone-field |
+| `sn-record-tablename-connected` | field | medium | `app/table-name-field` | match: components:app/table-name-field |
 | `sn-record-url` | field | medium | `app/url-field` | match: components:app/url-field |
 | `sn-catalog-action` | catalog | high | `app/catalog-actions` | partial: components:app/catalog-item — Order now / Submit only: no Add to cart, no Save as draft |
 | `sn-catalog-form` | catalog | high | `app/catalog-form` | match: components:app/variable-container |
@@ -192,7 +194,7 @@ Refreshed for v1.10.0. Low-usefulness rows and the 32 variable-type mappings are
 | `sn-catalog-form-attachment-variable` | catalog-variable | high | `app/attachment-field` | match: components:app/attachment-variable |
 | `sn-catalog-form-checkbox-variable` | catalog-variable | high | `app/boolean-field (via app/variable)` | match: components:app/variable, components:app/boolean-field |
 | `sn-catalog-form-container-variable` | catalog-variable | high | `app/variable-container` | match: components:app/variable-container |
-| `sn-catalog-form-multi-row-form-modal` | catalog-variable | high | `app/mrvs (row editor)` | partial: components:app/mrvs — row form has no g_form scope (row policies/scripts do not run) |
+| `sn-catalog-form-multi-row-form-modal` | catalog-variable | high | `app/mrvs (row editor)` | partial: components:app/mrvs, components:dialog — row editor on components:dialog; row form has no g_form scope (row policies/scripts do not run) |
 | `sn-catalog-form-multi-row-variable` | catalog-variable | high | `app/mrvs` | partial: components:app/mrvs — no MRVS row UI policies/client scripts, no inline editing, row prices not totalled |
 | `sn-catalog-form-label-variable` | catalog-variable | medium | `app/form-annotation` | match: components:app/variable |
 | `sn-catalog-form-macro-variable` | catalog-variable | medium | `app/variable-custom (renders one of our components)` | partial: components:app/variable — custom/macro/UI page variables render a notice unless the host passes renderCustom; no typed "render one of our components" attribute |
@@ -222,9 +224,9 @@ Refreshed for v1.10.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-record-common-attachments-connected` | form | high | `app/attachments` | none |
 | `now-record-common-header` | form | high | `app/record-header` | partial: components:app/form — title/number/state/read-only badges only: no highlighted values, presence, record ribbon, configurable header fields |
 | `now-record-common-uiactionbar` | form | high | `app/ui-action-bar` | match: components:app/form |
-| `now-record-form-connected` | form | high | `app/form` | partial: components:app/form, components:app/record-form — no annotations, formatters are placeholders, no collapsible sections / section tabs, no related lists, no activity/attachments, no form personalisation |
-| `now-record-form-section-column-layout` | form | high | `app/form-columns` | partial: components:app/form — rows render 1 or 2 columns from md; split markers are pre-resolved but begin_split/end_split column spans and >2 columns are not modelled |
-| `now-record-form-section-connected` | form | high | `app/form-section` | partial: components:app/form — no collapse, no section menu, g_form.setSectionDisplay is a no-op |
+| `now-record-form-connected` | form | high | `app/form` | partial: components:app/form, components:app/record-form — no related lists, no activity/attachments, formatters are placeholders, no form personalisation |
+| `now-record-form-section-column-layout` | form | high | `app/form-columns` | match: components:app/form |
+| `now-record-form-section-connected` | form | high | `app/form-section` | match: components:app/form-section, components:app/form |
 | `now-record-related-list-tab-content` | form | high | `app/related-list-tabs` | none |
 | `sn-form-data-connected` | form | high | `app/form (useForm + FormProvider)` | match: components:app/form, utilities:app/graphql |
 | `sn-form-internal-client-scripting-environment` | form | high | `app/form-runtime (g_form compatibility shim)` | match: utilities:app/gform |
@@ -235,16 +237,16 @@ Refreshed for v1.10.0. Low-usefulness rows and the 32 variable-type mappings are
 | `sn-declarative-actions-mediator` | form | medium | `app/actions (useActions)` | none |
 | `sn-record-common-quick-form` | form | medium | `app/quick-form` | none |
 | `sn-record-ribbon` | form | medium | `app/record-ribbon` | none |
-| `sn-scripted-modal` | form | medium | `app/scripted-modal` | partial: utilities:app/gform — g_modal alert/confirm use window.alert/confirm; showFields rejects; showFrame opens a tab |
+| `sn-scripted-modal` | form | medium | `app/scripted-modal` | partial: utilities:app/gform, components:app/confirm-dialog, components:app/field-dialog — alert / confirm / showFields on our dialogs; showFrame still opens a new tab |
 | `now-accordion` | layout | high | `ui/accordion` | partial: components:collapsible — Collapsible only (Base UI); no accordion group |
 | `now-breadcrumbs` | layout | high | `ui/breadcrumbs` | partial: components:app/app-header, @portal/runtime useNavigation — breadcrumbs live inside the app-header widget (useNavigation().activePath); no ui/breadcrumbs primitive |
 | `now-button` | layout | high | `ui/button` | match: components:button |
 | `now-card` | layout | high | `ui/card` | match: components:card |
 | `now-dropdown` | layout | high | `ui/dropdown-menu` | match: components:dropdown-menu |
-| `now-modal` | layout | high | `ui/dialog` | partial: components:app/mrvs — only a private native <dialog> inside app/mrvs; no shared ui/dialog primitive |
+| `now-modal` | layout | high | `ui/dialog` | match: components:dialog, components:app/confirm-dialog, components:app/field-dialog, components:app/mrvs |
 | `now-popover` | layout | high | `ui/popover` | match: components:popover |
 | `now-sheet` | layout | high | `ui/sheet` | match: components:sheet |
-| `now-tabs` | layout | high | `ui/tabs` | none |
+| `now-tabs` | layout | high | `ui/tabs` | match: components:tabs, components:app/form-tabs |
 | `now-tooltip` | layout | high | `ui/tooltip` | match: components:tooltip |
 | `now-collapse` | layout | medium | `ui/collapsible` | match: components:collapsible |
 | `now-content-tree` | layout | medium | `ui/tree` | none |
@@ -266,7 +268,7 @@ Refreshed for v1.10.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-loader` | feedback | high | `ui/spinner` | match: components:app/field |
 | `now-loader-skeleton` | feedback | high | `ui/skeleton` | partial: components:app/data-table, components:app/field-control — skeleton rows/fields are internal; no ui/skeleton |
 | `now-pill` | feedback | high | `ui/chip` | partial: components:app/list-field — chips are internal to ListField; no ui/chip |
-| `now-confirmation-message` | feedback | medium | `ui/confirm-dialog` | none |
+| `now-confirmation-message` | feedback | medium | `ui/confirm-dialog` | match: components:app/confirm-dialog |
 | `now-pill-list` | feedback | medium | `ui/chip-list` | partial: components:app/list-field — see now-pill |
 | `now-progress-bar` | feedback | medium | `ui/progress` | none |
 | `now-template-message` | feedback | medium | `ui/empty-state` | partial: components:app/data-table — empty state internal to data-table |
@@ -732,11 +734,11 @@ Then the form runtime parity phases P1–P5 from §8.
 
 | Wave | Status | Done | Missing (see `.plans/backlog.md`) |
 |---|---|---|---|
-| **1: fields** | **Done** (2 types partial, 1 missing) | `app/field` (useField, FieldShell, form store, layered overrides, registry), `app/combobox`, `app/field-control` (type factory with "not supported" fallback), string, textarea, number, boolean, choice (select/radio/scale), reference, list, date, datetime, duration, email, url, phone, password, currency | HTML and journal fall back to a textarea; there is no time field (`glide_time`); no calendar popover (native inputs); phone has no country codes; `file_attachment` dictionary fields have no control; `conditions` isn't wired to the condition builder; there are no field decorations |
+| **1: fields** | **Done** (2 types partial) | `app/field` (useField, FieldShell, form store, layered overrides, registry), `app/combobox`, `app/field-control` (type factory with "not supported" fallback), string, textarea, number, boolean, choice (select/radio/scale), reference, list, date and datetime (typed in the user's format + calendar popover on host kit `components:calendar`), time (`glide_time`), duration, email, url, phone (E.164 with country codes), password, currency, conditions (condition builder), table name, field name; logic in `utilities:app/datetime` | HTML and journal fall back to a textarea; `file_attachment` dictionary fields have no control; there are no field decorations |
 | **2: catalog variables** | **Done** | `app/variable` (all 32 types), `useCatalogForm`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/catalog-item`, `app/catalog-picker`, `utilities:app/catalog`. Since 1.10 also catalog UI policies and client scripts (onSubmit can veto) | Requested-for/delegation UI; MRVS row policies and scripts; inline MRVS; MRVS row prices; custom/macro variables (notice only); cart, checkout and order guides (backlog by decision) |
 | **3: lists** | **Done** | `app/data-table` (RecordList, DataTable, Pagination, ColumnChooser, CellEditor, PointMenu), `app/condition-builder` (+ breadcrumbs, dot-walk picker), `utilities:app/list-data` (getListLayout, inline/bulk writes, personalization), `app/list-view`, `app/list-card`, related-list mode (`fixedQuery` / `relatedListName`), live refresh | Platform list UI actions and declarative list actions; group-by; saved filters / list menu; column header filters; inline edit of dot-walked, journal, HTML and glide_list fields; `onCellEdit` list client scripts |
-| **4: forms** | **Partial** | #24 `app/form` (useRecordForm, RecordForm, FormLayout, FormSection, view switcher, save via the Save UI action, conflict check, unsaved guard); #25 UI action bar; `app/record-form` widget | #24: annotations, collapsible sections, tabbed mode, formatters (placeholders); #26 record header is basic and related-list tabs are missing; #27 activity stream and journal composer; #28 attachments |
-| **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar` in the host kit; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/dialog`, `ui/tabs`, `ui/accordion`, `ui/alert`, `ui/empty-state`, `ui/skeleton`, `ui/avatar`, `ui/chip`, `app/highlighted-value` (config colours), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (MRVS dialog, data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
+| **4: forms** | **Partial** | #24 `app/form` (useRecordForm, RecordForm, FormLayout, save via the Save UI action, conflict check, unsaved guard, cog settings with view / layout, remembered view), `app/form-section` (collapsible), `app/form-tabs` (tabs mode), `app/form-annotation`, 2–4 column splits, per-field remote-change markers; #25 UI action bar; #26 record header (banner / bar / inline); `app/record-form` widget | #24: formatters (placeholders); #26 related-list tabs; #27 activity stream and journal composer; #28 attachments |
+| **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar`, `tabs`, `dialog` in the host kit; `app/confirm-dialog`, `app/field-dialog`; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/accordion`, `ui/alert`, `ui/empty-state`, `ui/skeleton`, `ui/avatar`, `ui/chip`, `app/highlighted-value` (config colours), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
 
 ### 12.2 Form runtime parity phases P1–P5 (§8)
 
@@ -744,17 +746,17 @@ Our forms use `GlideViewQuery_Query.uiView`, the platform's bootstrap. That's th
 
 | Phase | Item | Status | Notes |
 |---|---|---|---|
-| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **View rules are not honoured** (§12.3). Not yet: annotations, formatters (placeholders only), `formTabs` / related lists, collapsible sections, split column spans |
+| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **View rules are not honoured** (§12.3). Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Not yet: formatters (placeholders only), `formTabs` / related lists |
 | P1 | Field ACLs, dictionary read-only/mandatory | **Done** | `fieldStates` plus dictionary `canRead`/`canWrite`. The form is read-only when the view has no Save action. The server re-checks on save, because Save is a UI action |
 | P1 | Display BRs and `g_scratchpad` | **Done** | `ClientScriptingEnvironment_Globals.g_scratchpad` |
 | P2 | UI policies and actions | **Done** | Evaluated in the browser with the server's pre-evaluated terms; reverse-if-false, onLoad=false, run-scripts and last-writer-wins with scripts; catalog policies too. Not done: MRVS row policies, the `relatedList` action |
-| P2 | Client scripts | **Mostly done** | `utilities:app/gform` covers onLoad/onChange/onSubmit, g_form, g_user, g_scratchpad, GlideAjax, async GlideRecord, getMessage, g_modal alert/confirm and g_aw.openRecord. Gaps: `g_modal.showFields` (rejects), sync GlideRecord / `getXMLWait`, setSectionDisplay / show/hideRelatedList / addDecoration / enable/disableAttachments (no-ops), `onCellEdit`, MRVS row scripts |
+| P2 | Client scripts | **Mostly done** | `utilities:app/gform` covers onLoad/onChange/onSubmit, g_form, g_user, g_scratchpad, GlideAjax, async GlideRecord, getMessage, g_modal alert/confirm and g_aw.openRecord. Since 1.12/1.13: `g_modal.alert` / `confirm` / `showFields` on `app/confirm-dialog` / `app/field-dialog`, setSectionDisplay / getSectionNames, addDecoration / removeDecoration, and `createGForm` / `attachGForm` for any form store. Gaps: sync GlideRecord / `getXMLWait`, show/hideRelatedList and enable/disableAttachments (no-ops), `onCellEdit`, MRVS row scripts |
 | P2 | Data policies | **Partial** | Enforced on save, because Save is the platform UI action (BRs, data policies, ACLs), and the errors map to field messages. Unverified: whether data policies flagged "Use as UI policy on client" come back in `ClientScriptingEnvironment_Policies` |
 | P3 | UI actions (form) | **Done** | Server-evaluated form buttons and the context menu; client part via the shim (`gsftSubmit` → server); server part via `/api/now/ui/ui_action`; redirects stay in the portal. **List** UI actions: not done |
 | P3 | Declarative actions / UX form actions | **Not started** | Neither forms nor lists |
 | P4 | Dependent fields and reference qualifiers | **Done** | `referenceDataRetriever` / `choiceDataRetriever` with `serializedChanges` + `encodedRecord` |
 | P4 | Related lists, activity stream/journal, attachments | **Not started** | RecordList can already run as a related list; the bootstrap doesn't request `relatedLists` |
-| P5 | Live record updates | **Done** | AMB record watch: a clean form refreshes silently, a dirty one shows a banner; `sys_mod_count` conflict check with Reload/Overwrite; live list refresh with row highlights. Not done: per-field `remoteChange` markers; non-admin payload filtering is untested |
+| P5 | Live record updates | **Done** | AMB record watch: a clean form refreshes silently, a dirty one shows a banner; `sys_mod_count` conflict check with Reload/Overwrite; live list refresh with row highlights. Per-field markers: a dirty form marks exactly the fields someone else changed (Use theirs / Keep mine, `applyRemoteValues` on any store); clean fields update silently. Non-admin payload filtering is untested |
 
 ### 12.3 View rules: what `uiView` actually does (verified read-only, 2026-11-19)
 
@@ -786,36 +788,45 @@ GraphQL from a CDP tab, admin session:
 
 | Our component | Kind | Catalog entries it covers (match unless marked partial) |
 |---|---|---|
-| `components:app/field` | primitive | `sn-record-control-wrapper`, `sn-record-controls-internal-field-messages`, `now-loader` (Spinner); partial `now-label-value-stacked` / `-inline` |
+| `components:app/field` | primitive | `sn-record-control-wrapper`, `sn-record-controls-internal-field-messages`, `now-loader` (Spinner); partial `now-label-value-stacked` / `-inline`, `sn-interactive-decoration` (adornment slot + decorations; no reference preview) |
 | `components:app/combobox` | primitive | `now-select`, `now-record-typeahead`, `now-typeahead`, `sn-record-choice` |
 | `components:app/field-control` | primitive | the factory in `sn-record-input-connected` (type → control, "not supported" fallback) |
-| `components:app/string-field` | primitive | `now-input`, `sn-record-input(-connected)`, `now-record-ip-address`, `sn-record-auto-number-connected`; partial `now-color-selector`, `sn-record-tablename-connected`, `sn-record-fieldname-connected` |
+| `components:app/string-field` | primitive | `now-input`, `sn-record-input(-connected)`, `now-record-ip-address`, `sn-record-auto-number-connected`; partial `now-color-selector` |
 | `components:app/textarea-field` | primitive | `now-textarea`; partial (fallback) `sn-record-journal-input`, `now-record-html-editor`, `now-record-html-script`, `sn-record-code-editor` |
 | `components:app/number-field` | primitive | `now-record-number` |
 | `components:app/boolean-field` | primitive | `now-record-checkbox`, `now-toggle`; partial `now-checkbox` |
 | `components:app/choice-field` | primitive | `sn-record-choice-connected`, `now-radio-buttons`, `now-radio-group`, variable types 1, 3, 4, 5, 18, 22 |
 | `components:app/reference-field` | primitive | `sn-record-reference-connected`, variable type 8 (31 partial) |
 | `components:app/list-field` | primitive | `now-record-typeahead-multiple`, `sn-catalog-form-multiple-select`, variable type 21; partial `now-pill` |
-| `components:app/date-field`, `app/datetime-field` | primitive | partial `now-record-date-picker`, `now-date-time`; variable types 9, 10 |
+| `components:app/date-field`, `app/datetime-field` | primitive | `now-record-date-picker`, `now-date-time`; variable types 9, 10 |
+| `components:app/time-field` | primitive | `now-record-time` |
+| `components:app/conditions-field` | primitive | `sn-record-conditions-connected` |
+| `components:app/table-name-field`, `app/field-name-field` | primitive | `sn-record-tablename-connected`, `sn-record-fieldname-connected`; catalog variable type 40 (Table Name) |
+| `utilities:app/datetime` | utility | date/time logic behind the date, date-time and time fields: zones, the user's formats, format / parse |
 | `components:app/duration-field` | primitive | `sn-record-duration`, variable type 29 |
 | `components:app/email-field`, `app/url-field` | primitive | `sn-record-email`, `sn-record-url`, `now-input-url`, variable types 26, 27 |
-| `components:app/phone-field` | primitive | partial `now-input-phone`, `sn-record-phone-connected` |
+| `components:app/phone-field` | primitive | `now-input-phone`, `sn-record-phone-connected` |
 | `components:app/password-field` | primitive | `now-input-password`, `sn-catalog-form-masked-variable`, variable type 25 |
 | `components:app/currency-field` | primitive | `sn-record-currency-connected`, `now-currency-input`, `sn-record-price-connected` |
 | `components:app/attachment-variable` | primitive | `sn-catalog-form-attachment-variable`, variable type 33; partial `sn-record-file-attachment` |
 | `components:app/variable` | primitive | `sn-catalog-form-variable`, label / rich-text label / checkbox-group variables; partial `now-rich-text` (sanitizeHtml), custom variables 14/15/17 |
 | `components:app/variable-container` | primitive | `sn-catalog-form`, `sn-catalog-form-variable-section`, `sn-catalog-form-container-variable`, variable types 19/20/24 |
-| `components:app/mrvs` | primitive | partial `sn-catalog-form-multi-row-variable`, `sn-catalog-form-multi-row-form-modal`, MRVS |
-| `components:app/condition-builder` | primitive | `now-condition-builder(-connected)`, `now-predicate-builder`, `now-condition-builder-preview`, `now-filter-overview`, `now-dot-walk`, `now-filter*`; partial `sn-record-conditions-connected` |
+| `components:app/mrvs` | primitive | partial `sn-catalog-form-multi-row-variable`, `sn-catalog-form-multi-row-form-modal` (row editor on `components:dialog`), MRVS |
+| `components:app/condition-builder` | primitive | `now-condition-builder(-connected)`, `now-predicate-builder`, `now-condition-builder-preview`, `now-filter-overview`, `now-dot-walk`, `now-filter*` (the conditions field type is `app/conditions-field` on it) |
 | `components:app/data-table` | primitive | `now-record-list(-connected)`, `now-list`, `now-table`, `now-grid`, `now-pagination(-control)`, `now-record-list-filter-panel`, `now-record-list-header`, snapshot lists; partial `now-list-cell-editor-content`, `now-record-list-connected-related`, `sn-list-selector`, `sn-list-export-modal` |
-| `components:app/form` | primitive | `sn-form-data-connected`, `now-record-common-uiactionbar`; partial `now-record-form-connected`, `now-record-form-section-connected`, `now-record-form-section-column-layout`, `now-record-common-header`, `now-alert` |
+| `components:app/form` | primitive | `sn-form-data-connected`, `now-record-common-uiactionbar`, `now-record-form-section-column-layout`; partial `now-record-form-connected`, `now-record-common-header`, `now-alert` |
+| `components:app/form-section` | primitive | `now-record-form-section-connected` (collapsible heading on `components:collapsible`) |
+| `components:app/form-tabs` | primitive | sections as tabs on `components:tabs` (`now-tabs` for forms) |
+| `components:app/form-annotation` | primitive | `sn-record-annotation` |
+| `components:app/confirm-dialog` | primitive | `now-confirmation-message`, the dialog queue (`DialogOutlet`, `openDialog`), part of `sn-scripted-modal` |
+| `components:app/field-dialog` | primitive | `g_modal.showFields` modal (part of `sn-scripted-modal`) |
 | `utilities:app/graphql` | utility | form bootstrap (`uiView`), metadata, choices, reference search, UI action execute |
 | `utilities:app/list-data` | utility | `sn-record-list-data-broker` |
-| `utilities:app/gform` | utility | `sn-form-internal-client-scripting-environment`; partial `sn-scripted-modal`, `now-message` |
+| `utilities:app/gform` | utility | `sn-form-internal-client-scripting-environment`; partial `sn-scripted-modal` (showFrame), `now-message`; `createGForm` / `attachGForm` attach g_form to any form store |
 | `utilities:app/catalog` | utility | catalog data for `sn-catalog-form-connected`, price, delegation (no UI) |
 | `@portal/runtime` `useRecordWatch` / `useAmbChannel` | runtime | `sn-record-watcher` |
 | `@portal/runtime` `Link` | runtime | `now-text-link`, `sn-record-link` |
-| Host kit `components:button/card/badge/dropdown-menu/popover/sheet/tooltip/collapsible/icon/sonner/separator` | host | `now-button*`, `now-card*`, `now-badge`, `now-dropdown`, `now-flyout-menu`, `now-popover`, `now-sheet`, `now-tooltip`, `now-collapse`, `now-icon`, `now-alert-list`; partial `now-accordion`, `now-highlighted-value` |
+| Host kit `components:button/card/badge/dropdown-menu/popover/sheet/tooltip/collapsible/icon/sonner/separator/calendar` | host | `now-button*`, `now-card*`, `now-badge`, `now-dropdown`, `now-flyout-menu`, `now-popover`, `now-sheet`, `now-tooltip`, `now-collapse`, `now-icon`, `now-alert-list`, the date grid inside `now-record-date-picker`; partial `now-accordion`, `now-highlighted-value` |
 | Widgets `app/catalog-item`, `app/catalog-picker` | widget | `sn-catalog-form-connected`, `sn-catalog-price`, `sn-catalog-quantity`, `sn-catalog-description`; partial `sn-catalog-action`, `sn-search-combobox` |
 | Widgets `app/list-view`, `app/list-card`, `app/record-form` | widget | page-level `now-record-list-connected`, `now-record-form-connected` / partial `now-record-form-blob` |
 | Widgets `app/app-header`, `app/app-sidebar`, `nav-sidebar`, `site-footer` | widget | partial `now-breadcrumbs`, `now-contextual-sidebar`, `now-avatar`, `now-link-set` |

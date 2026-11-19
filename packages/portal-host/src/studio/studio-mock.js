@@ -450,6 +450,10 @@ export function handle(method, path, body) {
 			return delay(save(m[1] === 'themes' ? 'theme' : 'component', decodeURIComponent(m[2]), body || {}), 300);
 		}
 		if ((m = path.match(/^\/components\/([^/]+)\/check$/)) && method === 'POST') return delay(check(decodeURIComponent(m[1]), (body || {}).files), 120);
+		if ((m = path.match(/^\/components\/([^/]+)\/dependencies$/)) && method === 'GET') {
+			const c = find('component', decodeURIComponent(m[1]));
+			return delay({ component: { id: c.id, uniqueId: c.uniqueId, name: c.name, kind: c.kind }, build: c.build ? c.build.id : null, imports: [], importedBy: [] });
+		}
 		if ((m = path.match(/^\/builds\/([^/]+)\/preview$/)) && method === 'POST') return delay(previewOf(decodeURIComponent(m[1])));
 		throw apiError(404, 'not_found', `Mock studio API: no route for ${method} ${path}`);
 	} catch (error) {

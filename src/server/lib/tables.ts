@@ -14,6 +14,13 @@ export const T = {
     executionLog: 'x_312987_portal_execution_log',
     menu: 'x_312987_portal_menu',
     menuItem: 'x_312987_portal_menu_item',
+    /** User criteria m2m: "Available for" / "Not available for" per portal, page and menu item. */
+    portalUc: 'x_312987_portal_portal_uc',
+    portalUcNo: 'x_312987_portal_portal_uc_no',
+    pageUc: 'x_312987_portal_page_uc',
+    pageUcNo: 'x_312987_portal_page_uc_no',
+    itemUc: 'x_312987_portal_item_uc',
+    itemUcNo: 'x_312987_portal_item_uc_no',
 } as const
 
 export const SCOPE = 'x_312987_portal'

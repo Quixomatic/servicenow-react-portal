@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLayout } from '@portal/runtime'
+import { DialogOutlet } from 'components:app/confirm-dialog'
 import { Card, CardHeader, CardContent } from 'components:card'
 import { Button } from 'components:button'
 import { Badge } from 'components:badge'
@@ -232,7 +233,7 @@ function FormSettingsMenu(props: {
                         <DropdownMenuSubContent side="left" className="max-w-[min(18rem,calc(100vw-1rem))] min-w-48">
                             <DropdownMenuRadioGroup value={props.view} onValueChange={(v: string) => props.onViewChange && props.onViewChange(v === 'Default view' ? '' : String(v))}>
                                 {items.map((i) => (
-                                    <DropdownMenuRadioItem key={i.value} value={i.value} data-rp-view-option={i.value}>
+                                    <DropdownMenuRadioItem key={i.value} value={i.value} closeOnClick data-rp-view-option={i.value}>
                                         {i.label}
                                     </DropdownMenuRadioItem>
                                 ))}
@@ -247,10 +248,10 @@ function FormSettingsMenu(props: {
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent side="left" className="min-w-40">
                             <DropdownMenuRadioGroup value={props.presentation} onValueChange={(v: string) => props.onPresentationChange(v === 'tabs' ? 'tabs' : 'stacked')}>
-                                <DropdownMenuRadioItem value="stacked" data-rp-presentation="stacked">
+                                <DropdownMenuRadioItem value="stacked" closeOnClick data-rp-presentation="stacked">
                                     <Icon name="rows-3" aria-hidden="true" /> Stacked
                                 </DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="tabs" data-rp-presentation="tabs">
+                                <DropdownMenuRadioItem value="tabs" closeOnClick data-rp-presentation="tabs">
                                     <Icon name="panels-top-left" aria-hidden="true" /> Tabs
                                 </DropdownMenuRadioItem>
                             </DropdownMenuRadioGroup>
@@ -440,6 +441,8 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     )
     return (
         <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`}>
+            {/* g_modal (client scripts, UI actions) dialogs; only the page's first outlet renders. */}
+            <DialogOutlet />
             {slots ? (
                 <>
                     {slots.left ? slots.left(banner ? <BannerTitle form={form} /> : <SlotTitle form={form} />) : null}

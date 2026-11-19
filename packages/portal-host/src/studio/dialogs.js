@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Braces, FileCode2, FileJson2, FileText, LayoutPanelTop, Palette, Server, Settings2, SlidersHorizontal } from 'lucide-react';
-import { useStudio, virtualLabel } from './store';
+import { useStudio, virtualLabel, kindFilesFor } from './store';
 
 // ---- file icons -----------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ export function Dialogs({ studio }) {
 		<div className="rps-overlay" onMouseDown={(e) => e.target === e.currentTarget && close(null)}>
 			{dialog.type === 'prompt' ? <PromptDialog dialog={dialog} close={close} /> : null}
 			{dialog.type === 'confirm' ? <ConfirmDialog dialog={dialog} close={close} /> : null}
-			{dialog.type === 'newComponent' ? <NewComponentDialog dialog={dialog} close={close} /> : null}
+			{dialog.type === 'newComponent' ? <NewComponentDialog dialog={dialog} close={close} kindFiles={studio.get().kindFiles} /> : null}
 		</div>
 	);
 }
@@ -128,7 +128,7 @@ function PromptDialog({ dialog, close }) {
 	);
 }
 
-function NewComponentDialog({ close }) {
+function NewComponentDialog({ close, kindFiles }) {
 	const [name, setName] = useState('');
 	const [kind, setKind] = useState('widget');
 	const input = useRef(null);
@@ -147,9 +147,11 @@ function NewComponentDialog({ close }) {
 					<option value="widget">Widget</option>
 					<option value="layout">Layout</option>
 					<option value="block">Block</option>
+					<option value="primitive">Primitive</option>
 					<option value="utility">Utility</option>
 				</select>
 			</label>
+			<div className="hint" data-rps-new-kind-files="">Files: {kindFilesFor(kindFiles, kind).join(', ')}</div>
 			<div className="row">
 				<button className="rps-btn secondary" onClick={() => close(null)}>
 					Cancel

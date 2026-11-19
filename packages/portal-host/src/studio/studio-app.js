@@ -11,6 +11,7 @@ import { ensureStyle, styleTarget } from '#/runtime/styles';
 import { useAvailableHeight } from '#/runtime/use-available-height';
 import { createStudio, useStudio } from './store';
 import { STUDIO_CSS } from './studio-css';
+import { DEPENDENCIES_CSS } from './dependencies';
 import { useStudioTheme } from './theme';
 import { Toaster, toast } from 'sonner';
 import { createDesigner } from './designer/designer-store';
@@ -93,6 +94,10 @@ export default function StudioApp({ locationStore, navigate }) {
 	const loading = useStudio(studio, (s) => s.loading);
 	const loadError = useStudio(studio, (s) => s.loadError);
 	const [menu, setMenu] = useState(null);
+	// Remember recently opened components for the welcome screen.
+	useEffect(() => {
+		if (owner && owner.type === 'component' && owner.id) rememberRecent(owner.id);
+	}, [owner && owner.type, owner && owner.id]);
 	// allotment applies preferred sizes on its first layout, so it renders only once the body has
 	// a real size (Studio renders in its own async React root).
 	const [bodyEl, setBodyEl] = useState(null);
@@ -115,6 +120,7 @@ export default function StudioApp({ locationStore, navigate }) {
 		if (!target) return;
 		ensureStyle(target, 'studio:allotment', ALLOTMENT_CSS, 'widget');
 		ensureStyle(target, 'studio', STUDIO_CSS, 'widget');
+		ensureStyle(target, 'studio:deps', DEPENDENCIES_CSS, 'widget');
 	}, [target]);
 
 	// Catalog once; the recordId property picks the open component.
@@ -345,9 +351,46 @@ export default function StudioApp({ locationStore, navigate }) {
 	);
 }
 
+const RECENT_KEY = 'rps-recent-components';
+const RECENT_MAX = 5;
+
+function readRecent() {
+	try {
+		const list = JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]');
+		return Array.isArray(list) ? list.filter((x) => typeof x === 'string') : [];
+	} catch (e) {
+		return [];
+	}
+}
+
+function rememberRecent(id) {
+	try {
+		const next = [id].concat(readRecent().filter((x) => x !== id)).slice(0, 20);
+		window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+	} catch (e) {
+		/* storage unavailable */
+	}
+}
+
+/** Up to five components: recently opened first, then the most recently updated. */
+function recentComponents(components) {
+	const byId = new Map(components.map((c) => [c.id, c]));
+	const out = [];
+	for (const id of readRecent()) {
+		const c = byId.get(id);
+		if (c && out.indexOf(c) < 0) out.push(c);
+		if (out.length >= RECENT_MAX) return out;
+	}
+	const rest = components
+		.filter((c) => out.indexOf(c) < 0)
+		.slice()
+		.sort((a, b) => String(b.updatedOn || b.updated || '').localeCompare(String(a.updatedOn || a.updated || '')));
+	return out.concat(rest).slice(0, RECENT_MAX);
+}
+
 function Welcome({ studio, loading, error }) {
 	const catalog = useStudio(studio, (s) => s.catalog);
-	const recent = (catalog.components || []).slice(0, 12);
+	const recent = recentComponents(catalog.components || []);
 	const kbd = (k) => <span className="rps-kbd">{k}</span>;
 	return (
 		<div className="rps-welcome" data-rps-welcome="">
@@ -357,19 +400,19 @@ function Welcome({ studio, loading, error }) {
 			{error ? <div style={{ color: 'var(--rps-error)' }}>{String(error.message || error)}</div> : null}
 			<div style={{ display: 'flex', gap: 8 }}>
 				<button
-					className="rps-btn"
+					className="rps-btn rps-btn-icon"
 					onClick={async () => {
 						const value = await ask(studio, { type: 'newComponent' });
 						if (value) studio.createComponent(value.name, value.kind);
 					}}
 				>
-					<Plus size={13} style={{ verticalAlign: '-2px' }} /> New component
+					<Plus size={13} /> New component
 				</button>
 			</div>
 			{recent.length ? (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 260 }}>
-					<div className="rps-group-label" style={{ paddingLeft: 0 }}>
-						Components
+				<div className="rps-welcome-col" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+					<div className="rps-group-label" style={{ textAlign: 'left' }}>
+						Recent
 					</div>
 					{recent.map((c) => (
 						<button key={c.id} className="rps-option" style={{ borderRadius: 4 }} onClick={() => guardedOpen(studio, { type: 'component', id: c.id, name: c.name })} data-rps-welcome-open={c.id}>
@@ -379,25 +422,21 @@ function Welcome({ studio, loading, error }) {
 					))}
 				</div>
 			) : null}
-			<div className="keys">
-				<span>Save</span>
-				<span>{kbd('Ctrl+S')}</span>
-				<span>Quick open file</span>
-				<span>{kbd('Ctrl+P')}</span>
-				<span>Switch component</span>
-				<span>{kbd('Ctrl+O')}</span>
-				<span>Split editor</span>
-				<span>{kbd('Ctrl+\\')}</span>
-				<span>Close tab</span>
-				<span>{kbd('Alt+W')}</span>
-				<span>Next / previous tab</span>
-				<span>
-					{kbd('Ctrl+Alt+→')} {kbd('Ctrl+Alt+←')}
-				</span>
-				<span>Toggle panel / explorer</span>
-				<span>
-					{kbd('Ctrl+J')} {kbd('Ctrl+B')}
-				</span>
+			<div className="keys rps-welcome-col">
+				{[
+					['Save', ['Ctrl+S']],
+					['Quick open file', ['Ctrl+P']],
+					['Switch component', ['Ctrl+O']],
+					['Split editor', ['Ctrl+\\']],
+					['Close tab', ['Alt+W']],
+					['Next / previous tab', ['Ctrl+Alt+→', 'Ctrl+Alt+←']],
+					['Toggle panel / explorer', ['Ctrl+J', 'Ctrl+B']],
+				].map(([label, keys]) => (
+					<React.Fragment key={label}>
+						<span>{label}</span>
+						<span className="keys-combo">{keys.map((k) => <React.Fragment key={k}>{kbd(k)}</React.Fragment>)}</span>
+					</React.Fragment>
+				))}
 			</div>
 		</div>
 	);

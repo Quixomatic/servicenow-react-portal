@@ -80,7 +80,7 @@ export function ConditionBuilder(props: ConditionBuilderProps) {
     const termCount = useMemo(() => model.groups.reduce((n, g) => n + g.clauses.reduce((k, c) => k + c.length, 0), 0), [model])
 
     return (
-        <div className={cx('rpl-cb flex flex-col gap-3', props.className)} role="group" aria-label="Filter conditions">
+        <div className={cx('rpl-cb @container flex flex-col gap-3', props.className)} role="group" aria-label="Filter conditions">
             {model.groups.map((g, gi) => (
                 <section key={gi} className="flex flex-col gap-2 rounded-lg border border-border bg-card/50 p-3" aria-label={gi === 0 ? 'Conditions' : `Or, criteria set ${gi + 1}`}>
                     <div className="flex items-center justify-between gap-2">
@@ -193,7 +193,7 @@ function ConditionRow(props: {
     }, [info && info.path, ops])
     const label = info ? info.label : term.field || 'new condition'
     return (
-        <div className="rpl-cb-row grid items-start gap-2 sm:grid-cols-[3rem_minmax(10rem,1.2fr)_minmax(9rem,0.9fr)_minmax(10rem,1.6fr)_auto]" role="group" aria-label={`${props.position}: ${label}`} id={uid}>
+        <div className="rpl-cb-row grid items-start gap-2 @2xl:grid-cols-[3rem_minmax(10rem,1.2fr)_minmax(9rem,0.9fr)_minmax(10rem,1.6fr)_auto]" role="group" aria-label={`${props.position}: ${label}`} id={uid}>
             <span className={cx('pt-1.5 text-xs font-medium uppercase', props.join === 'or' ? 'text-primary' : 'text-muted-foreground')}>{props.join || ''}</span>
             <FieldPicker
                 table={table}

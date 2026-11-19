@@ -473,7 +473,12 @@ export function mainRegionOf(layoutRef) {
 
 /** Provides the layout context and renders the layout component. Memoized on `value`. */
 export const LayoutHost = memo(function LayoutHost({ value }) {
-	const layoutPlacement = useMemo(() => ({ id: 'layout', component: value.layout, options: EMPTY_OPTIONS }), [value.layout]);
+	// id 'layout' is the designer's marker; rootId is the server root for the layout's own script
+	// and for widgets it embeds (authorized against the page's effective layout).
+	const layoutPlacement = useMemo(
+		() => ({ id: 'layout', rootId: value.layout && value.layout.id ? `layout:${value.layout.id}` : '', component: value.layout, options: EMPTY_OPTIONS }),
+		[value.layout]
+	);
 	return (
 		<LayoutContext.Provider value={value}>
 			<WidgetErrorBoundary key={value.layout ? value.layout.id : 'none'} label="layout" fallback={(error) => <LayoutFailure error={error} />}>
@@ -488,6 +493,17 @@ function LayoutSlot({ placement }) {
 	// Only the layout reads the options context: an options change re-renders the layout, never
 	// remounts it, and never re-renders regions or widgets (they are memoized).
 	const layoutOptions = useLayoutOptions();
+	// An on-load layout's server script initializes once per mount, in the same batched request
+	// as client-declared embeds (instance-init requestInstance). useComponent() reads it by rootId.
+	const initStore = useInstanceInit();
+	const portal = useContext(PortalContext);
+	const rootId = placement.rootId || '';
+	const serverMode = placement.component ? placement.component.serverMode : 'none';
+	useLayoutEffect(() => {
+		if (!initStore || !initStore.requestInstance || !rootId || serverMode !== 'on-load') return;
+		initStore.requestInstance(portal ? portal.slug : '', portal && portal.getPath ? portal.getPath() : '', rootId, requestContextOf(portal && portal.locationStore ? portal.locationStore.get() : null));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [initStore, rootId, serverMode]);
 	if (loaded.status === 'error' || loaded.status === 'empty') {
 		return <LayoutFailure error={loaded.error || 'Layout has no build'} />;
 	}
@@ -560,7 +576,8 @@ export function useComponent(hookOptions) {
 	const initStore = useInstanceInit();
 	const placement = (instance && instance.placement) || {};
 	const component = (instance && instance.component) || {};
-	const instanceId = placement.id || '';
+	// A layout's instance id is its server root ('layout:<component sys_id>').
+	const instanceId = (!placement.embed && placement.rootId) || placement.id || '';
 	const record = useInstanceRecord(initStore, instanceId);
 	const entry = record.entry;
 	const [local, setLocal] = useState({ set: false, data: undefined, error: null });

@@ -9,7 +9,7 @@ import { parseRegionSpec, resolveRegions, RegionSpecEntry } from '../registry/bl
 import { currentUser } from '../security/user.ts'
 import { assembleMenus, resolveMenus, ManifestMenu, MenuResolveContext } from './menu-service.ts'
 import { createServerApi } from './server-api.ts'
-import { requirePortalAccess, canAccessPageConfig, PageAccessConfig, pageAccessConfig } from '../security/access.ts'
+import { requirePortalAccess, canAccessManifestPage, PageAccessConfig, pageAccessConfig } from '../security/access.ts'
 import type {
     BootstrapData,
     ComponentRef,
@@ -258,7 +258,7 @@ export function bootstrap(slug: string): { data: BootstrapData; release: Resolve
             layoutOptions: effectiveLayoutOptions(manifest, manifest.defaultLayoutId, null),
             regions: manifest.regions,
             pages: manifest.pages
-                .filter((p) => canAccessPageConfig(p.access))
+                .filter((p) => canAccessManifestPage(manifest.portal.id, p))
                 .map((p) => ({ id: p.id, route: p.route, title: p.title })),
             menus: resolveMenus(manifest.menus, menuContext(manifest, null)),
         },
@@ -330,7 +330,8 @@ export function resolvePage(slug: string, path: string): { data: ResolvePageData
     const { manifest, release } = currentManifest(portal)
     const match = matchPage(manifest, path)
     if (!match) throw rpError(404, 'page_not_found', `No page matches "${path || '/'}"`)
-    if (!canAccessPageConfig(match.page.access)) throw notFound('Page not found')
+    // Legacy roles and user criteria: an inaccessible page is a plain 404, like an unknown one.
+    if (!canAccessManifestPage(manifest.portal.id, match.page)) throw notFound('Page not found')
     const layoutId = match.page.layoutId || manifest.defaultLayoutId
     return {
         release,

@@ -158,6 +158,77 @@ export default function RuntimeTests() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instanceId, serverModel])
 
+    // Lazy embed: a clipped 1px box hides it until the box is scrolled; it must stay deferred
+    // (no initialize) and turn ready once it's in view.
+    const lazyBox = useRef<HTMLDivElement>(null)
+    const [lazyEmbed, setLazyEmbed] = useState<any>(null)
+    useEffect(() => {
+        if (!instanceId) return undefined
+        const id = `${instanceId}~rt-lazy`
+        const statusOf = () => {
+            const list = ((window as any).__REACT_PORTAL__?.embeds?.list || []) as any[]
+            const e = list.find((x) => x.id === id)
+            return e ? e.status : 'none'
+        }
+        let poll: any = null
+        const start = setTimeout(() => {
+            const before = statusOf()
+            if (lazyBox.current) lazyBox.current.scrollTop = lazyBox.current.scrollHeight
+            let n = 0
+            poll = setInterval(() => {
+                const after = statusOf()
+                n += 1
+                if (after === 'ready' || after === 'error' || n > 60) {
+                    clearInterval(poll)
+                    setLazyEmbed({ before, after })
+                }
+            }, 250)
+        }, 1500)
+        return () => {
+            clearTimeout(start)
+            if (poll) clearInterval(poll)
+        }
+    }, [instanceId])
+
+    // Layout-rooted embeds: Server Clock under the Embed Test Layout, which is the effective layout
+    // of the page embeds/layout only. From this page's point of view, ask for both pages.
+    const [testLayout, setTestLayout] = useState<string | null>(null)
+    useEffect(() => {
+        if (!testLayout && (data as any)?.testLayout) setTestLayout((data as any).testLayout)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data])
+    const [layoutEmbed, setLayoutEmbed] = useState<any>(null)
+    useEffect(() => {
+        if (!testLayout) return
+        const root = `layout:${testLayout}`
+        const cid = `${root}~rt-layout`
+        const post = (url: string, body: any) =>
+            fetch(url, { method: 'POST', credentials: 'same-origin', headers: { ...utils.getHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async (r) => ({
+                status: r.status,
+                data: ((await r.json().catch(() => null)) || {}).result?.data,
+            }))
+        const init = (page: string) =>
+            post('/api/x_312987_portal/rp/instances/initialize', {
+                portal: portal?.slug,
+                page,
+                instances: [{ id: cid, placement: root, path: ['app/server-clock'], keys: ['rt-layout'], options: { title: 'Runtime Tests (layout root)' } }],
+            }).then((r) => (r.data?.instances || {})[cid] || { status: r.status })
+        const exec = (page: string) =>
+            post(`/api/x_312987_portal/rp/instances/${encodeURIComponent(root)}/execute`, { portal: portal?.slug, page, action: 'get', embed: { path: ['app/server-clock'], keys: ['rt-layout'], options: {} } })
+        Promise.all([init('embeds/layout'), exec('embeds/layout'), init('tests'), exec('tests')]).then(
+            ([okInit, okExec, badInit, badExec]: any[]) =>
+                setLayoutEmbed({
+                    cid,
+                    okInit: { ok: okInit.ok, instanceId: okInit.data?.instanceId, error: okInit.error?.code },
+                    okExec: { status: okExec.status, instanceId: okExec.data?.instanceId },
+                    badInit: { ok: badInit.ok, status: badInit.error?.status, code: badInit.error?.code },
+                    badExec: { status: badExec.status },
+                }),
+            (e: Error) => setLayoutEmbed({ error: e.message }),
+        )
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [testLayout])
+
     const sp = (data as any)?.sp
     const checks: Check[] = [
         check('useUser: current user', !!user.sysId && !!user.name, `${user.name} (${user.userName}), ${user.roles.length} roles`),
@@ -210,6 +281,17 @@ export default function RuntimeTests() {
         ),
         check('useRecordWatch: released after unmount', probe.released, probe),
         check('embed: non-imported widget → 404', embedDenied ? embedDenied.status === 404 : null, embedDenied || '…'),
+        check('embed: lazy waits until in view', lazyEmbed ? lazyEmbed.before === 'deferred' && lazyEmbed.after === 'ready' : null, lazyEmbed || '…'),
+        check(
+            'layout embed: effective layout runs',
+            layoutEmbed ? !layoutEmbed.error && layoutEmbed.okInit.ok === true && layoutEmbed.okInit.instanceId === layoutEmbed.cid && layoutEmbed.okExec.status === 200 && layoutEmbed.okExec.instanceId === layoutEmbed.cid : null,
+            layoutEmbed ? { okInit: layoutEmbed.okInit, okExec: layoutEmbed.okExec, error: layoutEmbed.error } : '…',
+        ),
+        check(
+            "layout embed: other page's layout → 404",
+            layoutEmbed ? !layoutEmbed.error && layoutEmbed.badInit.ok === false && layoutEmbed.badInit.status === 404 && layoutEmbed.badExec.status === 404 : null,
+            layoutEmbed ? { badInit: layoutEmbed.badInit, badExec: layoutEmbed.badExec, error: layoutEmbed.error } : '…',
+        ),
     ]
     const passed = checks.filter((c) => c.status === 'pass').length
     const failed = checks.filter((c) => c.status === 'fail').length
@@ -243,6 +325,11 @@ export default function RuntimeTests() {
                 </div>
             </CardHeader>
             {probe.mounted && user.userName ? <ProbeWatch query={`user_name=${user.userName}`} onStatus={onProbe} /> : null}
+            {/* Lazy-embed probe: clipped to 1px, scrolled into view by the lazy check. */}
+            <div ref={lazyBox} aria-hidden="true" inert style={{ height: 1, overflow: 'hidden' }} data-rt-lazy-box="">
+                <div style={{ height: 400 }} />
+                <ServerClock lazy={{ rootMargin: '0px', height: 40 }} embedKey="rt-lazy" options={{ title: 'Runtime Tests (lazy)' }} />
+            </div>
             <CardContent className="px-0">
                 <div className="divide-y divide-border">
                     {checks.map((c) => (

@@ -20,8 +20,14 @@ import { PasswordField } from 'components:app/password-field'
 import { CurrencyField } from 'components:app/currency-field'
 import { DurationField } from 'components:app/duration-field'
 import { ListField } from 'components:app/list-field'
+import { TimeField } from 'components:app/time-field'
+import { ConditionsField } from 'components:app/conditions-field'
+import { TableNameField } from 'components:app/table-name-field'
+import { FieldNameField } from 'components:app/field-name-field'
 
 type Props = { options?: { table?: string; sysId?: string; query?: string } }
+
+type BoundField = { name: string; props?: Record<string, unknown>; wide?: boolean }
 
 const PRIORITY = [
     { value: '1', label: '1 - Critical' },
@@ -31,7 +37,7 @@ const PRIORITY = [
 ]
 
 /** Fields of the bound form, rendered through the factory (app/field-control). */
-const BOUND_FIELDS: { name: string; props?: Record<string, unknown>; wide?: boolean }[] = [
+const BOUND_FIELDS: BoundField[] = [
     { name: 'number' },
     { name: 'state' },
     { name: 'caller_id' },
@@ -50,9 +56,46 @@ const BOUND_FIELDS: { name: string; props?: Record<string, unknown>; wide?: bool
     { name: 'description', wide: true },
 ]
 
+/** Records with the field types incident doesn't have (time, E.164 phone, table / field names, conditions). */
+const MORE_TYPES: { key: string; label: string; table: string; query: string; fields: BoundField[]; note: string }[] = [
+    {
+        key: 'conditions',
+        label: 'Table + conditions',
+        table: 'sys_ui_policy',
+        query: 'table=incident^conditionsISNOTEMPTY^ORDERBYDESCsys_updated_on',
+        fields: [{ name: 'short_description', wide: true }, { name: 'table', props: { readOnly: false } }, { name: 'conditions', wide: true, props: { readOnly: false } }],
+        note: 'A UI policy: Conditions depends on Table (table_name), so the builder lists the chosen table\'s fields. Platform UI policies are read-only from this app\'s scope, so the demo unlocks Table and Conditions.',
+    },
+    {
+        key: 'field_name',
+        label: 'Table + field name',
+        table: 'sys_translated_text',
+        query: 'ORDERBYDESCsys_updated_on',
+        fields: [{ name: 'tablename' }, { name: 'fieldname' }, { name: 'language' }, { name: 'value' }],
+        note: 'A translated text: Field name (field_name) depends on Table name, and follows it when it changes.',
+    },
+    {
+        key: 'time',
+        label: 'Time',
+        table: 'sysauto_script',
+        query: 'run_type=daily^ORDERBYname',
+        fields: [{ name: 'name', wide: true }, { name: 'run_type' }, { name: 'run_time', props: { visible: true } }],
+        note: 'A daily scheduled job: Time (glide_time) is shown and edited in your time zone. The form hides it for some jobs; the demo forces it visible.',
+    },
+    {
+        key: 'e164',
+        label: 'Phone (E.164)',
+        table: 'sn_employee_profile',
+        query: 'work_phoneISNOTEMPTY^ORDERBYDESCsys_updated_on',
+        fields: [{ name: 'user', wide: true }, { name: 'work_phone' }, { name: 'work_mobile' }],
+        note: 'An employee profile: phone_number_e164 with the country codes from the form layout.',
+    },
+]
+
 /**
  * Field primitives demo: every primitive standalone (local state), then a real record bound in a
- * form context (one GraphQL bootstrap; fields bind by name through the type factory).
+ * form context (one GraphQL bootstrap; fields bind by name through the type factory), then more
+ * records for the types incident doesn't have.
  */
 export default function FieldDemo({ options = {} }: Props) {
     const table = options.table || 'incident'
@@ -65,7 +108,8 @@ export default function FieldDemo({ options = {} }: Props) {
     return (
         <div className="rp-field-demo flex flex-col gap-6">
             <Standalone />
-            {sysId ? <Bound table={table} sysId={sysId} /> : <Card><CardContent className="text-sm text-muted-foreground">{pick.isLoading ? 'Finding a record…' : 'No record to bind.'}</CardContent></Card>}
+            {sysId ? <Bound table={table} sysId={sysId} fields={BOUND_FIELDS} /> : <Card><CardContent className="text-sm text-muted-foreground">{pick.isLoading ? 'Finding a record…' : 'No record to bind.'}</CardContent></Card>}
+            <MoreTypes />
         </div>
     )
 }
@@ -109,13 +153,20 @@ function Standalone() {
                     <ListField {...common('watch_list')} table="incident" label="List (watch list)" />
                     <DateField {...common('due')} label="Date" defaultValue="2026-12-01" />
                     <DateTimeField {...common('when')} label="Date/time" defaultValue="2026-11-19 15:30:00" />
+                    <TimeField {...common('at')} label="Time" defaultValue="09:30:00" hint="Typed (9, 930, 9:30 pm) or picked; your time zone" />
                     <DurationField {...common('effort')} label="Duration" defaultValue="1970-01-02 03:30:00" />
                     <EmailField {...common('email')} label="Email" defaultValue="abel.tuter@example.com" />
                     <UrlField {...common('site')} label="URL" placeholder="servicenow.com" />
                     <PhoneField {...common('phone')} label="Phone" defaultValue="+1 555 0100" />
+                    <PhoneField {...common('phone_e164')} label="Phone (E.164)" e164 defaultValue="+442079460958" hint="Country code + number; stored as E.164" />
+                    <TableNameField {...common('std_table')} label="Table name" defaultValue="incident" />
+                    <FieldNameField {...common('std_field')} label="Field name" fieldTable={(values.std_table && values.std_table.value) || 'incident'} defaultValue="priority" hint="Columns of the table above" />
                     <PasswordField {...common('secret')} label="Password" confirm />
                     <div className="md:col-span-2">
                         <TextareaField {...common('notes')} label="Textarea" hint="Grows with its content; Ctrl+Enter commits" maxLength={500} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <ConditionsField {...common('std_conditions')} label="Conditions" conditionsTable={(values.std_table && values.std_table.value) || 'incident'} defaultValue="active=true^priority=1" hint="On the table chosen above" />
                     </div>
                 </div>
                 <ValuesTable values={values} />
@@ -152,7 +203,38 @@ function ValuesTable({ values }: { values: Record<string, { value: string; displ
     )
 }
 
-function Bound({ table, sysId }: { table: string; sysId: string }) {
+function MoreTypes() {
+    const [key, setKey] = useState(MORE_TYPES[0].key)
+    const target = MORE_TYPES.find((t) => t.key === key) || MORE_TYPES[0]
+    const pick = useGraphQL(
+        `query rpDemoPickMore($q: String) { GlideRecord_Query { ${target.table}(queryConditions: $q, pagination: { limit: 1 }) { _results { sys_id { value } } } } }`,
+        { q: target.query },
+        { staleTime: 5 * 60_000 },
+    )
+    const rows = pick.data && pick.data.GlideRecord_Query && pick.data.GlideRecord_Query[target.table] ? pick.data.GlideRecord_Query[target.table]._results : []
+    const sysId = rows && rows[0] ? rows[0].sys_id.value : ''
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="More field types">
+                <span className="mr-1 text-sm font-medium">More types, bound:</span>
+                {MORE_TYPES.map((t) => (
+                    <Button key={t.key} variant={t.key === key ? 'default' : 'outline'} size="sm" aria-pressed={t.key === key} onClick={() => setKey(t.key)}>
+                        {t.label}
+                    </Button>
+                ))}
+            </div>
+            {sysId ? (
+                <Bound key={`${target.table}:${sysId}`} table={target.table} sysId={sysId} fields={target.fields} description={target.note} />
+            ) : (
+                <Card>
+                    <CardContent className="text-sm text-muted-foreground">{pick.isLoading ? 'Finding a record…' : pick.error ? (pick.error as Error).message : `No ${target.table} record to bind.`}</CardContent>
+                </Card>
+            )}
+        </div>
+    )
+}
+
+function Bound({ table, sysId, fields, description }: { table: string; sysId: string; fields: BoundField[]; description?: string }) {
     const form = useForm({ table, sysId })
     const [layout, setLayout] = useState<FieldLayout>('vertical')
     return (
@@ -165,7 +247,7 @@ function Bound({ table, sysId }: { table: string; sysId: string }) {
                                 Bound to <RecordNumber /> <span className="font-normal text-muted-foreground">({table})</span>
                             </CardTitle>
                             <CardDescription>
-                                One GraphQL formLayout request: values, display values, server field states and metadata. Fields bind by name through the type factory. Subcategory and Assigned to depend on Category and Assignment group. Nothing is saved.
+                                {description ? `${description} Nothing is saved.` : 'One GraphQL formLayout request: values, display values, server field states and metadata. Fields bind by name through the type factory. Subcategory and Assigned to depend on Category and Assignment group. Nothing is saved.'}
                             </CardDescription>
                         </div>
                         <Button variant="outline" size="sm" aria-pressed={layout === 'horizontal'} onClick={() => setLayout(layout === 'vertical' ? 'horizontal' : 'vertical')}>
@@ -184,7 +266,7 @@ function Bound({ table, sysId }: { table: string; sysId: string }) {
                         </p>
                     ) : (
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
-                            {BOUND_FIELDS.map((f) => (
+                            {fields.map((f) => (
                                 <div key={f.name} className={f.wide ? 'md:col-span-2' : ''}>
                                     <FieldControl name={f.name} layout={layout} {...(f.props || {})} />
                                 </div>
@@ -200,7 +282,10 @@ function Bound({ table, sysId }: { table: string; sysId: string }) {
 
 function RecordNumber() {
     const n = useFormValue('number')
-    return <span>{n || '…'}</span>
+    const name = useFormValue('name')
+    const short = useFormValue('short_description')
+    const label = n || name || short
+    return <span>{label ? (String(label).length > 48 ? String(label).slice(0, 47) + '…' : label) : 'a record'}</span>
 }
 
 function FormBar({ form }: { form: Form }) {

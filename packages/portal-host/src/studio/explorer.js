@@ -33,6 +33,7 @@ export default function Explorer({ studio, onMenu }) {
 	const folders = useStudio(studio, (s) => s.folders);
 	const dirty = useStudio(studio, (s) => s.dirty);
 	const owner = useStudio(studio, (s) => s.owner);
+	const kind = useStudio(studio, (s) => (s.savedMeta && s.savedMeta.kind) || 'widget');
 	const problems = useStudio(studio, (s) => s.problems);
 	const activePath = useStudio(studio, (s) => {
 		const g = L.findGroup(s.layout, s.activeGroup);
@@ -111,7 +112,7 @@ export default function Explorer({ studio, onMenu }) {
 		onMenu({ x: e.clientX, y: e.clientY, items });
 	};
 
-	const fileRow = (path, depth, label, desc, isVirtual) => (
+	const fileRow = (path, depth, label, desc, isVirtual, unused) => (
 		<div
 			key={path}
 			className={'rps-row' + (activePath === path ? ' selected focused' : '') + (severity[path] === 'error' ? ' err' : severity[path] === 'warning' ? ' warn' : '')}
@@ -122,13 +123,15 @@ export default function Explorer({ studio, onMenu }) {
 			draggable
 			onDragStart={(e) => startFileDrag(e, path, null)}
 			onDragEnd={endFileDrag}
-			title={path}
+			title={unused ? `${path}: not used by ${kind} components (x_312987_portal.studio.kind_files). Shown because it still has content; empty it and save to remove it.` : path}
 			data-rps-file={path}
+			data-rps-unused={unused ? '' : undefined}
 		>
 			<span style={{ width: 16 }} />
 			<FileIcon path={path} />
 			<span className="label">{label}</span>
 			{desc ? <span className="desc">{desc}</span> : null}
+			{unused ? <span className="rps-badge-unused">Not used by {kind}</span> : null}
 			{dirty[path] ? <span className="dirty" /> : null}
 		</div>
 	);
@@ -173,7 +176,7 @@ export default function Explorer({ studio, onMenu }) {
 					<div>
 						{virtual.map((f) => {
 							const v = virtualLabel(f.path);
-							return fileRow(f.path, 0, v ? v.label : f.path, v ? f.path : null, true);
+							return fileRow(f.path, 0, v ? v.label : f.path, v ? f.path : null, true, !!f.unused);
 						})}
 					</div>
 				) : null}

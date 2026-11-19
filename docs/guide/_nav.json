@@ -1,0 +1,326 @@
+{
+    "title": "React Portal",
+    "description": "Developer, admin and maintainer guide for React Portal, a Service Portal successor on ServiceNow Next Experience.",
+    "sections": [
+        {
+            "title": "Introduction",
+            "slug": "introduction",
+            "pages": [
+                {
+                    "title": "Introduction",
+                    "path": "index.md"
+                }
+            ]
+        },
+        {
+            "title": "Getting started",
+            "slug": "getting-started",
+            "pages": [
+                {
+                    "title": "UI Builder setup",
+                    "path": "getting-started/ui-builder-setup.md"
+                },
+                {
+                    "title": "Demo portals",
+                    "path": "getting-started/demo-portals.md"
+                },
+                {
+                    "title": "Your first widget",
+                    "path": "getting-started/first-widget.md"
+                }
+            ]
+        },
+        {
+            "title": "Concepts",
+            "slug": "concepts",
+            "pages": [
+                {
+                    "title": "Portals",
+                    "path": "concepts/portals.md"
+                },
+                {
+                    "title": "Themes",
+                    "path": "concepts/themes.md"
+                },
+                {
+                    "title": "Pages and routes",
+                    "path": "concepts/pages-and-routes.md"
+                },
+                {
+                    "title": "Layouts",
+                    "path": "concepts/layouts.md"
+                },
+                {
+                    "title": "Placements and blocks",
+                    "path": "concepts/placements-and-blocks.md"
+                },
+                {
+                    "title": "Component kinds",
+                    "path": "concepts/component-kinds.md"
+                },
+                {
+                    "title": "Record imports",
+                    "path": "concepts/record-imports.md"
+                },
+                {
+                    "title": "Builds, releases and manifests",
+                    "path": "concepts/builds-and-releases.md"
+                },
+                {
+                    "title": "Content width",
+                    "path": "concepts/content-width.md"
+                },
+                {
+                    "title": "Menus",
+                    "path": "concepts/menus.md"
+                },
+                {
+                    "title": "User criteria",
+                    "path": "concepts/user-criteria.md"
+                }
+            ]
+        },
+        {
+            "title": "Authoring components",
+            "slug": "authoring",
+            "pages": [
+                {
+                    "title": "Client script (main.tsx)",
+                    "path": "authoring/client-script.md"
+                },
+                {
+                    "title": "Styling",
+                    "path": "authoring/styling.md"
+                },
+                {
+                    "title": "Server script (server.js)",
+                    "path": "authoring/server-script.md"
+                },
+                {
+                    "title": "Options",
+                    "path": "authoring/options.md"
+                },
+                {
+                    "title": "Regions (regions.json)",
+                    "path": "authoring/regions.md"
+                },
+                {
+                    "title": "Embedded widgets",
+                    "path": "authoring/embedded-widgets.md"
+                }
+            ]
+        },
+        {
+            "title": "Runtime API",
+            "slug": "runtime-api",
+            "pages": [
+                {
+                    "title": "Runtime API overview",
+                    "path": "runtime-api/overview.md"
+                },
+                {
+                    "title": "Server calls (useServer)",
+                    "path": "runtime-api/server-calls.md"
+                },
+                {
+                    "title": "Portal and location",
+                    "path": "runtime-api/portal-and-location.md"
+                },
+                {
+                    "title": "Layout and navigation",
+                    "path": "runtime-api/layout-and-navigation.md"
+                },
+                {
+                    "title": "Theme",
+                    "path": "runtime-api/theme.md"
+                },
+                {
+                    "title": "User, properties and utilities",
+                    "path": "runtime-api/utilities.md"
+                },
+                {
+                    "title": "Table data",
+                    "path": "runtime-api/table-data.md"
+                },
+                {
+                    "title": "Live updates",
+                    "path": "runtime-api/live-updates.md"
+                },
+                {
+                    "title": "Host kit",
+                    "path": "runtime-api/host-kit.md"
+                }
+            ]
+        },
+        {
+            "title": "Server API",
+            "slug": "server-api",
+            "pages": [
+                {
+                    "title": "$sp / $rp server API",
+                    "path": "server-api/sp-api.md"
+                },
+                {
+                    "title": "ReactPortal Script Include",
+                    "path": "server-api/script-include.md"
+                }
+            ]
+        },
+        {
+            "title": "Primitives and utilities",
+            "slug": "primitives",
+            "pages": [
+                {
+                    "title": "Primitives overview",
+                    "path": "primitives/overview.md"
+                },
+                {
+                    "title": "Fields",
+                    "path": "primitives/fields.md"
+                },
+                {
+                    "title": "Catalog variables",
+                    "path": "primitives/catalog-variables.md"
+                },
+                {
+                    "title": "Lists",
+                    "path": "primitives/lists.md"
+                },
+                {
+                    "title": "Forms",
+                    "path": "primitives/forms.md"
+                },
+                {
+                    "title": "Form runtime",
+                    "path": "primitives/form-runtime.md"
+                },
+                {
+                    "title": "GraphQL utility",
+                    "path": "primitives/graphql.md"
+                },
+                {
+                    "title": "Header slots",
+                    "path": "primitives/header-slots.md"
+                }
+            ]
+        },
+        {
+            "title": "REST APIs",
+            "slug": "rest-api",
+            "pages": [
+                {
+                    "title": "REST conventions",
+                    "path": "rest-api/conventions.md"
+                },
+                {
+                    "title": "Runtime REST API",
+                    "path": "rest-api/runtime.md"
+                },
+                {
+                    "title": "Studio REST API",
+                    "path": "rest-api/studio.md"
+                }
+            ]
+        },
+        {
+            "title": "Studio",
+            "slug": "studio",
+            "pages": [
+                {
+                    "title": "Studio overview",
+                    "path": "studio/overview.md"
+                },
+                {
+                    "title": "Code editor",
+                    "path": "studio/code-editor.md"
+                },
+                {
+                    "title": "Page designer",
+                    "path": "studio/page-designer.md"
+                },
+                {
+                    "title": "Menus activity",
+                    "path": "studio/menus.md"
+                }
+            ]
+        },
+        {
+            "title": "Security",
+            "slug": "security",
+            "pages": [
+                {
+                    "title": "Access model",
+                    "path": "security/access-model.md"
+                },
+                {
+                    "title": "Server scripts",
+                    "path": "security/server-scripts.md"
+                },
+                {
+                    "title": "Embeds",
+                    "path": "security/embeds.md"
+                },
+                {
+                    "title": "Data access",
+                    "path": "security/data-access.md"
+                }
+            ]
+        },
+        {
+            "title": "Platform internals",
+            "slug": "internals",
+            "pages": [
+                {
+                    "title": "Data model",
+                    "path": "internals/data-model.md"
+                },
+                {
+                    "title": "Business rules and automation",
+                    "path": "internals/business-rules.md"
+                },
+                {
+                    "title": "Compiler pipeline",
+                    "path": "internals/compiler.md"
+                },
+                {
+                    "title": "Host architecture",
+                    "path": "internals/host-architecture.md"
+                },
+                {
+                    "title": "Global helper app",
+                    "path": "internals/global-helper-app.md"
+                },
+                {
+                    "title": "Release workflow and seed",
+                    "path": "internals/release-workflow.md"
+                },
+                {
+                    "title": "Instance gotchas",
+                    "path": "internals/instance-gotchas.md"
+                }
+            ]
+        },
+        {
+            "title": "Reference",
+            "slug": "reference",
+            "pages": [
+                {
+                    "title": "Glossary",
+                    "path": "reference/glossary.md"
+                },
+                {
+                    "title": "Limits",
+                    "path": "reference/limits.md"
+                },
+                {
+                    "title": "Troubleshooting and FAQ",
+                    "path": "reference/troubleshooting.md"
+                },
+                {
+                    "title": "Contracts",
+                    "path": "reference/contracts.md"
+                }
+            ]
+        }
+    ]
+}

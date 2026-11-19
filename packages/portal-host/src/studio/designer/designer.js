@@ -35,13 +35,15 @@ import {
 	Tablet,
 	Trash2,
 	Undo2,
-	Layers
+	Layers,
+	EyeOff
 } from 'lucide-react';
 import { Canvas, computeDropTarget, deepestUnderPointer } from './canvas';
 import { OptionsForm, JsonEditor } from './options-form';
 import { StyleSection, LayoutSection, ClassesField, DeviceSwitch } from './style-sections';
 import { findPlacement, siblingsOf } from './designer-store';
 import { ask } from '../dialogs';
+import { ViewAsUserPicker, useViewAsUser, hiddenSets, viewAsUser } from '../view-as-user';
 
 export function useDesigner(designer) {
 	return useSyncExternalStore(designer.subscribe, designer.get, designer.get);
@@ -59,6 +61,9 @@ function collision(args) {
 
 export default function Designer({ designer, studio, root }) {
 	const state = useDesigner(designer);
+	const asUser = useViewAsUser(state.portalId);
+	const hidden = hiddenSets(asUser.audience);
+	const pageHidden = !!(hidden && state.pageId && (hidden.portal || hidden.pages.has(state.pageId)));
 	const geometryRef = useRef(null);
 	const [drag, setDrag] = useState(null); // { label }
 	const [dropTarget, setDropTarget] = useState(null);
@@ -106,11 +111,16 @@ export default function Designer({ designer, studio, root }) {
 			<DndContext sensors={sensors} collisionDetection={collision} onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={onDragMove} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
 				<Allotment proportionalLayout={false}>
 					<Allotment.Pane preferredSize={250} minSize={190} maxSize={480} priority={LayoutPriority.Low}>
-						<PagesPanel designer={designer} studio={studio} state={state} />
+						<PagesPanel designer={designer} studio={studio} state={state} hidden={hidden} />
 					</Allotment.Pane>
 					<Allotment.Pane minSize={360} priority={LayoutPriority.High}>
 						<div className="rpd-center">
-							<Toolbar designer={designer} state={state} />
+							<Toolbar designer={designer} state={state} asUser={asUser} />
+							{pageHidden ? (
+								<div className="rpd-viewas-banner" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, background: 'var(--rps-banner)', borderBottom: '1px solid var(--rps-border)' }} data-rpd-viewas-hidden="">
+									<EyeOff size={14} /> {asUser.user.name || asUser.user.userName} can't see {hidden.portal ? 'this portal' : 'this page'}: its user criteria (Available for / Not available for) exclude them. The page answers page-not-found and its menu items drop.
+								</div>
+							) : null}
 							{state.design && state.page ? (
 								<Canvas designer={designer} state={state} root={root} geometryRef={geometryRef} dropTarget={dropTarget} dragging={!!drag} />
 							) : (
@@ -137,7 +147,7 @@ export default function Designer({ designer, studio, root }) {
 
 // ---- toolbar --------------------------------------------------------------------------------
 
-function Toolbar({ designer, state }) {
+function Toolbar({ designer, state, asUser }) {
 	const page = state.page && state.page.page;
 	const devices = [
 		['desktop', Laptop, 'Desktop'],
@@ -163,6 +173,8 @@ function Toolbar({ designer, state }) {
 				<Redo2 size={14} />
 			</button>
 			<span className="rpd-sep" />
+			<ViewAsUserPicker portalId={state.portalId} state={asUser} />
+			<span className="rpd-sep" />
 			{devices.map(([id, Icon, label]) => (
 				<button key={id} className="rps-tbtn" aria-pressed={state.device === id} title={label} onClick={() => designer.set({ device: id })} data-rpd-device={id}>
 					<Icon size={14} />
@@ -178,7 +190,7 @@ function Toolbar({ designer, state }) {
 			>
 				{state.interact ? <MousePointerClick size={14} /> : <Eye size={14} />} {state.interact ? 'Interacting' : 'Preview'}
 			</button>
-			<button className="rps-tbtn" title="Re-fetch and re-render" onClick={() => designer.refresh()}>
+			<button className="rps-tbtn" title="Re-fetch and re-render" onClick={() => (designer.refresh(), viewAsUser.refresh())}>
 				<RefreshCw size={14} />
 			</button>
 		</div>
@@ -187,7 +199,7 @@ function Toolbar({ designer, state }) {
 
 // ---- left: portal, pages, outline -----------------------------------------------------------
 
-function PagesPanel({ designer, studio, state }) {
+function PagesPanel({ designer, studio, state, hidden }) {
 	const design = state.design;
 	const pages = (design && design.pages) || [];
 
@@ -252,7 +264,7 @@ function PagesPanel({ designer, studio, state }) {
 					{pages.map((p) => (
 						<div
 							key={p.id}
-							className={'rps-row' + (state.node === 'page' && state.pageId === p.id ? ' selected focused' : '') + (p.active === false ? ' warn' : '')}
+							className={'rps-row' + (state.node === 'page' && state.pageId === p.id ? ' selected focused' : '') + (p.active === false || (hidden && hidden.pages.has(p.id)) ? ' warn' : '')}
 							style={{ paddingLeft: 12 }}
 							onClick={() => designer.openPage(p.id)}
 							onDoubleClick={() => renamePage(p)}
@@ -261,6 +273,11 @@ function PagesPanel({ designer, studio, state }) {
 						>
 							{design.portal.homePage === p.id ? <Home size={13} color="var(--rps-accent)" /> : <span style={{ width: 13 }} />}
 							<span className="label">{p.title || p.name}</span>
+							{hidden && (hidden.portal || hidden.pages.has(p.id)) ? (
+								<span title="Hidden for the View-as user by user criteria" data-rpd-page-hidden={p.route} style={{ display: 'inline-flex' }}>
+									<EyeOff size={12} />
+								</span>
+							) : null}
 							<span className="desc">/{p.route}</span>
 							<span className="rpd-row-actions">
 								<button className="rps-icon-btn" title="Rename" onClick={(e) => (e.stopPropagation(), renamePage(p))}>

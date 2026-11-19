@@ -44,6 +44,7 @@ import { Icon } from '#/components/ui/icon';
 import { useHostTextStyle } from '../host-text';
 import { ask } from '../dialogs';
 import { IconPicker } from './icon-picker';
+import { ViewAsUserPicker, useViewAsUser, hiddenSets, viewAsUser } from '../view-as-user';
 import { findItem } from './menus-store';
 import { conditionCount, previewNav, rolesOf } from './preview-nav';
 import { useScope } from '../scope';
@@ -93,6 +94,7 @@ export default function Menus({ store, studio, root }) {
 	const state = useMenus(store);
 	const scope = useScope();
 	const readOnly = !!(scope.context && scope.context.inScope === false);
+	const asUser = useViewAsUser(state.portalId);
 
 	// Ctrl+Z / Ctrl+Shift+Z (Ctrl+Y), Delete, Escape — not while typing in a field.
 	const onKeyDown = (e) => {
@@ -116,9 +118,9 @@ export default function Menus({ store, studio, root }) {
 				</Allotment.Pane>
 				<Allotment.Pane minSize={360} priority={LayoutPriority.High}>
 					<div className="rpd-center">
-						<PreviewToolbar store={store} state={state} />
+						<PreviewToolbar store={store} state={state} asUser={asUser} />
 						{state.design && state.menus ? (
-							<PreviewStage store={store} state={state} root={root} />
+							<PreviewStage store={store} state={state} root={root} asUser={asUser} />
 						) : (
 							<div className="rps-welcome">{state.loading ? 'Loading…' : state.error ? String(state.error.message || state.error) : 'Pick a portal on the left.'}</div>
 						)}
@@ -242,7 +244,7 @@ function MenuList({ store, studio, state, readOnly }) {
 
 // ---- centre: preview -----------------------------------------------------------------------
 
-function PreviewToolbar({ store, state }) {
+function PreviewToolbar({ store, state, asUser }) {
 	const menu = store.currentMenu();
 	const roles = rolesOf(menu);
 	const modes = [
@@ -279,6 +281,8 @@ function PreviewToolbar({ store, state }) {
 				</select>
 			</label>
 			{conditions && state.viewAs !== 'all' ? <span className="rpd-hint" title="Condition scripts run on the server only">{conditions} condition(s) not evaluated</span> : null}
+			<span className="rpd-sep" />
+			<ViewAsUserPicker portalId={state.portalId} state={asUser} />
 			<span style={{ flex: 1 }} />
 			{state.busy ? (
 				<span className="rps-badge busy" data-rpm-saving="">
@@ -291,7 +295,7 @@ function PreviewToolbar({ store, state }) {
 			<button className="rps-tbtn" disabled={!state.redo.length || !!state.busy} title="Redo (Ctrl+Shift+Z)" onClick={() => store.redo()} data-rpm-redo="">
 				<Redo2 size={14} />
 			</button>
-			<button className="rps-tbtn" title="Reload the preview" onClick={() => store.set((s) => ({ version: (s.version || 0) + 1 }))}>
+			<button className="rps-tbtn" title="Reload the preview" onClick={() => (store.set((s) => ({ version: (s.version || 0) + 1 })), viewAsUser.refresh())}>
 				<RefreshCw size={14} />
 			</button>
 		</div>
@@ -299,7 +303,7 @@ function PreviewToolbar({ store, state }) {
 }
 
 /** Mounts the host runtime's PortalPreview with this menu injected. */
-function PreviewStage({ store, state, root }) {
+function PreviewStage({ store, state, root, asUser }) {
 	const [stageEl, setStageEl] = useState(null);
 	const [mountEl, setMountEl] = useState(null);
 	const [stageHeight, setStageHeight] = useState(600);
@@ -328,8 +332,8 @@ function PreviewStage({ store, state, root }) {
 					})(menu.items)
 				}
 			: menu;
-		return previewNav(withDraft, { viewAs: state.viewAs, portalSlug: slug });
-	}, [menu, state.viewAs, slug, state.iconDraft]);
+		return previewNav(withDraft, { viewAs: state.viewAs, portalSlug: slug, hidden: hiddenSets(asUser && asUser.audience) });
+	}, [menu, state.viewAs, slug, state.iconDraft, asUser && asUser.audience]);
 
 	const menusOverride = useMemo(() => {
 		if (!menu || !nav) return null;

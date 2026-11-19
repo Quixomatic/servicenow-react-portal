@@ -1,0 +1,12 @@
+{
+    "name": "Embed Test Layout",
+    "kind": "layout",
+    "tailwind": true,
+    "serverMode": "on-load",
+    "regions": [
+        { "name": "header", "acceptsContributions": true },
+        { "name": "main", "acceptsContributions": false },
+        { "name": "footer", "acceptsContributions": true }
+    ],
+    "defaults": {}
+}
