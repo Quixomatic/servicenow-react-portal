@@ -72,7 +72,8 @@ const DEFINITIONS = {
 	counter: { kind: 'widget', js: S.COUNTER_JS, css: S.COUNTER_CSS, serverMode: 'on-load' },
 	record: { kind: 'widget', js: S.RECORD_JS, css: null },
 	text: { kind: 'widget', js: S.TEXT_JS, css: S.TEXT_CSS },
-	broken: { kind: 'widget', js: S.BROKEN_JS, css: null }
+	broken: { kind: 'widget', js: S.BROKEN_JS, css: null },
+	utils: { kind: 'widget', js: S.UTILS_JS, css: null }
 };
 
 const refs = new Map();
@@ -151,14 +152,61 @@ const THEMES = {
 			ring: 'oklch(0.6 0.16 260)',
 			'rp-font': 'ui-sans-serif, system-ui, "Segoe UI", sans-serif',
 			'rp-canvas': 'linear-gradient(180deg, oklch(0.96 0.03 250), oklch(0.99 0.003 250) 320px)'
+		},
+		// Dark mode: deep navy, same blue accent.
+		tokensDark: {
+			background: 'oklch(0.17 0.03 262)',
+			foreground: 'oklch(0.95 0.01 255)',
+			card: 'oklch(0.22 0.035 262)',
+			'card-foreground': 'oklch(0.95 0.01 255)',
+			popover: 'oklch(0.23 0.04 262)',
+			'popover-foreground': 'oklch(0.95 0.01 255)',
+			primary: 'oklch(0.68 0.17 258)',
+			'primary-foreground': 'oklch(0.16 0.04 262)',
+			secondary: 'oklch(0.28 0.04 262)',
+			'secondary-foreground': 'oklch(0.95 0.01 255)',
+			muted: 'oklch(0.26 0.03 262)',
+			'muted-foreground': 'oklch(0.72 0.03 258)',
+			accent: 'oklch(0.3 0.06 258)',
+			'accent-foreground': 'oklch(0.95 0.01 255)',
+			destructive: 'oklch(0.7 0.19 22)',
+			border: 'oklch(1 0 0 / 11%)',
+			input: 'oklch(1 0 0 / 15%)',
+			ring: 'oklch(0.68 0.17 258)',
+			'rp-canvas': 'linear-gradient(180deg, oklch(0.22 0.05 262), oklch(0.17 0.03 262) 320px)'
 		}
 	},
 	'crm-dark': {
 		id: 'theme-crm-dark',
 		key: 'crm-dark',
 		css: BASE_THEME_CSS,
+		// Light mode: the same emerald accent on a cool white.
 		tokens: {
 			radius: '0.375rem',
+			background: 'oklch(0.985 0.005 260)',
+			foreground: 'oklch(0.2 0.02 260)',
+			card: 'oklch(1 0 0)',
+			'card-foreground': 'oklch(0.2 0.02 260)',
+			popover: 'oklch(1 0 0)',
+			'popover-foreground': 'oklch(0.2 0.02 260)',
+			primary: 'oklch(0.6 0.15 160)',
+			'primary-foreground': 'oklch(0.99 0.01 160)',
+			secondary: 'oklch(0.95 0.01 260)',
+			'secondary-foreground': 'oklch(0.25 0.02 260)',
+			muted: 'oklch(0.95 0.01 260)',
+			'muted-foreground': 'oklch(0.5 0.02 260)',
+			accent: 'oklch(0.94 0.04 160)',
+			'accent-foreground': 'oklch(0.3 0.06 160)',
+			destructive: 'oklch(0.58 0.22 27)',
+			border: 'oklch(0.91 0.01 260)',
+			input: 'oklch(0.91 0.01 260)',
+			ring: 'oklch(0.6 0.15 160)',
+			'rp-font': 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif',
+			'rp-canvas': 'oklch(0.985 0.005 260)',
+			'rp-heading-tracking': '-0.01em'
+		},
+		// Dark mode: the original CRM look (slate with emerald).
+		tokensDark: {
 			background: 'oklch(0.18 0.02 260)',
 			foreground: 'oklch(0.96 0.01 260)',
 			card: 'oklch(0.23 0.025 260)',
@@ -177,9 +225,7 @@ const THEMES = {
 			border: 'oklch(1 0 0 / 12%)',
 			input: 'oklch(1 0 0 / 16%)',
 			ring: 'oklch(0.74 0.17 160)',
-			'rp-font': 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif',
-			'rp-canvas': 'oklch(0.18 0.02 260)',
-			'rp-heading-tracking': '-0.01em'
+			'rp-canvas': 'oklch(0.18 0.02 260)'
 		}
 	}
 };
@@ -193,6 +239,7 @@ function themeRef(key) {
 		id: theme.id,
 		key: theme.key,
 		tokens: clone(theme.tokens),
+		tokensDark: theme.tokensDark ? clone(theme.tokensDark) : undefined,
 		cssText: inline ? theme.css : null,
 		css: inline ? [] : [cssUrl(`theme-${theme.key}`, theme.css)]
 	};
@@ -279,6 +326,12 @@ const PORTALS = {
 					placement('pl-sp-broken', 'main', 'broken', { message: 'Deliberate failure: the error boundary should contain this.' }),
 					placement('pl-sp-broken-counter', 'main', 'counter', { label: 'Still works next to a broken widget' })
 				]
+			},
+			{
+				id: 'page-sp-utils',
+				route: 'utils',
+				title: 'Utilities',
+				placements: [placement('pl-sp-utils', 'main', 'utils', {})]
 			}
 		]
 	},
@@ -374,7 +427,8 @@ export function getBootstrap(slug) {
 			theme: themeRef(entry.theme),
 			layout: component(entry.layout),
 			regions: groupByRegion(entry.placements),
-			pages: entry.pages.map((p) => ({ id: p.id, route: p.route, title: p.title }))
+			pages: entry.pages.map((p) => ({ id: p.id, route: p.route, title: p.title })),
+			user: clone(MOCK_USER)
 		});
 	} catch (error) {
 		return Promise.reject(error);
@@ -422,4 +476,97 @@ export function executeInstance(instanceId, body) {
 	if (b.action === 'initialize') return delay(initData(instanceId, b));
 	if (b.action === 'update') return delay({ ...(b.data || {}), updatedAt: new Date().toLocaleTimeString() });
 	return delay({ instance: instanceId, action: b.action || 'get', echo: b.input === undefined ? null : b.input, at: new Date().toLocaleTimeString() });
+}
+
+// ---- Service Portal-style utilities ---------------------------------------------------------
+
+const MOCK_USER = {
+	sysId: 'mock-user-6816f79cc0a8016401c5a33be04be441',
+	userName: 'abel.tuter',
+	name: 'Abel Tuter',
+	firstName: 'Abel',
+	lastName: 'Tuter',
+	email: 'abel.tuter@example.com',
+	title: 'Service Desk Analyst',
+	avatar: '',
+	roles: ['itil', 'x_312987_portal.designer'],
+	timeZone: 'America/Los_Angeles',
+	language: 'en',
+	isImpersonating: false
+};
+
+// Portal-exposed or x_312987_portal.public.* properties answer; everything else is null.
+const MOCK_PROPERTIES = {
+	'glide.product.name': null,
+	'x_312987_portal.public.support_email': 'support@example.com',
+	'x_312987_portal.public.banner': 'Mock banner from a public property',
+	'css.base.color': '#2563eb'
+};
+const EXPOSED = { sp: ['css.base.color'], crm: [] };
+
+export function getProperties(portal, names) {
+	const values = {};
+	(names || []).forEach((n) => {
+		const allowed = n.indexOf('x_312987_portal.public.') === 0 || (EXPOSED[portal] || []).includes(n);
+		values[n] = allowed && MOCK_PROPERTIES[n] !== undefined ? MOCK_PROPERTIES[n] : null;
+	});
+	return delay(values);
+}
+
+const MOCK_MESSAGES = { Save: 'Save', Cancel: 'Cancel', 'Welcome back, {0}': 'Welcome back, {0}', 'No records': 'No records found' };
+
+export function getMessages(keys) {
+	const messages = {};
+	(keys || []).forEach((k) => {
+		messages[k] = MOCK_MESSAGES[k] !== undefined ? MOCK_MESSAGES[k] : k;
+	});
+	return delay(messages);
+}
+
+const MOCK_ROWS = {
+	incident: [
+		{ sys_id: 'inc-1', number: 'INC0010001', short_description: 'Email not syncing on mobile', priority: '2', state: 'In Progress' },
+		{ sys_id: 'inc-2', number: 'INC0010002', short_description: 'VPN drops every hour', priority: '1', state: 'New' },
+		{ sys_id: 'inc-3', number: 'INC0010003', short_description: 'Printer on floor 3 offline', priority: '3', state: 'On Hold' },
+		{ sys_id: 'inc-4', number: 'INC0010004', short_description: 'Laptop battery swelling', priority: '1', state: 'New' }
+	]
+};
+
+/** Table API stand-in: filters by simple field=value terms, orders, limits and picks fields. */
+export function tableApi(table, sysId, params) {
+	const p = params || {};
+	let rows = (MOCK_ROWS[table] || [{ sys_id: `${table}-1`, name: `${table} record 1` }, { sys_id: `${table}-2`, name: `${table} record 2` }]).map((r) => ({ ...r }));
+	const pick = (r) => {
+		if (!p.sysparm_fields) return r;
+		const out = {};
+		String(p.sysparm_fields).split(',').forEach((f) => {
+			if (r[f.trim()] !== undefined) out[f.trim()] = r[f.trim()];
+		});
+		return out;
+	};
+	if (sysId) {
+		const row = rows.find((r) => r.sys_id === sysId);
+		if (!row) {
+			const error = new Error(`No Record found: ${table}/${sysId}`);
+			error.name = 'ApiError';
+			error.status = 404;
+			return Promise.reject(error);
+		}
+		return delay(pick(row));
+	}
+	let order = null;
+	String(p.sysparm_query || '')
+		.split('^')
+		.filter(Boolean)
+		.forEach((term) => {
+			const m = /^ORDERBY(DESC)?(.+)$/.exec(term);
+			if (m) order = { desc: !!m[1], field: m[2] };
+			else {
+				const eq = /^([\w.]+)=(.*)$/.exec(term);
+				if (eq) rows = rows.filter((r) => String(r[eq[1]]) === eq[2]);
+			}
+		});
+	if (order) rows.sort((a, b) => (String(a[order.field]) < String(b[order.field]) ? -1 : 1) * (order.desc ? -1 : 1));
+	if (p.sysparm_limit) rows = rows.slice(0, Number(p.sysparm_limit));
+	return delay(rows.map(pick));
 }

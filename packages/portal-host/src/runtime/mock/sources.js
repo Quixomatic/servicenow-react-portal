@@ -93,6 +93,7 @@ export default function PortalHeader({ options }) {
 	const { portal } = usePortal();
 	const location = usePortalLocation();
 	const navigate = useNavigate();
+	const { theme, setTheme, resolvedTheme, themes } = M['@portal/runtime'].useTheme();
 	const current = location.page || portal.homeRoute;
 	const nav = portal.navigation || [];
 	const portals = options.portals || [];
@@ -130,6 +131,11 @@ export default function PortalHeader({ options }) {
 				h(DropdownMenuSeparator, null),
 				h(DropdownMenuGroup, null,
 					h(DropdownMenuItem, { onClick: () => navigate('') }, 'Home of this portal')
+				),
+				h(DropdownMenuSeparator, null),
+				h(DropdownMenuGroup, null,
+					h(DropdownMenuLabel, null, 'Theme · ' + resolvedTheme),
+					themes.map((t) => h(DropdownMenuItem, { key: t, onClick: () => setTheme(t), 'data-theme-option': t }, (t === theme ? '✓ ' : '') + t[0].toUpperCase() + t.slice(1)))
 				)
 			)
 		)
@@ -325,5 +331,49 @@ export const TEXT_CSS = `
 export const BROKEN_JS = PRELUDE + `
 export default function Broken({ options }) {
 	throw new Error(options.message || 'This widget throws on purpose');
+}
+`;
+
+export const UTILS_JS = PRELUDE + `
+const { Card, CardHeader, CardTitle, CardDescription, CardContent } = M['components:card'];
+const { Button } = M['components:button'];
+const { Badge } = M['components:badge'];
+const RT = M['@portal/runtime'];
+
+// Exercises the Service Portal-style hooks (mock page "utils").
+export default function UtilsDemo() {
+	const user = RT.useUser();
+	const banner = RT.useProperty('x_312987_portal.public.banner');
+	const hidden = RT.useProperty('glide.product.name');
+	const props = RT.useProperties(['css.base.color', 'x_312987_portal.public.support_email']);
+	const welcome = RT.useMessage('Welcome back, {0}', 'Welcome!');
+	const msgs = RT.useMessages(['Save', 'Cancel', 'No records']);
+	const utils = RT.usePortalUtils();
+	const rows = RT.useTableQuery('incident', { query: 'priority=1', fields: ['number', 'short_description'], orderBy: '-number', limit: 5 });
+	const rec = RT.useRecord('incident', 'inc-2', { fields: 'number,state' });
+	const [fetched, setFetched] = useState(null);
+	return h(Card, { 'data-utils-demo': '' },
+		h(CardHeader, null,
+			h(CardTitle, { 'data-u': 'welcome' }, utils.format(welcome, [user.firstName])),
+			h(CardDescription, null, user.name + ' · ' + user.title)
+		),
+		h(CardContent, { className: 'flex flex-col gap-2 text-sm' },
+			h('div', { 'data-u': 'roles' }, 'itil=' + user.hasRole('itil') + ' admin=' + user.hasRole('admin') + ' any=' + user.hasAnyRole(['nope', 'itil'])),
+			h('div', { 'data-u': 'props' }, 'banner=' + banner.value + ' hidden=' + hidden.value + ' color=' + props.values['css.base.color'] + ' email=' + props.values['x_312987_portal.public.support_email']),
+			h('div', { 'data-u': 'msgs' }, ['Save', 'Cancel', 'No records'].map((k) => msgs.messages[k]).join(' | ')),
+			h('div', { 'data-u': 'rows' }, rows.isLoading ? 'loading…' : (rows.data || []).map((r) => r.number).join(',')),
+			h('div', { 'data-u': 'record' }, rec.isLoading ? 'loading…' : rec.data ? rec.data.number + ' ' + rec.data.state : 'none'),
+			h('div', { 'data-u': 'format' }, utils.format('{a}-{0}', { a: 'x', 0: 'y' })),
+			h('div', { className: 'flex flex-wrap gap-2' },
+				h(Button, { size: 'sm', 'data-u': 'info', onClick: () => utils.addInfoMessage('Info toast') }, 'Info'),
+				h(Button, { size: 'sm', variant: 'destructive', 'data-u': 'error', onClick: () => utils.addErrorMessage('Error toast') }, 'Error'),
+				h(Button, { size: 'sm', variant: 'outline', 'data-u': 'trivial', onClick: () => utils.addTrivialMessage('Trivial toast') }, 'Trivial'),
+				h(Button, { size: 'sm', variant: 'outline', 'data-u': 'getmsg', onClick: () => utils.getMessage('Save').then((m) => setFetched('msg:' + m)) }, 'getMessage'),
+				h(Button, { size: 'sm', variant: 'outline', 'data-u': 'refresh', onClick: () => utils.refresh().then(() => setFetched('refreshed')) }, 'refresh()'),
+				h(Button, { size: 'sm', variant: 'outline', 'data-u': 'headers', onClick: () => setFetched(Object.keys(utils.getHeaders()).join(',')) }, 'headers')
+			),
+			fetched ? h(Badge, { variant: 'secondary', 'data-u': 'fetched' }, fetched) : null
+		)
+	);
 }
 `;

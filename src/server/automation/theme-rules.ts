@@ -14,7 +14,13 @@ export function normalizeTheme(current: any, previous: any): void {
     if (!isValidJson(tokensText)) return abort(current, 'tokens_json is not valid JSON.')
     const tokens = parseJson<unknown>(tokensText, {})
     if (tokens !== null && (typeof tokens !== 'object' || Array.isArray(tokens))) {
-        return abort(current, 'tokens_json must be a JSON object of token name → value.')
+        return abort(current, 'tokens_json must be a JSON object of token name → value, or { "light": {…}, "dark": {…} }.')
+    }
+    const t = tokens as Record<string, unknown>
+    for (const mode of ['light', 'dark']) {
+        if (t[mode] !== undefined && (t[mode] === null || typeof t[mode] !== 'object' || Array.isArray(t[mode]))) {
+            return abort(current, `tokens_json.${mode} must be an object of token name → value.`)
+        }
     }
 
     if (current.isNewRecord()) {

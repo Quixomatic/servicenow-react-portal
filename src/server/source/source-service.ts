@@ -131,7 +131,7 @@ export function compileSuppressed(): boolean {
 function virtualFieldValue(path: string, v: VirtualFile, content: string, currentRaw: string): string | null {
     const trimmed = content.trim()
     // Saving the "empty" placeholder (e.g. "{}") back onto an empty field is a no-op.
-    if (!currentRaw && (trimmed === '' || trimmed === v.empty)) return null
+    if (!currentRaw && (trimmed === '' || trimmed === v.empty.trim())) return null
     if (v.json) {
         if (trimmed === '') return ''
         try {

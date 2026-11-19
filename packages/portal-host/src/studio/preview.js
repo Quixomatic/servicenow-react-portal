@@ -112,8 +112,7 @@ function PreviewStage({ Component, componentRef, options, studio }) {
 		const isLayout = componentRef.kind === 'layout';
 		const h = H.createElement;
 		const widget = isLayout ? h(Component, { regions: componentRef.regions || [] }) : h(Component, { instanceId: 'studio-preview', options, region: 'main' });
-		r.render(
-			h(
+		const tree = h(
 				internals.NavigationContext.Provider,
 				{ value: navigate },
 				h(
@@ -129,8 +128,9 @@ function PreviewStage({ Component, componentRef, options, studio }) {
 						)
 					)
 				)
-			)
-		);
+			);
+		// Data hooks (useRecord, useProperty, …) need the host's page-level query cache.
+		r.render(internals.QueryClientProvider ? h(internals.QueryClientProvider, { client: internals.queryClient }, tree) : tree);
 	}, [Component, componentRef, options, studio]);
 
 	return (

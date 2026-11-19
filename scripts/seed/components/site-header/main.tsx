@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePortal, Link } from '@portal/runtime'
 import { Button } from 'components:button'
+import { ModeToggle } from './parts/ModeToggle'
 
 type NavItem = { label: string; to: string }
 type Props = { options?: { brand?: string } }
@@ -24,6 +25,7 @@ export default function SiteHeader({ options }: Props) {
             <Button variant="outline" size="sm" onClick={() => setClicks(clicks + 1)} title="Local state survives page navigation">
                 Header clicks: {clicks}
             </Button>
+            <ModeToggle />
         </div>
     )
 }

@@ -6,6 +6,8 @@ import {
     initializeRoute,
     executeRoute,
     assetRoute,
+    propertiesRoute,
+    messagesRoute,
 } from '../../server/api/runtime-api'
 
 /**
@@ -70,6 +72,29 @@ export const runtimeApi = RestApi({
             version: 1,
             requestExample: '{"portal":"crm","action":"get","input":{"q":"abc"}}',
             shortDescription: "Run one instance's server script (pinned build)",
+        },
+        {
+            $id: Now.ID['rest-runtime-properties'],
+            name: 'properties',
+            method: 'GET',
+            path: '/properties',
+            script: propertiesRoute,
+            version: 1,
+            parameters: [
+                { $id: Now.ID['rest-runtime-properties-portal'], name: 'portal', required: true, shortDescription: 'Portal slug' },
+                { $id: Now.ID['rest-runtime-properties-names'], name: 'names', required: true, shortDescription: 'Comma-separated property names' },
+            ],
+            shortDescription: 'System properties the portal exposes (settings.exposedProperties or x_312987_portal.public.*)',
+        },
+        {
+            $id: Now.ID['rest-runtime-messages'],
+            name: 'messages',
+            method: 'POST',
+            path: '/messages',
+            script: messagesRoute,
+            version: 1,
+            requestExample: '{"keys":["Save","Cancel"]}',
+            shortDescription: "Translated UI messages in the user's language",
         },
         {
             $id: Now.ID['rest-runtime-asset'],

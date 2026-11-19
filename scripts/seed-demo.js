@@ -11,7 +11,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.2.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.3.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     var log = []
@@ -41,24 +41,58 @@
 
     var themes = {
         'sp-light': {
-            name: 'Service Portal Light',
+            name: 'Service Portal',
             tokens: {
-                background: 'oklch(0.99 0 0)', foreground: 'oklch(0.2 0.02 260)',
-                card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.2 0.02 260)',
-                primary: 'oklch(0.55 0.2 260)', 'primary-foreground': 'oklch(0.98 0 0)',
-                muted: 'oklch(0.96 0.01 260)', 'muted-foreground': 'oklch(0.5 0.03 260)',
-                border: 'oklch(0.9 0.01 260)', radius: '0.5rem',
+                light: {
+                    background: 'oklch(0.99 0.003 260)', foreground: 'oklch(0.21 0.02 260)',
+                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.21 0.02 260)',
+                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.21 0.02 260)',
+                    primary: 'oklch(0.55 0.2 260)', 'primary-foreground': 'oklch(0.98 0 0)',
+                    secondary: 'oklch(0.95 0.015 260)', 'secondary-foreground': 'oklch(0.25 0.03 260)',
+                    muted: 'oklch(0.96 0.01 260)', 'muted-foreground': 'oklch(0.5 0.03 260)',
+                    accent: 'oklch(0.95 0.02 260)', 'accent-foreground': 'oklch(0.25 0.03 260)',
+                    destructive: 'oklch(0.58 0.22 27)', border: 'oklch(0.9 0.01 260)', input: 'oklch(0.9 0.01 260)',
+                    ring: 'oklch(0.55 0.2 260)', radius: '0.5rem',
+                },
+                dark: {
+                    background: 'oklch(0.17 0.02 260)', foreground: 'oklch(0.95 0.01 260)',
+                    card: 'oklch(0.21 0.025 260)', 'card-foreground': 'oklch(0.95 0.01 260)',
+                    popover: 'oklch(0.21 0.025 260)', 'popover-foreground': 'oklch(0.95 0.01 260)',
+                    primary: 'oklch(0.68 0.17 260)', 'primary-foreground': 'oklch(0.17 0.02 260)',
+                    secondary: 'oklch(0.27 0.03 260)', 'secondary-foreground': 'oklch(0.95 0.01 260)',
+                    muted: 'oklch(0.25 0.025 260)', 'muted-foreground': 'oklch(0.7 0.03 260)',
+                    accent: 'oklch(0.28 0.04 260)', 'accent-foreground': 'oklch(0.95 0.01 260)',
+                    destructive: 'oklch(0.65 0.2 25)', border: 'oklch(1 0 0 / 12%)', input: 'oklch(1 0 0 / 15%)',
+                    ring: 'oklch(0.68 0.17 260)', radius: '0.5rem',
+                },
             },
             stylesheet: ':host { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
         },
         'crm-dark': {
-            name: 'CRM Dark',
+            name: 'CRM',
             tokens: {
-                background: 'oklch(0.18 0.02 250)', foreground: 'oklch(0.95 0.01 250)',
-                card: 'oklch(0.23 0.02 250)', 'card-foreground': 'oklch(0.95 0.01 250)',
-                primary: 'oklch(0.74 0.17 160)', 'primary-foreground': 'oklch(0.18 0.02 250)',
-                muted: 'oklch(0.27 0.02 250)', 'muted-foreground': 'oklch(0.7 0.02 250)',
-                border: 'oklch(0.32 0.02 250)', radius: '0.25rem',
+                light: {
+                    background: 'oklch(0.985 0.005 160)', foreground: 'oklch(0.2 0.02 250)',
+                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.2 0.02 250)',
+                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.2 0.02 250)',
+                    primary: 'oklch(0.6 0.15 160)', 'primary-foreground': 'oklch(0.99 0 0)',
+                    secondary: 'oklch(0.95 0.02 160)', 'secondary-foreground': 'oklch(0.25 0.03 250)',
+                    muted: 'oklch(0.96 0.01 200)', 'muted-foreground': 'oklch(0.48 0.02 250)',
+                    accent: 'oklch(0.94 0.03 160)', 'accent-foreground': 'oklch(0.25 0.03 250)',
+                    destructive: 'oklch(0.58 0.22 27)', border: 'oklch(0.9 0.01 200)', input: 'oklch(0.9 0.01 200)',
+                    ring: 'oklch(0.6 0.15 160)', radius: '0.25rem',
+                },
+                dark: {
+                    background: 'oklch(0.18 0.02 250)', foreground: 'oklch(0.95 0.01 250)',
+                    card: 'oklch(0.23 0.02 250)', 'card-foreground': 'oklch(0.95 0.01 250)',
+                    popover: 'oklch(0.23 0.02 250)', 'popover-foreground': 'oklch(0.95 0.01 250)',
+                    primary: 'oklch(0.74 0.17 160)', 'primary-foreground': 'oklch(0.18 0.02 250)',
+                    secondary: 'oklch(0.28 0.02 250)', 'secondary-foreground': 'oklch(0.95 0.01 250)',
+                    muted: 'oklch(0.27 0.02 250)', 'muted-foreground': 'oklch(0.7 0.02 250)',
+                    accent: 'oklch(0.3 0.03 200)', 'accent-foreground': 'oklch(0.95 0.01 250)',
+                    destructive: 'oklch(0.65 0.2 25)', border: 'oklch(0.32 0.02 250)', input: 'oklch(0.35 0.02 250)',
+                    ring: 'oklch(0.74 0.17 160)', radius: '0.25rem',
+                },
             },
             stylesheet: ':host { font-family: "Inter", system-ui, sans-serif; letter-spacing: 0.01em; }',
         },
@@ -157,7 +191,7 @@
   },
   "clientScript": "import { useState } from 'react'\nimport { useComponent } from '@portal/runtime'\nimport { Card, CardHeader, CardTitle, CardContent } from 'components:card'\nimport { Button } from 'components:button'\nimport { Badge } from 'components:badge'\n\ntype ClockData = { serverTime?: string; user?: string; action?: string; echo?: string }\n\n/** On-load widget: initial data comes from its server script; buttons call it again. */\nexport default function ServerClock() {\n    const { data, pending, error, server } = useComponent()\n    const d = (data || {}) as ClockData\n    const [reply, setReply] = useState<unknown>(null)\n\n    return (\n        <Card>\n            <CardHeader className=\"flex flex-row items-center justify-between\">\n                <CardTitle>Server script</CardTitle>\n                <Badge variant=\"secondary\">{d.action || (pending ? 'loading' : '—')}</Badge>\n            </CardHeader>\n            <CardContent className=\"space-y-4\">\n                {error ? <p className=\"text-sm text-destructive\">{String((error as Error).message || error)}</p> : null}\n                <dl className=\"grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm\">\n                    <dt className=\"text-muted-foreground\">Server time</dt>\n                    <dd className=\"font-mono\">{d.serverTime || '—'}</dd>\n                    <dt className=\"text-muted-foreground\">Hello</dt>\n                    <dd className=\"font-mono\">{d.user || '—'}</dd>\n                </dl>\n                <div className=\"flex gap-2\">\n                    <Button size=\"sm\" onClick={() => server.get({ message: 'ping from the browser' }).then(setReply, (e: Error) => setReply({ error: e.message }))}>\n                        server.get()\n                    </Button>\n                    <Button size=\"sm\" variant=\"outline\" onClick={() => server.refresh()}>\n                        server.refresh()\n                    </Button>\n                </div>\n                {reply ? <pre className=\"overflow-auto rounded-md bg-muted p-2 text-xs\">{JSON.stringify(reply, null, 2)}</pre> : null}\n            </CardContent>\n        </Card>\n    )\n}\n",
   "css": "",
-  "serverScript": "// Runs on the server with input, data, options, component and context (Service Portal style).\ndata.serverTime = new GlideDateTime().getDisplayValue()\ndata.user = gs.getUserDisplayName()\ndata.action = context.action\ndata.portal = context.portal\nif (input && input.message) data.echo = 'Server got: ' + input.message\n",
+  "serverScript": "(function () {\r\n    // Service Portal-style server script: input, data, options, $sp ($rp) and context are in scope.\r\n    data.serverTime = new GlideDateTime().getDisplayValue()\r\n    data.user = $sp.getUser().name\r\n    data.action = context.action\r\n    data.portal = $sp.getPortal().slug\r\n    if (input && input.message) data.echo = 'Server got: ' + input.message\r\n})()\r\n",
   "extraFiles": []
  },
  "site-footer": {
@@ -184,10 +218,16 @@
     "brand": ""
    }
   },
-  "clientScript": "import { useState } from 'react'\nimport { usePortal, Link } from '@portal/runtime'\nimport { Button } from 'components:button'\n\ntype NavItem = { label: string; to: string }\ntype Props = { options?: { brand?: string } }\n\n/** Portal-level header. The click counter proves it stays mounted across page navigation. */\nexport default function SiteHeader({ options }: Props) {\n    const { portal } = usePortal()\n    const [clicks, setClicks] = useState(0)\n    const nav: NavItem[] = Array.isArray(portal?.navigation) ? portal.navigation : []\n\n    return (\n        <div className=\"flex items-center gap-6 bg-card px-6 py-3 text-card-foreground\">\n            <div className=\"text-lg font-bold text-primary\">{options?.brand || portal?.name || 'Portal'}</div>\n            <nav className=\"flex flex-1 items-center gap-4\">\n                {nav.map((item) => (\n                    <Link key={item.label} to={item.to} className=\"text-sm text-foreground no-underline hover:text-primary\">\n                        {item.label}\n                    </Link>\n                ))}\n            </nav>\n            <Button variant=\"outline\" size=\"sm\" onClick={() => setClicks(clicks + 1)} title=\"Local state survives page navigation\">\n                Header clicks: {clicks}\n            </Button>\n        </div>\n    )\n}\n",
+  "clientScript": "import { useState } from 'react'\r\nimport { usePortal, Link } from '@portal/runtime'\r\nimport { Button } from 'components:button'\r\nimport { ModeToggle } from './parts/ModeToggle'\r\n\r\ntype NavItem = { label: string; to: string }\r\ntype Props = { options?: { brand?: string } }\r\n\r\n/** Portal-level header. The click counter proves it stays mounted across page navigation. */\r\nexport default function SiteHeader({ options }: Props) {\r\n    const { portal } = usePortal()\r\n    const [clicks, setClicks] = useState(0)\r\n    const nav: NavItem[] = Array.isArray(portal?.navigation) ? portal.navigation : []\r\n\r\n    return (\r\n        <div className=\"flex items-center gap-6 bg-card px-6 py-3 text-card-foreground\">\r\n            <div className=\"text-lg font-bold text-primary\">{options?.brand || portal?.name || 'Portal'}</div>\r\n            <nav className=\"flex flex-1 items-center gap-4\">\r\n                {nav.map((item) => (\r\n                    <Link key={item.label} to={item.to} className=\"text-sm text-foreground no-underline hover:text-primary\">\r\n                        {item.label}\r\n                    </Link>\r\n                ))}\r\n            </nav>\r\n            <Button variant=\"outline\" size=\"sm\" onClick={() => setClicks(clicks + 1)} title=\"Local state survives page navigation\">\r\n                Header clicks: {clicks}\r\n            </Button>\r\n            <ModeToggle />\r\n        </div>\r\n    )\r\n}\r\n",
   "css": "",
   "serverScript": "",
-  "extraFiles": []
+  "extraFiles": [
+   {
+    "path": "parts/ModeToggle.tsx",
+    "target": "client",
+    "content": "// Light / dark / system switcher (shadcn's ModeToggle pattern). useTheme() is the host's\n// next-themes-style API: the mode applies to the whole portal (host element + overlays).\nimport { useTheme } from '@portal/runtime'\nimport { Button } from 'components:button'\nimport { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'components:dropdown-menu'\n\nconst Sun = () => (\n    <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" strokeWidth=\"2\" strokeLinecap=\"round\" strokeLinejoin=\"round\" className=\"size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90\">\n        <circle cx=\"12\" cy=\"12\" r=\"4\" />\n        <path d=\"M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41\" />\n    </svg>\n)\n\nconst Moon = () => (\n    <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" strokeWidth=\"2\" strokeLinecap=\"round\" strokeLinejoin=\"round\" className=\"absolute size-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0\">\n        <path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\" />\n    </svg>\n)\n\nconst MODES = [\n    { value: 'light', label: 'Light' },\n    { value: 'dark', label: 'Dark' },\n    { value: 'system', label: 'System' },\n] as const\n\nexport function ModeToggle() {\n    const { theme, setTheme } = useTheme()\n    return (\n        <DropdownMenu>\n            <DropdownMenuTrigger render={<Button variant=\"outline\" size=\"icon\" aria-label=\"Toggle theme\" className=\"relative\" />}>\n                <Sun />\n                <Moon />\n            </DropdownMenuTrigger>\n            <DropdownMenuContent align=\"end\">\n                {MODES.map((m) => (\n                    <DropdownMenuItem key={m.value} onClick={() => setTheme(m.value)}>\n                        {m.label}\n                        {theme === m.value ? <span className=\"ml-auto text-xs text-muted-foreground\">✓</span> : null}\n                    </DropdownMenuItem>\n                ))}\n            </DropdownMenuContent>\n        </DropdownMenu>\n    )\n}\n"
+   }
+  ]
  },
  "standard-layout": {
   "meta": {

@@ -7,6 +7,7 @@ import { isUsableBuild } from '../registry/registry.ts'
 import { canAccessPageConfig, requirePortalAccess } from '../security/access.ts'
 import { currentManifest, findPortalBySlug, placementIndex, matchPage, Manifest } from './portal-service.ts'
 import { logExecution } from './diagnostics.ts'
+import { createServerApi } from './server-api.ts'
 import type { ExecuteAction, InstanceResult, PlacementRef } from '../../shared/contracts'
 
 /**
@@ -100,7 +101,28 @@ function runOne(prep: PreparedPortal, p: ExecuteParams): ExecuteResult {
             user: { id: gs.getUserID(), name: gs.getUserName() },
             client: isPlainObject(p.context) ? p.context : {},
         })
+        // $rp (and the Service Portal-compatible alias $sp): server helpers for component scripts.
+        const api = createServerApi({
+            input,
+            options,
+            params: prep.params,
+            portal: { id: prep.manifest.portal.id, slug: prep.manifest.portal.slug, name: prep.manifest.portal.name, settings: prep.manifest.portal.settings },
+            page: found.page ? { route: found.page.route, params: prep.params } : null,
+            component: { id: placement.component.id, uniqueId: placement.component.uniqueId, instanceId: placement.id },
+        })
+        evaluator.putVariable('$rp', api)
+        evaluator.putVariable('$sp', api)
+        evaluator.putVariable('__rpError', null)
         evaluator.evaluateScript(build, 'server_script', null)
+        const caught = evaluator.getVariable('__rpError')
+        if (caught) {
+            const err = JSON.parse(JSON.stringify(caught)) as { message?: string; line?: number | null }
+            const line = typeof err.line === 'number' && err.line > 1 ? err.line - 1 : null
+            throw rpError(500, 'script_error', `Server script error${line ? ' (line ' + line + ')' : ''}: ${err.message || 'unknown error'}`, {
+                component: placement.component.uniqueId,
+                line,
+            })
+        }
         const out = evaluator.getVariable('data')
         // Normalize whatever the script left in `data` (native objects, Java strings) to plain JSON.
         const plain = out === null || out === undefined ? {} : JSON.parse(JSON.stringify(out))

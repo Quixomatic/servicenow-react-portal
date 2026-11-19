@@ -10,6 +10,16 @@ import type { SourceFileDto, SourceTarget } from '../../shared/contracts'
  * source_file rows. Shared by the source service (Studio) and the build service (compiler).
  */
 
+/** What an empty server script opens as in Studio — Service Portal's IIFE shape. */
+export const SERVER_SCRIPT_TEMPLATE = [
+    '(function () {',
+    "    /* populate the 'data' object */",
+    "    /* e.g., data.title = $sp.getValue('title') */",
+    '    /* available: input, data, options, $sp ($rp), context */',
+    '})()',
+    '',
+].join('\n')
+
 export interface VirtualFile {
     field: string
     target: SourceTarget
@@ -32,7 +42,7 @@ export const VIRTUAL: Record<OwnerType, Record<string, VirtualFile>> = {
     component: {
         'main.tsx': { field: 'client_script', target: 'client', empty: '', compile: true },
         'styles.css': { field: 'css', target: 'style', empty: '', compile: true },
-        'server.js': { field: 'script', target: 'server', empty: '' },
+        'server.js': { field: 'script', target: 'server', empty: SERVER_SCRIPT_TEMPLATE },
         'options.schema.json': { field: 'options_schema_json', target: 'asset', empty: '{}', json: true },
         'options.defaults.json': { field: 'default_options_json', target: 'asset', empty: '{}', json: true },
         'regions.json': { field: 'regions_json', target: 'asset', empty: '[]', json: true, kinds: ['layout'] },

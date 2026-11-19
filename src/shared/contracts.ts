@@ -69,11 +69,29 @@ export interface ThemeRef {
     id: string
     key: string
     name: string
+    /** Light-mode tokens (CSS custom properties without the leading --). */
     tokens: Record<string, string>
+    /** Dark-mode tokens, applied on :host(.dark); null = use the framework's default dark palette. */
+    tokensDark: Record<string, string> | null
     /** Compiled stylesheet URLs (ready theme build). */
     css: string[]
     /** Raw stylesheet when the theme has no ready build yet (live mode only). */
     cssText: string | null
+}
+
+export interface PortalUser {
+    sysId: string
+    userName: string
+    name: string
+    firstName: string
+    lastName: string
+    email: string
+    title: string
+    avatar: string | null
+    roles: string[]
+    timeZone: string
+    language: string
+    isImpersonating: boolean
 }
 
 export interface PageSummary {
@@ -91,6 +109,7 @@ export interface BootstrapData {
         settings: Record<string, unknown>
         navigation: unknown
     }
+    user: PortalUser
     release: { id: string; version: number } | null
     theme: ThemeRef | null
     layout: ComponentRef | null

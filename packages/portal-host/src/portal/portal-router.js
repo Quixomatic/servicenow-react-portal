@@ -30,6 +30,7 @@ import { leafData } from '#/runtime/page-state';
 import { useDiagCounter } from '#/runtime/diag-hooks';
 import { clearActiveRouter, navNoop, navResolved, navStart, setActiveRouter } from '#/runtime/diagnostics';
 import { Button } from '#/components/ui/button';
+import { Toaster } from '#/components/ui/sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
 import { resolvePath } from './router';
 
@@ -140,6 +141,20 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 		getPath: () => {
 			const data = routerRef ? leafData(routerRef.state) : null;
 			return data ? data.path : resolvePath(boot.portal, '');
+		},
+		/** The signed-in user from the bootstrap (useUser). */
+		user: boot.user || null,
+		/** The host's shadow root (usePortalUtils().scrollTo). */
+		shadowRoot: target,
+		/**
+		 * usePortalUtils().refresh(): refetch the current page manifest and all on-load data. The
+		 * router keeps the current page on screen until the new data is in.
+		 */
+		async refresh() {
+			queryClient.removeQueries({ queryKey: ['rp', 'page', slug] });
+			queryClient.removeQueries({ queryKey: ['rp', 'init', slug] });
+			if (routerRef) await routerRef.invalidate();
+			await initStore.fetch(slug, resolvePath(boot.portal, ''), onLoadIds(boot.regions), 'portal');
 		}
 	};
 
@@ -171,6 +186,9 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 				<InstanceInitContext.Provider value={initStore}>
 					<RouterProgress />
 					{themeReady ? <LayoutSwitch /> : <ShellSkeleton />}
+					{/* usePortalUtils().addInfoMessage & co.: one toaster per portal, in the overlay layer. */}
+					<Toaster position="top-right" richColors={false} closeButton />
+
 				</InstanceInitContext.Provider>
 			</PortalContext.Provider>
 		);

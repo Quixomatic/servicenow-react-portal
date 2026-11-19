@@ -1,9 +1,11 @@
+import { gs } from '@servicenow/glide'
 import { GR, getById, findOne, each, str, int, bool } from '../lib/gr.ts'
 import { T } from '../lib/tables.ts'
 import { parseJson, isPlainObject } from '../lib/util.ts'
 import { matchRoute } from '../lib/paths.ts'
 import { notFound, rpError } from '../lib/errors.ts'
 import { componentRef, themeRef, DEFAULT_REGIONS } from '../registry/registry.ts'
+import { currentUser } from '../security/user.ts'
 import { requirePortalAccess, canAccessPageConfig, PageAccessConfig, pageAccessConfig } from '../security/access.ts'
 import type {
     BootstrapData,
@@ -175,6 +177,7 @@ export function bootstrap(slug: string): { data: BootstrapData; release: Resolve
         release,
         data: {
             portal: manifest.portal,
+            user: currentUser(),
             release,
             theme: manifest.theme,
             layout: manifest.defaultLayoutId ? manifest.layouts[manifest.defaultLayoutId] || null : null,
@@ -238,4 +241,33 @@ export function effectiveRegionNames(portalId: string, pageId: string | null): s
     if (!layout) return null
     const ref = componentRef(layout, null)
     return (ref.regions || DEFAULT_REGIONS).map((r) => r.name)
+}
+
+/**
+ * System property values for the browser. Only properties the portal exposes
+ * (settings.exposedProperties) or under x_312987_portal.public. are returned; anything else is
+ * null — the browser must never be able to read arbitrary sys_properties.
+ */
+export function exposedProperties(slug: string, names: string[]): Record<string, string | null> {
+    const portal = requirePortalAccess(findPortalBySlug(slug))
+    const settings = parseJson<Record<string, unknown>>(str(portal, 'settings_json'), {})
+    const allowed = Array.isArray(settings.exposedProperties) ? (settings.exposedProperties as unknown[]).map(String) : []
+    const out: Record<string, string | null> = {}
+    for (const raw of names.slice(0, 100)) {
+        const name = String(raw || '').trim()
+        if (!name) continue
+        const ok = name.indexOf('x_312987_portal.public.') === 0 || allowed.indexOf(name) >= 0
+        out[name] = ok ? gs.getProperty(name, null) : null
+    }
+    return out
+}
+
+/** Translated UI messages (gs.getMessage) in the user's language. */
+export function translateMessages(keys: string[]): Record<string, string> {
+    const out: Record<string, string> = {}
+    for (const raw of keys.slice(0, 300)) {
+        const key = String(raw || '')
+        if (key) out[key] = gs.getMessage(key)
+    }
+    return out
 }

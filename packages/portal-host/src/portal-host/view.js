@@ -6,6 +6,7 @@ import { NavigationContext, createNavigate } from '#/runtime/navigation';
 import { LocationStoreContext } from '#/runtime/contexts';
 import { rawKey } from '#/runtime/location';
 import { createStore } from '#/runtime/store';
+import { useTheme } from '#/runtime/theme-mode';
 import { useDiagCounter } from '#/runtime/diag-hooks';
 import { nextInstanceId, recordMount, recordProperties, recordUnmount } from '#/runtime/diagnostics';
 import PortalApp from '#/portal/portal-app';
@@ -77,6 +78,17 @@ export default function PortalHostView({ properties, dispatch }) {
 	}, [location, locationStore]);
 
 	const rootRef = useRef(null);
+
+	// Light/dark: the `dark` class on the host element (mirrored to the overlay layer by the
+	// renderer). A layout effect, so the first paint already has the right mode.
+	const { resolvedTheme } = useTheme();
+	useLayoutEffect(() => {
+		const host = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode().host;
+		if (!host) return;
+		host.classList.toggle('dark', resolvedTheme === 'dark');
+		host.classList.toggle('light', resolvedTheme !== 'dark');
+	}, [resolvedTheme]);
+
 	useEffect(() => {
 		const host = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode().host;
 		recordMount(instanceId, `${location.portalSlug || '(no portal)'}/${location.page || '(home)'}`, host ? host.tagName.toLowerCase() : undefined);

@@ -437,6 +437,22 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '79db1f11b20d4906b1d36087ef3745c4'
                     }
+                    'rest-runtime-messages': {
+                        table: 'sys_ws_operation'
+                        id: '6dcb418bd9c84d0e9153a8a98a3af024'
+                    }
+                    'rest-runtime-properties': {
+                        table: 'sys_ws_operation'
+                        id: '17e5684834b24b1b99264deee3f2fac2'
+                    }
+                    'rest-runtime-properties-names': {
+                        table: 'sys_ws_query_parameter'
+                        id: 'e89d4a5daeab4b2398fa5ee8601cf671'
+                    }
+                    'rest-runtime-properties-portal': {
+                        table: 'sys_ws_query_parameter'
+                        id: '5c5541b9ef65499d85b0e93256fdad09'
+                    }
                     'rest-runtime-resolve': {
                         table: 'sys_ws_operation'
                         id: '9a9ee74b62d24dc2b02c5a92e7e9b3c2'
@@ -625,9 +641,17 @@ declare global {
                         table: 'sys_module'
                         id: '9522dac3a3f549f99e73fd0ae51a74aa'
                     }
+                    'src_server_runtime_server-api_ts': {
+                        table: 'sys_module'
+                        id: '06f529a050f54f1e9dd691c9c5e2cb21'
+                    }
                     src_server_security_access_ts: {
                         table: 'sys_module'
                         id: 'b6221819fd20457eb3ae01e87f0b0ed7'
+                    }
+                    src_server_security_user_ts: {
+                        table: 'sys_module'
+                        id: 'd00cc69203d44f2585be6a1f782a220d'
                     }
                     src_server_source_owner_ts: {
                         table: 'sys_module'
@@ -3050,6 +3074,14 @@ declare global {
                                 }
                             }
                             sys_domain: 'global'
+                        }
+                    },
+                    {
+                        table: 'sys_ws_query_parameter_map'
+                        id: '42b07042358441138107060e666a5ca5'
+                        key: {
+                            web_service_operation: '17e5684834b24b1b99264deee3f2fac2'
+                            web_service_query_parameter: '5c5541b9ef65499d85b0e93256fdad09'
                         }
                     },
                     {
@@ -8445,6 +8477,14 @@ declare global {
                             name: 'x_312987_portal_component'
                             element: 'css'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_ws_query_parameter_map'
+                        id: 'df3507a3aca7436fb46c115e6cc0335d'
+                        key: {
+                            web_service_operation: '17e5684834b24b1b99264deee3f2fac2'
+                            web_service_query_parameter: 'e89d4a5daeab4b2398fa5ee8601cf671'
                         }
                     },
                     {

@@ -2,6 +2,49 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.3.0] - 2026-11-18
+
+Light/dark/system mode across portals and Studio, Service Portal-style server scripts with a `$sp`
+helper, and spUtils-style client hooks.
+
+### Added
+- **Light / dark / system mode.** `useTheme()` in `@portal/runtime` with the next-themes API
+  (`theme`, `setTheme`, `resolvedTheme`, `systemTheme`, `themes`): defaults to system and follows
+  `prefers-color-scheme` live, persists in localStorage (`rp-theme`) and syncs across tabs, and is
+  applied as `.dark` on the host before first paint (mirrored to overlays; `color-scheme` set).
+  next-themes itself can't be used: it targets `<html>`, which our shadow root never sees.
+- **Per-mode theme tokens.** `tokens.json` accepts `{ "light": {…}, "dark": {…} }` (flat objects still
+  work); bootstrap returns `tokensDark`, applied on `:host(.dark)`; themes without a dark set fall back
+  to the shadcn default dark palette.
+- **Mode toggles.** The seeded Site Header has a Light / Dark / System menu (`parts/ModeToggle.tsx`,
+  shadcn's ModeToggle pattern), and Studio's title bar has the same toggle sharing one preference
+  (CodeMirror switches VS Code light/dark). Both demo portals now ship light and dark palettes.
+- **`$sp` / `$rp` in server scripts.** Injected into every component server script, modeled on Service
+  Portal: `getValue`, `getDisplayValue`, `getParameter`, `getRecord` (ACL-checked), `getField(s)`,
+  `canReadRecord`, `getProperty`, `getUser`, `hasRole`, `getPortal`, `getPage`, `getComponent`,
+  `translate`, `log`.
+- **Service Portal-style IIFE server scripts.** An empty `server.js` opens as SP's
+  `(function () { /* populate the 'data' object */ })()` template; the seed uses it.
+- **Current user in bootstrap** (`user`: sys_id, name, email, title, avatar, roles, time zone, language).
+- **Runtime endpoints** `GET /properties` (only properties a portal exposes via
+  `settings.exposedProperties` or under `x_312987_portal.public.`; everything else is null) and
+  `POST /messages` (gs.getMessage in the user's language).
+- **spUtils-style hooks** in `@portal/runtime`: `useUser` (`hasRole`, `hasAnyRole`), `useProperty(ies)`,
+  `useMessage(s)` (batched per tick), `usePortalUtils` (`addInfoMessage` / `addErrorMessage` /
+  `addTrivialMessage` toasts via shadcn Sonner, `format`, `getMessage`, `scrollTo`, `fetchJson`,
+  `refresh`, `getHeaders`), `useServer`, `useRecord` and `useTableQuery` (Table API + TanStack Query,
+  platform ACLs apply). The host README documents every runtime export.
+
+### Fixed
+- **Server-script errors are reported.** GlideScopedEvaluator swallows errors, so a broken script used to
+  return partial `data`. The compiled server script now captures the error and execute/initialize
+  return `script_error` with the author's line number (also logged to the execution log).
+- **Bootstrap 500**: `gs.getImpersonatingUserName()` is blocked in scoped apps; impersonation detection
+  now degrades gracefully.
+
+### Internal
+- Host bundle ~781 KB (+Sonner); Studio chunk ~1.0 MB.
+
 ## [1.2.0] - 2026-11-18
 
 Portal Studio: a VS Code-style editor for components and themes, running in the host on a

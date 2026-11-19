@@ -11,6 +11,7 @@ import { ensureStyle, styleTarget } from '#/runtime/styles';
 import { useAvailableHeight } from '#/runtime/use-available-height';
 import { createStudio, useStudio } from './store';
 import { STUDIO_CSS } from './studio-css';
+import { useStudioTheme } from './theme';
 import EditorGroups from './groups';
 import Explorer from './explorer';
 import { ConflictBanner, Panel, Properties, QuickOpen, StatusBar, Titlebar, guardedOpen } from './chrome';
@@ -25,14 +26,6 @@ function cssText(mod) {
 
 // allotment's stylesheet defines its variables on :root, which doesn't exist in a shadow root.
 const ALLOTMENT_CSS = cssText(allotmentStyles).replace(/:root\b/g, ':host');
-
-function prefersDark() {
-	try {
-		return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-	} catch (error) {
-		return false;
-	}
-}
 
 /**
  * props (from the host, plain objects; Studio has its own React, see src/portal-studio.js):
@@ -54,13 +47,12 @@ export default function StudioApp({ locationStore, navigate }) {
 	navigateRef.current = navigate;
 	const [studio] = useState(() =>
 		createStudio({
-			navigate: (to, opts) => navigateRef.current(to, opts),
-			hostDark: false
+			navigate: (to, opts) => navigateRef.current(to, opts)
 		})
 	);
-	const themeMode = useStudio(studio, (s) => s.themeMode);
-	const [hostDark, setHostDark] = useState(prefersDark);
-	const dark = themeMode === 'dark' || (themeMode === 'auto' && hostDark);
+	// One light/dark/system preference for the portal and Studio (the host's store).
+	const { resolvedTheme } = useStudioTheme();
+	const dark = resolvedTheme === 'dark';
 	const owner = useStudio(studio, (s) => s.owner);
 	const explorerOpen = useStudio(studio, (s) => s.explorerOpen);
 	const panelOpen = useStudio(studio, (s) => s.panelOpen);
@@ -90,22 +82,6 @@ export default function StudioApp({ locationStore, navigate }) {
 		if (!target) return;
 		ensureStyle(target, 'studio:allotment', ALLOTMENT_CSS, 'widget');
 		ensureStyle(target, 'studio', STUDIO_CSS, 'widget');
-	}, [target]);
-
-	// Follow the host's light/dark: a .dark class on the host element, else the OS preference.
-	useEffect(() => {
-		if (!target || !target.host) return undefined;
-		const host = target.host;
-		const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-		const update = () => setHostDark(host.classList.contains('dark') || (!host.classList.contains('light') && !!(media && media.matches)));
-		update();
-		const mo = new MutationObserver(update);
-		mo.observe(host, { attributes: true, attributeFilter: ['class'] });
-		if (media && media.addEventListener) media.addEventListener('change', update);
-		return () => {
-			mo.disconnect();
-			if (media && media.removeEventListener) media.removeEventListener('change', update);
-		};
 	}, [target]);
 
 	// Catalog once; the recordId property picks the open component.

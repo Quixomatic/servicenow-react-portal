@@ -22,6 +22,9 @@ import { WidgetErrorBoundary } from './widgets';
 import { createStore } from './store';
 import { loadBuild } from './loader';
 import { ensureStyle } from './styles';
+import { themeStore } from './theme-mode';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './query-client';
 
 const modules = {
 	react: React,
@@ -54,7 +57,12 @@ registry.internals = {
 	WidgetErrorBoundary,
 	createStore,
 	loadBuild,
-	ensureStyle
+	ensureStyle,
+	// Light/dark/system preference: one store for the page, shared with Studio's React copy.
+	themeStore,
+	// The page-level query cache, for previews of widgets that use data hooks.
+	QueryClientProvider,
+	queryClient
 };
 
 /** Register more modules at runtime (e.g. 'components:<widget>' for widgets other widgets use). */

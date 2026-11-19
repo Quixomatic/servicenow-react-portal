@@ -24,7 +24,7 @@ import type { BuildSummary, CompleteBuildRequest, BuildState, BuildAssetDto } fr
  */
 
 const ASSET_KINDS = ['js', 'css', 'map', 'wasm', 'other']
-const SERVER_SCRIPT_FORMAT = 3
+const SERVER_SCRIPT_FORMAT = 4
 
 export function runtimeAbiVersion(): string {
     return prop('runtime_abi_version', '1')
@@ -285,7 +285,11 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
  * server-side transform (e.g. TypeScript) has one place to live.
  */
 export function compileServerScript(script: string): string {
-    return script && script.trim() ? script : ''
+    if (!script || !script.trim()) return ''
+    // GlideScopedEvaluator swallows script errors (the script just stops), so the compiled form
+    // catches them into __rpError, which the executor reads back and reports. The author's code is
+    // kept on its own lines, starting on line 2 (the executor subtracts 1 from reported lines).
+    return ['try {', script, '} catch (__rpCaught) { __rpError = { message: String(__rpCaught && __rpCaught.message || __rpCaught), line: __rpCaught && __rpCaught.lineNumber || null } }'].join('\n')
 }
 
 function summarizeDiagnostics(d: unknown): string {

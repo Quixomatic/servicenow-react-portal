@@ -67,7 +67,7 @@ function writeJson(key, value) {
 
 // ---- store ----------------------------------------------------------------------------------
 
-export function createStudio({ navigate, hostDark }) {
+export function createStudio({ navigate }) {
 	const ui = readJson(UI_KEY, {});
 	let state = {
 		catalog: { components: null, themes: null, error: null },
@@ -97,8 +97,6 @@ export function createStudio({ navigate, hostDark }) {
 		cursor: { line: 1, col: 1 },
 		quickOpen: false,
 		dialog: null,
-		themeMode: ui.themeMode || 'auto',
-		hostDark: !!hostDark,
 		previewVersion: 0,
 		loadVersion: 0
 	};
@@ -116,8 +114,8 @@ export function createStudio({ navigate, hostDark }) {
 		state = { ...state, ...next };
 		listeners.forEach((l) => l());
 		if ('layout' in next || 'activeGroup' in next) persistLayout();
-		if ('panelOpen' in next || 'panelTab' in next || 'explorerOpen' in next || 'themeMode' in next) {
-			writeJson(UI_KEY, { panelOpen: state.panelOpen, panelTab: state.panelTab, explorerOpen: state.explorerOpen, themeMode: state.themeMode });
+		if ('panelOpen' in next || 'panelTab' in next || 'explorerOpen' in next) {
+			writeJson(UI_KEY, { panelOpen: state.panelOpen, panelTab: state.panelTab, explorerOpen: state.explorerOpen });
 		}
 	}
 

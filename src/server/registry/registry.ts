@@ -116,14 +116,30 @@ export function componentRefById(id: string): ComponentRef | null {
 export function themeRef(theme: GR, build?: GR | null): ThemeRef {
     const pinned = build === undefined ? buildOf('theme', theme.getUniqueValue()) : build
     const b = buildRef(pinned)
-    const tokens = parseJson<Record<string, string>>(str(theme, 'tokens_json'), {})
+    const { light, dark } = splitTokens(parseJson<unknown>(str(theme, 'tokens_json'), {}))
     return {
         id: theme.getUniqueValue(),
         key: str(theme, 'key'),
         name: str(theme, 'name'),
-        tokens: isPlainObject(tokens) ? stringifyValues(tokens) : {},
+        tokens: light,
+        tokensDark: dark,
         css: b && b.css ? [b.css] : [],
         cssText: b && b.css ? null : str(theme, 'stylesheet') || null,
+    }
+}
+
+/**
+ * Theme tokens come either flat ({ primary: '…' } = light only) or per mode
+ * ({ light: { … }, dark: { … } }). Dark tokens are null when the theme doesn't define them; the
+ * host then falls back to the framework's default dark palette.
+ */
+export function splitTokens(raw: unknown): { light: Record<string, string>; dark: Record<string, string> | null } {
+    if (!isPlainObject(raw)) return { light: {}, dark: null }
+    const hasModes = isPlainObject(raw.light) || isPlainObject(raw.dark)
+    if (!hasModes) return { light: stringifyValues(raw), dark: null }
+    return {
+        light: isPlainObject(raw.light) ? stringifyValues(raw.light) : {},
+        dark: isPlainObject(raw.dark) ? stringifyValues(raw.dark) : null,
     }
 }
 

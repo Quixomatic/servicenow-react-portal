@@ -153,3 +153,67 @@ export function assetHeaders(accept) {
 export function needsToken(url) {
 	return typeof url === 'string' && url.indexOf('/api/') === 0;
 }
+
+// ---- Service Portal-style utilities (runtime/sp-utils.js) ------------------------------------
+
+/** GET /properties?portal=&names= → { name: value | null } (only exposed / public properties). */
+export function getProperties(portal, names) {
+	if (useMock) return mock.getProperties(portal, names);
+	const qs = `?portal=${encodeURIComponent(portal || '')}&names=${names.map(encodeURIComponent).join(',')}`;
+	return request('GET', `/properties${qs}`).then((data) => (data && data.values) || {});
+}
+
+/** POST /messages { keys } → { key: translated } (gs.getMessage in the user's language). */
+export function getMessages(keys) {
+	if (useMock) return mock.getMessages(keys);
+	return request('POST', '/messages', { keys }).then((data) => (data && data.messages) || {});
+}
+
+/** Standard request headers for same-origin REST calls from widgets. */
+export function getHeaders() {
+	return headers(true);
+}
+
+/**
+ * fetch() for same-origin JSON endpoints: session cookie + X-UserToken, JSON body in, parsed JSON
+ * out. Throws an ApiError with the ServiceNow error message on a non-2xx status.
+ */
+export async function fetchJson(url, init) {
+	const options = init || {};
+	const target = new URL(url, window.location.origin);
+	if (target.origin !== window.location.origin) throw new ApiError(`fetchJson only calls same-origin URLs (got ${target.origin})`, 0);
+	const hasBody = options.body !== undefined && options.body !== null;
+	const body = hasBody && typeof options.body !== 'string' && !(options.body instanceof FormData) ? JSON.stringify(options.body) : options.body;
+	const response = await fetch(target.toString(), {
+		...options,
+		credentials: 'same-origin',
+		headers: { ...headers(hasBody), ...(options.headers || {}) },
+		body
+	});
+	const text = await response.text();
+	let json = null;
+	try {
+		json = text ? JSON.parse(text) : null;
+	} catch (error) {
+		/* not JSON */
+	}
+	if (!response.ok) {
+		const err = (json && json.result && json.result.error) || (json && json.error) || null;
+		const message = (err && (err.message || err.detail)) || `${options.method || 'GET'} ${url} failed: HTTP ${response.status}`;
+		const apiError = new ApiError(message, response.status, json);
+		apiError.code = err && err.code;
+		throw apiError;
+	}
+	return json;
+}
+
+/** Table API (/api/now/table): the platform's ACLs apply. Returns `result`. */
+export function tableApi(table, sysId, params) {
+	if (useMock) return mock.tableApi(table, sysId, params);
+	const qs = new URLSearchParams();
+	Object.keys(params || {}).forEach((k) => {
+		if (params[k] !== undefined && params[k] !== null && params[k] !== '') qs.set(k, String(params[k]));
+	});
+	const path = `/api/now/table/${encodeURIComponent(table)}${sysId ? '/' + encodeURIComponent(sysId) : ''}${qs.toString() ? '?' + qs : ''}`;
+	return fetchJson(path).then((json) => (json ? json.result : null));
+}

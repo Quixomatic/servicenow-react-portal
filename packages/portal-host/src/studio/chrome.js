@@ -7,6 +7,7 @@ import {
 	Eye,
 	Info,
 	Loader2,
+	Monitor,
 	Moon,
 	PanelBottom,
 	PanelLeft,
@@ -18,6 +19,7 @@ import {
 	X
 } from 'lucide-react';
 import { FileIcon, ask, baseName, confirmDiscard } from './dialogs';
+import { useStudioTheme } from './theme';
 import { PREVIEW_TAB, languageOf, useStudio, virtualLabel } from './store';
 import * as L from './layout';
 
@@ -49,6 +51,7 @@ export function Titlebar({ studio }) {
 	const explorerOpen = useStudio(studio, (s) => s.explorerOpen);
 	const panelOpen = useStudio(studio, (s) => s.panelOpen);
 	const propertiesOpen = useStudio(studio, (s) => s.propertiesOpen);
+	const { theme, resolvedTheme, cycle } = useStudioTheme();
 
 	const newComponent = async () => {
 		const value = await ask(studio, { type: 'newComponent' });
@@ -87,6 +90,9 @@ export function Titlebar({ studio }) {
 			) : null}
 			<button className="rps-tbtn" aria-pressed={propertiesOpen} disabled={!owner} title="Properties" onClick={() => studio.set((s) => ({ propertiesOpen: !s.propertiesOpen }))} data-rps-props-toggle="">
 				<Settings2 size={15} />
+			</button>
+			<button className="rps-tbtn" title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}. Click for ${theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'}`} onClick={cycle} data-rps-theme={theme}>
+				{theme === 'system' ? <Monitor size={15} /> : resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
 			</button>
 			<button className="rps-tbtn" aria-pressed={panelOpen} title="Toggle panel (Ctrl+J)" onClick={() => studio.set((s) => ({ panelOpen: !s.panelOpen }))}>
 				<PanelBottom size={15} />
@@ -373,14 +379,13 @@ export function StatusBar({ studio, dark, mock }) {
 	const owner = useStudio(studio, (s) => s.owner);
 	const cursor = useStudio(studio, (s) => s.cursor);
 	const problems = useStudio(studio, (s) => s.problems);
-	const themeMode = useStudio(studio, (s) => s.themeMode);
+	const { theme: themeMode, cycle } = useStudioTheme();
 	const activePath = useStudio(studio, (s) => {
 		const g = L.findGroup(s.layout, s.activeGroup);
 		return g ? g.active : null;
 	});
 	const errors = problems.list.filter((p) => p.severity === 'error').length;
 	const warnings = problems.list.length - errors;
-	const nextMode = { auto: 'dark', dark: 'light', light: 'auto' }[themeMode] || 'auto';
 	return (
 		<div className={'rps-statusbar' + (build && build.state === 'failed' && busy !== 'saving' ? ' failed' : '')} data-rps-statusbar="">
 			<span className="item">
@@ -400,8 +405,8 @@ export function StatusBar({ studio, dark, mock }) {
 			{activePath ? <span className="item">{activePath === PREVIEW_TAB ? 'Preview' : languageOf(activePath)}</span> : null}
 			{activePath && virtualLabel(activePath) ? <span className="item">{virtualLabel(activePath).label}</span> : null}
 			{owner ? <span className="item">Revision {revision}</span> : null}
-			<button className="item" title={`Theme: ${themeMode} (click for ${nextMode})`} onClick={() => studio.set({ themeMode: nextMode })}>
-				{dark ? <Moon size={12} /> : <Sun size={12} />} {themeMode}
+			<button className="item" title={`Theme: ${themeMode} (click to change)`} onClick={cycle}>
+				{themeMode === 'system' ? <Monitor size={12} /> : dark ? <Moon size={12} /> : <Sun size={12} />} {themeMode}
 			</button>
 		</div>
 	);

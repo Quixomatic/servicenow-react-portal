@@ -51,13 +51,14 @@ function registryCompletions(context) {
 	};
 }
 
-const RUNTIME_SNIPPETS = completeFromList(
-	['usePortal', 'useComponent', 'useNavigate', 'usePortalLocation', 'Region', 'RegionPortal', 'Link'].map((label) => ({
-		label,
-		type: 'function',
-		detail: '@portal/runtime'
-	}))
-);
+const RUNTIME_FALLBACK = ['usePortal', 'useComponent', 'useNavigate', 'usePortalLocation', 'Region', 'RegionPortal', 'Link', 'useTheme', 'useUser', 'useProperty', 'useProperties', 'useMessage', 'useMessages', 'usePortalUtils', 'useServer', 'useRecord', 'useTableQuery', 'toast', 'format'];
+
+/** @portal/runtime names, read from the host registry (so new runtime exports show up). */
+function RUNTIME_SNIPPETS(context) {
+	const runtime = globalThis.__REACT_PORTAL__ && globalThis.__REACT_PORTAL__.modules && globalThis.__REACT_PORTAL__.modules['@portal/runtime'];
+	const names = (runtime && runtime.RUNTIME_EXPORTS) || RUNTIME_FALLBACK;
+	return completeFromList(names.map((label) => ({ label, type: /^[A-Z]/.test(label) ? 'class' : 'function', detail: '@portal/runtime' })))(context);
+}
 
 /** VS Code-ish chrome on top of the VS Code theme: fills its container, compact gutters. */
 const baseTheme = EditorView.theme({

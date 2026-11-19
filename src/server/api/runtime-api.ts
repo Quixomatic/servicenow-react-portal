@@ -1,5 +1,5 @@
 import { handle, wrap, send, requiredParam, bodyString } from './http.ts'
-import { bootstrap, resolvePage } from '../runtime/portal-service.ts'
+import { bootstrap, resolvePage, exposedProperties, translateMessages } from '../runtime/portal-service.ts'
 import { execute, initialize } from '../runtime/component-executor.ts'
 import { getAsset } from '../runtime/asset-service.ts'
 import { badRequest, isRPError } from '../lib/errors.ts'
@@ -94,4 +94,23 @@ export function assetRoute(request: any, response: any): void {
             meta: { correlationId: req ? req.correlationId : '' },
         })
     }
+}
+
+/** GET /properties?portal=<slug>&names=a,b — exposed system properties only. */
+export function propertiesRoute(request: any, response: any): void {
+    handle(request, response, (req) => {
+        const q = req.queryParams || {}
+        const portal = String((q.portal && q.portal[0]) || '')
+        if (!portal) throw badRequest('portal is required')
+        const names = String((q.names && q.names[0]) || '').split(',')
+        return { data: { values: exposedProperties(portal, names) } }
+    })
+}
+
+/** POST /messages { keys: [] } — translated UI messages. */
+export function messagesRoute(request: any, response: any): void {
+    handle(request, response, (req) => {
+        const keys = Array.isArray(req.body.keys) ? (req.body.keys as unknown[]).map(String) : []
+        return { data: { messages: translateMessages(keys) } }
+    })
 }
