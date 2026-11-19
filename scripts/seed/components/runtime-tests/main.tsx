@@ -111,6 +111,13 @@ export default function RuntimeTests() {
                     <Button size="sm" variant="outline" onClick={() => utils.addTrivialMessage('Trivial toast')}>
                         Trivial toast
                     </Button>
+                    {/* Server-side: the script raises gs/$sp messages, or throws; both reach the page as toasts. */}
+                    <Button size="sm" variant="outline" onClick={() => server.get({ raiseMessages: true }).catch(() => {})}>
+                        Server messages
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => server.get({ raiseError: true }).catch(() => {})}>
+                        Server error
+                    </Button>
                 </div>
             </CardHeader>
             <CardContent className="px-0">

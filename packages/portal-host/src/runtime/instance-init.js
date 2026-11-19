@@ -2,7 +2,10 @@
 // store keyed by instance id. Each widget subscribes to its own record only, so a page's batch
 // result re-renders that page's widgets and nothing else.
 import { useSyncExternalStore } from 'react';
-import { initializeInstances } from './api';
+import { initializeInstances, emitServerMessages } from './api';
+
+// Batch results whose server messages were already shown (cached results are re-applied on navigation).
+const announced = new WeakSet();
 
 const EMPTY = Object.freeze({ entry: undefined, pending: false, error: null });
 
@@ -47,6 +50,10 @@ export function createInstanceInitStore(queryClient) {
 			const cached = queryClient.getQueryData(queryKey);
 			const apply = (data) => {
 				const instances = (data && data.instances) || {};
+				if (data && typeof data === 'object' && !announced.has(data)) {
+					announced.add(data);
+					ids.forEach((id) => instances[id] && emitServerMessages(instances[id].messages));
+				}
 				ids.forEach((id) => setRecord(id, { entry: instances[id], pending: false, error: instances[id] ? null : new Error(`No init result for ${id}`) }));
 				notify();
 				return data;

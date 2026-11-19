@@ -2,6 +2,24 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.9.1] - 2026-11-19
+
+Server-script messages reach the portal.
+
+### Added
+- **Server messages become toasts.**
+  - Any `gs.addInfoMessage` / `gs.addErrorMessage` a component's server script raises is read back after the
+    script runs and returned to the client, as `meta.messages` on execute, `instances[id].messages` on
+    initialize, or in the error details when the script fails. The portal shows each as a toast coloured by
+    type.
+  - New `$sp.addInfoMessage`, `addErrorMessage`, `addWarningMessage` and `addSuccessMessage`.
+  - `gs` messages also stay queued for the next classic UI page, as usual: `gs.flushMessages()` is blocked in scope.
+  - **Known limitation:** the session ignores a `gs` message identical to one still queued, so a repeated
+    identical `gs.addInfoMessage` (e.g. from a business rule on every save) toasts only the first time until a
+    classic page clears the queue. `$sp.add*Message` is unaffected (it never touches the session).
+- **Runtime Tests:** "Server messages" and "Server error" buttons, which exercise server-raised toasts without
+  breaking anything.
+
 ## [1.9.0] - 2026-11-19
 
 The app shell. Layouts only place slots; header, sidebar and footer widgets own their look. Adds a

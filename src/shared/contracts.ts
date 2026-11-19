@@ -274,12 +274,20 @@ export interface InitializeRequest {
     context?: Record<string, unknown>
 }
 
+/** A message a server script raised (gs.addInfoMessage / addErrorMessage, or $sp.add*Message); shown as a toast. */
+export interface ServerMessage {
+    type: 'info' | 'error' | 'warning' | 'success'
+    message: string
+}
+
 export interface InstanceResult {
     ok: boolean
     data?: Record<string, unknown>
     options?: Record<string, unknown>
     error?: { status: number; code: string; message: string }
     build?: string | null
+    /** Messages the server script raised (also on failure). */
+    messages?: ServerMessage[]
 }
 
 export interface InitializeData {

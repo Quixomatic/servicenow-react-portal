@@ -13,6 +13,14 @@
         option: $sp.getValue('label'),
         hasAdmin: $sp.hasRole('admin'),
     }
+    // Test buttons: messages raised server-side become portal toasts; a thrown error becomes an error toast.
+    if (input.raiseMessages) {
+        gs.addInfoMessage('Info from gs.addInfoMessage')
+        gs.addErrorMessage('Error from gs.addErrorMessage')
+        $sp.addSuccessMessage('Success from $sp.addSuccessMessage')
+        $sp.addWarningMessage('Warning from $sp.addWarningMessage')
+    }
+    if (input.raiseError) throw new Error('Test error thrown by the Runtime Tests server script')
     data.action = context.action
     data.input = input
     data.startKeys = startKeys

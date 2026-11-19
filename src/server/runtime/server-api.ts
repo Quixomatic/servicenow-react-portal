@@ -1,3 +1,4 @@
+import type { ServerMessage } from '../../shared/contracts'
 import { gs, GlideRecordSecure } from '@servicenow/glide'
 import { currentUser } from '../security/user.ts'
 import { isPlainObject } from '../lib/util.ts'
@@ -19,6 +20,8 @@ import type { MenuMap, NavItem } from '../../shared/contracts'
  */
 
 export interface ServerApiContext {
+    /** Sink for $sp.add*Message (returned to the client as toasts). */
+    messages?: ServerMessage[]
     input: Record<string, unknown>
     options: Record<string, unknown>
     params: Record<string, string>
@@ -30,6 +33,10 @@ export interface ServerApiContext {
 }
 
 export function createServerApi(ctx: ServerApiContext): Record<string, unknown> {
+    const messages = ctx.messages || []
+    const addMessage = (type: ServerMessage['type']) => (msg: unknown): void => {
+        if (msg !== null && msg !== undefined && String(msg) !== '') messages.push({ type, message: String(msg) })
+    }
     const settings = isPlainObject(ctx.portal.settings) ? ctx.portal.settings : {}
 
     /** Option (placement/component default) first, then portal setting — like $sp.getValue. */
@@ -120,6 +127,14 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
         getMenus,
         /** One resolved item (any menu, any depth) by sys_id, or null when hidden/missing. */
         getMenuItem: (id: string) => findNavItem(getMenus(), String(id || '')),
+        /**
+         * Messages for the user, shown as portal toasts (like gs.addInfoMessage / addErrorMessage, which
+         * are forwarded too, but these don't also queue a banner for the next classic UI page).
+         */
+        addInfoMessage: addMessage('info'),
+        addErrorMessage: addMessage('error'),
+        addWarningMessage: addMessage('warning'),
+        addSuccessMessage: addMessage('success'),
     }
     return api
 }

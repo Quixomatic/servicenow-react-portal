@@ -66,7 +66,7 @@ export function executeRoute(request: any, response: any): void {
             context: isPlainObject(req.body.context) ? req.body.context : undefined,
             correlationId: req.correlationId,
         })
-        return { data: r.data, options: r.options, meta: { build: r.buildId, release: r.release } }
+        return { data: r.data, options: r.options, meta: { build: r.buildId, release: r.release, ...(r.messages.length ? { messages: r.messages } : {}) } as any }
     })
 }
 

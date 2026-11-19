@@ -8,7 +8,7 @@ import { canAccessPageConfig, requirePortalAccess } from '../security/access.ts'
 import { currentManifest, findPortalBySlug, placementIndex, matchPage, Manifest } from './portal-service.ts'
 import { logExecution } from './diagnostics.ts'
 import { createServerApi } from './server-api.ts'
-import type { ExecuteAction, InstanceResult, PlacementRef } from '../../shared/contracts'
+import type { ExecuteAction, InstanceResult, PlacementRef, ServerMessage } from '../../shared/contracts'
 
 /**
  * RPComponentExecutor: runs a component's server script, always the one pinned in the
@@ -38,6 +38,30 @@ export interface ExecuteResult {
     buildId: string
     release: { id: string; version: number } | null
     durationMs: number
+    messages: ServerMessage[]
+}
+
+/** gs.getInfoMessages()/getErrorMessages() as string arrays (Java lists or JS arrays). */
+function listOf(v: any): string[] {
+    if (!v) return []
+    if (typeof v.size === 'function') return Array.from({ length: v.size() }, (_, i) => String(v.get(i)))
+    return Array.isArray(v) ? v.map(String) : []
+}
+function sessionMessages(): { info: string[]; error: string[] } {
+    try {
+        const g: any = gs
+        return { info: listOf(g.getInfoMessages()), error: listOf(g.getErrorMessages()) }
+    } catch (e) {
+        return { info: [], error: [] }
+    }
+}
+/** Messages the script added to the session (gs.addInfoMessage / addErrorMessage) since `before`. */
+function newSessionMessages(before: { info: string[]; error: string[] }): ServerMessage[] {
+    const after = sessionMessages()
+    const out: ServerMessage[] = []
+    after.info.slice(before.info.length).forEach((m) => out.push({ type: 'info', message: m }))
+    after.error.slice(before.error.length).forEach((m) => out.push({ type: 'error', message: m }))
+    return out
 }
 
 interface PreparedPortal {
@@ -77,8 +101,10 @@ function runOne(prep: PreparedPortal, p: ExecuteParams): ExecuteResult {
     const data: Record<string, unknown> = {}
     const input: Record<string, unknown> = isPlainObject(p.input) ? p.input : {}
 
+    const messages: ServerMessage[] = []
     const script = str(build, 'server_script')
     if (script.trim()) {
+        const sessionBefore = sessionMessages()
         // Same pattern as the TurboForge Now Experience component API: hand the variables to the
         // evaluator, run the build's (raw) server script, read `data` back.
         const evaluator: any = new GlideScopedEvaluator()
@@ -111,18 +137,22 @@ function runOne(prep: PreparedPortal, p: ExecuteParams): ExecuteResult {
             page: found.page ? { route: found.page.route, params: prep.params } : null,
             component: { id: placement.component.id, uniqueId: placement.component.uniqueId, instanceId: placement.id },
             manifest: prep.manifest,
+            messages,
         })
         evaluator.putVariable('$rp', api)
         evaluator.putVariable('$sp', api)
         evaluator.putVariable('__rpError', null)
         evaluator.evaluateScript(build, 'server_script', null)
         const caught = evaluator.getVariable('__rpError')
+        // gs.addInfoMessage / addErrorMessage from the script reach the portal as toasts.
+        messages.push(...newSessionMessages(sessionBefore))
         if (caught) {
             const err = JSON.parse(JSON.stringify(caught)) as { message?: string; line?: number | null }
             const line = typeof err.line === 'number' && err.line > 1 ? err.line - 1 : null
             throw rpError(500, 'script_error', `Server script error${line ? ' (line ' + line + ')' : ''}: ${err.message || 'unknown error'}`, {
                 component: placement.component.uniqueId,
                 line,
+                messages,
             })
         }
         const out = evaluator.getVariable('data')
@@ -138,6 +168,7 @@ function runOne(prep: PreparedPortal, p: ExecuteParams): ExecuteResult {
         buildId: build.getUniqueValue(),
         release: prep.release,
         durationMs: Date.now() - started,
+        messages,
     }
 }
 
@@ -199,7 +230,7 @@ export function initialize(params: {
                 action: 'initialize',
                 context: params.context,
             })
-            out[id] = { ok: true, data: r.data, options: r.options, build: r.buildId }
+            out[id] = { ok: true, data: r.data, options: r.options, build: r.buildId, messages: r.messages.length ? r.messages : undefined }
             logExecution({
                 correlationId: cid,
                 action: 'initialize',
@@ -213,7 +244,8 @@ export function initialize(params: {
         } catch (e) {
             const status = isRPError(e) ? e.status : 500
             const code = isRPError(e) ? e.code : 'script_error'
-            out[id] = { ok: false, error: { status, code, message: sanitizeError(e) } }
+            const failMessages = isRPError(e) && e.details && Array.isArray((e.details as any).messages) ? (e.details as any).messages : undefined
+            out[id] = { ok: false, error: { status, code, message: sanitizeError(e) }, messages: failMessages && failMessages.length ? failMessages : undefined }
             logExecution({
                 correlationId: cid,
                 action: 'initialize',

@@ -8,6 +8,15 @@ import { executeInstance } from './api';
 import { useInstanceRecord } from './instance-init';
 import { useDiagCounter } from './diag-hooks';
 import { toast } from 'sonner';
+import { setServerMessageSink } from './api';
+
+// Server-script messages → toasts coloured by type.
+setServerMessageSink((messages) =>
+	messages.forEach((m) => {
+		const show = (m && toast[m.type]) || toast;
+		show(String((m && m.message) || ''));
+	})
+);
 import { EMPTY_LIST, leafData } from './page-state';
 
 // ---- error boundary -------------------------------------------------------------------------

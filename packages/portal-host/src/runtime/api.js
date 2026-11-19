@@ -72,6 +72,16 @@ async function request(method, path, body) {
 
 export const STUDIO_API_BASE = '/api/x_312987_portal/rp_studio';
 
+// Messages server scripts raise (gs.addInfoMessage / addErrorMessage, $sp.add*Message) arrive in
+// the envelope's meta.messages (or error.details.messages); the portal shows them as toasts.
+let serverMessageSink = null;
+export function setServerMessageSink(fn) {
+	serverMessageSink = fn;
+}
+export function emitServerMessages(messages) {
+	if (serverMessageSink && Array.isArray(messages) && messages.length) serverMessageSink(messages);
+}
+
 /**
  * Scripted REST call against `base`: session cookie + X-UserToken, { result: { data } } unwrapped,
  * errors thrown as ApiError with status, code and details. Studio uses it with STUDIO_API_BASE.
@@ -100,11 +110,13 @@ export async function requestAt(base, method, path, body) {
 		apiError.details = err && err.details;
 		const meta = (envelope && envelope.meta) || (json && json.meta) || null;
 		apiError.correlationId = (meta && meta.correlationId) || null;
+		emitServerMessages(err && err.details && err.details.messages);
 		throw apiError;
 	}
 	if (!envelope || typeof envelope !== 'object' || !('data' in envelope)) {
 		throw new ApiError(`${method} ${path}: response has no { data } envelope`, response.status, json);
 	}
+	if (envelope.meta) emitServerMessages(envelope.meta.messages);
 	return envelope.data;
 }
 
