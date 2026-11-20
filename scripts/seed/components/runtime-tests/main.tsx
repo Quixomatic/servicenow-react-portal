@@ -230,6 +230,7 @@ export default function RuntimeTests() {
     }, [testLayout])
 
     const sp = (data as any)?.sp
+    const quick = (data as any)?.quick
     const checks: Check[] = [
         check('useUser: current user', !!user.sysId && !!user.name, `${user.name} (${user.userName}), ${user.roles.length} roles`),
         check('useUser: hasRole("admin")', user.hasRole('admin'), String(user.hasRole('admin'))),
@@ -260,6 +261,16 @@ export default function RuntimeTests() {
             { client: { table: loc?.table, sysId: loc?.sysId, view: loc?.view, query: loc?.query }, server: (data as any)?.url },
         ),
         check('$sp.getValue (option)', sp ? sp.option === 'from placement options' : null, sp?.option),
+        check(
+            '$sp.quick.getUniqueValues (GlideAggregate, ACL-checked)',
+            pending ? null : !!quick && Array.isArray(quick.categories) && quick.categories.every((c: unknown) => typeof c === 'string' && c !== '') && typeof quick.ms === 'number',
+            quick ? { categories: quick.categories, ms: quick.ms } : '…',
+        ),
+        check(
+            '$sp.quick.markdownToHtml escapes HTML, drops javascript: links',
+            pending ? null : !!quick && typeof quick.md === 'string' && quick.md.includes('<strong>b</strong>') && quick.md.includes('&lt;i&gt;') && !quick.md.includes('javascript:') && quick.md.includes('<a href="/kb">kb</a>'),
+            quick?.md,
+        ),
         check(
             '$sp.getWidget: server-built model',
             pending ? null : !!serverModel && serverModel.ok && !!serverModel.token && serverModel.data?.embedded === true && serverModel.data?.badge === 'signed' && serverModel.data?.instanceId === `${instanceId}~rt-srv`,

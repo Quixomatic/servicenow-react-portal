@@ -2,6 +2,37 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.18.0] - 2026-11-20
+
+Quick utilities: TurboForge's tfQuickUtils ported into React Portal, ACL-safe by default.
+
+### Added
+- **`$sp.quick` (QuickUtils):** a typed port of tfQuickUtils for component server scripts (`src/server/lib/quick-utils.ts`), covering all 30 functions.
+  - **`getUniqueValues`:** one GlideAggregate query. 25 ms vs 758 ms for a GlideRecord loop on incident.category; 15 ms vs 3.7 s on task.sys_class_name.
+  - Also field, template and schema helpers, role and group checks, and `markdownToHtml`.
+- **ACL-checked by default in `$sp.quick`:**
+  - record data is filtered by the user's row and field ACLs (per-value GlideRecordSecure probes for `getUniqueValues`);
+  - queries that can't be vetted fail closed;
+  - Markdown is HTML-escaped and unsafe URLs are dropped.
+  - `getUniqueValuesUnchecked` is the documented scope-rights exception.
+- **Script Include `x_312987_portal.QuickUtils`:** a `package_private` bridge for classic scripts in the scope. `new QuickUtils()` uses scope rights; `new QuickUtils({ secure: true })` checks ACLs. It shares `ReactPortal.MODULE_ROOT`.
+- **Runtime Tests:** 2 new checks (33 in total).
+- **Docs:** a "Quick utilities" section in `server-api/sp-api.md` and a QuickUtils section in `server-api/script-include.md`.
+
+### Fixed (vs tfQuickUtils)
+- Markdown images rendered as `!<a…>`.
+- `truncateText` dropped a character at exactly `max`.
+- `convertToUSD` returned `$NaN` for non-numbers.
+- `parseFieldAttributes` lost values containing `=`.
+- camelCase `compileMeta` keys didn't match.
+- `dateDifference` failed on date-times.
+- `getCompiledURI` didn't escape the display value and broke with custom domains.
+- Dot-walk schema helpers failed on empty records.
+
+### Notes
+- The ACL path hasn't been tested yet as a real roleless user.
+- `.plans/portal-view-rules.md` holds the spike results and the design for portal-keyed view rules, which compose with the built-in `uiView` through `_query` / `$$parent` in one request. Not built yet.
+
 ## [1.17.0] - 2026-11-20
 
 The knowledge base, a docs portal built in React Portal, a refreshed guide, form view

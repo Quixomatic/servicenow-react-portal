@@ -13,6 +13,13 @@
         option: $sp.getValue('label'),
         hasAdmin: $sp.hasRole('admin'),
     }
+    // $sp.quick (QuickUtils, ACL-checked): distinct incident categories via GlideAggregate, safe Markdown.
+    var quickStart = new Date().getTime()
+    data.quick = {
+        categories: $sp.quick.getUniqueValues('incident', 'category', '', { valueOnly: true }),
+        ms: new Date().getTime() - quickStart,
+        md: $sp.quick.markdownToHtml('**b** <i>x</i> [j](javascript:alert(1)) [kb](/kb)'),
+    }
     // URL params (site params table / sys_id / view / query, or packed inside q) reach the script.
     data.url = { table: $sp.getParameter('table'), sys_id: $sp.getParameter('sys_id'), view: $sp.getParameter('view'), query: $sp.getParameter('query'), keys: Object.keys($sp.getParameters()).sort() }
     // Test buttons: messages raised server-side become portal toasts; a thrown error becomes an error toast.

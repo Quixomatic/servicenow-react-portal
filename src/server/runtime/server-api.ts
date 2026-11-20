@@ -3,6 +3,7 @@ import { gs, GlideRecordSecure } from '@servicenow/glide'
 import { currentUser } from '../security/user.ts'
 import { isPlainObject } from '../lib/util.ts'
 import { resolveMenu, resolveMenus, findNavItem } from './menu-service.ts'
+import { createQuickUtils } from '../lib/quick-utils.ts'
 import type { Manifest } from './portal-service.ts'
 import type { EmbedModel, MenuMap, NavItem } from '../../shared/contracts'
 
@@ -161,6 +162,12 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
         addErrorMessage: addMessage('error'),
         addWarningMessage: addMessage('warning'),
         addSuccessMessage: addMessage('success'),
+        /**
+         * The QuickUtils library (a port of TurboForge's tfQuickUtils), ACL-checked for the user:
+         *   data.categories = $sp.quick.getUniqueValues('incident', 'category', 'active=true')
+         * See docs/guide/server-api/sp-api.md#quick-utilities.
+         */
+        quick: createQuickUtils({ secure: true, input: ctx.input, options: ctx.options }),
     }
     return api
 }

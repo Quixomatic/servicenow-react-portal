@@ -1,6 +1,6 @@
 {
   "name": "@x-312987/portal-host",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "private": false,
   "description": "React Portal host component",
   "keywords": [

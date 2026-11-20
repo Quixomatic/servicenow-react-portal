@@ -10,6 +10,10 @@ tags: [overview, releases, changelog]
 
 This page summarises releases 1.12 to 1.16 and links to the guide pages that cover each feature. The full list of changes, fixes and notes for every release is in `CHANGELOG.md` at the repository root.
 
+## Next: quick utilities
+
+- **`$sp.quick`:** a port of TurboForge's `tfQuickUtils` for component server scripts. It includes `getUniqueValues` (one `GlideAggregate` query, many times faster than a record loop), field and template helpers (`getField`, `compileText`, `compileMeta`), schema helpers, role and group checks, and `markdownToHtml`. Record data is ACL-checked for the user; `getUniqueValuesUnchecked` is the documented exception. Classic scripts in the scope use `new QuickUtils()`. See [Quick utilities](server-api/sp-api.md#quick-utilities).
+
 ## 1.16: related lists, attachments, activity, home and search
 
 - **Related lists** on every record: `app/related-list` and `app/related-lists` (tabs, stacked or single), on the platform's own form layout and list layout calls. They cover reference, many-to-many and scripted relationships, with counts, lazy loading, personalisation and live refresh. Record forms show them as extra tabs or as sections below the form (option `relatedLists`), and `g_form.showRelatedList` and its siblings work. See [Related lists](primitives/related-lists.md).

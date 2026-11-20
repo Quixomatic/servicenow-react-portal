@@ -981,6 +981,10 @@ declare global {
                         table: 'sys_ws_version'
                         id: 'e86a826add0f4d26a4ba76930005fe24'
                     }
+                    'script-include-quick-utils': {
+                        table: 'sys_script_include'
+                        id: '37641b67e6a24135aceeebe2dde5300d'
+                    }
                     'script-include-react-portal': {
                         table: 'sys_script_include'
                         id: '165f45dcc2944475ab7448b10fe426c9'
@@ -1120,6 +1124,10 @@ declare global {
                     src_server_lib_paths_ts: {
                         table: 'sys_module'
                         id: '167b743946854574b1c5729af38f6c64'
+                    }
+                    'src_server_lib_quick-utils_ts': {
+                        table: 'sys_module'
+                        id: '270260f3ed754b59bc10dc59c928114b'
                     }
                     'src_server_lib_session-flags_ts': {
                         table: 'sys_module'

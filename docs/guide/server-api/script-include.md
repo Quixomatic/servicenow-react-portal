@@ -50,6 +50,19 @@ The Fluent SDK installs every server module under the `package.json` version, so
 
 The Script Include is `accessibleFrom: 'public'` with caller tracking. The methods run with the caller's session: `bootstrap`, `resolvePage` and `execute` apply the same portal and page access checks as the REST API.
 
+## QuickUtils
+
+`QuickUtils` is a second, `package_private` bridge for classic scripts in the `x_312987_portal` scope (business rules, scheduled scripts, background scripts run in the scope). It exposes the [quick utilities](sp-api.md#quick-utilities), a port of TurboForge's `tfQuickUtils`:
+
+```js
+var qu = new QuickUtils()                    // scope rights, like tfQuickUtils
+gs.info(qu.getUniqueValues('incident', 'category', 'active=true', { valueOnly: true, asString: true }))
+
+var sq = new QuickUtils({ secure: true })    // ACL-checked for the session user, like $sp.quick
+```
+
+The constructor also takes `input` and `options` for `getInputVariableByName` / `getGlobalVariableByName`. The module path comes from `ReactPortal.MODULE_ROOT`, so a version bump moves both bridges.
+
 ## Related
 
 - [`$sp` / `$rp`](sp-api.md)
