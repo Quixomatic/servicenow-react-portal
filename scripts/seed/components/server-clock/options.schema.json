@@ -1,13 +1,13 @@
 {
-  "type": "object",
-  "properties": {
-    "title": { "type": "string", "title": "Title", "maxLength": 80 },
-    "format": { "type": "string", "title": "Time format", "enum": ["datetime", "date", "time"] },
-    "badge": {
-      "type": "string",
-      "title": "Badge (server-only when embedded)",
-      "description": "Embedded instances can only get this from a server-built model ($sp.getWidget); client-supplied values are dropped.",
-      "x-embed": "server"
+    "type": "object",
+    "properties": {
+        "title": { "type": "string", "title": "Title", "maxLength": 80 },
+        "format": { "type": "string", "title": "Time format", "enum": ["datetime", "date", "time"] },
+        "badge": {
+            "type": "string",
+            "title": "Badge (server-only when embedded)",
+            "description": "Embedded instances can only get this from a server-built model ($sp.getWidget); client-supplied values are dropped.",
+            "x-embed": "server"
+        }
     }
-  }
 }

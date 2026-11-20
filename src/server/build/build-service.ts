@@ -1,16 +1,23 @@
-import { GR, newGR, getById, findOne, each, str, int, bool } from '../lib/gr.ts'
-import { T } from '../lib/tables.ts'
-import { badRequest, conflict, notFound } from '../lib/errors.ts'
-import { canonicalJson, sha256, byteLength, nowValue, parseJson, prop, propInt } from '../lib/util.ts'
-import { isValidAssetPath, mimeFor } from '../lib/paths.ts'
-import { requireStudio } from '../security/access.ts'
-import { Owner, ownerRecordOf, ownerOfRecord, loadOwner } from '../source/owner.ts'
-import { compilerInputs, serverScriptOf } from '../source/project-files.ts'
-import { compileComponent, COMPILER_VERSION, ENTRY, CompileResult } from '../compiler/compiler.ts'
-import { replaceDependencies, flagDependents } from './dependency-service.ts'
-import { componentRef, themeRef, buildRef, buildOf, findComponentByUniqueId, isUsableBuild } from '../registry/registry.ts'
-import { reprocessForOwner } from '../release/release-service.ts'
-import type { BuildSummary, CompleteBuildRequest, BuildState, BuildAssetDto } from '../../shared/contracts'
+import { GR, newGR, getById, findOne, each, str, int, bool } from '../lib/gr.ts';
+import { T } from '../lib/tables.ts';
+import { badRequest, conflict, notFound } from '../lib/errors.ts';
+import { canonicalJson, sha256, byteLength, nowValue, parseJson, prop, propInt } from '../lib/util.ts';
+import { isValidAssetPath, mimeFor } from '../lib/paths.ts';
+import { requireStudio } from '../security/access.ts';
+import { Owner, ownerRecordOf, ownerOfRecord, loadOwner } from '../source/owner.ts';
+import { compilerInputs, serverScriptOf } from '../source/project-files.ts';
+import { compileComponent, COMPILER_VERSION, ENTRY, CompileResult } from '../compiler/compiler.ts';
+import { replaceDependencies, flagDependents } from './dependency-service.ts';
+import {
+    componentRef,
+    themeRef,
+    buildRef,
+    buildOf,
+    findComponentByUniqueId,
+    isUsableBuild,
+} from '../registry/registry.ts';
+import { reprocessForOwner } from '../release/release-service.ts';
+import type { BuildSummary, CompleteBuildRequest, BuildState, BuildAssetDto } from '../../shared/contracts';
 
 /**
  * RPBuildService: one build record per component/theme.
@@ -23,11 +30,11 @@ import type { BuildSummary, CompleteBuildRequest, BuildState, BuildAssetDto } fr
  * After a successful compile, every portal using the owner is reprocessed.
  */
 
-const ASSET_KINDS = ['js', 'css', 'map', 'wasm', 'other']
-const SERVER_SCRIPT_FORMAT = 4
+const ASSET_KINDS = ['js', 'css', 'map', 'wasm', 'other'];
+const SERVER_SCRIPT_FORMAT = 4;
 
 export function runtimeAbiVersion(): string {
-    return prop('runtime_abi_version', '1')
+    return prop('runtime_abi_version', '1');
 }
 
 export function buildSummary(build: GR, extra?: Partial<BuildSummary>): BuildSummary {
@@ -40,38 +47,44 @@ export function buildSummary(build: GR, extra?: Partial<BuildSummary>): BuildSum
         needsRebuild: bool(build, 'needs_rebuild') || undefined,
         diagnostics: parseJson<unknown>(str(build, 'diagnostics_json'), null),
         ...(extra || {}),
-    }
+    };
 }
 
 interface Snapshot {
-    files: { path: string; target: string; hash: string; revision: number }[]
-    script: string
-    clientScriptHash: string
-    cssHash: string
-    tailwind: boolean
-    exports: string
-    optionsSchema: string
-    defaultOptions: string
-    dependencySpec: string
-    tokens: string
-    stylesheetHash: string
-    runtimeAbi: string
+    files: { path: string; target: string; hash: string; revision: number }[];
+    script: string;
+    clientScriptHash: string;
+    cssHash: string;
+    tailwind: boolean;
+    exports: string;
+    optionsSchema: string;
+    defaultOptions: string;
+    dependencySpec: string;
+    tokens: string;
+    stylesheetHash: string;
+    runtimeAbi: string;
     /** Bump when compileServerScript's output format changes, so builds recompile. */
-    serverFormat: number
+    serverFormat: number;
     /** Compiler identity: a compiler upgrade invalidates every component build. */
-    compiler: string
+    compiler: string;
 }
 
 function snapshotOf(owner: Owner): Snapshot {
-    const files: Snapshot['files'] = []
+    const files: Snapshot['files'] = [];
     each(
         T.sourceFile,
         `owner_key=${owner.key}`,
-        (f) => files.push({ path: str(f, 'path'), target: str(f, 'target'), hash: str(f, 'content_hash'), revision: int(f, 'revision') }),
-        'path',
-    )
-    const g = owner.gr
-    const c = owner.type === 'component'
+        (f) =>
+            files.push({
+                path: str(f, 'path'),
+                target: str(f, 'target'),
+                hash: str(f, 'content_hash'),
+                revision: int(f, 'revision'),
+            }),
+        'path'
+    );
+    const g = owner.gr;
+    const c = owner.type === 'component';
     return {
         files,
         // Only when server.js applies to the kind (or holds legacy content): see serverScriptOf.
@@ -88,25 +101,27 @@ function snapshotOf(owner: Owner): Snapshot {
         runtimeAbi: runtimeAbiVersion(),
         serverFormat: SERVER_SCRIPT_FORMAT,
         compiler: c ? COMPILER_VERSION : '',
-    }
+    };
 }
 
 function inputHashOf(s: Snapshot): string {
-    return sha256(canonicalJson({ ...s, files: s.files.map((f) => ({ path: f.path, target: f.target, hash: f.hash })) }))
+    return sha256(
+        canonicalJson({ ...s, files: s.files.map((f) => ({ path: f.path, target: f.target, hash: f.hash })) })
+    );
 }
 
 /** The owner's build record, created (pending) if it doesn't exist yet. */
 export function ensureBuild(owner: Owner): GR {
-    const existing = buildOf(owner.type, owner.id)
-    if (existing) return existing
-    const b = newGR(T.build)
-    b.initialize()
-    b.setValue(owner.type, owner.id)
-    b.setValue('state', 'pending')
-    b.setValue('built_revision', 0)
-    b.setValue('pending_revision', 0)
-    b.insert()
-    return b
+    const existing = buildOf(owner.type, owner.id);
+    if (existing) return existing;
+    const b = newGR(T.build);
+    b.initialize();
+    b.setValue(owner.type, owner.id);
+    b.setValue('state', 'pending');
+    b.setValue('built_revision', 0);
+    b.setValue('pending_revision', 0);
+    b.insert();
+    return b;
 }
 
 /**
@@ -114,41 +129,47 @@ export function ensureBuild(owner: Owner): GR {
  * already matches the sources (same input hash, same ABI) nothing is pending.
  */
 export function requestCompile(owner: Owner): { gr: GR; upToDate: boolean; runtimeAbiVersion: string } {
-    const snap = snapshotOf(owner)
-    const hash = inputHashOf(snap)
-    const b = ensureBuild(owner)
-    const revision = int(owner.gr, 'source_revision')
+    const snap = snapshotOf(owner);
+    const hash = inputHashOf(snap);
+    const b = ensureBuild(owner);
+    const revision = int(owner.gr, 'source_revision');
 
-    if (str(b, 'state') === 'ready' && str(b, 'input_hash') === hash && str(b, 'runtime_abi_version') === snap.runtimeAbi) {
+    if (
+        str(b, 'state') === 'ready' &&
+        str(b, 'input_hash') === hash &&
+        str(b, 'runtime_abi_version') === snap.runtimeAbi
+    ) {
         if (int(b, 'pending_revision') !== 0 || int(b, 'built_revision') !== revision) {
-            b.setValue('pending_revision', 0)
-            b.setValue('built_revision', revision)
-            b.update()
+            b.setValue('pending_revision', 0);
+            b.setValue('built_revision', revision);
+            b.update();
         }
-        return { gr: b, upToDate: true, runtimeAbiVersion: snap.runtimeAbi }
+        return { gr: b, upToDate: true, runtimeAbiVersion: snap.runtimeAbi };
     }
-    b.setValue('pending_revision', revision)
-    b.setValue('requested_at', nowValue())
-    b.update()
-    return { gr: b, upToDate: false, runtimeAbiVersion: snap.runtimeAbi }
+    b.setValue('pending_revision', revision);
+    b.setValue('requested_at', nowValue());
+    b.update();
+    return { gr: b, upToDate: false, runtimeAbiVersion: snap.runtimeAbi };
 }
 
 /** Accept compiled outputs from the browser compiler for a specific revision. */
 /** Accept compiled outputs from a browser compiler (Studio) for a specific revision. */
 export function completeBuild(buildId: string, req: CompleteBuildRequest): BuildSummary {
-    const build = getById(T.build, buildId)
-    if (!build) throw notFound('Build not found')
-    const o = ownerOfRecord(build)
-    requireStudio(o && o.type === 'theme' ? 'design' : 'author')
-    const owner = ownerRecordOf(build)
-    if (!owner) throw conflict('Build has no owner')
-    if (!req || typeof req.success !== 'boolean') throw badRequest('success is required')
-    if (typeof req.revision !== 'number') throw badRequest('revision is required (the pendingRevision you compiled)')
+    const build = getById(T.build, buildId);
+    if (!build) throw notFound('Build not found');
+    const o = ownerOfRecord(build);
+    requireStudio(o && o.type === 'theme' ? 'design' : 'author');
+    const owner = ownerRecordOf(build);
+    if (!owner) throw conflict('Build has no owner');
+    if (!req || typeof req.success !== 'boolean') throw badRequest('success is required');
+    if (typeof req.revision !== 'number') throw badRequest('revision is required (the pendingRevision you compiled)');
     if (req.runtimeAbiVersion && req.runtimeAbiVersion !== runtimeAbiVersion()) {
-        throw conflict(`Runtime ABI mismatch: host expects ${runtimeAbiVersion()}, compiler produced ${req.runtimeAbiVersion}`)
+        throw conflict(
+            `Runtime ABI mismatch: host expects ${runtimeAbiVersion()}, compiler produced ${req.runtimeAbiVersion}`
+        );
     }
-    if (req.success) validateAssets(Array.isArray(req.assets) ? req.assets : [], owner.type)
-    return applyCompileResult(owner, build, req)
+    if (req.success) validateAssets(Array.isArray(req.assets) ? req.assets : [], owner.type);
+    return applyCompileResult(owner, build, req);
 }
 
 /**
@@ -159,72 +180,75 @@ export function completeBuild(buildId: string, req: CompleteBuildRequest): Build
  * - success: assets, dependencies and server script replaced together, portals reprocessed.
  */
 export function applyCompileResult(owner: Owner, build: GR, req: CompleteBuildRequest): BuildSummary {
-    const buildId = build.getUniqueValue()
-    const current = int(owner.gr, 'source_revision')
+    const buildId = build.getUniqueValue();
+    const current = int(owner.gr, 'source_revision');
     if (req.revision !== current) {
         throw conflict('Sources changed since this compile started; compile the latest revision', {
             compiledRevision: req.revision,
             currentRevision: current,
-        })
+        });
     }
 
-    const diagnostics = req.diagnostics === undefined ? null : req.diagnostics
-    build.setValue('diagnostics_json', diagnostics === null ? '' : JSON.stringify(diagnostics))
-    build.setValue('completed_at', nowValue())
-    build.setValue('compiler_version', String(req.compilerVersion || ''))
+    const diagnostics = req.diagnostics === undefined ? null : req.diagnostics;
+    build.setValue('diagnostics_json', diagnostics === null ? '' : JSON.stringify(diagnostics));
+    build.setValue('completed_at', nowValue());
+    build.setValue('compiler_version', String(req.compilerVersion || ''));
 
     if (!req.success) {
         // Keep the last good output; only a never-compiled build becomes "failed".
-        build.setValue('last_error', summarizeDiagnostics(diagnostics))
-        build.setValue('pending_revision', 0)
-        if (int(build, 'built_revision') === 0) build.setValue('state', 'failed')
-        build.update()
-        return buildSummary(build)
+        build.setValue('last_error', summarizeDiagnostics(diagnostics));
+        build.setValue('pending_revision', 0);
+        if (int(build, 'built_revision') === 0) build.setValue('state', 'failed');
+        build.update();
+        return buildSummary(build);
     }
 
-    const assets = Array.isArray(req.assets) ? req.assets : []
-    const keep: Record<string, boolean> = {}
+    const assets = Array.isArray(req.assets) ? req.assets : [];
+    const keep: Record<string, boolean> = {};
     for (const a of assets) {
-        keep[a.path] = true
-        const existing = findOne(T.buildAsset, `build=${buildId}^path=${a.path}`)
-        const ag = existing || newGR(T.buildAsset)
+        keep[a.path] = true;
+        const existing = findOne(T.buildAsset, `build=${buildId}^path=${a.path}`);
+        const ag = existing || newGR(T.buildAsset);
         if (!existing) {
-            ag.initialize()
-            ag.setValue('build', buildId)
-            ag.setValue('path', a.path)
+            ag.initialize();
+            ag.setValue('build', buildId);
+            ag.setValue('path', a.path);
         }
-        const hash = sha256(a.content)
-        if (existing && str(existing, 'hash') === hash && str(existing, 'kind') === a.kind) continue
-        ag.setValue('kind', a.kind)
-        ag.setValue('mime_type', a.mimeType || mimeFor(a.path))
-        ag.setValue('content', a.content)
-        ag.setValue('hash', hash)
-        ag.setValue('byte_length', byteLength(a.content))
-        if (existing) ag.update()
-        else ag.insert()
+        const hash = sha256(a.content);
+        if (existing && str(existing, 'hash') === hash && str(existing, 'kind') === a.kind) continue;
+        ag.setValue('kind', a.kind);
+        ag.setValue('mime_type', a.mimeType || mimeFor(a.path));
+        ag.setValue('content', a.content);
+        ag.setValue('hash', hash);
+        ag.setValue('byte_length', byteLength(a.content));
+        if (existing) ag.update();
+        else ag.insert();
     }
     each(T.buildAsset, `build=${buildId}`, (ag) => {
-        if (!keep[str(ag, 'path')]) ag.deleteRecord()
-    })
-    replaceDependencies(buildId, Array.isArray(req.dependencies) ? req.dependencies : [])
+        if (!keep[str(ag, 'path')]) ag.deleteRecord();
+    });
+    replaceDependencies(buildId, Array.isArray(req.dependencies) ? req.dependencies : []);
 
-    const snap = snapshotOf(owner)
-    build.setValue('state', 'ready')
-    build.setValue('built_revision', current)
-    build.setValue('pending_revision', 0)
-    build.setValue('needs_rebuild', false)
-    build.setValue('last_error', '')
-    build.setValue('input_hash', inputHashOf(snap))
-    build.setValue('runtime_abi_version', snap.runtimeAbi)
-    build.setValue('server_script', compileServerScript(snap.script))
-    build.setValue('options_snapshot', JSON.stringify({ schema: parseJson(snap.optionsSchema, null), defaults: parseJson(snap.defaultOptions, {}) }))
-    build.setValue('exports_snapshot', snap.exports || '')
-    build.setValue('source_snapshot_json', JSON.stringify(snap.files))
-    build.update()
+    const snap = snapshotOf(owner);
+    build.setValue('state', 'ready');
+    build.setValue('built_revision', current);
+    build.setValue('pending_revision', 0);
+    build.setValue('needs_rebuild', false);
+    build.setValue('last_error', '');
+    build.setValue('input_hash', inputHashOf(snap));
+    build.setValue('runtime_abi_version', snap.runtimeAbi);
+    build.setValue('server_script', compileServerScript(snap.script));
+    build.setValue(
+        'options_snapshot',
+        JSON.stringify({ schema: parseJson(snap.optionsSchema, null), defaults: parseJson(snap.defaultOptions, {}) })
+    );
+    build.setValue('exports_snapshot', snap.exports || '');
+    build.setValue('source_snapshot_json', JSON.stringify(snap.files));
+    build.update();
 
-    flagDependents(owner.type, owner.id)
-    reprocessForOwner(owner.type, owner.id)
-    return buildSummary(build)
+    flagDependents(owner.type, owner.id);
+    reprocessForOwner(owner.type, owner.id);
+    return buildSummary(build);
 }
 
 /**
@@ -234,85 +258,89 @@ export function applyCompileResult(owner: Owner, build: GR, req: CompleteBuildRe
  * script) finishes.
  */
 /** Which component kinds each record-import prefix may reach. */
-const IMPORTABLE: Record<string, string[]> = { components: ['primitive', 'widget', 'block'], utilities: ['utility'] }
+const IMPORTABLE: Record<string, string[]> = { components: ['primitive', 'widget', 'block'], utilities: ['utility'] };
 
 /**
  * Resolve a compile's record imports (components:<ns>/<key>, utilities:<ns>/<key>) to the imported
  * components' builds. Problems become compile errors. Returns specifier → target build id.
  */
 function resolveRecordImports(owner: Owner, result: CompileResult): Record<string, string> {
-    const targets: Record<string, string> = {}
-    const fail = (message: string) => result.diagnostics.errors.push({ file: ENTRY, message })
+    const targets: Record<string, string> = {};
+    const fail = (message: string) => result.diagnostics.errors.push({ file: ENTRY, message });
     for (const d of result.dependencies) {
-        if (d.kind !== 'component') continue
-        const prefix = d.specifier.split(':')[0]
-        const comp = findComponentByUniqueId(d.resolvedEntry || '')
+        if (d.kind !== 'component') continue;
+        const prefix = d.specifier.split(':')[0];
+        const comp = findComponentByUniqueId(d.resolvedEntry || '');
         if (!comp) {
-            fail(`Import "${d.specifier}": no component with unique id "${d.resolvedEntry}"`)
-            continue
+            fail(`Import "${d.specifier}": no component with unique id "${d.resolvedEntry}"`);
+            continue;
         }
         if (comp.getUniqueValue() === owner.id) {
-            fail(`Import "${d.specifier}": a component can't import itself`)
-            continue
+            fail(`Import "${d.specifier}": a component can't import itself`);
+            continue;
         }
-        const kind = str(comp, 'kind') || 'widget'
-        const allowed = IMPORTABLE[prefix] || []
+        const kind = str(comp, 'kind') || 'widget';
+        const allowed = IMPORTABLE[prefix] || [];
         if (allowed.indexOf(kind) < 0) {
-            fail(`Import "${d.specifier}": it's a ${kind}; ${prefix}: imports reach ${allowed.join(' or ')} components`)
-            continue
+            fail(
+                `Import "${d.specifier}": it's a ${kind}; ${prefix}: imports reach ${allowed.join(' or ')} components`
+            );
+            continue;
         }
-        const b = buildOf('component', comp.getUniqueValue())
+        const b = buildOf('component', comp.getUniqueValue());
         if (!b || !isUsableBuild(b)) {
-            fail(`Import "${d.specifier}": ${d.resolvedEntry} hasn't compiled successfully yet`)
-            continue
+            fail(`Import "${d.specifier}": ${d.resolvedEntry} hasn't compiled successfully yet`);
+            continue;
         }
-        targets[d.specifier] = b.getUniqueValue()
+        targets[d.specifier] = b.getUniqueValue();
         // Embedded widgets: a widget import's default export renders as its own instance.
         if (kind === 'widget' && (str(comp, 'server_mode') || 'none') !== 'none' && result.diagnostics.warnings) {
             result.diagnostics.warnings.push({
                 file: ENTRY,
                 message: `Import "${d.specifier}" is a widget: its default export renders as an embedded instance (own options and server script). Use <X.Raw /> or a named export for presentational use.`,
-            })
+            });
         }
     }
-    if (result.diagnostics.errors.length) result.ok = false
-    return targets
+    if (result.diagnostics.errors.length) result.ok = false;
+    return targets;
 }
 
 export function compileOwner(owner: Owner, force = false): Promise<BuildSummary> {
-    const requested = requestCompile(owner)
-    if (requested.upToDate && !force) return Promise.resolve(buildSummary(requested.gr, { upToDate: true }))
-    const revision = int(owner.gr, 'source_revision')
-    const build = requested.gr
+    const requested = requestCompile(owner);
+    if (requested.upToDate && !force) return Promise.resolve(buildSummary(requested.gr, { upToDate: true }));
+    const revision = int(owner.gr, 'source_revision');
+    const build = requested.gr;
 
     if (owner.type === 'theme') {
         // Themes: the stylesheet is served as written (tokens travel in the manifest).
-        const css = str(owner.gr, 'stylesheet') || '/* empty theme stylesheet */'
+        const css = str(owner.gr, 'stylesheet') || '/* empty theme stylesheet */';
         return Promise.resolve(
             applyCompileResult(owner, build, {
                 revision,
                 success: true,
                 compilerVersion: 'rp-server-compiler/1 (theme passthrough)',
                 assets: [{ path: 'theme.css', kind: 'css', content: css }],
-            }),
-        )
+            })
+        );
     }
 
-    const label = str(owner.gr, 'unique_id') || owner.id
+    const label = str(owner.gr, 'unique_id') || owner.id;
     return compileComponent({
         files: compilerInputs(owner).map((f) => ({ path: f.path, content: f.content, target: f.target })),
         tailwind: bool(owner.gr, 'tailwind'),
         label,
     }).then((result) => {
-        const importTargets = result.ok ? resolveRecordImports(owner, result) : {}
-        const assets: BuildAssetDto[] = []
+        const importTargets = result.ok ? resolveRecordImports(owner, result) : {};
+        const assets: BuildAssetDto[] = [];
         if (result.ok) {
-            assets.push({ path: 'index.js', kind: 'js', content: result.js, mimeType: 'text/javascript' })
-            if (result.css.trim()) assets.push({ path: 'index.css', kind: 'css', content: result.css, mimeType: 'text/css' })
+            assets.push({ path: 'index.js', kind: 'js', content: result.js, mimeType: 'text/javascript' });
+            if (result.css.trim())
+                assets.push({ path: 'index.css', kind: 'css', content: result.css, mimeType: 'text/css' });
         }
         // Reload: a concurrent save may have advanced the revision while compiling.
-        const fresh = loadOwner(owner.type, owner.id)
-        if (int(fresh.gr, 'source_revision') !== revision) return buildSummary(build, { pendingRevision: int(fresh.gr, 'source_revision') })
+        const fresh = loadOwner(owner.type, owner.id);
+        if (int(fresh.gr, 'source_revision') !== revision)
+            return buildSummary(build, { pendingRevision: int(fresh.gr, 'source_revision') });
         return applyCompileResult(fresh, getById(T.build, build.getUniqueValue()), {
             revision,
             success: result.ok,
@@ -326,8 +354,8 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
                 targetBuild: d.kind === 'component' ? importTargets[d.specifier] : undefined,
             })),
             diagnostics: { ...result.diagnostics, ms: result.ms },
-        })
-    })
+        });
+    });
 }
 
 /**
@@ -337,59 +365,67 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
  * server-side transform (e.g. TypeScript) has one place to live.
  */
 export function compileServerScript(script: string): string {
-    if (!script || !script.trim()) return ''
+    if (!script || !script.trim()) return '';
     // GlideScopedEvaluator swallows script errors (the script just stops), so the compiled form
     // catches them into __rpError, which the executor reads back and reports. The author's code is
     // kept on its own lines, starting on line 2 (the executor subtracts 1 from reported lines).
-    return ['try {', script, '} catch (__rpCaught) { __rpError = { message: String(__rpCaught && __rpCaught.message || __rpCaught), line: __rpCaught && __rpCaught.lineNumber || null } }'].join('\n')
+    return [
+        'try {',
+        script,
+        '} catch (__rpCaught) { __rpError = { message: String(__rpCaught && __rpCaught.message || __rpCaught), line: __rpCaught && __rpCaught.lineNumber || null } }',
+    ].join('\n');
 }
 
 function summarizeDiagnostics(d: unknown): string {
-    if (!d) return 'Compile failed'
+    if (!d) return 'Compile failed';
     try {
-        const errors = (d as { errors?: { message?: string }[] }).errors
-        if (Array.isArray(errors) && errors.length) return errors.map((e) => e.message || String(e)).join('\n').substring(0, 3900)
-        return JSON.stringify(d).substring(0, 3900)
+        const errors = (d as { errors?: { message?: string }[] }).errors;
+        if (Array.isArray(errors) && errors.length)
+            return errors
+                .map((e) => e.message || String(e))
+                .join('\n')
+                .substring(0, 3900);
+        return JSON.stringify(d).substring(0, 3900);
     } catch (e) {
-        return 'Compile failed'
+        return 'Compile failed';
     }
 }
 
 function validateAssets(assets: CompleteBuildRequest['assets'], ownerType: string): void {
-    const list = assets || []
-    if (!list.length) throw badRequest('A successful build needs at least one asset')
-    const maxBytes = propInt('build.max_bytes', 5 * 1024 * 1024)
-    let total = 0
-    const seen: Record<string, boolean> = {}
-    let hasJs = false
-    let hasCss = false
+    const list = assets || [];
+    if (!list.length) throw badRequest('A successful build needs at least one asset');
+    const maxBytes = propInt('build.max_bytes', 5 * 1024 * 1024);
+    let total = 0;
+    const seen: Record<string, boolean> = {};
+    let hasJs = false;
+    let hasCss = false;
     for (const a of list) {
-        if (!a || !isValidAssetPath(a.path)) throw badRequest(`Invalid asset path "${a && a.path}"`)
-        if (seen[a.path]) throw badRequest(`Duplicate asset path "${a.path}"`)
-        seen[a.path] = true
-        if (ASSET_KINDS.indexOf(a.kind) < 0) throw badRequest(`Invalid asset kind for "${a.path}"`)
-        if (typeof a.content !== 'string') throw badRequest(`Asset "${a.path}" needs string content`)
-        total += byteLength(a.content)
-        if (a.kind === 'js') hasJs = true
-        if (a.kind === 'css') hasCss = true
+        if (!a || !isValidAssetPath(a.path)) throw badRequest(`Invalid asset path "${a && a.path}"`);
+        if (seen[a.path]) throw badRequest(`Duplicate asset path "${a.path}"`);
+        seen[a.path] = true;
+        if (ASSET_KINDS.indexOf(a.kind) < 0) throw badRequest(`Invalid asset kind for "${a.path}"`);
+        if (typeof a.content !== 'string') throw badRequest(`Asset "${a.path}" needs string content`);
+        total += byteLength(a.content);
+        if (a.kind === 'js') hasJs = true;
+        if (a.kind === 'css') hasCss = true;
     }
-    if (total > maxBytes) throw badRequest(`Build output is ${total} bytes (max ${maxBytes})`)
-    if (ownerType === 'component' && !hasJs) throw badRequest('A component build needs a JS asset')
-    if (ownerType === 'theme' && !hasCss) throw badRequest('A theme build needs a CSS asset')
+    if (total > maxBytes) throw badRequest(`Build output is ${total} bytes (max ${maxBytes})`);
+    if (ownerType === 'component' && !hasJs) throw badRequest('A component build needs a JS asset');
+    if (ownerType === 'theme' && !hasCss) throw badRequest('A theme build needs a CSS asset');
 }
 
 /** Author preview context: descriptors as the runtime sees them for this build. */
 export function previewContext(buildId: string): Record<string, unknown> {
-    requireStudio('any')
-    const build = getById(T.build, buildId)
-    if (!build) throw notFound('Build not found')
-    const owner = ownerRecordOf(build)
-    if (!owner) throw conflict('Build has no owner')
+    requireStudio('any');
+    const build = getById(T.build, buildId);
+    if (!build) throw notFound('Build not found');
+    const owner = ownerRecordOf(build);
+    if (!owner) throw conflict('Build has no owner');
     return {
         build: { ...buildSummary(build), assets: buildRef(build) },
         owner: { type: owner.type, id: owner.id, revision: int(owner.gr, 'source_revision') },
         component: owner.type === 'component' ? componentRef(owner.gr, build) : null,
         theme: owner.type === 'theme' ? themeRef(owner.gr, build) : null,
         options: parseJson<Record<string, unknown>>(str(build, 'options_snapshot'), {}),
-    }
+    };
 }

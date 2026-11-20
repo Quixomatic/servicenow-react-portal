@@ -15,25 +15,25 @@ const notifyAll = () => listeners.forEach((l) => l());
 
 /** GET /rp_studio/components/{id}/dependencies, uncached: { component, build, imports, importedBy }. */
 export function fetchComponentDependencies(componentId) {
-	return studioApi.dependencies(componentId);
+    return studioApi.dependencies(componentId);
 }
 
 function load(key, id, force) {
-	const hit = cache.get(key);
-	if (hit && !force && hit.status !== 'error') return hit;
-	const entry = { status: 'loading', data: hit ? hit.data : null, error: null };
-	cache.set(key, entry);
-	fetchComponentDependencies(id).then(
-		(data) => {
-			cache.set(key, { status: 'ready', data, error: null });
-			notifyAll();
-		},
-		(error) => {
-			cache.set(key, { status: 'error', data: null, error });
-			notifyAll();
-		}
-	);
-	return entry;
+    const hit = cache.get(key);
+    if (hit && !force && hit.status !== 'error') return hit;
+    const entry = { status: 'loading', data: hit ? hit.data : null, error: null };
+    cache.set(key, entry);
+    fetchComponentDependencies(id).then(
+        (data) => {
+            cache.set(key, { status: 'ready', data, error: null });
+            notifyAll();
+        },
+        (error) => {
+            cache.set(key, { status: 'error', data: null, error });
+            notifyAll();
+        }
+    );
+    return entry;
 }
 
 /**
@@ -42,79 +42,89 @@ function load(key, id, force) {
  * `version` that changes when the component is saved or rebuilt to refetch.
  */
 export function useComponentDependencies(componentId, version) {
-	const [, setTick] = useState(0);
-	useEffect(() => {
-		const l = () => setTick((n) => n + 1);
-		listeners.add(l);
-		return () => listeners.delete(l);
-	}, []);
-	const key = componentId ? `${componentId}|${version || ''}` : '';
-	useEffect(() => {
-		if (key) load(key, componentId, false);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [key]);
-	if (!key) return { status: 'idle', data: null, error: null, reload: () => {} };
-	const entry = cache.get(key) || { status: 'loading', data: null, error: null };
-	return {
-		...entry,
-		reload: () => {
-			load(key, componentId, true);
-			setTick((n) => n + 1);
-		}
-	};
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const l = () => setTick((n) => n + 1);
+        listeners.add(l);
+        return () => listeners.delete(l);
+    }, []);
+    const key = componentId ? `${componentId}|${version || ''}` : '';
+    useEffect(() => {
+        if (key) load(key, componentId, false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key]);
+    if (!key) return { status: 'idle', data: null, error: null, reload: () => {} };
+    const entry = cache.get(key) || { status: 'loading', data: null, error: null };
+    return {
+        ...entry,
+        reload: () => {
+            load(key, componentId, true);
+            setTick((n) => n + 1);
+        },
+    };
 }
 
 /** The editor's open component (version = saved revision + build state). */
 export function useDependencies(studio) {
-	const owner = useStudio(studio, (s) => s.owner);
-	const revision = useStudio(studio, (s) => s.revision);
-	const build = useStudio(studio, (s) => s.build);
-	const isComponent = !!owner && owner.type === 'component';
-	const version = `${revision || 0}|${build ? `${build.id || ''}:${build.state || ''}:${build.builtRevision || ''}` : '-'}`;
-	return useComponentDependencies(isComponent ? owner.id : '', version);
+    const owner = useStudio(studio, (s) => s.owner);
+    const revision = useStudio(studio, (s) => s.revision);
+    const build = useStudio(studio, (s) => s.build);
+    const isComponent = !!owner && owner.type === 'component';
+    const version = `${revision || 0}|${build ? `${build.id || ''}:${build.state || ''}:${build.builtRevision || ''}` : '-'}`;
+    return useComponentDependencies(isComponent ? owner.id : '', version);
 }
 
 const KIND_LABEL = { widget: 'widget', primitive: 'primitive', utility: 'utility', block: 'block', layout: 'layout' };
 
 function KindBadge({ kind }) {
-	return (
-		<span className={`rps-dep-kind k-${kind || 'widget'}`} data-rps-dep-kind={kind}>
-			{KIND_LABEL[kind] || kind || 'widget'}
-		</span>
-	);
+    return (
+        <span className={`rps-dep-kind k-${kind || 'widget'}`} data-rps-dep-kind={kind}>
+            {KIND_LABEL[kind] || kind || 'widget'}
+        </span>
+    );
 }
 
 function DepRow({ entry, onOpen, direction }) {
-	const title = `${entry.name || entry.uniqueId}\n${entry.specifier}${entry.active === false ? '\n(inactive)' : ''}${entry.needsRebuild ? '\nNeeds a rebuild: a dependency changed' : ''}`;
-	return (
-		<li>
-			<button type="button" className="rps-dep-row" title={title} onClick={() => onOpen(entry)} data-rps-dep={direction} data-rps-dep-id={entry.id}>
-				<KindBadge kind={entry.kind} />
-				<span className="rps-dep-name">
-					<span className="n">{entry.name || entry.uniqueId}</span>
-					<span className="u">{entry.uniqueId}</span>
-				</span>
-				{entry.embeddable ? (
-					<span className="rps-dep-flag emb" title="Renders as its own embedded instance (own server script, options and on-load data). Use .Raw for presentational use.">
-						embeddable
-					</span>
-				) : null}
-				{entry.needsRebuild ? <span className="rps-dep-flag warn">rebuild</span> : null}
-				{entry.active === false ? <span className="rps-dep-flag">inactive</span> : null}
-			</button>
-		</li>
-	);
+    const title = `${entry.name || entry.uniqueId}\n${entry.specifier}${entry.active === false ? '\n(inactive)' : ''}${entry.needsRebuild ? '\nNeeds a rebuild: a dependency changed' : ''}`;
+    return (
+        <li>
+            <button
+                type="button"
+                className="rps-dep-row"
+                title={title}
+                onClick={() => onOpen(entry)}
+                data-rps-dep={direction}
+                data-rps-dep-id={entry.id}
+            >
+                <KindBadge kind={entry.kind} />
+                <span className="rps-dep-name">
+                    <span className="n">{entry.name || entry.uniqueId}</span>
+                    <span className="u">{entry.uniqueId}</span>
+                </span>
+                {entry.embeddable ? (
+                    <span
+                        className="rps-dep-flag emb"
+                        title="Renders as its own embedded instance (own server script, options and on-load data). Use .Raw for presentational use."
+                    >
+                        embeddable
+                    </span>
+                ) : null}
+                {entry.needsRebuild ? <span className="rps-dep-flag warn">rebuild</span> : null}
+                {entry.active === false ? <span className="rps-dep-flag">inactive</span> : null}
+            </button>
+        </li>
+    );
 }
 
 /** A list of dependency rows (imports or importers). Reusable outside the properties panel. */
 export function DependencyList({ entries, onOpen, direction }) {
-	return (
-		<ul className="rps-deps-list" data-rps-deps-list={direction}>
-			{(entries || []).map((e) => (
-				<DepRow key={e.id} entry={e} onOpen={onOpen} direction={direction} />
-			))}
-		</ul>
-	);
+    return (
+        <ul className="rps-deps-list" data-rps-deps-list={direction}>
+            {(entries || []).map((e) => (
+                <DepRow key={e.id} entry={e} onOpen={onOpen} direction={direction} />
+            ))}
+        </ul>
+    );
 }
 
 /**
@@ -122,66 +132,83 @@ export function DependencyList({ entries, onOpen, direction }) {
  * guarded open, which asks about unsaved changes first).
  */
 export function DependenciesSection({ studio, onOpen }) {
-	const deps = useDependencies(studio);
-	const meta = useStudio(studio, (s) => s.meta);
-	const owner = useStudio(studio, (s) => s.owner);
-	if (!owner || owner.type !== 'component') return null;
-	const data = deps.data;
-	const imports = (data && data.imports) || [];
-	const importedBy = (data && data.importedBy) || [];
-	const isWidget = (meta.kind || (data && data.component.kind)) === 'widget';
-	return (
-		<section className="rps-deps" aria-label="Dependencies" data-rps-dependencies="">
-			<h4 className="rps-deps-head">
-				Dependencies
-				<button type="button" className="rps-tbtn rps-deps-reload" title="Reload dependencies" aria-label="Reload dependencies" onClick={deps.reload}>
-					{deps.status === 'loading' ? <Loader2 size={12} className="rps-spin" /> : <RefreshCw size={12} />}
-				</button>
-			</h4>
-			{deps.status === 'error' ? <div className="rps-deps-msg err">{String((deps.error && deps.error.message) || deps.error)}</div> : null}
-			{data && !data.build ? <div className="rps-deps-msg">Not compiled yet: dependencies are recorded when the component builds.</div> : null}
-			<div className="rps-deps-sub">
-				<ArrowDownToLine size={12} /> Imports <span className="rps-count">{imports.length}</span>
-			</div>
-			{imports.length ? (
-				<DependencyList entries={imports} onOpen={onOpen} direction="import" />
-			) : data ? (
-				<div className="rps-deps-msg">No component records (host modules aren't listed).</div>
-			) : null}
-			<div className="rps-deps-sub">
-				<ArrowUpFromLine size={12} /> Used by <span className="rps-count">{importedBy.length}</span>
-			</div>
-			{importedBy.length ? (
-				<>
-					{isWidget ? <div className="rps-deps-msg">Each importer renders this widget as its own embedded instance: options schema changes affect them.</div> : null}
-					<DependencyList entries={importedBy} onOpen={onOpen} direction="importer" />
-				</>
-			) : data ? (
-				<div className="rps-deps-msg">No component imports this one.</div>
-			) : null}
-		</section>
-	);
+    const deps = useDependencies(studio);
+    const meta = useStudio(studio, (s) => s.meta);
+    const owner = useStudio(studio, (s) => s.owner);
+    if (!owner || owner.type !== 'component') return null;
+    const data = deps.data;
+    const imports = (data && data.imports) || [];
+    const importedBy = (data && data.importedBy) || [];
+    const isWidget = (meta.kind || (data && data.component.kind)) === 'widget';
+    return (
+        <section className="rps-deps" aria-label="Dependencies" data-rps-dependencies="">
+            <h4 className="rps-deps-head">
+                Dependencies
+                <button
+                    type="button"
+                    className="rps-tbtn rps-deps-reload"
+                    title="Reload dependencies"
+                    aria-label="Reload dependencies"
+                    onClick={deps.reload}
+                >
+                    {deps.status === 'loading' ? <Loader2 size={12} className="rps-spin" /> : <RefreshCw size={12} />}
+                </button>
+            </h4>
+            {deps.status === 'error' ? (
+                <div className="rps-deps-msg err">{String((deps.error && deps.error.message) || deps.error)}</div>
+            ) : null}
+            {data && !data.build ? (
+                <div className="rps-deps-msg">
+                    Not compiled yet: dependencies are recorded when the component builds.
+                </div>
+            ) : null}
+            <div className="rps-deps-sub">
+                <ArrowDownToLine size={12} /> Imports <span className="rps-count">{imports.length}</span>
+            </div>
+            {imports.length ? (
+                <DependencyList entries={imports} onOpen={onOpen} direction="import" />
+            ) : data ? (
+                <div className="rps-deps-msg">No component records (host modules aren't listed).</div>
+            ) : null}
+            <div className="rps-deps-sub">
+                <ArrowUpFromLine size={12} /> Used by <span className="rps-count">{importedBy.length}</span>
+            </div>
+            {importedBy.length ? (
+                <>
+                    {isWidget ? (
+                        <div className="rps-deps-msg">
+                            Each importer renders this widget as its own embedded instance: options schema changes
+                            affect them.
+                        </div>
+                    ) : null}
+                    <DependencyList entries={importedBy} onOpen={onOpen} direction="importer" />
+                </>
+            ) : data ? (
+                <div className="rps-deps-msg">No component imports this one.</div>
+            ) : null}
+        </section>
+    );
 }
 
 /** Title-bar badge on a widget that other components import (embed). Click: show the properties panel. */
 export function EmbeddedByBadge({ studio }) {
-	const deps = useDependencies(studio);
-	const meta = useStudio(studio, (s) => s.meta);
-	const importedBy = (deps.data && deps.data.importedBy) || [];
-	const kind = meta.kind || (deps.data && deps.data.component.kind);
-	if (kind !== 'widget' || !importedBy.length) return null;
-	const n = importedBy.length;
-	return (
-		<button
-			type="button"
-			className="rps-badge rps-embedded-by"
-			title={`Embedded by: ${importedBy.map((e) => e.uniqueId).join(', ')}. A change to this widget's options schema can break them. Click for Dependencies.`}
-			onClick={() => studio.set({ propertiesOpen: true })}
-			data-rps-embedded-by={n}
-		>
-			<Layers size={12} /> Embedded by {n} component{n === 1 ? '' : 's'}
-		</button>
-	);
+    const deps = useDependencies(studio);
+    const meta = useStudio(studio, (s) => s.meta);
+    const importedBy = (deps.data && deps.data.importedBy) || [];
+    const kind = meta.kind || (deps.data && deps.data.component.kind);
+    if (kind !== 'widget' || !importedBy.length) return null;
+    const n = importedBy.length;
+    return (
+        <button
+            type="button"
+            className="rps-badge rps-embedded-by"
+            title={`Embedded by: ${importedBy.map((e) => e.uniqueId).join(', ')}. A change to this widget's options schema can break them. Click for Dependencies.`}
+            onClick={() => studio.set({ propertiesOpen: true })}
+            data-rps-embedded-by={n}
+        >
+            <Layers size={12} /> Embedded by {n} component{n === 1 ? '' : 's'}
+        </button>
+    );
 }
 
 /** Styles (appended to the Studio stylesheet by studio-css.js). */

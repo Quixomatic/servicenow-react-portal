@@ -24,38 +24,47 @@ const KNOWN_PORTALS = ['sp', 'crm', 'app'];
  * re-render it; they reach the router through the host's location store instead.
  */
 const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
-	useDiagCounter('PortalApp', { portalSlug, hostId });
-	const [target, setTarget] = useState(null);
-	const [rootEl, setRootEl] = useState(null);
-	const height = useAvailableHeight(rootEl);
-	const setRoot = useCallback((el) => {
-		if (el) {
-			setTarget(styleTarget(el));
-			setRootEl(el);
-		}
-	}, []);
+    useDiagCounter('PortalApp', { portalSlug, hostId });
+    const [target, setTarget] = useState(null);
+    const [rootEl, setRootEl] = useState(null);
+    const height = useAvailableHeight(rootEl);
+    const setRoot = useCallback((el) => {
+        if (el) {
+            setTarget(styleTarget(el));
+            setRootEl(el);
+        }
+    }, []);
 
-	// One skeleton covers the portal from the first paint until its layout (or an error view) has
-	// rendered: the bootstrap, router and theme stages render nothing under the gate. A portal
-	// switch shows it again until the new portal's layout is up.
-	const [readyFor, setReadyFor] = useState(null);
-	const gate = useMemo(() => ({ ready: () => setReadyFor(portalSlug) }), [portalSlug]);
-	const loading = !!portalSlug && readyFor !== portalSlug;
+    // One skeleton covers the portal from the first paint until its layout (or an error view) has
+    // rendered: the bootstrap, router and theme stages render nothing under the gate. A portal
+    // switch shows it again until the new portal's layout is up.
+    const [readyFor, setReadyFor] = useState(null);
+    const gate = useMemo(() => ({ ready: () => setReadyFor(portalSlug) }), [portalSlug]);
+    const loading = !!portalSlug && readyFor !== portalSlug;
 
-	// The root fills the visible viewport below the host's top edge. Inside it, the layout sits
-	// in a one-cell grid frame, so the layout's root stretches to the full width and height and
-	// its main region gets all the space the other regions leave; main scrolls only after that.
-	return (
-		<div ref={setRoot} data-rp-root="" className="relative flex flex-col overflow-hidden" style={{ height }}>
-			<BootGateContext.Provider value={gate}>
-				<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="" aria-busy={loading || undefined}>
-					{!portalSlug ? <NoPortal /> : target ? <PortalBoot key={portalSlug} slug={portalSlug} target={target} /> : null}
-				</div>
-			</BootGateContext.Provider>
-			<PortalSkeleton visible={loading} />
-			<DiagnosticsGate slug={portalSlug} hostId={hostId} target={target} />
-		</div>
-	);
+    // The root fills the visible viewport below the host's top edge. Inside it, the layout sits
+    // in a one-cell grid frame, so the layout's root stretches to the full width and height and
+    // its main region gets all the space the other regions leave; main scrolls only after that.
+    return (
+        <div ref={setRoot} data-rp-root="" className="relative flex flex-col overflow-hidden" style={{ height }}>
+            <BootGateContext.Provider value={gate}>
+                <div
+                    className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
+                    style={PAGE_CONTAINER}
+                    data-rp-layout-frame=""
+                    aria-busy={loading || undefined}
+                >
+                    {!portalSlug ? (
+                        <NoPortal />
+                    ) : target ? (
+                        <PortalBoot key={portalSlug} slug={portalSlug} target={target} />
+                    ) : null}
+                </div>
+            </BootGateContext.Provider>
+            <PortalSkeleton visible={loading} />
+            <DiagnosticsGate slug={portalSlug} hostId={hostId} target={target} />
+        </div>
+    );
 });
 
 /**
@@ -64,78 +73,94 @@ const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
  * shared with PortalBoot, so this adds no request.
  */
 function DiagnosticsGate({ slug, hostId, target }) {
-	const boot = useQuery({ ...bootstrapQuery(slug || ''), enabled: !!slug });
-	if (!showDiagnostics(boot.data)) return null;
-	return <DiagnosticsPanel hostId={hostId} target={target} />;
+    const boot = useQuery({ ...bootstrapQuery(slug || ''), enabled: !!slug });
+    if (!showDiagnostics(boot.data)) return null;
+    return <DiagnosticsPanel hostId={hostId} target={target} />;
 }
 
 function showDiagnostics(bootData) {
-	if (isMock()) return true;
-	try {
-		if (new URLSearchParams(window.location.search).get('rpdiag') === '1') return true;
-	} catch (e) {
-		/* no location */
-	}
-	return !!bootData && canSeeErrorDetails(bootData);
+    if (isMock()) return true;
+    try {
+        if (new URLSearchParams(window.location.search).get('rpdiag') === '1') return true;
+    } catch (e) {
+        /* no location */
+    }
+    return !!bootData && canSeeErrorDetails(bootData);
 }
 
 export default PortalApp;
 
 /** Bootstrap the portal, then build its router (rebuilt only if the page routes change). */
 export function PortalBoot({ slug, target, embedded, sidebarStore }) {
-	const boot = useQuery(bootstrapQuery(slug));
-	useDiagCounter('PortalBoot', { slug, data: boot.data });
-	const gated = useBootGated();
-	if (boot.isError) return <BootError slug={slug} error={boot.error} />;
-	// Under the host's skeleton (PortalApp) nothing; embedded previews keep a small placeholder.
-	if (!boot.data) return gated ? null : <div className="bg-muted/60 m-4 h-40 animate-pulse rounded-xl" data-rp-booting="" />;
-	const routesKey = (boot.data.pages || []).map((p) => toRouterPath(p.route)).join('|') + '#' + ((boot.data.layout && boot.data.layout.id) || '');
-	return <PortalRouterHost key={routesKey} slug={slug} boot={boot.data} target={target} embedded={embedded} sidebarStore={sidebarStore} />;
+    const boot = useQuery(bootstrapQuery(slug));
+    useDiagCounter('PortalBoot', { slug, data: boot.data });
+    const gated = useBootGated();
+    if (boot.isError) return <BootError slug={slug} error={boot.error} />;
+    // Under the host's skeleton (PortalApp) nothing; embedded previews keep a small placeholder.
+    if (!boot.data)
+        return gated ? null : <div className="bg-muted/60 m-4 h-40 animate-pulse rounded-xl" data-rp-booting="" />;
+    const routesKey =
+        (boot.data.pages || []).map((p) => toRouterPath(p.route)).join('|') +
+        '#' +
+        ((boot.data.layout && boot.data.layout.id) || '');
+    return (
+        <PortalRouterHost
+            key={routesKey}
+            slug={slug}
+            boot={boot.data}
+            target={target}
+            embedded={embedded}
+            sidebarStore={sidebarStore}
+        />
+    );
 }
 
 function PortalSwitchButtons({ current }) {
-	const navigate = useNavigate();
-	return (
-		<div className="flex gap-2">
-			{KNOWN_PORTALS.filter((p) => p !== current).map((p) => (
-				<Button key={p} variant="outline" size="sm" onClick={() => navigate('', { portalSlug: p })}>
-					Open {p}
-				</Button>
-			))}
-		</div>
-	);
+    const navigate = useNavigate();
+    return (
+        <div className="flex gap-2">
+            {KNOWN_PORTALS.filter((p) => p !== current).map((p) => (
+                <Button key={p} variant="outline" size="sm" onClick={() => navigate('', { portalSlug: p })}>
+                    Open {p}
+                </Button>
+            ))}
+        </div>
+    );
 }
 
 function NoPortal() {
-	return (
-		<div className="bg-background min-h-full p-4">
-			<Card>
-				<CardHeader>
-					<CardTitle>No portal selected</CardTitle>
-					<CardDescription>The Portal slug property is empty. Bind it to the page's portal URL parameter.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<PortalSwitchButtons />
-				</CardContent>
-			</Card>
-		</div>
-	);
+    return (
+        <div className="bg-background min-h-full p-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>No portal selected</CardTitle>
+                    <CardDescription>
+                        The Portal slug property is empty. Bind it to the page's portal URL parameter.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <PortalSwitchButtons />
+                </CardContent>
+            </Card>
+        </div>
+    );
 }
 
 function BootError({ slug, error }) {
-	useBootReady(true);
-	return (
-		<div className="bg-background min-h-full p-4">
-			<Card>
-				<CardHeader>
-					<CardTitle>Portal "{slug}" could not load</CardTitle>
-					<CardDescription className="text-destructive font-mono break-all">{String((error && error.message) || error)}</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<PortalSwitchButtons current={slug} />
-				</CardContent>
-			</Card>
-		</div>
-	);
+    useBootReady(true);
+    return (
+        <div className="bg-background min-h-full p-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Portal "{slug}" could not load</CardTitle>
+                    <CardDescription className="text-destructive font-mono break-all">
+                        {String((error && error.message) || error)}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <PortalSwitchButtons current={slug} />
+                </CardContent>
+            </Card>
+        </div>
+    );
 }
-

@@ -1,49 +1,53 @@
-import { useState } from 'react'
-import { Link, useUser, useRecordWatch } from '@portal/runtime'
-import { useQuery, keepPreviousData } from 'utilities:react-query'
-import { Card } from 'components:card'
-import { Button } from 'components:button'
-import { Icon } from 'components:icon'
-import { Skeleton } from 'components:skeleton'
-import { Tabs, TabsList, TabsTrigger } from 'components:tabs'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from 'components:empty'
-import { cx } from 'components:app/field'
-import { HighlightedValue } from 'components:app/highlighted-value'
-import { getWithTotal, cleanText, catalogIcon, ME_DYNAMIC } from 'utilities:app/search'
+import { useState } from 'react';
+import { Link, useUser, useRecordWatch } from '@portal/runtime';
+import { useQuery, keepPreviousData } from 'utilities:react-query';
+import { Card } from 'components:card';
+import { Button } from 'components:button';
+import { Icon } from 'components:icon';
+import { Skeleton } from 'components:skeleton';
+import { Tabs, TabsList, TabsTrigger } from 'components:tabs';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from 'components:empty';
+import { cx } from 'components:app/field';
+import { HighlightedValue } from 'components:app/highlighted-value';
+import { getWithTotal, cleanText, catalogIcon, ME_DYNAMIC } from 'utilities:app/search';
 
-export type MyItemKind = 'requests' | 'incidents' | 'approvals'
+export type MyItemKind = 'requests' | 'incidents' | 'approvals';
 
 export type MyItem = {
-    id: string
-    kind: MyItemKind
-    table: string
-    title: string
-    number: string
-    subtitle: string
-    state: string
-    updated: string
-    icon: string
-}
+    id: string;
+    kind: MyItemKind;
+    table: string;
+    title: string;
+    number: string;
+    subtitle: string;
+    state: string;
+    updated: string;
+    icon: string;
+};
 
 type KindDef = {
-    label: string
+    label: string;
     /** Singular noun for empty states. */
-    noun: string
-    icon: string
-    table: string
+    noun: string;
+    icon: string;
+    table: string;
     /** The list page's query (platform dynamic filter "Me", so list URLs and menus share it). */
-    listQuery: string
-    listTitle: string
+    listQuery: string;
+    listTitle: string;
     /** The widget's own query for a user sys_id (AMB watches need a literal value). */
-    query: (uid: string) => string
-    fields: string
-    order: string
-    map: (r: any) => MyItem
-    empty: { title: string; body: string; action?: { label: string; to: string; icon: string; q?: Record<string, string> } }
-}
+    query: (uid: string) => string;
+    fields: string;
+    order: string;
+    map: (r: any) => MyItem;
+    empty: {
+        title: string;
+        body: string;
+        action?: { label: string; to: string; icon: string; q?: Record<string, string> };
+    };
+};
 
-const dv = (f: any) => (f && typeof f === 'object' ? String(f.display_value || '') : String(f || ''))
-const v = (f: any) => (f && typeof f === 'object' ? String(f.value || '') : String(f || ''))
+const dv = (f: any) => (f && typeof f === 'object' ? String(f.display_value || '') : String(f || ''));
+const v = (f: any) => (f && typeof f === 'object' ? String(f.value || '') : String(f || ''));
 
 /** The three kinds: the user's open requested items, open incidents and pending approvals. */
 export const MY_ITEM_KINDS: Record<MyItemKind, KindDef> = {
@@ -58,7 +62,7 @@ export const MY_ITEM_KINDS: Record<MyItemKind, KindDef> = {
         fields: 'sys_id,number,cat_item,short_description,stage,state,sys_updated_on',
         order: 'ORDERBYDESCsys_updated_on',
         map: (r) => {
-            const item = dv(r.cat_item)
+            const item = dv(r.cat_item);
             return {
                 id: v(r.sys_id),
                 kind: 'requests',
@@ -69,9 +73,13 @@ export const MY_ITEM_KINDS: Record<MyItemKind, KindDef> = {
                 state: dv(r.stage) || dv(r.state),
                 updated: v(r.sys_updated_on),
                 icon: catalogIcon(item),
-            }
+            };
         },
-        empty: { title: 'No open requests', body: 'Things you order from the catalog show up here until they are delivered.', action: { label: 'Request something', to: 'catalog', icon: 'store' } },
+        empty: {
+            title: 'No open requests',
+            body: 'Things you order from the catalog show up here until they are delivered.',
+            action: { label: 'Request something', to: 'catalog', icon: 'store' },
+        },
     },
     incidents: {
         label: 'Incidents',
@@ -94,7 +102,16 @@ export const MY_ITEM_KINDS: Record<MyItemKind, KindDef> = {
             updated: v(r.sys_updated_on),
             icon: 'life-buoy',
         }),
-        empty: { title: 'No open incidents', body: 'Issues you report stay here while the service desk works on them.', action: { label: 'Report an issue', to: 'catalog', icon: 'triangle-alert', q: { item: '38c1fc840a0a0b2700285921c2bf5fc8' } } },
+        empty: {
+            title: 'No open incidents',
+            body: 'Issues you report stay here while the service desk works on them.',
+            action: {
+                label: 'Report an issue',
+                to: 'catalog',
+                icon: 'triangle-alert',
+                q: { item: '38c1fc840a0a0b2700285921c2bf5fc8' },
+            },
+        },
     },
     approvals: {
         label: 'Approvals',
@@ -107,7 +124,7 @@ export const MY_ITEM_KINDS: Record<MyItemKind, KindDef> = {
         fields: 'sys_id,state,document_id,source_table,sysapproval,sysapproval.short_description,sys_created_on,sys_updated_on',
         order: 'ORDERBYDESCsys_created_on',
         map: (r) => {
-            const doc = dv(r.document_id) || dv(r.sysapproval)
+            const doc = dv(r.document_id) || dv(r.sysapproval);
             return {
                 id: v(r.sys_id),
                 kind: 'approvals',
@@ -118,26 +135,30 @@ export const MY_ITEM_KINDS: Record<MyItemKind, KindDef> = {
                 state: dv(r.state) || 'Requested',
                 updated: v(r.sys_created_on),
                 icon: 'stamp',
-            }
+            };
         },
         empty: { title: "You're all caught up", body: 'Nothing is waiting for your approval right now.' },
     },
-}
+};
 
 /** "3m ago", "5h ago", "2d ago", or a date: from a UTC 'YYYY-MM-DD HH:mm:ss' value. */
 export function relativeTime(utc: string, now = Date.now()): string {
-    if (!utc) return ''
-    const t = Date.parse(utc.replace(' ', 'T') + 'Z')
-    if (isNaN(t)) return ''
-    const s = Math.round((now - t) / 1000)
-    if (s < 60) return 'just now'
-    const m = Math.round(s / 60)
-    if (m < 60) return `${m}m ago`
-    const h = Math.round(m / 60)
-    if (h < 24) return `${h}h ago`
-    const d = Math.round(h / 24)
-    if (d < 7) return `${d}d ago`
-    return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d > 300 ? 'numeric' : undefined })
+    if (!utc) return '';
+    const t = Date.parse(utc.replace(' ', 'T') + 'Z');
+    if (isNaN(t)) return '';
+    const s = Math.round((now - t) / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.round(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(t).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: d > 300 ? 'numeric' : undefined,
+    });
 }
 
 /**
@@ -145,42 +166,52 @@ export function relativeTime(utc: string, now = Date.now()): string {
  * live: an AMB watch on the same filter refetches when a matching record changes.
  */
 export function useMyItems(kind: MyItemKind, options: { limit?: number; live?: boolean; enabled?: boolean } = {}) {
-    const user = useUser() as any
-    const uid = String((user && user.sysId) || '')
-    const def = MY_ITEM_KINDS[kind]
-    const limit = Math.max(1, Math.min(50, options.limit || 5))
-    const filter = uid ? def.query(uid) : ''
-    const enabled = options.enabled !== false && !!uid
+    const user = useUser() as any;
+    const uid = String((user && user.sysId) || '');
+    const def = MY_ITEM_KINDS[kind];
+    const limit = Math.max(1, Math.min(50, options.limit || 5));
+    const filter = uid ? def.query(uid) : '';
+    const enabled = options.enabled !== false && !!uid;
     const q = useQuery({
         queryKey: ['rp-my-items', kind, uid, limit],
         queryFn: async ({ signal }: { signal: AbortSignal }) => {
-            const url = `/api/now/table/${def.table}?sysparm_query=${encodeURIComponent(filter + '^' + def.order)}&sysparm_fields=${def.fields}&sysparm_display_value=all&sysparm_exclude_reference_link=true&sysparm_limit=${limit}`
-            const r = await getWithTotal(url, signal)
-            return { items: r.result.map(def.map), total: r.total }
+            const url = `/api/now/table/${def.table}?sysparm_query=${encodeURIComponent(filter + '^' + def.order)}&sysparm_fields=${def.fields}&sysparm_display_value=all&sysparm_exclude_reference_link=true&sysparm_limit=${limit}`;
+            const r = await getWithTotal(url, signal);
+            return { items: r.result.map(def.map), total: r.total };
         },
         enabled,
         staleTime: 30_000,
         placeholderData: keepPreviousData,
-    }) as any
-    const watch = useRecordWatch(def.table, filter, () => q.refetch(), { enabled: enabled && options.live !== false, invalidate: false }) as any
-    return { items: (q.data && q.data.items) || [], total: (q.data && q.data.total) || 0, isLoading: q.isLoading, error: q.error, refetch: q.refetch, live: watch && watch.status === 'subscribed' }
+    }) as any;
+    const watch = useRecordWatch(def.table, filter, () => q.refetch(), {
+        enabled: enabled && options.live !== false,
+        invalidate: false,
+    }) as any;
+    return {
+        items: (q.data && q.data.items) || [],
+        total: (q.data && q.data.total) || 0,
+        isLoading: q.isLoading,
+        error: q.error,
+        refetch: q.refetch,
+        live: watch && watch.status === 'subscribed',
+    };
 }
 
 type Options = {
-    title?: string
-    description?: string
+    title?: string;
+    description?: string;
     /** Tabs, in order: requests, incidents, approvals. */
-    sources?: MyItemKind[]
-    limit?: number
-    recordPage?: string
+    sources?: MyItemKind[];
+    limit?: number;
+    recordPage?: string;
     /** List page for "View all" (opened with table + query + title). '' = no link. */
-    listPage?: string
-    catalogPage?: string
-    live?: boolean
-}
+    listPage?: string;
+    catalogPage?: string;
+    live?: boolean;
+};
 
 function ItemRow({ item, recordPage }: { item: MyItem; recordPage: string }) {
-    const second = [item.number, item.subtitle, relativeTime(item.updated)].filter(Boolean).join(' · ')
+    const second = [item.number, item.subtitle, relativeTime(item.updated)].filter(Boolean).join(' · ');
     return (
         <Link
             to={recordPage}
@@ -196,24 +227,33 @@ function ItemRow({ item, recordPage }: { item: MyItem; recordPage: string }) {
                 <span className="truncate text-xs text-muted-foreground">{second}</span>
             </span>
             {item.state ? <HighlightedValue label={item.state} size="sm" className="max-w-44 max-sm:hidden" /> : null}
-            <Icon name="chevron-right" className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover/row:translate-x-0.5" />
+            <Icon
+                name="chevron-right"
+                className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover/row:translate-x-0.5"
+            />
         </Link>
-    )
+    );
 }
 
 function KindCount({ kind, limit, live, active }: { kind: MyItemKind; limit: number; live: boolean; active: boolean }) {
-    const r = useMyItems(kind, { limit, live })
-    if (r.isLoading) return <Skeleton className="h-4 w-5 rounded-full" />
+    const r = useMyItems(kind, { limit, live });
+    if (r.isLoading) return <Skeleton className="h-4 w-5 rounded-full" />;
     return (
         <span
             className={cx(
                 'min-w-5 rounded-full px-1.5 text-center text-[11px] leading-4 font-semibold tabular-nums',
-                r.total ? (kind === 'approvals' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : active ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground') : 'text-muted-foreground',
+                r.total
+                    ? kind === 'approvals'
+                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                        : active
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground'
+                    : 'text-muted-foreground'
             )}
         >
             {r.total}
         </span>
-    )
+    );
 }
 
 /**
@@ -223,17 +263,21 @@ function KindCount({ kind, limit, live, active }: { kind: MyItemKind; limit: num
  * MY_ITEM_KINDS, relativeTime.
  */
 export default function MyItems({ options = {} }: { options?: Options }) {
-    const kinds = (Array.isArray(options.sources) && options.sources.length ? options.sources : (['requests', 'incidents', 'approvals'] as MyItemKind[])).filter((k) => !!MY_ITEM_KINDS[k])
-    const [tab, setTab] = useState<MyItemKind>(kinds[0] || 'requests')
-    const limit = Math.max(1, Math.min(10, options.limit || 5))
-    const live = options.live !== false
-    const recordPage = options.recordPage || 'form'
-    const listPage = options.listPage === undefined ? 'list' : options.listPage
-    const def = MY_ITEM_KINDS[tab]
-    const data = useMyItems(tab, { limit, live })
-    const catalogPage = options.catalogPage || 'catalog'
+    const kinds = (
+        Array.isArray(options.sources) && options.sources.length
+            ? options.sources
+            : (['requests', 'incidents', 'approvals'] as MyItemKind[])
+    ).filter((k) => !!MY_ITEM_KINDS[k]);
+    const [tab, setTab] = useState<MyItemKind>(kinds[0] || 'requests');
+    const limit = Math.max(1, Math.min(10, options.limit || 5));
+    const live = options.live !== false;
+    const recordPage = options.recordPage || 'form';
+    const listPage = options.listPage === undefined ? 'list' : options.listPage;
+    const def = MY_ITEM_KINDS[tab];
+    const data = useMyItems(tab, { limit, live });
+    const catalogPage = options.catalogPage || 'catalog';
     // One row is 52px + 2px gap: the list keeps the height of a full page, so tabs never jump.
-    const minH = limit * 54
+    const minH = limit * 54;
 
     return (
         <Card className="rp-mi h-full gap-0 py-0" data-rp-my-items="">
@@ -247,7 +291,9 @@ export default function MyItems({ options = {} }: { options?: Options }) {
                         </span>
                     ) : null}
                 </div>
-                {options.description ? <p className="m-0 w-full text-sm text-muted-foreground">{options.description}</p> : null}
+                {options.description ? (
+                    <p className="m-0 w-full text-sm text-muted-foreground">{options.description}</p>
+                ) : null}
             </div>
             <Tabs value={tab} onValueChange={(v: string) => setTab(v as MyItemKind)} className="gap-0">
                 <div className="rp-mi-tabs border-b border-border px-3">
@@ -262,7 +308,12 @@ export default function MyItems({ options = {} }: { options?: Options }) {
                     </TabsList>
                 </div>
             </Tabs>
-            <div className="flex flex-1 flex-col gap-0.5 p-2" style={{ minHeight: minH + 16 }} role="tabpanel" aria-label={def.label}>
+            <div
+                className="flex flex-1 flex-col gap-0.5 p-2"
+                style={{ minHeight: minH + 16 }}
+                role="tabpanel"
+                aria-label={def.label}
+            >
                 {data.isLoading ? (
                     Array.from({ length: Math.min(limit, 3) }).map((_, i) => (
                         <div key={i} className="flex items-center gap-3 px-2 py-2" aria-hidden>
@@ -275,7 +326,9 @@ export default function MyItems({ options = {} }: { options?: Options }) {
                         </div>
                     ))
                 ) : data.error ? (
-                    <p className="m-0 px-2 py-3 text-sm text-destructive">Couldn't load your {def.label.toLowerCase()}: {String(data.error.message || data.error)}</p>
+                    <p className="m-0 px-2 py-3 text-sm text-destructive">
+                        Couldn't load your {def.label.toLowerCase()}: {String(data.error.message || data.error)}
+                    </p>
                 ) : data.items.length ? (
                     data.items.map((it: MyItem) => <ItemRow key={it.id} item={it} recordPage={recordPage} />)
                 ) : (
@@ -288,7 +341,16 @@ export default function MyItems({ options = {} }: { options?: Options }) {
                             <EmptyDescription>{def.empty.body}</EmptyDescription>
                         </EmptyHeader>
                         {def.empty.action ? (
-                            <Button variant="outline" size="sm" render={<Link to={def.empty.action.to === 'catalog' ? catalogPage : def.empty.action.to} q={def.empty.action.q} />}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                render={
+                                    <Link
+                                        to={def.empty.action.to === 'catalog' ? catalogPage : def.empty.action.to}
+                                        q={def.empty.action.q}
+                                    />
+                                }
+                            >
                                 <Icon name={def.empty.action.icon} />
                                 {def.empty.action.label}
                             </Button>
@@ -302,12 +364,18 @@ export default function MyItems({ options = {} }: { options?: Options }) {
                         {Math.min(data.items.length, data.total)} of {data.total} open {def.noun}
                         {data.total === 1 ? '' : 's'}
                     </span>
-                    <Link to={listPage} table={def.table} query={def.listQuery} q={{ title: def.listTitle }} className="flex items-center gap-1 font-medium text-primary no-underline hover:underline">
+                    <Link
+                        to={listPage}
+                        table={def.table}
+                        query={def.listQuery}
+                        q={{ title: def.listTitle }}
+                        className="flex items-center gap-1 font-medium text-primary no-underline hover:underline"
+                    >
                         View all
                         <Icon name="arrow-right" className="size-3.5" />
                     </Link>
                 </div>
             ) : null}
         </Card>
-    )
+    );
 }

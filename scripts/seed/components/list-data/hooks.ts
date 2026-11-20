@@ -1,24 +1,60 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery, useInfiniteQuery, useQueryClient, keepPreviousData } from 'utilities:react-query'
-import { useUser } from '@portal/runtime'
-import { fetchCrumbs, fetchEditability, fetchFilterFields, fetchList, fetchPreference, savePreference, writeCells, columnsParam, effectiveQuery } from './documents'
-import type { ListArgs, ListPage, ListPreferences, ListRow, WriteResult } from './types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useInfiniteQuery, useQueryClient, keepPreviousData } from 'utilities:react-query';
+import { useUser } from '@portal/runtime';
+import {
+    fetchCrumbs,
+    fetchEditability,
+    fetchFilterFields,
+    fetchList,
+    fetchPreference,
+    savePreference,
+    writeCells,
+    columnsParam,
+    effectiveQuery,
+} from './documents';
+import type { ListArgs, ListPage, ListPreferences, ListRow, WriteResult } from './types';
 
 /** Everything this utility caches lives under ['rp-list', …]. */
 export const listKeys = {
     all: ['rp-list'] as const,
     table: (table: string) => ['rp-list', 'page', table] as const,
     page: (a: ListArgs) =>
-        ['rp-list', 'page', a.table, columnsParam(a.columns), effectiveQuery(a), a.fixedQuery || '', a.view || '', a.relatedListName || '', a.parentTable || '', a.parentRecordSysId || '', a.limit || 20, a.offset || 0] as const,
+        [
+            'rp-list',
+            'page',
+            a.table,
+            columnsParam(a.columns),
+            effectiveQuery(a),
+            a.fixedQuery || '',
+            a.view || '',
+            a.relatedListName || '',
+            a.parentTable || '',
+            a.parentRecordSysId || '',
+            a.limit || 20,
+            a.offset || 0,
+        ] as const,
     infinite: (a: ListArgs) =>
-        ['rp-list', 'page', a.table, 'infinite', columnsParam(a.columns), effectiveQuery(a), a.fixedQuery || '', a.view || '', a.relatedListName || '', a.parentTable || '', a.parentRecordSysId || '', a.limit || 100] as const,
+        [
+            'rp-list',
+            'page',
+            a.table,
+            'infinite',
+            columnsParam(a.columns),
+            effectiveQuery(a),
+            a.fixedQuery || '',
+            a.view || '',
+            a.relatedListName || '',
+            a.parentTable || '',
+            a.parentRecordSysId || '',
+            a.limit || 100,
+        ] as const,
     crumbs: (table: string, filter: string) => ['rp-list', 'crumbs', table, filter] as const,
     fields: (table: string) => ['rp-list', 'fields', table] as const,
     edit: (table: string, column: string, ids: string) => ['rp-list', 'edit', table, column, ids] as const,
     pref: (user: string, key: string) => ['rp-list', 'pref', user, key] as const,
-}
+};
 
-const MINUTE = 60_000
+const MINUTE = 60_000;
 
 /** One server-side page (sorting, filtering, search and paging all run on the platform). */
 export function useList(args: ListArgs, options: { enabled?: boolean; staleTime?: number } = {}) {
@@ -28,7 +64,7 @@ export function useList(args: ListArgs, options: { enabled?: boolean; staleTime?
         enabled: !!args.table && options.enabled !== false,
         staleTime: options.staleTime ?? 15_000,
         placeholderData: keepPreviousData,
-    })
+    });
     return {
         data: q.data,
         rows: (q.data && q.data.rows) || EMPTY_ROWS,
@@ -39,27 +75,31 @@ export function useList(args: ListArgs, options: { enabled?: boolean; staleTime?
         isPlaceholderData: q.isPlaceholderData,
         error: (q.error as Error | null) || null,
         refetch: q.refetch,
-    }
+    };
 }
 
-const EMPTY_ROWS: ListRow[] = []
-const EMPTY_COLS: ListPage['columns'] = []
+const EMPTY_ROWS: ListRow[] = [];
+const EMPTY_COLS: ListPage['columns'] = [];
 
 /** Pages loaded as you scroll (virtualized lists): rows accumulate, one request per page. */
 export function useInfiniteList(args: ListArgs, options: { enabled?: boolean } = {}) {
-    const pageSize = args.limit || 100
+    const pageSize = args.limit || 100;
     const q = useInfiniteQuery({
         queryKey: listKeys.infinite({ ...args, limit: pageSize }),
-        queryFn: ({ pageParam, signal }: { pageParam: number; signal: AbortSignal }) => fetchList({ ...args, limit: pageSize, offset: pageParam }, signal),
+        queryFn: ({ pageParam, signal }: { pageParam: number; signal: AbortSignal }) =>
+            fetchList({ ...args, limit: pageSize, offset: pageParam }, signal),
         initialPageParam: 0,
-        getNextPageParam: (last: ListPage) => (last.offset + last.rows.length < last.count && last.rows.length > 0 ? last.offset + last.rows.length : undefined),
+        getNextPageParam: (last: ListPage) =>
+            last.offset + last.rows.length < last.count && last.rows.length > 0
+                ? last.offset + last.rows.length
+                : undefined,
         enabled: !!args.table && options.enabled !== false,
         staleTime: 15_000,
         placeholderData: keepPreviousData,
-    })
-    const pages: ListPage[] = (q.data && q.data.pages) || []
-    const rows = useMemo(() => pages.flatMap((p) => p.rows), [q.data])
-    const first = pages[0]
+    });
+    const pages: ListPage[] = (q.data && q.data.pages) || [];
+    const rows = useMemo(() => pages.flatMap((p) => p.rows), [q.data]);
+    const first = pages[0];
     return {
         data: first,
         rows,
@@ -72,7 +112,7 @@ export function useInfiniteList(args: ListArgs, options: { enabled?: boolean } =
         fetchNextPage: q.fetchNextPage,
         error: (q.error as Error | null) || null,
         refetch: q.refetch,
-    }
+    };
 }
 
 /** Breadcrumbs for a filter (labels from the platform's parser; cached per filter). */
@@ -83,7 +123,7 @@ export function useCrumbs(table: string | undefined, filter: string) {
         enabled: !!table && !!filter,
         staleTime: 5 * MINUTE,
         placeholderData: keepPreviousData,
-    })
+    });
 }
 
 /** Filterable fields of a table (one dot-walk level), cached 10 minutes. */
@@ -94,18 +134,27 @@ export function useFilterFields(table: string | undefined, options: { enabled?: 
         enabled: !!table && options.enabled !== false,
         staleTime: 10 * MINUTE,
         gcTime: 30 * MINUTE,
-    })
+    });
 }
 
 /** canListEdit for `column` on some records (fetched on demand, cached briefly). */
-export function useEditability(table: string | undefined, column: string | undefined, sysIds: string[], options: { enabled?: boolean; fieldType?: string } = {}) {
-    const ids = sysIds.slice().sort().join(',')
+export function useEditability(
+    table: string | undefined,
+    column: string | undefined,
+    sysIds: string[],
+    options: { enabled?: boolean; fieldType?: string } = {}
+) {
+    const ids = sysIds.slice().sort().join(',');
     return useQuery({
         queryKey: listKeys.edit(table || '', column || '', ids),
-        queryFn: ({ signal }: { signal: AbortSignal }) => fetchEditability({ table: table as string, column: column as string, sysIds, fieldType: options.fieldType }, signal),
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+            fetchEditability(
+                { table: table as string, column: column as string, sysIds, fieldType: options.fieldType },
+                signal
+            ),
         enabled: !!(table && column && sysIds.length) && options.enabled !== false,
         staleTime: 30_000,
-    })
+    });
 }
 
 /**
@@ -113,46 +162,58 @@ export function useEditability(table: string | undefined, column: string | undef
  * (optimistic display), then the table's pages are refetched for server-computed values.
  */
 export function useCellWrite() {
-    const qc = useQueryClient()
-    const [pending, setPending] = useState(0)
+    const qc = useQueryClient();
+    const [pending, setPending] = useState(0);
     const write = useCallback(
-        async (args: { table: string; sysIds: string[]; values: { column: string; value: string; displayValue?: string }[] }): Promise<WriteResult> => {
-            setPending((n) => n + 1)
+        async (args: {
+            table: string;
+            sysIds: string[];
+            values: { column: string; value: string; displayValue?: string }[];
+        }): Promise<WriteResult> => {
+            setPending((n) => n + 1);
             try {
-                const res = await writeCells({ table: args.table, sysIds: args.sysIds, values: args.values.map((v) => ({ column: v.column, value: v.value })) })
+                const res = await writeCells({
+                    table: args.table,
+                    sysIds: args.sysIds,
+                    values: args.values.map((v) => ({ column: v.column, value: v.value })),
+                });
                 if (res.written.length) {
-                    const ok = new Set(res.written)
+                    const ok = new Set(res.written);
                     const patch = (page: ListPage): ListPage => ({
                         ...page,
                         rows: page.rows.map((r) => {
-                            if (!ok.has(r.sysId)) return r
-                            const cells = { ...r.cells }
-                            for (const v of args.values) cells[v.column] = { value: v.value, displayValue: v.displayValue ?? v.value }
-                            return { ...r, cells }
+                            if (!ok.has(r.sysId)) return r;
+                            const cells = { ...r.cells };
+                            for (const v of args.values)
+                                cells[v.column] = { value: v.value, displayValue: v.displayValue ?? v.value };
+                            return { ...r, cells };
                         }),
-                    })
+                    });
                     qc.setQueriesData({ queryKey: listKeys.table(args.table) }, (old: any) => {
-                        if (!old) return old
-                        if (Array.isArray(old.pages)) return { ...old, pages: old.pages.map(patch) }
-                        if (Array.isArray(old.rows)) return patch(old)
-                        return old
-                    })
+                        if (!old) return old;
+                        if (Array.isArray(old.pages)) return { ...old, pages: old.pages.map(patch) };
+                        if (Array.isArray(old.rows)) return patch(old);
+                        return old;
+                    });
                 }
-                qc.invalidateQueries({ queryKey: listKeys.table(args.table) })
-                return res
+                qc.invalidateQueries({ queryKey: listKeys.table(args.table) });
+                return res;
             } finally {
-                setPending((n) => n - 1)
+                setPending((n) => n - 1);
             }
         },
-        [qc],
-    )
-    return { write, isPending: pending > 0 }
+        [qc]
+    );
+    return { write, isPending: pending > 0 };
 }
 
 /** Refetch every list of a table (after an action elsewhere). */
 export function useListInvalidate() {
-    const qc = useQueryClient()
-    return useCallback((table?: string) => qc.invalidateQueries({ queryKey: table ? listKeys.table(table) : listKeys.all }), [qc])
+    const qc = useQueryClient();
+    return useCallback(
+        (table?: string) => qc.invalidateQueries({ queryKey: table ? listKeys.table(table) : listKeys.all }),
+        [qc]
+    );
 }
 
 /**
@@ -162,106 +223,114 @@ export function useListInvalidate() {
  *                 localStorage so the first paint already has it;
  * persist 'local' localStorage only;  persist 'none' memory only.
  */
-export function useListPreferences(key: string | undefined, options: { persist?: 'user' | 'local' | 'none'; defaults?: ListPreferences } = {}) {
-    const persist = key ? options.persist || 'user' : 'none'
-    const user = useUser() as { sysId?: string }
-    const userId = (user && user.sysId) || ''
-    const storageKey = key ? `rp-list:${userId}:${key}` : ''
+export function useListPreferences(
+    key: string | undefined,
+    options: { persist?: 'user' | 'local' | 'none'; defaults?: ListPreferences } = {}
+) {
+    const persist = key ? options.persist || 'user' : 'none';
+    const user = useUser() as { sysId?: string };
+    const userId = (user && user.sysId) || '';
+    const storageKey = key ? `rp-list:${userId}:${key}` : '';
     const read = (): ListPreferences => {
-        if (persist === 'none' || typeof localStorage === 'undefined') return {}
+        if (persist === 'none' || typeof localStorage === 'undefined') return {};
         try {
-            return JSON.parse(localStorage.getItem(storageKey) || '{}') || {}
+            return JSON.parse(localStorage.getItem(storageKey) || '{}') || {};
         } catch (e) {
-            return {}
+            return {};
         }
-    }
-    const [prefs, setPrefs] = useState<ListPreferences>(read)
-    const touched = useRef(false)
+    };
+    const [prefs, setPrefs] = useState<ListPreferences>(read);
+    const touched = useRef(false);
     const remote = useQuery({
         queryKey: listKeys.pref(userId, key || ''),
         queryFn: ({ signal }: { signal: AbortSignal }) => fetchPreference(userId, key as string, signal),
         enabled: persist === 'user' && !!userId && !!key,
         staleTime: 10 * MINUTE,
         retry: false,
-    })
+    });
     // The server copy wins until the user changes something here.
     useEffect(() => {
         if (remote.data && !touched.current) {
-            setPrefs(remote.data)
+            setPrefs(remote.data);
             try {
-                localStorage.setItem(storageKey, JSON.stringify(remote.data))
+                localStorage.setItem(storageKey, JSON.stringify(remote.data));
             } catch (e) {
                 /* storage full / blocked */
             }
         }
-    }, [remote.data, storageKey])
+    }, [remote.data, storageKey]);
 
-    const timer = useRef<any>(0)
+    const timer = useRef<any>(0);
     const update = useCallback(
         (next: ListPreferences | ((p: ListPreferences) => ListPreferences)) => {
-            touched.current = true
+            touched.current = true;
             setPrefs((prev) => {
-                const value = typeof next === 'function' ? (next as any)(prev) : next
+                const value = typeof next === 'function' ? (next as any)(prev) : next;
                 if (persist !== 'none') {
                     try {
-                        localStorage.setItem(storageKey, JSON.stringify(value))
+                        localStorage.setItem(storageKey, JSON.stringify(value));
                     } catch (e) {
                         /* ignore */
                     }
                 }
                 if (persist === 'user' && key) {
-                    clearTimeout(timer.current)
+                    clearTimeout(timer.current);
                     timer.current = setTimeout(() => {
                         savePreference(key, value).catch(() => {
                             /* local copy still applies */
-                        })
-                    }, 600)
+                        });
+                    }, 600);
                 }
-                return value
-            })
+                return value;
+            });
         },
-        [persist, storageKey, key],
-    )
-    const reset = useCallback(() => update({}), [update])
-    return { prefs: { ...(options.defaults || {}), ...prefs }, setPrefs: update, reset, isLoading: remote.isLoading }
+        [persist, storageKey, key]
+    );
+    const reset = useCallback(() => update({}), [update]);
+    return { prefs: { ...(options.defaults || {}), ...prefs }, setPrefs: update, reset, isLoading: remote.isLoading };
 }
 
 export type ResolvedPath = {
     /** Field path ('caller_id.department.name'). */
-    path: string
+    path: string;
     /** Readable label ('Caller › Department › Name'). */
-    label: string
+    label: string;
     /** Table that owns the last field. */
-    table: string
+    table: string;
     /** The last field's name on that table. */
-    field: string
-    type: string
-    referenceTable?: string
+    field: string;
+    type: string;
+    referenceTable?: string;
     /** Each step (for the picker's breadcrumb). */
-    steps: { table: string; field: string; label: string; referenceTable?: string }[]
-}
+    steps: { table: string; field: string; label: string; referenceTable?: string }[];
+};
 
 /** Resolve a dot-walked field path against the dot-walk metadata (each table cached). */
 export function useFieldPath(table: string | undefined, path: string | undefined) {
-    const qc = useQueryClient()
+    const qc = useQueryClient();
     return useQuery<ResolvedPath | null>({
         queryKey: ['rp-list', 'path', table || '', path || ''],
         queryFn: async () => {
-            if (!table || !path) return null
-            const names = path.split('.')
-            let current = table
-            const steps: ResolvedPath['steps'] = []
-            let last: any = null
+            if (!table || !path) return null;
+            const names = path.split('.');
+            let current = table;
+            const steps: ResolvedPath['steps'] = [];
+            let last: any = null;
             for (let i = 0; i < names.length; i++) {
-                const t = current
-                const meta = await qc.fetchQuery({ queryKey: listKeys.fields(t), queryFn: ({ signal }: { signal: AbortSignal }) => fetchFilterFields(t, signal), staleTime: 10 * MINUTE })
-                const f = meta.fields.find((x) => x.name === names[i])
-                if (!f) return { path, label: names.join(' › '), table: t, field: names[i], type: 'string', steps }
-                steps.push({ table: t, field: f.name, label: f.label, referenceTable: f.referenceTable })
-                last = f
+                const t = current;
+                const meta = await qc.fetchQuery({
+                    queryKey: listKeys.fields(t),
+                    queryFn: ({ signal }: { signal: AbortSignal }) => fetchFilterFields(t, signal),
+                    staleTime: 10 * MINUTE,
+                });
+                const f = meta.fields.find((x) => x.name === names[i]);
+                if (!f) return { path, label: names.join(' › '), table: t, field: names[i], type: 'string', steps };
+                steps.push({ table: t, field: f.name, label: f.label, referenceTable: f.referenceTable });
+                last = f;
                 if (i < names.length - 1) {
-                    if (!f.referenceTable) return { path, label: names.join(' › '), table: t, field: names[i], type: 'string', steps }
-                    current = f.referenceTable
+                    if (!f.referenceTable)
+                        return { path, label: names.join(' › '), table: t, field: names[i], type: 'string', steps };
+                    current = f.referenceTable;
                 }
             }
             return {
@@ -272,9 +341,9 @@ export function useFieldPath(table: string | undefined, path: string | undefined
                 type: last ? last.type : 'string',
                 referenceTable: last ? last.referenceTable : undefined,
                 steps,
-            }
+            };
         },
         enabled: !!table && !!path,
         staleTime: 10 * MINUTE,
-    })
+    });
 }

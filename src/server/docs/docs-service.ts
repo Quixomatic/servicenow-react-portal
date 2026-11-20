@@ -1,11 +1,11 @@
-import { gs, GlideDigest } from '@servicenow/glide'
-import { GR, newGR, getById, each, str, int, bool } from '../lib/gr.ts'
-import { T } from '../lib/tables.ts'
-import { badRequest, notFound, rpError } from '../lib/errors.ts'
-import { parseJson, isPlainObject } from '../lib/util.ts'
-import { requireStudio } from '../security/access.ts'
-import { buildDocRow, docHash } from './docs-text.ts'
-import type { DocHeading, DocRow } from './docs-text.ts'
+import { gs, GlideDigest } from '@servicenow/glide';
+import { GR, newGR, getById, each, str, int, bool } from '../lib/gr.ts';
+import { T } from '../lib/tables.ts';
+import { badRequest, notFound, rpError } from '../lib/errors.ts';
+import { parseJson, isPlainObject } from '../lib/util.ts';
+import { requireStudio } from '../security/access.ts';
+import { buildDocRow, docHash } from './docs-text.ts';
+import type { DocHeading, DocRow } from './docs-text.ts';
 
 /**
  * RPDocsService: Portal Studio's Docs activity (x_312987_portal_doc).
@@ -23,47 +23,47 @@ import type { DocHeading, DocRow } from './docs-text.ts'
  * yet installed). "Edited in Studio" = content_hash ≠ seed_hash. No deletes: pages are deactivated.
  */
 
-const DOC = 'x_312987_portal_doc'
-const PATH_RE = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*$/
-const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
+const DOC = 'x_312987_portal_doc';
+const PATH_RE = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*$/;
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 export interface DocDto {
-    id: string
-    path: string
-    title: string
-    description: string
-    section: string
-    sectionSlug: string
-    sectionOrder: number
-    order: number
-    tags: string
-    icon: string
-    sourcePath: string
-    active: boolean
-    origin: string
-    contentHash: string
-    seedHash: string
+    id: string;
+    path: string;
+    title: string;
+    description: string;
+    section: string;
+    sectionSlug: string;
+    sectionOrder: number;
+    order: number;
+    tags: string;
+    icon: string;
+    sourcePath: string;
+    active: boolean;
+    origin: string;
+    contentHash: string;
+    seedHash: string;
     /** content_hash differs from what the seed last wrote (null: the seed_hash field isn't installed). */
-    studioEdited: boolean | null
-    headings: DocHeading[]
-    updatedOn: string
-    updatedBy: string
-    markdown?: string
+    studioEdited: boolean | null;
+    headings: DocHeading[];
+    updatedOn: string;
+    updatedBy: string;
+    markdown?: string;
 }
 
 function sha256Hex(text: string): string {
-    return new GlideDigest().getSHA256Hex(text || '').toLowerCase()
+    return new GlideDigest().getSHA256Hex(text || '').toLowerCase();
 }
 
 function hasField(gr: GR, field: string): boolean {
-    return !!gr.isValidField(field)
+    return !!gr.isValidField(field);
 }
 
 function dto(gr: GR, withMarkdown: boolean): DocDto {
-    const trackSeed = hasField(gr, 'seed_hash')
-    const seedHash = trackSeed ? str(gr, 'seed_hash') : ''
-    const origin = hasField(gr, 'origin') ? str(gr, 'origin') || 'repo' : 'repo'
-    const contentHash = str(gr, 'content_hash')
+    const trackSeed = hasField(gr, 'seed_hash');
+    const seedHash = trackSeed ? str(gr, 'seed_hash') : '';
+    const origin = hasField(gr, 'origin') ? str(gr, 'origin') || 'repo' : 'repo';
+    const contentHash = str(gr, 'content_hash');
     const out: DocDto = {
         id: gr.getUniqueValue(),
         path: str(gr, 'path'),
@@ -85,9 +85,9 @@ function dto(gr: GR, withMarkdown: boolean): DocDto {
         headings: parseJson<DocHeading[]>(str(gr, 'headings_json'), []),
         updatedOn: str(gr, 'sys_updated_on'),
         updatedBy: str(gr, 'sys_updated_by'),
-    }
-    if (withMarkdown) out.markdown = str(gr, 'markdown')
-    return out
+    };
+    if (withMarkdown) out.markdown = str(gr, 'markdown');
+    return out;
 }
 
 /** The row's content inputs as stored (the fields the hash covers, before derivation). */
@@ -104,7 +104,7 @@ function inputsOf(gr: GR) {
         icon: str(gr, 'icon'),
         markdown: str(gr, 'markdown'),
         active: bool(gr, 'active'),
-    }
+    };
 }
 
 /**
@@ -113,46 +113,59 @@ function inputsOf(gr: GR) {
  * seed can still tell the edit apart from a repo change.
  */
 function applyRow(gr: GR, row: DocRow, isNew: boolean): boolean {
-    const hash = docHash(row as any, sha256Hex)
-    const before = str(gr, 'content_hash')
-    if (!isNew && hash === before) return false
-    if (!isNew && hasField(gr, 'seed_hash') && !str(gr, 'seed_hash') && (!hasField(gr, 'origin') || str(gr, 'origin') !== 'studio')) {
-        gr.setValue('seed_hash', before)
+    const hash = docHash(row as any, sha256Hex);
+    const before = str(gr, 'content_hash');
+    if (!isNew && hash === before) return false;
+    if (
+        !isNew &&
+        hasField(gr, 'seed_hash') &&
+        !str(gr, 'seed_hash') &&
+        (!hasField(gr, 'origin') || str(gr, 'origin') !== 'studio')
+    ) {
+        gr.setValue('seed_hash', before);
     }
-    gr.setValue('path', row.path)
-    gr.setValue('title', row.title)
-    gr.setValue('description', row.description)
-    gr.setValue('section', row.section)
-    gr.setValue('section_slug', row.section_slug)
-    gr.setValue('section_order', String(row.section_order))
-    gr.setValue('order', String(row.order))
-    gr.setValue('tags', row.tags)
-    gr.setValue('icon', row.icon)
-    gr.setValue('source_path', row.source_path)
-    gr.setValue('markdown', row.markdown)
-    gr.setValue('headings_json', JSON.stringify(row.headings_json))
-    gr.setValue('search_text', row.search_text)
-    gr.setValue('active', row.active ? 'true' : 'false')
-    gr.setValue('content_hash', hash)
-    return true
+    gr.setValue('path', row.path);
+    gr.setValue('title', row.title);
+    gr.setValue('description', row.description);
+    gr.setValue('section', row.section);
+    gr.setValue('section_slug', row.section_slug);
+    gr.setValue('section_order', String(row.section_order));
+    gr.setValue('order', String(row.order));
+    gr.setValue('tags', row.tags);
+    gr.setValue('icon', row.icon);
+    gr.setValue('source_path', row.source_path);
+    gr.setValue('markdown', row.markdown);
+    gr.setValue('headings_json', JSON.stringify(row.headings_json));
+    gr.setValue('search_text', row.search_text);
+    gr.setValue('active', row.active ? 'true' : 'false');
+    gr.setValue('content_hash', hash);
+    return true;
 }
 
 function save(gr: GR, isNew: boolean): string {
-    const id = isNew ? gr.insert() : gr.update()
-    if (!id) throw rpError(500, 'write_failed', 'Could not save the doc page: ' + (gs.getErrorMessages() || 'unknown error'))
-    return isNew ? String(id) : gr.getUniqueValue()
+    const id = isNew ? gr.insert() : gr.update();
+    if (!id)
+        throw rpError(
+            500,
+            'write_failed',
+            'Could not save the doc page: ' + (gs.getErrorMessages() || 'unknown error')
+        );
+    return isNew ? String(id) : gr.getUniqueValue();
 }
 
 function cleanTags(v: unknown): string {
-    const list = Array.isArray(v) ? v : String(v == null ? '' : v).split(',')
+    const list = Array.isArray(v) ? v : String(v == null ? '' : v).split(',');
     return list
         .map((s) => String(s).trim())
         .filter(Boolean)
-        .join(', ')
+        .join(', ');
 }
 
 function text(v: unknown, max: number): string {
-    return String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim().substring(0, max)
+    return String(v == null ? '' : v)
+        .replace(/[\r\n]+/g, ' ')
+        .trim()
+        .substring(0, max);
 }
 
 function slugify(title: string): string {
@@ -160,50 +173,50 @@ function slugify(title: string): string {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
-        .substring(0, 60)
+        .substring(0, 60);
 }
 
 /* ---------------- Reads ---------------- */
 
 /** Every doc row (inactive included), nav order, no markdown. */
 export function listDocs(): DocDto[] {
-    requireStudio('author')
-    const out: DocDto[] = []
-    each(DOC, 'pathISNOTEMPTY', (gr) => out.push(dto(gr, false)), ['section_order', 'order', 'title'])
-    return out
+    requireStudio('author');
+    const out: DocDto[] = [];
+    each(DOC, 'pathISNOTEMPTY', (gr) => out.push(dto(gr, false)), ['section_order', 'order', 'title']);
+    return out;
 }
 
 export function getDoc(id: string): DocDto {
-    requireStudio('author')
-    const gr = getById(DOC, id)
-    if (!gr) throw notFound('No doc page ' + id)
-    return dto(gr, true)
+    requireStudio('author');
+    const gr = getById(DOC, id);
+    if (!gr) throw notFound('No doc page ' + id);
+    return dto(gr, true);
 }
 
 /* ---------------- Ordering ---------------- */
 
 interface SectionInfo {
-    slug: string
-    title: string
-    order: number
+    slug: string;
+    title: string;
+    order: number;
 }
 
 /** Active sections in order (first row's title wins). */
 function sections(): SectionInfo[] {
-    const out: SectionInfo[] = []
-    const seen: Record<string, boolean> = {}
+    const out: SectionInfo[] = [];
+    const seen: Record<string, boolean> = {};
     each(
         DOC,
         'active=true',
         (gr) => {
-            const slug = str(gr, 'section_slug') || slugify(str(gr, 'section')) || 'docs'
-            if (seen[slug]) return
-            seen[slug] = true
-            out.push({ slug, title: str(gr, 'section'), order: int(gr, 'section_order', 100) })
+            const slug = str(gr, 'section_slug') || slugify(str(gr, 'section')) || 'docs';
+            if (seen[slug]) return;
+            seen[slug] = true;
+            out.push({ slug, title: str(gr, 'section'), order: int(gr, 'section_order', 100) });
         },
         ['section_order', 'order']
-    )
-    return out
+    );
+    return out;
 }
 
 /**
@@ -211,76 +224,86 @@ function sections(): SectionInfo[] {
  * (i + 1) * 100. Only rows whose numbers change are written (and rehashed).
  */
 function renumber(): number {
-    const list = sections()
-    let written = 0
+    const list = sections();
+    let written = 0;
     list.forEach((s, si) => {
-        let pi = 0
+        let pi = 0;
         each(
             DOC,
             'active=true^section_slug=' + s.slug,
             (gr) => {
-                const inputs = inputsOf(gr)
-                inputs.section_order = (si + 1) * 100
-                inputs.order = (pi + 1) * 100
-                pi++
+                const inputs = inputsOf(gr);
+                inputs.section_order = (si + 1) * 100;
+                inputs.order = (pi + 1) * 100;
+                pi++;
                 if (applyRow(gr, buildDocRow(inputs), false)) {
-                    save(gr, false)
-                    written++
+                    save(gr, false);
+                    written++;
                 }
             },
             ['order', 'title']
-        )
-    })
-    return written
+        );
+    });
+    return written;
 }
 
 function sectionOrderOf(slug: string): number {
-    const list = sections()
-    for (const s of list) if (s.slug === slug) return s.order
-    return (list.length + 1) * 100
+    const list = sections();
+    for (const s of list) if (s.slug === slug) return s.order;
+    return (list.length + 1) * 100;
 }
 
 function lastOrderIn(slug: string): number {
-    let max = 0
+    let max = 0;
     each(DOC, 'active=true^section_slug=' + slug, (gr) => {
-        max = Math.max(max, int(gr, 'order', 0))
-    })
-    return max
+        max = Math.max(max, int(gr, 'order', 0));
+    });
+    return max;
 }
 
 /* ---------------- Writes ---------------- */
 
 export interface CreateDocBody {
-    path?: string
-    title?: string
-    description?: string
-    section?: string
-    sectionSlug?: string
-    tags?: string | string[]
-    icon?: string
-    markdown?: string
+    path?: string;
+    title?: string;
+    description?: string;
+    section?: string;
+    sectionSlug?: string;
+    tags?: string | string[];
+    icon?: string;
+    markdown?: string;
 }
 
 /** POST /docs: a new page at the end of its section (origin = studio). */
 export function createDoc(body: CreateDocBody): DocDto {
-    requireStudio('author')
-    if (!isPlainObject(body)) throw badRequest('Expected a JSON object')
-    const title = text(body.title, 200)
-    if (!title) throw badRequest('A title is required')
-    const section = text(body.section, 100) || 'Docs'
-    const sectionSlug = String(body.sectionSlug || slugify(section))
-    if (!SLUG_RE.test(sectionSlug)) throw badRequest('Section slug must be lower-case letters, digits and dashes')
-    const path = String(body.path || sectionSlug + '/' + slugify(title)).replace(/^\/+|\/+$/g, '').replace(/\.md$/, '')
-    if (!PATH_RE.test(path)) throw badRequest('Path must be lower-case segments of letters, digits, - and _ (e.g. concepts/my-page)')
-    const existing = newGR(DOC)
-    existing.addQuery('path', path)
-    existing.setLimit(1)
-    existing.query()
+    requireStudio('author');
+    if (!isPlainObject(body)) throw badRequest('Expected a JSON object');
+    const title = text(body.title, 200);
+    if (!title) throw badRequest('A title is required');
+    const section = text(body.section, 100) || 'Docs';
+    const sectionSlug = String(body.sectionSlug || slugify(section));
+    if (!SLUG_RE.test(sectionSlug)) throw badRequest('Section slug must be lower-case letters, digits and dashes');
+    const path = String(body.path || sectionSlug + '/' + slugify(title))
+        .replace(/^\/+|\/+$/g, '')
+        .replace(/\.md$/, '');
+    if (!PATH_RE.test(path))
+        throw badRequest('Path must be lower-case segments of letters, digits, - and _ (e.g. concepts/my-page)');
+    const existing = newGR(DOC);
+    existing.addQuery('path', path);
+    existing.setLimit(1);
+    existing.query();
     if (existing.next()) {
-        throw rpError(409, 'doc_exists', bool(existing, 'active') ? 'A page with the path ' + path + ' already exists' : 'An inactive page has the path ' + path + ': reactivate it instead', { id: existing.getUniqueValue() })
+        throw rpError(
+            409,
+            'doc_exists',
+            bool(existing, 'active')
+                ? 'A page with the path ' + path + ' already exists'
+                : 'An inactive page has the path ' + path + ': reactivate it instead',
+            { id: existing.getUniqueValue() }
+        );
     }
-    const gr = newGR(DOC)
-    gr.initialize()
+    const gr = newGR(DOC);
+    gr.initialize();
     const row = buildDocRow({
         path,
         title,
@@ -293,25 +316,25 @@ export function createDoc(body: CreateDocBody): DocDto {
         icon: text(body.icon, 80),
         markdown: typeof body.markdown === 'string' ? body.markdown : '# ' + title + '\n\n',
         active: true,
-    })
-    applyRow(gr, row, true)
-    if (hasField(gr, 'origin')) gr.setValue('origin', 'studio')
-    const id = save(gr, true)
-    renumber()
-    return getDoc(id)
+    });
+    applyRow(gr, row, true);
+    if (hasField(gr, 'origin')) gr.setValue('origin', 'studio');
+    const id = save(gr, true);
+    renumber();
+    return getDoc(id);
 }
 
 export interface UpdateDocBody {
-    baseHash?: string
-    path?: string
-    title?: string
-    description?: string
-    section?: string
-    sectionSlug?: string
-    tags?: string | string[]
-    icon?: string
-    markdown?: string
-    active?: boolean
+    baseHash?: string;
+    path?: string;
+    title?: string;
+    description?: string;
+    section?: string;
+    sectionSlug?: string;
+    tags?: string | string[];
+    icon?: string;
+    markdown?: string;
+    active?: boolean;
 }
 
 /**
@@ -320,62 +343,74 @@ export interface UpdateDocBody {
  * A section change moves the page to the end of the new section; active toggles (de)activate.
  */
 export function updateDoc(id: string, body: UpdateDocBody): DocDto {
-    requireStudio('author')
-    if (!isPlainObject(body)) throw badRequest('Expected a JSON object')
-    const gr = getById(DOC, id)
-    if (!gr) throw notFound('No doc page ' + id)
-    const current = str(gr, 'content_hash')
+    requireStudio('author');
+    if (!isPlainObject(body)) throw badRequest('Expected a JSON object');
+    const gr = getById(DOC, id);
+    if (!gr) throw notFound('No doc page ' + id);
+    const current = str(gr, 'content_hash');
     if (body.baseHash && body.baseHash !== current) {
-        throw rpError(409, 'doc_conflict', 'This page changed since you opened it (a seed or another editor saved it). Reload it, or save again to overwrite.', { contentHash: current, updatedOn: str(gr, 'sys_updated_on'), updatedBy: str(gr, 'sys_updated_by') })
+        throw rpError(
+            409,
+            'doc_conflict',
+            'This page changed since you opened it (a seed or another editor saved it). Reload it, or save again to overwrite.',
+            { contentHash: current, updatedOn: str(gr, 'sys_updated_on'), updatedBy: str(gr, 'sys_updated_by') }
+        );
     }
-    const inputs = inputsOf(gr)
+    const inputs = inputsOf(gr);
     if (body.path !== undefined) {
-        const path = String(body.path).replace(/^\/+|\/+$/g, '').replace(/\.md$/, '')
+        const path = String(body.path)
+            .replace(/^\/+|\/+$/g, '')
+            .replace(/\.md$/, '');
         if (path !== inputs.path) {
-            if (hasField(gr, 'origin') && str(gr, 'origin') !== 'studio') throw badRequest('Only pages created in Studio (not yet in the repo) can change their path. Create a new page and deactivate this one instead.')
-            if (!PATH_RE.test(path)) throw badRequest('Path must be lower-case segments of letters, digits, - and _')
-            const dupe = newGR(DOC)
-            dupe.addQuery('path', path)
-            dupe.addQuery('sys_id', '!=', id)
-            dupe.setLimit(1)
-            dupe.query()
-            if (dupe.hasNext()) throw rpError(409, 'doc_exists', 'A page with the path ' + path + ' already exists')
-            inputs.path = path
+            if (hasField(gr, 'origin') && str(gr, 'origin') !== 'studio')
+                throw badRequest(
+                    'Only pages created in Studio (not yet in the repo) can change their path. Create a new page and deactivate this one instead.'
+                );
+            if (!PATH_RE.test(path)) throw badRequest('Path must be lower-case segments of letters, digits, - and _');
+            const dupe = newGR(DOC);
+            dupe.addQuery('path', path);
+            dupe.addQuery('sys_id', '!=', id);
+            dupe.setLimit(1);
+            dupe.query();
+            if (dupe.hasNext()) throw rpError(409, 'doc_exists', 'A page with the path ' + path + ' already exists');
+            inputs.path = path;
         }
     }
     if (body.title !== undefined) {
-        inputs.title = text(body.title, 200)
-        if (!inputs.title) throw badRequest('A title is required')
+        inputs.title = text(body.title, 200);
+        if (!inputs.title) throw badRequest('A title is required');
     }
-    if (body.description !== undefined) inputs.description = text(body.description, 1000)
-    if (body.tags !== undefined) inputs.tags = cleanTags(body.tags)
-    if (body.icon !== undefined) inputs.icon = text(body.icon, 80)
-    if (typeof body.markdown === 'string') inputs.markdown = body.markdown.replace(/\r\n/g, '\n')
-    let moved = false
+    if (body.description !== undefined) inputs.description = text(body.description, 1000);
+    if (body.tags !== undefined) inputs.tags = cleanTags(body.tags);
+    if (body.icon !== undefined) inputs.icon = text(body.icon, 80);
+    if (typeof body.markdown === 'string') inputs.markdown = body.markdown.replace(/\r\n/g, '\n');
+    let moved = false;
     if (body.section !== undefined || body.sectionSlug !== undefined) {
-        const section = body.section !== undefined ? text(body.section, 100) : inputs.section
-        const slug = String(body.sectionSlug !== undefined ? body.sectionSlug : inputs.section_slug || slugify(section))
-        if (!SLUG_RE.test(slug)) throw badRequest('Section slug must be lower-case letters, digits and dashes')
+        const section = body.section !== undefined ? text(body.section, 100) : inputs.section;
+        const slug = String(
+            body.sectionSlug !== undefined ? body.sectionSlug : inputs.section_slug || slugify(section)
+        );
+        if (!SLUG_RE.test(slug)) throw badRequest('Section slug must be lower-case letters, digits and dashes');
         if (slug !== inputs.section_slug) {
-            inputs.section_order = sectionOrderOf(slug)
-            inputs.order = lastOrderIn(slug) + 100
-            moved = true
+            inputs.section_order = sectionOrderOf(slug);
+            inputs.order = lastOrderIn(slug) + 100;
+            moved = true;
         }
-        inputs.section = section
-        inputs.section_slug = slug
+        inputs.section = section;
+        inputs.section_slug = slug;
     }
     if (body.active !== undefined && !!body.active !== inputs.active) {
-        inputs.active = !!body.active
-        if (inputs.active) inputs.order = lastOrderIn(inputs.section_slug) + 100
-        moved = true
+        inputs.active = !!body.active;
+        if (inputs.active) inputs.order = lastOrderIn(inputs.section_slug) + 100;
+        moved = true;
     }
-    if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false)
-    if (moved) renumber()
-    return getDoc(id)
+    if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false);
+    if (moved) renumber();
+    return getDoc(id);
 }
 
 export interface OrderBody {
-    sections?: { slug?: string; title?: string; pages?: string[] }[]
+    sections?: { slug?: string; title?: string; pages?: string[] }[];
 }
 
 /**
@@ -384,47 +419,47 @@ export interface OrderBody {
  * relative order after the listed ones. Then everything is renumbered.
  */
 export function orderDocs(body: OrderBody): DocDto[] {
-    requireStudio('author')
-    const list = isPlainObject(body) && Array.isArray(body.sections) ? body.sections : null
-    if (!list) throw badRequest('Expected { sections: [{ slug, title, pages: [id…] }] }')
-    const listedSlugs: string[] = []
+    requireStudio('author');
+    const list = isPlainObject(body) && Array.isArray(body.sections) ? body.sections : null;
+    if (!list) throw badRequest('Expected { sections: [{ slug, title, pages: [id…] }] }');
+    const listedSlugs: string[] = [];
     list.forEach((s) => {
-        const slug = String((s && s.slug) || '')
-        if (!SLUG_RE.test(slug)) throw badRequest('Bad section slug: ' + slug)
-        listedSlugs.push(slug)
-    })
+        const slug = String((s && s.slug) || '');
+        if (!SLUG_RE.test(slug)) throw badRequest('Bad section slug: ' + slug);
+        listedSlugs.push(slug);
+    });
     // Unlisted sections go after the listed ones, in their current order.
-    const rest = sections().filter((s) => listedSlugs.indexOf(s.slug) < 0)
+    const rest = sections().filter((s) => listedSlugs.indexOf(s.slug) < 0);
     list.forEach((s, si) => {
-        const slug = String(s.slug)
-        const title = text(s.title, 100) || slug
-        const pages = Array.isArray(s.pages) ? s.pages : []
+        const slug = String(s.slug);
+        const title = text(s.title, 100) || slug;
+        const pages = Array.isArray(s.pages) ? s.pages : [];
         pages.forEach((pageId, pi) => {
-            const gr = getById(DOC, String(pageId))
-            if (!gr) throw notFound('No doc page ' + pageId)
-            const inputs = inputsOf(gr)
-            inputs.section = title
-            inputs.section_slug = slug
-            inputs.section_order = (si + 1) * 100
-            inputs.order = (pi + 1) * 100
-            if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false)
-        })
+            const gr = getById(DOC, String(pageId));
+            if (!gr) throw notFound('No doc page ' + pageId);
+            const inputs = inputsOf(gr);
+            inputs.section = title;
+            inputs.section_slug = slug;
+            inputs.section_order = (si + 1) * 100;
+            inputs.order = (pi + 1) * 100;
+            if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false);
+        });
         // Section renames reach the section's pages that weren't listed (inactive ones too).
         each(DOC, 'section_slug=' + slug, (gr) => {
-            if (pages.indexOf(gr.getUniqueValue()) >= 0) return
-            const inputs = inputsOf(gr)
-            inputs.section = title
-            inputs.section_order = (si + 1) * 100
-            if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false)
-        })
-    })
+            if (pages.indexOf(gr.getUniqueValue()) >= 0) return;
+            const inputs = inputsOf(gr);
+            inputs.section = title;
+            inputs.section_order = (si + 1) * 100;
+            if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false);
+        });
+    });
     rest.forEach((s, i) => {
         each(DOC, 'section_slug=' + s.slug, (gr) => {
-            const inputs = inputsOf(gr)
-            inputs.section_order = (list.length + i + 1) * 100
-            if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false)
-        })
-    })
-    renumber()
-    return listDocs()
+            const inputs = inputsOf(gr);
+            inputs.section_order = (list.length + i + 1) * 100;
+            if (applyRow(gr, buildDocRow(inputs), false)) save(gr, false);
+        });
+    });
+    renumber();
+    return listDocs();
 }

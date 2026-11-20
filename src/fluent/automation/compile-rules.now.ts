@@ -1,6 +1,10 @@
-import '@servicenow/sdk/global'
-import { BusinessRule } from '@servicenow/sdk/core'
-import { compileComponentOnSave, compileThemeOnSave, compileOnSourceChange } from '../../server/automation/compile-rules'
+import '@servicenow/sdk/global';
+import { BusinessRule } from '@servicenow/sdk/core';
+import {
+    compileComponentOnSave,
+    compileThemeOnSave,
+    compileOnSourceChange,
+} from '../../server/automation/compile-rules';
 
 /**
  * Compile on save (server-side compiler: Sucrase + linker + Tailwind v4, no WebAssembly).
@@ -17,7 +21,7 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 500,
     script: compileComponentOnSave,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-compile-theme'],
@@ -28,7 +32,7 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 500,
     script: compileThemeOnSave,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-compile-source'],
@@ -39,4 +43,4 @@ BusinessRule({
     action: ['insert', 'update', 'delete'],
     order: 500,
     script: compileOnSourceChange,
-})
+});

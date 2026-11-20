@@ -1,34 +1,39 @@
 {
-  "type": "object",
-  "properties": {
-    "menu": { "type": "string", "title": "Menu", "description": "Menu key (useNavigation)", "default": "primary" },
-    "collapsible": {
-      "type": "string",
-      "title": "Collapse mode",
-      "enum": ["icon", "offcanvas", "none"],
-      "enumNames": ["Icon rail with tooltips", "Slide out (offcanvas)", "Never collapses"]
-    },
-    "variant": {
-      "type": "string",
-      "title": "Variant",
-      "enum": ["inset", "sidebar", "floating"],
-      "enumNames": ["Inset (on the page background)", "Sidebar (own background + border)", "Floating (card)"]
-    },
-    "userMenu": {
-      "type": "string",
-      "title": "User menu",
-      "enum": ["footer", "header", "none"],
-      "enumNames": ["In the footer", "In the header", "Hidden"]
-    },
-    "brand": { "type": "string", "title": "Brand text", "description": "Defaults to the portal name" },
-    "brandIcon": { "type": "string", "title": "Brand icon (lucide name)", "default": "layers" },
-    "logo": { "type": "string", "title": "Brand logo URL", "description": "Replaces the brand icon tile" },
-    "tints": { "type": "boolean", "title": "Tinted icon tiles", "description": "Off = neutral tiles", "default": true },
-    "footerNote": {
-      "type": "string",
-      "title": "Footer note",
-      "enum": ["release", "none"],
-      "enumNames": ["Brand and release revision", "Hidden"]
+    "type": "object",
+    "properties": {
+        "menu": { "type": "string", "title": "Menu", "description": "Menu key (useNavigation)", "default": "primary" },
+        "collapsible": {
+            "type": "string",
+            "title": "Collapse mode",
+            "enum": ["icon", "offcanvas", "none"],
+            "enumNames": ["Icon rail with tooltips", "Slide out (offcanvas)", "Never collapses"]
+        },
+        "variant": {
+            "type": "string",
+            "title": "Variant",
+            "enum": ["inset", "sidebar", "floating"],
+            "enumNames": ["Inset (on the page background)", "Sidebar (own background + border)", "Floating (card)"]
+        },
+        "userMenu": {
+            "type": "string",
+            "title": "User menu",
+            "enum": ["footer", "header", "none"],
+            "enumNames": ["In the footer", "In the header", "Hidden"]
+        },
+        "brand": { "type": "string", "title": "Brand text", "description": "Defaults to the portal name" },
+        "brandIcon": { "type": "string", "title": "Brand icon (lucide name)", "default": "layers" },
+        "logo": { "type": "string", "title": "Brand logo URL", "description": "Replaces the brand icon tile" },
+        "tints": {
+            "type": "boolean",
+            "title": "Tinted icon tiles",
+            "description": "Off = neutral tiles",
+            "default": true
+        },
+        "footerNote": {
+            "type": "string",
+            "title": "Footer note",
+            "enum": ["release", "none"],
+            "enumNames": ["Brand and release revision", "Hidden"]
+        }
     }
-  }
 }

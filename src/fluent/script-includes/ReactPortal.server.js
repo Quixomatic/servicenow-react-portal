@@ -9,42 +9,42 @@
  * Module paths include the package version from package.json (1.0.0). If that version
  * changes, update MODULE_ROOT.
  */
-var ReactPortal = Class.create()
+var ReactPortal = Class.create();
 
-ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.19.0/src/server/'
+ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.19.0/src/server/';
 
 ReactPortal.prototype = {
     initialize: function () {},
 
     _mod: function (path) {
-        return require(ReactPortal.MODULE_ROOT + path + '.ts')
+        return require(ReactPortal.MODULE_ROOT + path + '.ts');
     },
 
     /** Remote table x_312987_portal_view_answer: one row with the view resolution (view rules). */
     viewAnswer: function (v_table, v_query) {
-        this._mod('views/view-rules-api').executeViewAnswer(v_table, v_query)
+        this._mod('views/view-rules-api').executeViewAnswer(v_table, v_query);
     },
 
     /** View resolution for the current user ({ kind, table, sysId, query, portal, page, urlView, optionView, lockView }). */
     resolveView: function (input) {
-        return this._mod('views/view-rules').resolveView(input || {})
+        return this._mod('views/view-rules').resolveView(input || {});
     },
 
     /** Bootstrap payload for a portal slug (access-checked for the current user). */
     bootstrap: function (slug) {
-        return this._mod('runtime/portal-service').bootstrap(slug).data
+        return this._mod('runtime/portal-service').bootstrap(slug).data;
     },
 
     /** Page manifest for a portal slug and portal-relative path. */
     resolvePage: function (slug, path) {
-        return this._mod('runtime/portal-service').resolvePage(slug, path || '').data
+        return this._mod('runtime/portal-service').resolvePage(slug, path || '').data;
     },
 
     /** Assembled live manifest for a portal sys_id (what a publish would seal). */
     assembleManifest: function (portalId) {
-        var gr = new GlideRecord('x_312987_portal_portal')
-        if (!gr.get(portalId)) return null
-        return this._mod('runtime/portal-service').assembleManifest(gr)
+        var gr = new GlideRecord('x_312987_portal_portal');
+        if (!gr.get(portalId)) return null;
+        return this._mod('runtime/portal-service').assembleManifest(gr);
     },
 
     /** Run a component instance's server script. action: initialize | get | update. */
@@ -55,17 +55,17 @@ ReactPortal.prototype = {
             action: action || 'get',
             input: input || {},
             data: data || {},
-        })
+        });
     },
 
     /** Reprocess a portal's compiled release (normally automatic). */
     process: function (portalId) {
-        return this._mod('release/release-service').processPortal(portalId, true)
+        return this._mod('release/release-service').processPortal(portalId, true);
     },
 
     /** Reprocess every portal's release (after a manifest version bump). Returns the count. */
     reprocessAll: function () {
-        return this._mod('release/release-service').processAllPortals()
+        return this._mod('release/release-service').processAllPortals();
     },
 
     /**
@@ -74,13 +74,13 @@ ReactPortal.prototype = {
      *   new x_312987_portal.ReactPortal().compile('component', id).then(function (b) { gs.info(JSON.stringify(b)) })
      */
     compile: function (type, id, force) {
-        var owner = this._mod('source/owner').loadOwner(type || 'component', id)
-        return this._mod('build/build-service').compileOwner(owner, !!force)
+        var owner = this._mod('source/owner').loadOwner(type || 'component', id);
+        return this._mod('build/build-service').compileOwner(owner, !!force);
     },
 
     runMaintenance: function () {
-        return this._mod('maintenance/maintenance').runMaintenance()
+        return this._mod('maintenance/maintenance').runMaintenance();
     },
 
     type: 'ReactPortal',
-}
+};

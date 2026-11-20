@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { Table, Form, default_view, ReferenceColumn } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { Table, Form, default_view, ReferenceColumn } from '@servicenow/sdk/core';
 
 /**
  * User criteria (user_criteria) for portals, pages and menu items: the platform's many-to-many
@@ -27,7 +27,12 @@ export const x_312987_portal_portal_uc = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        portal: ReferenceColumn({ label: 'Portal', referenceTable: 'x_312987_portal_portal', mandatory: true, cascadeRule: 'delete' }),
+        portal: ReferenceColumn({
+            label: 'Portal',
+            referenceTable: 'x_312987_portal_portal',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Available for',
             referenceTable: 'user_criteria',
@@ -37,7 +42,7 @@ export const x_312987_portal_portal_uc = Table({
         }),
     },
     index: [{ name: 'rp_portal_uc', element: ['portal', 'user_criteria'], unique: true }],
-})
+});
 
 export const x_312987_portal_portal_uc_no = Table({
     name: 'x_312987_portal_portal_uc_no',
@@ -49,7 +54,12 @@ export const x_312987_portal_portal_uc_no = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        portal: ReferenceColumn({ label: 'Portal', referenceTable: 'x_312987_portal_portal', mandatory: true, cascadeRule: 'delete' }),
+        portal: ReferenceColumn({
+            label: 'Portal',
+            referenceTable: 'x_312987_portal_portal',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Not available for',
             referenceTable: 'user_criteria',
@@ -59,7 +69,7 @@ export const x_312987_portal_portal_uc_no = Table({
         }),
     },
     index: [{ name: 'rp_portal_uc_no', element: ['portal', 'user_criteria'], unique: true }],
-})
+});
 
 /* ---- Page ---- */
 
@@ -73,7 +83,12 @@ export const x_312987_portal_page_uc = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        page: ReferenceColumn({ label: 'Page', referenceTable: 'x_312987_portal_page', mandatory: true, cascadeRule: 'delete' }),
+        page: ReferenceColumn({
+            label: 'Page',
+            referenceTable: 'x_312987_portal_page',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Available for',
             referenceTable: 'user_criteria',
@@ -83,7 +98,7 @@ export const x_312987_portal_page_uc = Table({
         }),
     },
     index: [{ name: 'rp_page_uc', element: ['page', 'user_criteria'], unique: true }],
-})
+});
 
 export const x_312987_portal_page_uc_no = Table({
     name: 'x_312987_portal_page_uc_no',
@@ -95,7 +110,12 @@ export const x_312987_portal_page_uc_no = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        page: ReferenceColumn({ label: 'Page', referenceTable: 'x_312987_portal_page', mandatory: true, cascadeRule: 'delete' }),
+        page: ReferenceColumn({
+            label: 'Page',
+            referenceTable: 'x_312987_portal_page',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Not available for',
             referenceTable: 'user_criteria',
@@ -105,7 +125,7 @@ export const x_312987_portal_page_uc_no = Table({
         }),
     },
     index: [{ name: 'rp_page_uc_no', element: ['page', 'user_criteria'], unique: true }],
-})
+});
 
 /* ---- Menu item ---- */
 
@@ -119,7 +139,12 @@ export const x_312987_portal_item_uc = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        menu_item: ReferenceColumn({ label: 'Menu item', referenceTable: 'x_312987_portal_menu_item', mandatory: true, cascadeRule: 'delete' }),
+        menu_item: ReferenceColumn({
+            label: 'Menu item',
+            referenceTable: 'x_312987_portal_menu_item',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Available for',
             referenceTable: 'user_criteria',
@@ -129,7 +154,7 @@ export const x_312987_portal_item_uc = Table({
         }),
     },
     index: [{ name: 'rp_item_uc', element: ['menu_item', 'user_criteria'], unique: true }],
-})
+});
 
 export const x_312987_portal_item_uc_no = Table({
     name: 'x_312987_portal_item_uc_no',
@@ -141,7 +166,12 @@ export const x_312987_portal_item_uc_no = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        menu_item: ReferenceColumn({ label: 'Menu item', referenceTable: 'x_312987_portal_menu_item', mandatory: true, cascadeRule: 'delete' }),
+        menu_item: ReferenceColumn({
+            label: 'Menu item',
+            referenceTable: 'x_312987_portal_menu_item',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Not available for',
             referenceTable: 'user_criteria',
@@ -151,45 +181,123 @@ export const x_312987_portal_item_uc_no = Table({
         }),
     },
     index: [{ name: 'rp_item_uc_no', element: ['menu_item', 'user_criteria'], unique: true }],
-})
+});
 
 /* ---- Forms (one section: the owner and the criterion) ---- */
 
 Form({
     table: 'x_312987_portal_portal_uc',
     view: default_view,
-    sections: [{ caption: 'Portal Available For', content: [{ layout: 'one-column', elements: [{ field: 'portal', type: 'table_field' }, { field: 'user_criteria', type: 'table_field' }] }] }],
-})
+    sections: [
+        {
+            caption: 'Portal Available For',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'portal', type: 'table_field' },
+                        { field: 'user_criteria', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 Form({
     table: 'x_312987_portal_portal_uc_no',
     view: default_view,
-    sections: [{ caption: 'Portal Not Available For', content: [{ layout: 'one-column', elements: [{ field: 'portal', type: 'table_field' }, { field: 'user_criteria', type: 'table_field' }] }] }],
-})
+    sections: [
+        {
+            caption: 'Portal Not Available For',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'portal', type: 'table_field' },
+                        { field: 'user_criteria', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 Form({
     table: 'x_312987_portal_page_uc',
     view: default_view,
-    sections: [{ caption: 'Page Available For', content: [{ layout: 'one-column', elements: [{ field: 'page', type: 'table_field' }, { field: 'user_criteria', type: 'table_field' }] }] }],
-})
+    sections: [
+        {
+            caption: 'Page Available For',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'page', type: 'table_field' },
+                        { field: 'user_criteria', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 Form({
     table: 'x_312987_portal_page_uc_no',
     view: default_view,
-    sections: [{ caption: 'Page Not Available For', content: [{ layout: 'one-column', elements: [{ field: 'page', type: 'table_field' }, { field: 'user_criteria', type: 'table_field' }] }] }],
-})
+    sections: [
+        {
+            caption: 'Page Not Available For',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'page', type: 'table_field' },
+                        { field: 'user_criteria', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 Form({
     table: 'x_312987_portal_item_uc',
     view: default_view,
-    sections: [{ caption: 'Menu Item Available For', content: [{ layout: 'one-column', elements: [{ field: 'menu_item', type: 'table_field' }, { field: 'user_criteria', type: 'table_field' }] }] }],
-})
+    sections: [
+        {
+            caption: 'Menu Item Available For',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'menu_item', type: 'table_field' },
+                        { field: 'user_criteria', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 Form({
     table: 'x_312987_portal_item_uc_no',
     view: default_view,
-    sections: [{ caption: 'Menu Item Not Available For', content: [{ layout: 'one-column', elements: [{ field: 'menu_item', type: 'table_field' }, { field: 'user_criteria', type: 'table_field' }] }] }],
-})
+    sections: [
+        {
+            caption: 'Menu Item Not Available For',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'menu_item', type: 'table_field' },
+                        { field: 'user_criteria', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+    ],
+});
 
 // Related lists (Available for / Not available for on the portal, page and menu item forms) live in
 // related-lists.now.ts with every other parent → child list.

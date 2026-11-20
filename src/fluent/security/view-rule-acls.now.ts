@@ -1,6 +1,6 @@
-import '@servicenow/sdk/global'
-import { Acl } from '@servicenow/sdk/core'
-import { developerRole, designerRole, publisherRole, adminRole } from './roles.now'
+import '@servicenow/sdk/global';
+import { Acl } from '@servicenow/sdk/core';
+import { developerRole, designerRole, publisherRole, adminRole } from './roles.now';
 
 /**
  * View rule ACLs.
@@ -21,7 +21,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on view_rule',
-})
+});
 
 Acl({
     $id: Now.ID['acl-view-rule-write'],
@@ -31,7 +31,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on view_rule',
-})
+});
 
 Acl({
     $id: Now.ID['acl-view-rule-create'],
@@ -41,7 +41,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on view_rule',
-})
+});
 
 Acl({
     $id: Now.ID['acl-view-rule-delete'],
@@ -51,7 +51,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on view_rule',
-})
+});
 
 /** Advanced scripts run on the server: only developers (and admins) write them. */
 Acl({
@@ -63,7 +63,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: write on view_rule.script',
-})
+});
 
 /* ---- x_312987_portal_vrule_uc ---- */
 
@@ -75,7 +75,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on vrule_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-vrule-uc-write'],
@@ -85,7 +85,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on vrule_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-vrule-uc-create'],
@@ -95,7 +95,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on vrule_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-vrule-uc-delete'],
@@ -105,7 +105,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on vrule_uc',
-})
+});
 
 /* ---- x_312987_portal_vrule_uc_no ---- */
 
@@ -117,7 +117,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on vrule_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-vrule-uc-no-write'],
@@ -127,7 +127,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on vrule_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-vrule-uc-no-create'],
@@ -137,7 +137,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on vrule_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-vrule-uc-no-delete'],
@@ -147,7 +147,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on vrule_uc_no',
-})
+});
 
 /* ---- x_312987_portal_view_answer (remote table, computed rows) ---- */
 
@@ -158,8 +158,9 @@ Acl({
     operation: 'read',
     securityAttribute: 'user_is_authenticated',
     adminOverrides: true,
-    description: "React Portal: read on view_answer (any authenticated user; a row is the caller's own view resolution)",
-})
+    description:
+        "React Portal: read on view_answer (any authenticated user; a row is the caller's own view resolution)",
+});
 
 Acl({
     $id: Now.ID['acl-view-answer-read-fields'],
@@ -170,7 +171,7 @@ Acl({
     securityAttribute: 'user_is_authenticated',
     adminOverrides: true,
     description: 'React Portal: read on view_answer.* (any authenticated user)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-view-answer-write'],
@@ -180,7 +181,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on view_answer (nobody; computed rows)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-view-answer-create'],
@@ -190,7 +191,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on view_answer (nobody; computed rows)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-view-answer-delete'],
@@ -200,4 +201,4 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on view_answer (nobody; computed rows)',
-})
+});

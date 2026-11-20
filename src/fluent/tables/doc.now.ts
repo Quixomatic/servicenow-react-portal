@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -9,7 +9,7 @@ import {
     IntegerColumn,
     MultiLineTextColumn,
     ChoiceColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /**
  * Documentation pages for the `docs` portal: one row per Markdown file of docs/guide/, written by
@@ -28,7 +28,12 @@ export const x_312987_portal_doc = Table({
     accessibleFrom: 'public',
     actions: { read: true },
     schema: {
-        path: StringColumn({ label: 'Path', maxLength: 255, mandatory: true, hint: 'Doc path without .md, e.g. concepts/layouts (index = the home page)' }),
+        path: StringColumn({
+            label: 'Path',
+            maxLength: 255,
+            mandatory: true,
+            hint: 'Doc path without .md, e.g. concepts/layouts (index = the home page)',
+        }),
         title: StringColumn({ label: 'Title', maxLength: 200, mandatory: true }),
         description: StringColumn({ label: 'Description', maxLength: 1000 }),
         section: StringColumn({ label: 'Section', maxLength: 100, hint: 'Sidebar section title (from _nav.json)' }),
@@ -37,10 +42,22 @@ export const x_312987_portal_doc = Table({
         order: IntegerColumn({ label: 'Order', default: 100, hint: 'Position within the section' }),
         tags: StringColumn({ label: 'Tags', maxLength: 500, hint: 'Comma-separated' }),
         icon: StringColumn({ label: 'Icon', maxLength: 80, hint: 'Lucide icon name for the sidebar' }),
-        source_path: StringColumn({ label: 'Source path', maxLength: 255, hint: 'Repository path, e.g. docs/guide/concepts/layouts.md' }),
+        source_path: StringColumn({
+            label: 'Source path',
+            maxLength: 255,
+            hint: 'Repository path, e.g. docs/guide/concepts/layouts.md',
+        }),
         markdown: MultiLineTextColumn({ label: 'Markdown', maxLength: 1000000 }),
-        headings_json: JsonColumn({ label: 'Headings', maxLength: 65000, hint: '[{ depth, text, slug }] for the table of contents' }),
-        search_text: MultiLineTextColumn({ label: 'Search text', maxLength: 1000000, hint: 'Plain text for the client-side search index' }),
+        headings_json: JsonColumn({
+            label: 'Headings',
+            maxLength: 65000,
+            hint: '[{ depth, text, slug }] for the table of contents',
+        }),
+        search_text: MultiLineTextColumn({
+            label: 'Search text',
+            maxLength: 1000000,
+            hint: 'Plain text for the client-side search index',
+        }),
         content_hash: StringColumn({ label: 'Content hash', maxLength: 64, readOnly: true }),
         active: BooleanColumn({ label: 'Active', default: true }),
         // Source of truth (.plans/docs-editor.md): docs/guide stays canonical; Studio edits are held
@@ -54,10 +71,15 @@ export const x_312987_portal_doc = Table({
                 studio: { label: 'Studio (not yet pulled into the repo)', sequence: 1 },
             },
         }),
-        seed_hash: StringColumn({ label: 'Seed hash', maxLength: 64, readOnly: true, hint: 'content_hash as last written by the docs seed (differs from content_hash = edited in Studio)' }),
+        seed_hash: StringColumn({
+            label: 'Seed hash',
+            maxLength: 64,
+            readOnly: true,
+            hint: 'content_hash as last written by the docs seed (differs from content_hash = edited in Studio)',
+        }),
     },
     index: [{ name: 'rp_doc_path', element: 'path', unique: true }],
-})
+});
 
 Form({
     table: 'x_312987_portal_doc',
@@ -98,4 +120,4 @@ Form({
             ],
         },
     ],
-})
+});

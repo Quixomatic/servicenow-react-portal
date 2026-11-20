@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -8,7 +8,7 @@ import {
     IntegerColumn,
     ChoiceColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /** Source files of a component or theme (exactly one owner). */
 export const x_312987_portal_source_file = Table({
@@ -18,7 +18,11 @@ export const x_312987_portal_source_file = Table({
     display: 'path',
     allowWebServiceAccess: true,
     schema: {
-        component: ReferenceColumn({ label: 'Component', referenceTable: 'x_312987_portal_component', cascadeRule: 'cascade' }),
+        component: ReferenceColumn({
+            label: 'Component',
+            referenceTable: 'x_312987_portal_component',
+            cascadeRule: 'cascade',
+        }),
         theme: ReferenceColumn({ label: 'Theme', referenceTable: 'x_312987_portal_theme', cascadeRule: 'cascade' }),
         owner_key: StringColumn({ label: 'Owner key', maxLength: 80, readOnly: true }),
         path: StringColumn({ label: 'Path', maxLength: 255, mandatory: true }),
@@ -46,7 +50,7 @@ export const x_312987_portal_source_file = Table({
         revision: IntegerColumn({ label: 'Revision', readOnly: true, default: 1 }),
     },
     index: [{ name: 'rp_source_owner_path', element: ['owner_key', 'path'], unique: true }],
-})
+});
 
 Form({
     table: 'x_312987_portal_source_file',
@@ -76,4 +80,4 @@ Form({
             ],
         },
     ],
-})
+});

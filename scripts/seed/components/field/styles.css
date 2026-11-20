@@ -4,61 +4,61 @@
 /* Native pickers (date, time, number spinners, scrollbars) follow the theme. */
 .rpf-root,
 .rpf-popup {
-	color-scheme: light;
+    color-scheme: light;
 }
 :host(.dark) .rpf-root,
 :host(.dark) .rpf-popup,
 .dark .rpf-root,
 .dark .rpf-popup {
-	color-scheme: dark;
+    color-scheme: dark;
 }
 
 /* Warning text: a theme token when the portal defines one. */
 .rpf-warning {
-	color: var(--warning, oklch(0.62 0.15 65));
+    color: var(--warning, oklch(0.62 0.15 65));
 }
 :host(.dark) .rpf-warning {
-	color: var(--warning, oklch(0.8 0.14 80));
+    color: var(--warning, oklch(0.8 0.14 80));
 }
 
 /* Unsaved change: a thin primary bar at the control's inline start (a background layer, so the
    focus ring's box-shadow stays intact). */
 .rpf-root[data-dirty]:not([data-readonly]) .rpf-control {
-	background-image: linear-gradient(var(--primary), var(--primary));
-	background-size: 3px 100%;
-	background-repeat: no-repeat;
-	background-position: left center;
+    background-image: linear-gradient(var(--primary), var(--primary));
+    background-size: 3px 100%;
+    background-repeat: no-repeat;
+    background-position: left center;
 }
 
 .rpf-spin {
-	animation: rpf-spin 0.8s linear infinite;
+    animation: rpf-spin 0.8s linear infinite;
 }
 @keyframes rpf-spin {
-	to {
-		transform: rotate(360deg);
-	}
+    to {
+        transform: rotate(360deg);
+    }
 }
 @media (prefers-reduced-motion: reduce) {
-	.rpf-spin {
-		animation-duration: 2.4s;
-	}
+    .rpf-spin {
+        animation-duration: 2.4s;
+    }
 }
 
 /* Hide the native number spinners: NumberField renders its own stepper buttons. */
 .rpf-bare[type='number']::-webkit-inner-spin-button,
 .rpf-bare[type='number']::-webkit-outer-spin-button {
-	-webkit-appearance: none;
-	margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
 .rpf-bare[type='number'] {
-	-moz-appearance: textfield;
+    -moz-appearance: textfield;
 }
 
 /* Native date/time picker icons take the muted foreground. */
 .rpf-bare::-webkit-calendar-picker-indicator {
-	opacity: 0.6;
-	cursor: pointer;
+    opacity: 0.6;
+    cursor: pointer;
 }
 .rpf-bare::-webkit-calendar-picker-indicator:hover {
-	opacity: 1;
+    opacity: 1;
 }

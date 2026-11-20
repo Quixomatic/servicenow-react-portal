@@ -9,14 +9,14 @@ import { moveVariantsToLayer, VARIANT_LAYER } from '../../../src/server/compiler
 
 const file = process.argv[2];
 if (!file) {
-	console.error('usage: node scripts/variant-layer.mjs <css file>');
-	process.exit(1);
+    console.error('usage: node scripts/variant-layer.mjs <css file>');
+    process.exit(1);
 }
 const before = readFileSync(file, 'utf8');
 const after = moveVariantsToLayer(before);
 if (after.indexOf(`@layer ${VARIANT_LAYER}`) < 0) {
-	console.error(`variant-layer: no @layer ${VARIANT_LAYER} produced for ${file}`);
-	process.exit(1);
+    console.error(`variant-layer: no @layer ${VARIANT_LAYER} produced for ${file}`);
+    process.exit(1);
 }
 writeFileSync(file, after);
 console.log(`variant-layer: ${file} (${before.length} -> ${after.length} bytes)`);

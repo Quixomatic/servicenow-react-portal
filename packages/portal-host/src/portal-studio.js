@@ -15,16 +15,16 @@ import StudioApp from './studio/studio-app';
 
 /** props = { locationStore, navigate, root } */
 export function mount(container, props) {
-	const root = createRoot(container);
-	root.render(<StudioApp {...props} />);
-	return {
-		update(next) {
-			root.render(<StudioApp {...next} />);
-		},
-		unmount() {
-			root.unmount();
-		}
-	};
+    const root = createRoot(container);
+    root.render(<StudioApp {...props} />);
+    return {
+        update(next) {
+            root.render(<StudioApp {...next} />);
+        },
+        unmount() {
+            root.unmount();
+        },
+    };
 }
 
 export default mount;

@@ -1,19 +1,28 @@
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { usePortalLocation, useNavigate, toast } from '@portal/runtime'
-import { useQueryClient } from 'utilities:react-query'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'
-import { Button } from 'components:button'
-import { useCatalogItem, useItemPrice, submitCatalogItem, useAddToCart, useItemOrderOptions, setCartRequestedFor, fetchCartRequestedFor, cartErrorMessage } from 'utilities:app/catalog'
-import type { CatalogItem as CatalogItemData, SubmitResult } from 'utilities:app/catalog'
-import { useCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable'
-import { useClientScripts } from 'utilities:app/gform'
-import { DialogOutlet } from 'components:app/confirm-dialog'
-import type { CatalogForm, VariableSpec } from 'components:app/variable'
-import { VariableLayout } from 'components:app/variable-container'
-import { cx, Spinner, IconAlert, IconCheck, useFormMeta, controlClass } from 'components:app/field'
-import { Select } from 'components:app/combobox'
-import { RequestedForField, useRequestedFor } from 'components:app/requested-for-field'
-import type { FieldLayout } from 'components:app/field'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { usePortalLocation, useNavigate, toast } from '@portal/runtime';
+import { useQueryClient } from 'utilities:react-query';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card';
+import { Button } from 'components:button';
+import {
+    useCatalogItem,
+    useItemPrice,
+    submitCatalogItem,
+    useAddToCart,
+    useItemOrderOptions,
+    setCartRequestedFor,
+    fetchCartRequestedFor,
+    cartErrorMessage,
+} from 'utilities:app/catalog';
+import type { CatalogItem as CatalogItemData, SubmitResult } from 'utilities:app/catalog';
+import { useCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable';
+import { useClientScripts } from 'utilities:app/gform';
+import { DialogOutlet } from 'components:app/confirm-dialog';
+import type { CatalogForm, VariableSpec } from 'components:app/variable';
+import { VariableLayout } from 'components:app/variable-container';
+import { cx, Spinner, IconAlert, IconCheck, useFormMeta, controlClass } from 'components:app/field';
+import { Select } from 'components:app/combobox';
+import { RequestedForField, useRequestedFor } from 'components:app/requested-for-field';
+import type { FieldLayout } from 'components:app/field';
 
 /**
  * components:app/catalog-item: a catalog item or record producer, end to end.
@@ -40,53 +49,72 @@ import type { FieldLayout } from 'components:app/field'
  * Also exported as <CatalogItem itemId /> for other widgets.
  */
 export type CatalogItemProps = {
-    itemId: string
-    table?: string
-    fieldLayout?: FieldLayout
-    renderCustom?: (spec: VariableSpec) => any
-    onSubmitted?: (result: SubmitResult) => void
+    itemId: string;
+    table?: string;
+    fieldLayout?: FieldLayout;
+    renderCustom?: (spec: VariableSpec) => any;
+    onSubmitted?: (result: SubmitResult) => void;
     /** Link for the created record (default: the platform form). */
-    recordHref?: (table: string, sysId: string) => string
+    recordHref?: (table: string, sysId: string) => string;
     /** Item-level requested-for picker: 'auto' (default: unless the item has a Requested For variable) or 'hidden'. */
-    requestedFor?: 'auto' | 'hidden'
+    requestedFor?: 'auto' | 'hidden';
     /** Offer Add to cart (default true; the item's own no_cart settings still apply). */
-    cart?: boolean
+    cart?: boolean;
     /** Portal page of the cart, for the "View cart" toast action ('' = no action). Default 'cart'. */
-    cartPage?: string
-}
+    cartPage?: string;
+};
 
-type Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldLayout; requestedFor?: 'auto' | 'hidden'; cart?: boolean; cartPage?: string } }
+type Props = {
+    options?: {
+        itemId?: string;
+        table?: string;
+        fieldLayout?: FieldLayout;
+        requestedFor?: 'auto' | 'hidden';
+        cart?: boolean;
+        cartPage?: string;
+    };
+};
 
 export default function CatalogItemWidget({ options = {} }: Props) {
-    const location = usePortalLocation() as any
+    const location = usePortalLocation() as any;
     // q keys + explicit URL params (location.query is the encoded-query param now).
-    const query = (location && (location.params || location.qParams)) || {}
-    const itemId = String(query.item || options.itemId || '')
-    const table = String(query.table || options.table || 'sc_cat_item')
+    const query = (location && (location.params || location.qParams)) || {};
+    const itemId = String(query.item || options.itemId || '');
+    const table = String(query.table || options.table || 'sc_cat_item');
     if (!itemId)
         return (
             <Card>
                 <CardContent className="text-sm text-muted-foreground">Choose a catalog item.</CardContent>
             </Card>
-        )
-    return <CatalogItem key={itemId} itemId={itemId} table={table} fieldLayout={options.fieldLayout} requestedFor={options.requestedFor} cart={options.cart} cartPage={options.cartPage} />
+        );
+    return (
+        <CatalogItem
+            key={itemId}
+            itemId={itemId}
+            table={table}
+            fieldLayout={options.fieldLayout}
+            requestedFor={options.requestedFor}
+            cart={options.cart}
+            cartPage={options.cartPage}
+        />
+    );
 }
 
 export function CatalogItem(props: CatalogItemProps) {
-    const [round, setRound] = useState(0)
-    return <CatalogItemRound key={round} {...props} onRestart={() => setRound((r) => r + 1)} />
+    const [round, setRound] = useState(0);
+    return <CatalogItemRound key={round} {...props} onRestart={() => setRound((r) => r + 1)} />;
 }
 
 function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
-    const qc = useQueryClient()
-    const item = useCatalogItem(props.itemId, props.table || 'sc_cat_item')
-    const form = useCatalogForm(item.data, props.table || 'sc_cat_item')
-    const [result, setResult] = useState<SubmitResult | null>(null)
+    const qc = useQueryClient();
+    const item = useCatalogItem(props.itemId, props.table || 'sc_cat_item');
+    const form = useCatalogForm(item.data, props.table || 'sc_cat_item');
+    const [result, setResult] = useState<SubmitResult | null>(null);
     const restart = () => {
         // A new round gets a fresh draft record from the platform.
-        qc.removeQueries({ queryKey: ['rp-catalog', 'item', props.table || 'sc_cat_item', props.itemId] })
-        props.onRestart()
-    }
+        qc.removeQueries({ queryKey: ['rp-catalog', 'item', props.table || 'sc_cat_item', props.itemId] });
+        props.onRestart();
+    };
     if (item.isLoading)
         return (
             <Card aria-busy="true">
@@ -94,7 +122,7 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
                     <Spinner label="Loading the item" /> Loading the item…
                 </CardContent>
             </Card>
-        )
+        );
     if (item.error || !item.data || !form)
         return (
             <Card>
@@ -102,8 +130,8 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
                     {(item.error as Error | null)?.message || 'This item is not available.'}
                 </CardContent>
             </Card>
-        )
-    if (result) return <Submitted item={item.data} result={result} href={props.recordHref} onAgain={restart} />
+        );
+    if (result) return <Submitted item={item.data} result={result} href={props.recordHref} onAgain={restart} />;
     return (
         <CatalogFormProvider form={form}>
             {/* g_modal dialogs from catalog client scripts. */}
@@ -118,62 +146,62 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
                 cartPage={props.cartPage}
                 onAdded={restart}
                 onSubmitted={(r) => {
-                    setResult(r)
-                    if (props.onSubmitted) props.onSubmitted(r)
+                    setResult(r);
+                    if (props.onSubmitted) props.onSubmitted(r);
                 }}
             />
         </CatalogFormProvider>
-    )
+    );
 }
 
 function usePriceVariables(form: CatalogForm): Record<string, string> {
     const key = useSyncExternalStore(
         form.subscribe,
         () => JSON.stringify(form.priceAffecting.map((n) => form.getValue(n))),
-        () => '',
-    )
-    return useMemo(() => (form.priceAffecting.length ? form.serializeVariables() : {}), [key, form])
+        () => ''
+    );
+    return useMemo(() => (form.priceAffecting.length ? form.serializeVariables() : {}), [key, form]);
 }
 
 function actionLabel(item: CatalogItemData) {
-    if (item.type === 'record_producer') return 'Submit'
-    if (item.requestMethod === 'request') return 'Request'
-    if (item.requestMethod === 'submit') return 'Submit'
-    return 'Order now'
+    if (item.type === 'record_producer') return 'Submit';
+    if (item.requestMethod === 'request') return 'Request';
+    if (item.requestMethod === 'submit') return 'Submit';
+    return 'Order now';
 }
 
 function ItemForm(props: {
-    item: CatalogItemData
-    form: CatalogForm
-    fieldLayout?: FieldLayout
-    renderCustom?: (s: VariableSpec) => any
-    requestedFor?: 'auto' | 'hidden'
-    cart?: boolean
-    cartPage?: string
-    onAdded: () => void
-    onSubmitted: (r: SubmitResult) => void
+    item: CatalogItemData;
+    form: CatalogForm;
+    fieldLayout?: FieldLayout;
+    renderCustom?: (s: VariableSpec) => any;
+    requestedFor?: 'auto' | 'hidden';
+    cart?: boolean;
+    cartPage?: string;
+    onAdded: () => void;
+    onSubmitted: (r: SubmitResult) => void;
 }) {
-    const { item, form } = props
-    const isProducer = item.type === 'record_producer'
+    const { item, form } = props;
+    const isProducer = item.type === 'record_producer';
     // The platform's item-level "Requested for": a Requested For variable, if the item has one, IS it.
-    const hasRequestedForVariable = form.specs.some((s) => !!s.meta && s.meta.internalType === 'requested_for')
-    const showRequestedFor = !isProducer && props.requestedFor !== 'hidden' && !hasRequestedForVariable
-    const requestedFor = useRequestedFor({ itemId: item.sysId })
-    const [quantity, setQuantity] = useState(item.quantity[0] ? item.quantity[0].value : '1')
-    const [errors, setErrors] = useState<{ name: string; label: string; message: string }[]>([])
-    const [submitting, setSubmitting] = useState(false)
-    const [failure, setFailure] = useState('')
-    const navigate = useNavigate()
-    const addToCart = useAddToCart()
-    const orderOptions = useItemOrderOptions(isProducer ? undefined : item.sysId)
+    const hasRequestedForVariable = form.specs.some((s) => !!s.meta && s.meta.internalType === 'requested_for');
+    const showRequestedFor = !isProducer && props.requestedFor !== 'hidden' && !hasRequestedForVariable;
+    const requestedFor = useRequestedFor({ itemId: item.sysId });
+    const [quantity, setQuantity] = useState(item.quantity[0] ? item.quantity[0].value : '1');
+    const [errors, setErrors] = useState<{ name: string; label: string; message: string }[]>([]);
+    const [submitting, setSubmitting] = useState(false);
+    const [failure, setFailure] = useState('');
+    const navigate = useNavigate();
+    const addToCart = useAddToCart();
+    const orderOptions = useItemOrderOptions(isProducer ? undefined : item.sysId);
     // Add to cart only once the item's settings are known (no button that appears and vanishes).
-    const canAddToCart = !isProducer && props.cart !== false && !!orderOptions.data && orderOptions.data.addToCart
-    const canOrderNow = isProducer || !orderOptions.data || orderOptions.data.orderNow
-    const busy = submitting || addToCart.isPending
-    const root = useRef<HTMLDivElement | null>(null)
-    const summary = useRef<HTMLDivElement | null>(null)
-    const priceVars = usePriceVariables(form)
-    const formMeta = useFormMeta(form)
+    const canAddToCart = !isProducer && props.cart !== false && !!orderOptions.data && orderOptions.data.addToCart;
+    const canOrderNow = isProducer || !orderOptions.data || orderOptions.data.orderNow;
+    const busy = submitting || addToCart.isPending;
+    const root = useRef<HTMLDivElement | null>(null);
+    const summary = useRef<HTMLDivElement | null>(null);
+    const priceVars = usePriceVariables(form);
+    const formMeta = useFormMeta(form);
     // Catalog client scripts (onLoad / onChange / onSubmit) and catalog UI policy run-scripts,
     // through the g_form compatibility layer (variable names, IO:<sys_id> aliases accepted).
     const scripts = useClientScripts({
@@ -192,40 +220,59 @@ function ItemForm(props: {
         policies: form.policies,
         catalog: true,
         runKey: form,
-    })
-    const showPrices = !!(item.pricing && item.pricing.showPrices) && !isProducer
-    const price = useItemPrice(item.sysId, priceVars, quantity, showPrices && (form.priceAffecting.length > 0 || quantity !== '1'))
-    const displayPrice = price.data ? price.data.price : item.pricing && item.pricing.price ? item.pricing.displayPrice : ''
+    });
+    const showPrices = !!(item.pricing && item.pricing.showPrices) && !isProducer;
+    const price = useItemPrice(
+        item.sysId,
+        priceVars,
+        quantity,
+        showPrices && (form.priceAffecting.length > 0 || quantity !== '1')
+    );
+    const displayPrice = price.data
+        ? price.data.price
+        : item.pricing && item.pricing.price
+          ? item.pricing.displayPrice
+          : '';
     const recurring = price.data
         ? price.data.recurringPrice
         : item.pricing && item.pricing.recurringPrice
           ? `${item.pricing.recurringDisplayPrice} ${item.pricing.recurringFrequencyDisplay || ''}`.trim()
-          : ''
-    const picture = item.picture ? `/${item.picture}` : ''
+          : '';
+    const picture = item.picture ? `/${item.picture}` : '';
 
     const focusField = (name: string) => {
-        const el = root.current && (root.current.querySelector(`[data-rpf-field="${name}"] input, [data-rpf-field="${name}"] textarea, [data-rpf-field="${name}"] [role=combobox], [data-rpf-field="${name}"] button, [data-rpf-field="${name}"] [tabindex]`) as HTMLElement | null)
-        if (el) el.focus()
-    }
+        const el =
+            root.current &&
+            (root.current.querySelector(
+                `[data-rpf-field="${name}"] input, [data-rpf-field="${name}"] textarea, [data-rpf-field="${name}"] [role=combobox], [data-rpf-field="${name}"] button, [data-rpf-field="${name}"] [tabindex]`
+            ) as HTMLElement | null);
+        if (el) el.focus();
+    };
     /** Client validation, the error summary and onSubmit scripts: true when the order may go ahead. */
     const ready = (action: string) => {
-        setFailure('')
-        const r = form.validate()
+        setFailure('');
+        const r = form.validate();
         if (showRequestedFor && !requestedFor.valid)
-            r.errors.unshift({ name: 'rp_requested_for', label: 'Requested for', message: requestedFor.pending ? 'Requested for: still checking who you can request for' : 'Requested for is required' })
+            r.errors.unshift({
+                name: 'rp_requested_for',
+                label: 'Requested for',
+                message: requestedFor.pending
+                    ? 'Requested for: still checking who you can request for'
+                    : 'Requested for is required',
+            });
         if (!r.valid || r.errors.length) {
-            setErrors(r.errors)
-            setTimeout(() => summary.current && summary.current.focus(), 0)
-            return false
+            setErrors(r.errors);
+            setTimeout(() => summary.current && summary.current.focus(), 0);
+            return false;
         }
         // onSubmit catalog client scripts can veto the order (return false).
-        if (scripts.env && !scripts.env.runOnSubmit(action)) return false
-        setErrors([])
-        return true
-    }
+        if (scripts.env && !scripts.env.runOnSubmit(action)) return false;
+        setErrors([]);
+        return true;
+    };
     const submit = async () => {
-        if (!ready('order_now')) return
-        setSubmitting(true)
+        if (!ready('order_now')) return;
+        setSubmitting(true);
         try {
             const res = await submitCatalogItem({
                 itemId: item.sysId,
@@ -234,17 +281,17 @@ function ItemForm(props: {
                 quantity,
                 requestedFor: showRequestedFor ? requestedFor.value : undefined,
                 itemGuid: item.targetRecordSysId,
-            })
-            props.onSubmitted(res)
+            });
+            props.onSubmitted(res);
         } catch (e) {
-            setFailure((e as Error).message)
+            setFailure((e as Error).message);
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
         }
-    }
+    };
     const add = async () => {
-        if (!ready('add_to_cart')) return
-        const person = showRequestedFor ? requestedFor.value : ''
+        if (!ready('add_to_cart')) return;
+        const person = showRequestedFor ? requestedFor.value : '';
         try {
             const res = await addToCart.mutateAsync({
                 itemId: item.sysId,
@@ -252,32 +299,39 @@ function ItemForm(props: {
                 quantity,
                 requestedFor: person || undefined,
                 itemGuid: item.targetRecordSysId,
-            })
+            });
             // The cart's requested for: the first line sets it; later lines keep the cart's (it is changed on the cart page).
-            let note = ''
+            let note = '';
             if (person && res.cartId) {
-                if (res.items.length <= 1) await setCartRequestedFor(res.cartId, person).catch(() => undefined)
+                if (res.items.length <= 1) await setCartRequestedFor(res.cartId, person).catch(() => undefined);
                 else {
-                    const current = await fetchCartRequestedFor(res.cartId).catch(() => null)
-                    if (current && current.value && current.value !== person) note = `Your cart is requested for ${current.displayValue || 'someone else'}. Change it on the cart page.`
+                    const current = await fetchCartRequestedFor(res.cartId).catch(() => null);
+                    if (current && current.value && current.value !== person)
+                        note = `Your cart is requested for ${current.displayValue || 'someone else'}. Change it on the cart page.`;
                 }
             }
-            const cartPage = props.cartPage === undefined ? 'cart' : props.cartPage
+            const cartPage = props.cartPage === undefined ? 'cart' : props.cartPage;
             toast.success(`${item.name} added to your cart`, {
                 description: note || (quantity !== '1' ? `Quantity ${quantity}` : undefined),
                 action: cartPage ? { label: 'View cart', onClick: () => navigate(cartPage) } : undefined,
-            })
-            props.onAdded()
+            });
+            props.onAdded();
         } catch (e) {
-            setFailure(cartErrorMessage(e))
+            setFailure(cartErrorMessage(e));
         }
-    }
+    };
 
     return (
         <Card ref={root} data-rp-catalog-item={item.sysId}>
             <CardHeader>
                 <div className="flex items-start gap-4">
-                    {picture ? <img src={picture} alt="" className="size-14 shrink-0 rounded-md border border-border object-contain" /> : null}
+                    {picture ? (
+                        <img
+                            src={picture}
+                            alt=""
+                            className="size-14 shrink-0 rounded-md border border-border object-contain"
+                        />
+                    ) : null}
                     <div className="min-w-0 flex-1">
                         <CardTitle className="text-lg">{item.name}</CardTitle>
                         {item.shortDescription ? <CardDescription>{item.shortDescription}</CardDescription> : null}
@@ -288,34 +342,55 @@ function ItemForm(props: {
                             {recurring ? <div className="text-xs text-muted-foreground">+ {recurring}</div> : null}
                             {quantity !== '1' && price.data && price.data.subtotal ? (
                                 <div className="text-xs text-muted-foreground" data-rp-subtotal="">
-                                    Subtotal ×{quantity}: <span className="font-medium text-foreground tabular-nums">{price.data.subtotal}</span>
+                                    Subtotal ×{quantity}:{' '}
+                                    <span className="font-medium text-foreground tabular-nums">
+                                        {price.data.subtotal}
+                                    </span>
                                     {price.data.recurringSubtotal ? ` + ${price.data.recurringSubtotal}` : ''}
                                 </div>
                             ) : null}
-                            {price.isFetching ? <Spinner className="text-muted-foreground" label="Updating price" /> : null}
+                            {price.isFetching ? (
+                                <Spinner className="text-muted-foreground" label="Updating price" />
+                            ) : null}
                         </div>
                     ) : null}
                 </div>
-                {item.description ? <div className="rpv-rich mt-3 text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.description) }} /> : null}
+                {item.description ? (
+                    <div
+                        className="rpv-rich mt-3 text-sm text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.description) }}
+                    />
+                ) : null}
             </CardHeader>
             <CardContent>
                 <form
                     noValidate
                     onSubmit={(e: any) => {
-                        e.preventDefault()
-                        submit()
+                        e.preventDefault();
+                        submit();
                     }}
                     className="flex flex-col gap-6"
                 >
                     {errors.length ? (
-                        <div ref={summary} tabIndex={-1} role="alert" className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-destructive/30" data-rp-error-summary="">
+                        <div
+                            ref={summary}
+                            tabIndex={-1}
+                            role="alert"
+                            className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-destructive/30"
+                            data-rp-error-summary=""
+                        >
                             <p className="flex items-center gap-2 font-medium text-destructive">
-                                <IconAlert size={16} /> Fix {errors.length} field{errors.length === 1 ? '' : 's'} to continue
+                                <IconAlert size={16} /> Fix {errors.length} field{errors.length === 1 ? '' : 's'} to
+                                continue
                             </p>
                             <ul className="mt-2 ml-6 list-disc">
                                 {errors.map((e) => (
                                     <li key={e.name + e.message}>
-                                        <button type="button" className="text-left text-destructive underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none" onClick={() => focusField(e.name)}>
+                                        <button
+                                            type="button"
+                                            className="text-left text-destructive underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+                                            onClick={() => focusField(e.name)}
+                                        >
                                             {e.message}
                                         </button>
                                     </li>
@@ -329,7 +404,12 @@ function ItemForm(props: {
                                 <div
                                     key={m.id}
                                     role={m.kind === 'error' ? 'alert' : 'status'}
-                                    className={cx('rpv-rich rounded-md border p-3 text-sm [&_a]:font-medium [&_a]:text-primary [&_a]:underline-offset-4 hover:[&_a]:underline', m.kind === 'error' ? 'border-destructive/50 bg-destructive/5 text-destructive' : 'border-border bg-muted/50 text-foreground')}
+                                    className={cx(
+                                        'rpv-rich rounded-md border p-3 text-sm [&_a]:font-medium [&_a]:text-primary [&_a]:underline-offset-4 hover:[&_a]:underline',
+                                        m.kind === 'error'
+                                            ? 'border-destructive/50 bg-destructive/5 text-destructive'
+                                            : 'border-border bg-muted/50 text-foreground'
+                                    )}
                                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.text) }}
                                 />
                             ))}
@@ -352,7 +432,9 @@ function ItemForm(props: {
                     ) : null}
                     <VariableLayout fieldLayout={props.fieldLayout} renderCustom={props.renderCustom} />
                     {item.mandatoryAttachment ? (
-                        <p className="text-sm text-muted-foreground">This item requires an attachment on the request; add it from the platform after submitting.</p>
+                        <p className="text-sm text-muted-foreground">
+                            This item requires an attachment on the request; add it from the platform after submitting.
+                        </p>
                     ) : null}
                     <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
                         {failure ? (
@@ -368,7 +450,10 @@ function ItemForm(props: {
                                         variant="inline"
                                         aria-labelledby={`rp-qty-${item.sysId}`}
                                         value={quantity}
-                                        items={item.quantity.map((q) => ({ value: String(q.value), label: String(q.label) }))}
+                                        items={item.quantity.map((q) => ({
+                                            value: String(q.value),
+                                            label: String(q.label),
+                                        }))}
                                         popupMinWidth={96}
                                         renderValue={(i) => <span className="tabular-nums">{i.label}</span>}
                                         onChange={(i) => setQuantity(i.value)}
@@ -377,7 +462,13 @@ function ItemForm(props: {
                             </div>
                         ) : null}
                         {canAddToCart ? (
-                            <Button type="button" variant={canOrderNow ? 'outline' : 'default'} disabled={busy} data-rp-add-to-cart="" onClick={add}>
+                            <Button
+                                type="button"
+                                variant={canOrderNow ? 'outline' : 'default'}
+                                disabled={busy}
+                                data-rp-add-to-cart=""
+                                onClick={add}
+                            >
                                 {addToCart.isPending ? <Spinner label="Adding to cart" /> : null}
                                 Add to cart
                             </Button>
@@ -388,18 +479,30 @@ function ItemForm(props: {
                                 {actionLabel(item)}
                             </Button>
                         ) : null}
-                        {!canOrderNow && !canAddToCart && orderOptions.data ? <p className="text-sm text-muted-foreground">This item can't be ordered here.</p> : null}
+                        {!canOrderNow && !canAddToCart && orderOptions.data ? (
+                            <p className="text-sm text-muted-foreground">This item can't be ordered here.</p>
+                        ) : null}
                     </div>
                 </form>
             </CardContent>
         </Card>
-    )
+    );
 }
 
-function Submitted(props: { item: CatalogItemData; result: SubmitResult; href?: (table: string, sysId: string) => string; onAgain: () => void }) {
-    const { result } = props
-    const table = result.table || (props.item.type === 'record_producer' ? '' : 'sc_request')
-    const link = result.sysId && table ? (props.href ? props.href(table, result.sysId) : `/${table}.do?sys_id=${encodeURIComponent(result.sysId)}`) : ''
+function Submitted(props: {
+    item: CatalogItemData;
+    result: SubmitResult;
+    href?: (table: string, sysId: string) => string;
+    onAgain: () => void;
+}) {
+    const { result } = props;
+    const table = result.table || (props.item.type === 'record_producer' ? '' : 'sc_request');
+    const link =
+        result.sysId && table
+            ? props.href
+                ? props.href(table, result.sysId)
+                : `/${table}.do?sys_id=${encodeURIComponent(result.sysId)}`
+            : '';
     return (
         <Card data-rp-submitted={result.number}>
             <CardContent className="flex flex-col items-start gap-3">
@@ -412,7 +515,12 @@ function Submitted(props: { item: CatalogItemData; result: SubmitResult; href?: 
                 <p className="text-sm text-muted-foreground">
                     {props.item.name}:{' '}
                     {link ? (
-                        <a href={link} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">
+                        <a
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary underline-offset-4 hover:underline"
+                        >
                             {result.number || result.sysId}
                             <span className="sr-only"> (opens in a new tab)</span>
                         </a>
@@ -425,5 +533,5 @@ function Submitted(props: { item: CatalogItemData; result: SubmitResult; href?: 
                 </Button>
             </CardContent>
         </Card>
-    )
+    );
 }

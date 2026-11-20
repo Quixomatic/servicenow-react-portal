@@ -1,10 +1,10 @@
-import '@servicenow/sdk/global'
-import { BusinessRule } from '@servicenow/sdk/core'
-import { normalizePortal, enforceSingleDefault } from '../../server/automation/portal-rules'
-import { normalizeTheme } from '../../server/automation/theme-rules'
-import { normalizeComponent } from '../../server/automation/component-rules'
-import { validatePage, validatePlacement } from '../../server/automation/page-rules'
-import { compileInstanceStyle } from '../../server/automation/instance-style-rules'
+import '@servicenow/sdk/global';
+import { BusinessRule } from '@servicenow/sdk/core';
+import { normalizePortal, enforceSingleDefault } from '../../server/automation/portal-rules';
+import { normalizeTheme } from '../../server/automation/theme-rules';
+import { normalizeComponent } from '../../server/automation/component-rules';
+import { validatePage, validatePlacement } from '../../server/automation/page-rules';
+import { compileInstanceStyle } from '../../server/automation/instance-style-rules';
 
 /* Portal */
 
@@ -17,7 +17,7 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: normalizePortal,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-portal-single-default'],
@@ -29,7 +29,7 @@ BusinessRule({
     filterCondition: 'is_default=true^is_defaultVALCHANGES',
     order: 100,
     script: enforceSingleDefault,
-})
+});
 
 /* Theme */
 
@@ -42,20 +42,21 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: normalizeTheme,
-})
+});
 
 /* Component */
 
 BusinessRule({
     $id: Now.ID['br-component-normalize'],
     name: 'RP: Normalize component definition',
-    description: 'Namespace/key → unique_id, kind, server mode, JSON fields, layout regions; advances source_revision on build-relevant changes.',
+    description:
+        'Namespace/key → unique_id, kind, server mode, JSON fields, layout regions; advances source_revision on build-relevant changes.',
     table: 'x_312987_portal_component',
     when: 'before',
     action: ['insert', 'update'],
     order: 100,
     script: normalizeComponent,
-})
+});
 
 /* Page and placement */
 
@@ -68,7 +69,7 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: validatePage,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-placement-validate'],
@@ -79,15 +80,16 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: validatePlacement,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-placement-instance-style'],
     name: 'RP: Compile placement instance CSS',
-    description: 'Compiles classes, style tokens, grid layout and responsive block options into instance_css, then reprocesses the portal.',
+    description:
+        'Compiles classes, style tokens, grid layout and responsive block options into instance_css, then reprocesses the portal.',
     table: 'x_312987_portal_placement',
     when: 'after',
     action: ['insert', 'update'],
     order: 900,
     script: compileInstanceStyle,
-})
+});

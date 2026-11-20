@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -9,7 +9,7 @@ import {
     JsonColumn,
     IntegerColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /**
  * A widget placed in a layout region. Owner is a page (page-level placement) or, when page
@@ -42,18 +42,35 @@ export const x_312987_portal_placement = Table({
             mandatory: true,
             cascadeRule: 'restrict',
         }),
-        parent: ReferenceColumn({ label: 'Parent placement', referenceTable: 'x_312987_portal_placement', cascadeRule: 'cascade' }),
+        parent: ReferenceColumn({
+            label: 'Parent placement',
+            referenceTable: 'x_312987_portal_placement',
+            cascadeRule: 'cascade',
+        }),
         order: IntegerColumn({ label: 'Order', default: 100 }),
         active: BooleanColumn({ label: 'Active', default: true }),
         options_json: JsonColumn({ label: 'Options', maxLength: 65000 }),
         style_tokens_json: JsonColumn({ label: 'Style tokens', maxLength: 8000 }),
         visibility_config_json: JsonColumn({ label: 'Visibility', maxLength: 8000 }),
-        layout_json: JsonColumn({ label: 'Grid layout', maxLength: 4000, hint: 'Position in the parent block grid: colSpan, rowSpan, colStart, order, alignSelf; tablet/mobile overrides' }),
-        classes: StringColumn({ label: 'Classes', maxLength: 1000, hint: 'Tailwind classes for this instance (compiled into Instance CSS)' }),
-        instance_css: MultiLineTextColumn({ label: 'Instance CSS', maxLength: 200000, readOnly: true, hint: 'Compiled from classes, style tokens, grid layout and responsive options' }),
+        layout_json: JsonColumn({
+            label: 'Grid layout',
+            maxLength: 4000,
+            hint: 'Position in the parent block grid: colSpan, rowSpan, colStart, order, alignSelf; tablet/mobile overrides',
+        }),
+        classes: StringColumn({
+            label: 'Classes',
+            maxLength: 1000,
+            hint: 'Tailwind classes for this instance (compiled into Instance CSS)',
+        }),
+        instance_css: MultiLineTextColumn({
+            label: 'Instance CSS',
+            maxLength: 200000,
+            readOnly: true,
+            hint: 'Compiled from classes, style tokens, grid layout and responsive options',
+        }),
     },
     index: [{ name: 'rp_placement_owner_region', element: ['owner_key', 'region', 'order'], unique: false }],
-})
+});
 
 Form({
     table: 'x_312987_portal_placement',
@@ -91,4 +108,4 @@ Form({
             ],
         },
     ],
-})
+});

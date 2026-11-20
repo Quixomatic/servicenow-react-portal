@@ -1,8 +1,8 @@
-import { usePortal, usePortalLocation } from '@portal/runtime'
-import { Card, CardHeader, CardContent } from 'components:card'
-import { DialogOutlet } from 'components:app/confirm-dialog'
-import { RelatedLists } from 'components:app/related-lists'
-import type { RelatedListsLayout } from 'components:app/related-lists'
+import { usePortal, usePortalLocation } from '@portal/runtime';
+import { Card, CardHeader, CardContent } from 'components:card';
+import { DialogOutlet } from 'components:app/confirm-dialog';
+import { RelatedLists } from 'components:app/related-lists';
+import type { RelatedListsLayout } from 'components:app/related-lists';
 
 /**
  * components:app/related-lists-card: a record's related lists anywhere on a page (outside a form).
@@ -22,43 +22,43 @@ import type { RelatedListsLayout } from 'components:app/related-lists'
  *   pageSize                    rows per page (default 10)
  */
 type Options = {
-    table?: string
-    sysId?: string
-    view?: string
-    layout?: RelatedListsLayout
-    name?: string
-    include?: string
-    exclude?: string
-    title?: string
-    recordPage?: string
-    actions?: boolean
-    liveUpdates?: boolean
-    pageSize?: number
-}
+    table?: string;
+    sysId?: string;
+    view?: string;
+    layout?: RelatedListsLayout;
+    name?: string;
+    include?: string;
+    exclude?: string;
+    title?: string;
+    recordPage?: string;
+    actions?: boolean;
+    liveUpdates?: boolean;
+    pageSize?: number;
+};
 
-const NAME = /^[a-z0-9_]+$/i
+const NAME = /^[a-z0-9_]+$/i;
 
 function pick(...values: unknown[]): string {
-    for (const v of values) if (v !== undefined && v !== null && String(v) !== '') return String(v)
-    return ''
+    for (const v of values) if (v !== undefined && v !== null && String(v) !== '') return String(v);
+    return '';
 }
 
 const names = (s?: string) =>
     String(s || '')
         .split(',')
         .map((x) => x.trim())
-        .filter(Boolean)
+        .filter(Boolean);
 
 export default function RelatedListsCard({ options = {} }: { options?: Options }) {
-    const location = (usePortalLocation() as any) || {}
-    const portal = usePortal() as any
-    const query = location.params && typeof location.params === 'object' ? location.params : {}
-    const route = (portal && portal.page && portal.page.params) || {}
-    const rawTable = pick(options.table, route.table, location.table, query.table)
-    const table = NAME.test(rawTable) ? rawTable : ''
-    const sysId = pick(options.sysId, route.sys_id, route.sysId, location.sysId, query.sys_id)
-    const view = pick(options.view, location.mode === 'studio' ? '' : location.view, query.view)
-    const title = options.title === undefined ? 'Related lists' : options.title
+    const location = (usePortalLocation() as any) || {};
+    const portal = usePortal() as any;
+    const query = location.params && typeof location.params === 'object' ? location.params : {};
+    const route = (portal && portal.page && portal.page.params) || {};
+    const rawTable = pick(options.table, route.table, location.table, query.table);
+    const table = NAME.test(rawTable) ? rawTable : '';
+    const sysId = pick(options.sysId, route.sys_id, route.sysId, location.sysId, query.sys_id);
+    const view = pick(options.view, location.mode === 'studio' ? '' : location.view, query.view);
+    const title = options.title === undefined ? 'Related lists' : options.title;
     return (
         <Card data-rp-related-lists-card="">
             {/* Add / Edit… / Remove confirmations and pickers (only the page's first outlet renders). */}
@@ -89,5 +89,5 @@ export default function RelatedListsCard({ options = {} }: { options?: Options }
                 )}
             </CardContent>
         </Card>
-    )
+    );
 }

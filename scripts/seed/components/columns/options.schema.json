@@ -10,8 +10,19 @@
                 { "label": "½ + ½", "value": [{ "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }] },
                 { "label": "⅓ + ⅔", "value": [{ "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 2fr)" }] },
                 { "label": "⅔ + ⅓", "value": [{ "size": "minmax(0, 2fr)" }, { "size": "minmax(0, 1fr)" }] },
-                { "label": "⅓ × 3", "value": [{ "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }] },
-                { "label": "¼ × 4", "value": [{ "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }] },
+                {
+                    "label": "⅓ × 3",
+                    "value": [{ "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }, { "size": "minmax(0, 1fr)" }]
+                },
+                {
+                    "label": "¼ × 4",
+                    "value": [
+                        { "size": "minmax(0, 1fr)" },
+                        { "size": "minmax(0, 1fr)" },
+                        { "size": "minmax(0, 1fr)" },
+                        { "size": "minmax(0, 1fr)" }
+                    ]
+                },
                 { "label": "Sidebar + main", "value": [{ "size": "18rem" }, { "size": "minmax(0, 1fr)" }] }
             ],
             "items": {
@@ -20,6 +31,11 @@
             }
         },
         "gap": { "type": "string", "title": "Gap", "x-css-var": "--rp-cols-gap" },
-        "align": { "type": "string", "title": "Align columns", "enum": ["start", "center", "end", "stretch"], "x-css-var": "--rp-cols-align" }
+        "align": {
+            "type": "string",
+            "title": "Align columns",
+            "enum": ["start", "center", "end", "stretch"],
+            "x-css-var": "--rp-cols-align"
+        }
     }
 }

@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { ScriptInclude } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { ScriptInclude } from '@servicenow/sdk/core';
 
 /**
  * Bridge from classic server scripts in this scope to the QuickUtils module
@@ -11,6 +11,7 @@ export const QuickUtilsScriptInclude = ScriptInclude({
     $id: Now.ID['script-include-quick-utils'],
     name: 'QuickUtils',
     script: Now.include('./QuickUtils.server.js'),
-    description: 'QuickUtils bridge (port of tfQuickUtils): getUniqueValues (GlideAggregate), field/schema helpers, templates, roles and groups. new QuickUtils({ secure: true }) checks ACLs.',
+    description:
+        'QuickUtils bridge (port of tfQuickUtils): getUniqueValues (GlideAggregate), field/schema helpers, templates, roles and groups. new QuickUtils({ secure: true }) checks ACLs.',
     accessibleFrom: 'package_private',
-})
+});

@@ -22,7 +22,7 @@ const LIVE_ON_PREVIEW = Object.freeze({ enabled: true });
 const PAGE_CONTAINER = Object.freeze({ containerType: 'inline-size', containerName: 'rp-page' });
 
 function locationOf(slug, page) {
-	return normalizeLocation({ mode: 'portal', portalSlug: slug, page: page || '', recordId: '', q: '' }, '');
+    return normalizeLocation({ mode: 'portal', portalSlug: slug, page: page || '', recordId: '', q: '' }, '');
 }
 
 /**
@@ -37,45 +37,66 @@ function locationOf(slug, page) {
  *             edits don't churn subscriptions or refetch while you work
  */
 export function PortalPreview({ slug, page, version, target, height, onNavigate, menus, sidebarOpen, liveData }) {
-	const [store] = useState(() => createStore(locationOf(slug, page)));
-	const controlled = sidebarOpen !== undefined && sidebarOpen !== null;
-	const [sidebarStore] = useState(() => (controlled ? createSidebarStore(`preview:${slug}`, { persist: false, defaultOpen: !!sidebarOpen }) : null));
-	useLayoutEffect(() => {
-		if (sidebarStore && controlled) sidebarStore.get().setOpen(!!sidebarOpen);
-	}, [sidebarStore, controlled, sidebarOpen]);
-	useLayoutEffect(() => {
-		store.set(locationOf(slug, page));
-	}, [store, slug, page]);
-	const navigate = useMemo(() => (to, opts) => onNavigate && onNavigate(to, opts), [onNavigate]);
-	// Its own overlay layer: this root has no renderer context, so dropdowns etc. portal here.
-	const [overlay, setOverlay] = useState(null);
-	return (
-		<LiveContext.Provider value={liveData ? LIVE_ON_PREVIEW : LIVE_OFF}>
-		<QueryClientProvider client={queryClient}>
-			<LocationStoreContext.Provider value={store}>
-				<NavigationContext.Provider value={navigate}>
-					<div data-rp-root="" data-rp-preview-root="" className="relative flex flex-col" style={{ minHeight: height || '100%' }}>
-						<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="">
-							{slug && target ? (
-								<OverlayContainerContext.Provider value={overlay}>
-									<MenuPreviewContext.Provider value={menus || null}>
-										<PortalBoot key={`${slug}:${version || 0}`} slug={slug} target={target} embedded sidebarStore={sidebarStore} />
-									</MenuPreviewContext.Provider>
-								</OverlayContainerContext.Provider>
-							) : null}
-						</div>
-						<div ref={setOverlay} className="absolute inset-x-0 top-0 z-50 h-0" data-rp-preview-overlay="" />
-					</div>
-				</NavigationContext.Provider>
-			</LocationStoreContext.Provider>
-		</QueryClientProvider>
-		</LiveContext.Provider>
-	);
+    const [store] = useState(() => createStore(locationOf(slug, page)));
+    const controlled = sidebarOpen !== undefined && sidebarOpen !== null;
+    const [sidebarStore] = useState(() =>
+        controlled ? createSidebarStore(`preview:${slug}`, { persist: false, defaultOpen: !!sidebarOpen }) : null
+    );
+    useLayoutEffect(() => {
+        if (sidebarStore && controlled) sidebarStore.get().setOpen(!!sidebarOpen);
+    }, [sidebarStore, controlled, sidebarOpen]);
+    useLayoutEffect(() => {
+        store.set(locationOf(slug, page));
+    }, [store, slug, page]);
+    const navigate = useMemo(() => (to, opts) => onNavigate && onNavigate(to, opts), [onNavigate]);
+    // Its own overlay layer: this root has no renderer context, so dropdowns etc. portal here.
+    const [overlay, setOverlay] = useState(null);
+    return (
+        <LiveContext.Provider value={liveData ? LIVE_ON_PREVIEW : LIVE_OFF}>
+            <QueryClientProvider client={queryClient}>
+                <LocationStoreContext.Provider value={store}>
+                    <NavigationContext.Provider value={navigate}>
+                        <div
+                            data-rp-root=""
+                            data-rp-preview-root=""
+                            className="relative flex flex-col"
+                            style={{ minHeight: height || '100%' }}
+                        >
+                            <div
+                                className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
+                                style={PAGE_CONTAINER}
+                                data-rp-layout-frame=""
+                            >
+                                {slug && target ? (
+                                    <OverlayContainerContext.Provider value={overlay}>
+                                        <MenuPreviewContext.Provider value={menus || null}>
+                                            <PortalBoot
+                                                key={`${slug}:${version || 0}`}
+                                                slug={slug}
+                                                target={target}
+                                                embedded
+                                                sidebarStore={sidebarStore}
+                                            />
+                                        </MenuPreviewContext.Provider>
+                                    </OverlayContainerContext.Provider>
+                                ) : null}
+                            </div>
+                            <div
+                                ref={setOverlay}
+                                className="absolute inset-x-0 top-0 z-50 h-0"
+                                data-rp-preview-overlay=""
+                            />
+                        </div>
+                    </NavigationContext.Provider>
+                </LocationStoreContext.Provider>
+            </QueryClientProvider>
+        </LiveContext.Provider>
+    );
 }
 
 /** Drop cached runtime data for a portal, so the next render fetches the published state. */
 export function invalidatePortal(slug) {
-	queryClient.removeQueries({ queryKey: ['rp', 'bootstrap', slug] });
-	queryClient.removeQueries({ queryKey: ['rp', 'page', slug] });
-	queryClient.removeQueries({ queryKey: ['rp', 'init', slug] });
+    queryClient.removeQueries({ queryKey: ['rp', 'bootstrap', slug] });
+    queryClient.removeQueries({ queryKey: ['rp', 'page', slug] });
+    queryClient.removeQueries({ queryKey: ['rp', 'init', slug] });
 }

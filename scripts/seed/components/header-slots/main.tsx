@@ -20,83 +20,91 @@
  * Why a utility, not RegionPortal: RegionPortal targets a layout region's outlet; these slots live
  * inside a header widget's own markup (left / center / right of its bar).
  */
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react'
-import { createPortal } from 'react-dom'
-import { usePortalContainer } from '@portal/runtime'
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { usePortalContainer } from '@portal/runtime';
 
-type Scope = { outlets: Map<string, HTMLElement>; counts: Map<string, number>; listeners: Set<() => void> }
+type Scope = { outlets: Map<string, HTMLElement>; counts: Map<string, number>; listeners: Set<() => void> };
 
-const scopes = new WeakMap<object, Scope>()
-const GLOBAL_KEY = {}
+const scopes = new WeakMap<object, Scope>();
+const GLOBAL_KEY = {};
 
 function scopeOf(key: object | null | undefined): Scope {
-    const k = key || GLOBAL_KEY
-    let s = scopes.get(k)
+    const k = key || GLOBAL_KEY;
+    let s = scopes.get(k);
     if (!s) {
-        s = { outlets: new Map(), counts: new Map(), listeners: new Set() }
-        scopes.set(k, s)
+        s = { outlets: new Map(), counts: new Map(), listeners: new Set() };
+        scopes.set(k, s);
     }
-    return s
+    return s;
 }
 
 function emit(s: Scope) {
-    s.listeners.forEach((l) => l())
+    s.listeners.forEach((l) => l());
 }
 
 function useScope(): Scope {
-    let container: object | null = null
+    let container: object | null = null;
     try {
-        container = usePortalContainer() as object
+        container = usePortalContainer() as object;
     } catch (e) {
-        container = null
+        container = null;
     }
-    return scopeOf(container)
+    return scopeOf(container);
 }
 
 /** The outlet element for a slot, or null (re-renders when outlets appear or go). */
 export function useHeaderSlot(name: string): HTMLElement | null {
-    const s = useScope()
+    const s = useScope();
     return useSyncExternalStore(
         (l: () => void) => {
-            s.listeners.add(l)
-            return () => s.listeners.delete(l)
+            s.listeners.add(l);
+            return () => s.listeners.delete(l);
         },
         () => s.outlets.get(name) || null,
-        () => null,
-    )
+        () => null
+    );
 }
 
 /** Rendered by a header: the element contributions to `name` render into. */
 export function HeaderSlotOutlet({ name, className, as: Tag = 'div' }: { name: string; className?: string; as?: any }) {
-    const s = useScope()
-    const [el, setEl] = useState<HTMLElement | null>(null)
+    const s = useScope();
+    const [el, setEl] = useState<HTMLElement | null>(null);
     useLayoutEffect(() => {
-        if (!el) return undefined
-        s.outlets.set(name, el)
-        emit(s)
+        if (!el) return undefined;
+        s.outlets.set(name, el);
+        emit(s);
         return () => {
-            if (s.outlets.get(name) === el) s.outlets.delete(name)
-            emit(s)
-        }
-    }, [el, name, s])
-    return <Tag ref={setEl} className={className} data-rp-hslot={name} />
+            if (s.outlets.get(name) === el) s.outlets.delete(name);
+            emit(s);
+        };
+    }, [el, name, s]);
+    return <Tag ref={setEl} className={className} data-rp-hslot={name} />;
 }
 
 /** Contribute children to a header slot; inline (or nothing) when the layout has no such slot. */
-export function HeaderSlot({ name, children, fallback = 'inline' }: { name: string; children?: any; fallback?: 'inline' | 'none' }) {
-    const s = useScope()
-    const el = useHeaderSlot(name)
+export function HeaderSlot({
+    name,
+    children,
+    fallback = 'inline',
+}: {
+    name: string;
+    children?: any;
+    fallback?: 'inline' | 'none';
+}) {
+    const s = useScope();
+    const el = useHeaderSlot(name);
     // Mark the outlet as filled while at least one contribution is mounted.
     useEffect(() => {
-        if (!el) return undefined
-        s.counts.set(name, (s.counts.get(name) || 0) + 1)
-        el.setAttribute('data-filled', '')
+        if (!el) return undefined;
+        s.counts.set(name, (s.counts.get(name) || 0) + 1);
+        el.setAttribute('data-filled', '');
         return () => {
-            const n = (s.counts.get(name) || 1) - 1
-            s.counts.set(name, n)
-            if (!n) el.removeAttribute('data-filled')
-        }
-    }, [el, name, s])
-    if (el) return createPortal(children, el)
-    return fallback === 'inline' ? children : null
+            const n = (s.counts.get(name) || 1) - 1;
+            s.counts.set(name, n);
+            if (!n) el.removeAttribute('data-filled');
+        };
+    }, [el, name, s]);
+    if (el) return createPortal(children, el);
+    return fallback === 'inline' ? children : null;
 }

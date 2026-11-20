@@ -21,26 +21,57 @@
  * UI actions in one request); Save = the form's Save UI action (POST /api/now/ui/ui_action/:id,
  * as Workspace does), so business rules, data policies and ACLs run as on any platform save.
  */
-import { useGraphQL } from 'utilities:app/graphql'
-import { RecordForm } from './record-form'
+import { useGraphQL } from 'utilities:app/graphql';
+import { RecordForm } from './record-form';
 
-export { useRecordForm, SAVE_ACTIONS, notify } from './use-record-form'
-export type { RecordForm as RecordFormModel, UseRecordFormOptions, SaveOutcome } from './use-record-form'
-export { RecordForm } from './record-form'
-export type { RecordFormProps } from './record-form'
-export { FormLayout, FormSection, FormElement, SectionRows, isFormatter, isSplitMarker, sectionName, sectionElements, sectionOfField, useVisibleSections } from './layout'
-export { useOwnPreference, useCollapsedSections, usePresentationPreference, useRememberedView, formPreferenceName } from './preferences'
+export { useRecordForm, SAVE_ACTIONS, notify } from './use-record-form';
+export type { RecordForm as RecordFormModel, UseRecordFormOptions, SaveOutcome } from './use-record-form';
+export { RecordForm } from './record-form';
+export type { RecordFormProps } from './record-form';
+export {
+    FormLayout,
+    FormSection,
+    FormElement,
+    SectionRows,
+    isFormatter,
+    isSplitMarker,
+    sectionName,
+    sectionElements,
+    sectionOfField,
+    useVisibleSections,
+} from './layout';
+export {
+    useOwnPreference,
+    useCollapsedSections,
+    usePresentationPreference,
+    useRememberedView,
+    formPreferenceName,
+} from './preferences';
 // View resolution: page rules → portal rules (force) → URL → option (lockView flips) → remembered → Workspace view rules → portal candidates → Default.
-export { useResolvedFormView, usePortalViewSettings, useViewRulesContext } from './view-resolution'
-export type { ResolvedFormView, FormViewSource } from './view-resolution'
+export { useResolvedFormView, usePortalViewSettings, useViewRulesContext } from './view-resolution';
+export type { ResolvedFormView, FormViewSource } from './view-resolution';
 // formPreferenceName.view(table): the remembered form view (x_312987_portal.form.<table>.view).
-export type { FormPresentation } from './preferences'
-export type { FormLayoutProps } from './layout'
+export type { FormPresentation } from './preferences';
+export type { FormLayoutProps } from './layout';
 
 /** Preview (Studio): the most recently updated active incident (a new record would reserve a number). */
 export default function FormPreview() {
-    const pick = useGraphQL(`query rpFormPreview { GlideRecord_Query { incident(queryConditions: "active=true^ORDERBYDESCsys_updated_on", pagination: { limit: 1 }) { _results { sys_id { value } } } } }`)
-    const rows = pick.data && pick.data.GlideRecord_Query && pick.data.GlideRecord_Query.incident && pick.data.GlideRecord_Query.incident._results
-    const sysId = rows && rows[0] ? rows[0].sys_id.value : ''
-    return <div className="p-4">{sysId ? <RecordForm table="incident" sysId={sysId} showViews /> : <p className="text-sm text-muted-foreground">Loading an incident…</p>}</div>
+    const pick = useGraphQL(
+        `query rpFormPreview { GlideRecord_Query { incident(queryConditions: "active=true^ORDERBYDESCsys_updated_on", pagination: { limit: 1 }) { _results { sys_id { value } } } } }`
+    );
+    const rows =
+        pick.data &&
+        pick.data.GlideRecord_Query &&
+        pick.data.GlideRecord_Query.incident &&
+        pick.data.GlideRecord_Query.incident._results;
+    const sysId = rows && rows[0] ? rows[0].sys_id.value : '';
+    return (
+        <div className="p-4">
+            {sysId ? (
+                <RecordForm table="incident" sysId={sysId} showViews />
+            ) : (
+                <p className="text-sm text-muted-foreground">Loading an incident…</p>
+            )}
+        </div>
+    );
 }

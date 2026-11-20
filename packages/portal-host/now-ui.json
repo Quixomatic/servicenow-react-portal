@@ -1,44 +1,68 @@
 {
-  "components": {
-    "x-312987-portal-host": {
-      "innerComponents": [],
-      "uiBuilder": {
-        "associatedTypes": ["global.core", "global.landing-page"],
-        "label": "React Portal Host",
-        "tileIcon": "./tile-icon/generic-tile-icon.svg",
-        "description": "Renders a React Portal portal or Portal Studio",
-        "category": "primitives"
-      },
-      "properties": [
-        { "name": "mode", "label": "Mode", "fieldType": "string", "defaultValue": "portal" },
-        { "name": "portalSlug", "label": "Portal slug", "fieldType": "string", "defaultValue": "" },
-        { "name": "page", "label": "Page", "fieldType": "string", "defaultValue": "" },
-        { "name": "recordId", "label": "Record id", "fieldType": "string", "defaultValue": "" },
-        { "name": "q", "label": "Query", "fieldType": "string", "defaultValue": "" },
-        { "name": "view", "label": "View", "description": "Portal: record view (site param view). Studio: code | pages | menus", "fieldType": "string", "defaultValue": "" },
-        { "name": "table", "label": "Table", "description": "Record table (site param table)", "fieldType": "string", "defaultValue": "" },
-        { "name": "sysId", "label": "Sys ID", "description": "Record sys_id (site param sys_id)", "fieldType": "string", "defaultValue": "" },
-        { "name": "query", "label": "Encoded query", "description": "Encoded query (site param query)", "fieldType": "string", "defaultValue": "" }
-      ],
-      "actions": [
-        {
-          "name": "PORTAL_NAVIGATE",
-          "label": "Portal navigate",
-          "description": "Navigate within React Portal",
-          "payload": [
-            { "name": "portalSlug", "label": "Portal slug", "fieldType": "string" },
-            { "name": "page", "label": "Page", "fieldType": "string" },
-            { "name": "recordId", "label": "Record id", "fieldType": "string" },
-            { "name": "q", "label": "Query", "fieldType": "string" },
-            { "name": "view", "label": "View", "fieldType": "string" },
-            { "name": "table", "label": "Table", "fieldType": "string" },
-            { "name": "sysId", "label": "Sys ID", "fieldType": "string" },
-            { "name": "query", "label": "Encoded query", "fieldType": "string" },
-            { "name": "replace", "label": "Replace (no new history entry)", "fieldType": "boolean" }
-          ]
+    "components": {
+        "x-312987-portal-host": {
+            "innerComponents": [],
+            "uiBuilder": {
+                "associatedTypes": ["global.core", "global.landing-page"],
+                "label": "React Portal Host",
+                "tileIcon": "./tile-icon/generic-tile-icon.svg",
+                "description": "Renders a React Portal portal or Portal Studio",
+                "category": "primitives"
+            },
+            "properties": [
+                { "name": "mode", "label": "Mode", "fieldType": "string", "defaultValue": "portal" },
+                { "name": "portalSlug", "label": "Portal slug", "fieldType": "string", "defaultValue": "" },
+                { "name": "page", "label": "Page", "fieldType": "string", "defaultValue": "" },
+                { "name": "recordId", "label": "Record id", "fieldType": "string", "defaultValue": "" },
+                { "name": "q", "label": "Query", "fieldType": "string", "defaultValue": "" },
+                {
+                    "name": "view",
+                    "label": "View",
+                    "description": "Portal: record view (site param view). Studio: code | pages | menus",
+                    "fieldType": "string",
+                    "defaultValue": ""
+                },
+                {
+                    "name": "table",
+                    "label": "Table",
+                    "description": "Record table (site param table)",
+                    "fieldType": "string",
+                    "defaultValue": ""
+                },
+                {
+                    "name": "sysId",
+                    "label": "Sys ID",
+                    "description": "Record sys_id (site param sys_id)",
+                    "fieldType": "string",
+                    "defaultValue": ""
+                },
+                {
+                    "name": "query",
+                    "label": "Encoded query",
+                    "description": "Encoded query (site param query)",
+                    "fieldType": "string",
+                    "defaultValue": ""
+                }
+            ],
+            "actions": [
+                {
+                    "name": "PORTAL_NAVIGATE",
+                    "label": "Portal navigate",
+                    "description": "Navigate within React Portal",
+                    "payload": [
+                        { "name": "portalSlug", "label": "Portal slug", "fieldType": "string" },
+                        { "name": "page", "label": "Page", "fieldType": "string" },
+                        { "name": "recordId", "label": "Record id", "fieldType": "string" },
+                        { "name": "q", "label": "Query", "fieldType": "string" },
+                        { "name": "view", "label": "View", "fieldType": "string" },
+                        { "name": "table", "label": "Table", "fieldType": "string" },
+                        { "name": "sysId", "label": "Sys ID", "fieldType": "string" },
+                        { "name": "query", "label": "Encoded query", "fieldType": "string" },
+                        { "name": "replace", "label": "Replace (no new history entry)", "fieldType": "boolean" }
+                    ]
+                }
+            ]
         }
-      ]
-    }
-  },
-  "scopeName": "x_312987_portal"
+    },
+    "scopeName": "x_312987_portal"
 }

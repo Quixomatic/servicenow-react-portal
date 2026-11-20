@@ -19,26 +19,32 @@
  *       context menu and editor slots.
  *   <Pagination />, <ColumnChooser />, <CellEditor />, <PointMenu />
  */
-import { RecordList } from './record-list'
+import { RecordList } from './record-list';
 
-export { RecordList } from './record-list'
-export type { RecordListProps, RecordListFeatures, ListAction, ListActionContext, ListState } from './record-list'
-export { DataTable, ROW_HEIGHT } from './table'
-export type { DataTableProps, DataTableColumn, SortState, CellRef, CellContext, Density } from './table'
-export { Pagination } from './pagination'
-export type { PaginationProps } from './pagination'
-export { ColumnChooser } from './column-chooser'
-export type { ColumnChooserProps, ColumnOption } from './column-chooser'
-export { CellEditor } from './cell-editor'
-export { PointMenu } from './menu'
-export type { MenuItem } from './menu'
-export { DefaultCell } from './cells'
+export { RecordList } from './record-list';
+export type { RecordListProps, RecordListFeatures, ListAction, ListActionContext, ListState } from './record-list';
+export { DataTable, ROW_HEIGHT } from './table';
+export type { DataTableProps, DataTableColumn, SortState, CellRef, CellContext, Density } from './table';
+export { Pagination } from './pagination';
+export type { PaginationProps } from './pagination';
+export { ColumnChooser } from './column-chooser';
+export type { ColumnChooserProps, ColumnOption } from './column-chooser';
+export { CellEditor } from './cell-editor';
+export { PointMenu } from './menu';
+export type { MenuItem } from './menu';
+export { DefaultCell } from './cells';
 
 /** Preview (Studio): active incidents. */
 export default function DataTablePreview() {
     return (
         <div className="p-4">
-            <RecordList table="incident" query="active=true" orderBy="-number" pageSize={10} prefKey="preview:incident" />
+            <RecordList
+                table="incident"
+                query="active=true"
+                orderBy="-number"
+                pageSize={10}
+                prefKey="preview:incident"
+            />
         </div>
-    )
+    );
 }

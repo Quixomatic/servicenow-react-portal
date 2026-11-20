@@ -1,11 +1,11 @@
-import '@servicenow/sdk/global'
-import { BusinessRule } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { BusinessRule } from '@servicenow/sdk/core';
 import {
     reprocessPortal,
     reprocessOwningPortal,
     reprocessThemePortals,
     reprocessComponentPortals,
-} from '../../server/automation/reprocess-rules'
+} from '../../server/automation/reprocess-rules';
 
 /**
  * Keep each portal's compiled release in sync with its inputs. (Successful compiles reprocess
@@ -20,7 +20,7 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 1000,
     script: reprocessPortal,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-reprocess-page'],
@@ -30,7 +30,7 @@ BusinessRule({
     action: ['insert', 'update', 'delete'],
     order: 1000,
     script: reprocessOwningPortal,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-reprocess-placement'],
@@ -40,7 +40,7 @@ BusinessRule({
     action: ['insert', 'update', 'delete'],
     order: 1000,
     script: reprocessOwningPortal,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-reprocess-theme'],
@@ -50,16 +50,18 @@ BusinessRule({
     action: ['update', 'delete'],
     order: 1000,
     script: reprocessThemePortals,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-reprocess-component'],
     name: 'RP: Reprocess release (component)',
-    description: 'Name, kind, active, server mode, regions and default options feed the manifest; client code reaches it via compiles.',
+    description:
+        'Name, kind, active, server mode, regions and default options feed the manifest; client code reaches it via compiles.',
     table: 'x_312987_portal_component',
     when: 'after',
     action: ['update', 'delete'],
-    filterCondition: 'nameVALCHANGES^ORkindVALCHANGES^ORactiveVALCHANGES^ORserver_modeVALCHANGES^ORregions_jsonVALCHANGES^ORdefault_options_jsonVALCHANGES^ORplaceableVALCHANGES',
+    filterCondition:
+        'nameVALCHANGES^ORkindVALCHANGES^ORactiveVALCHANGES^ORserver_modeVALCHANGES^ORregions_jsonVALCHANGES^ORdefault_options_jsonVALCHANGES^ORplaceableVALCHANGES',
     order: 1000,
     script: reprocessComponentPortals,
-})
+});

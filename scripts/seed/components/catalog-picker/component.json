@@ -1,1 +1,6 @@
-{ "name": "Catalog Picker", "kind": "widget", "tailwind": true, "defaults": { "title": "Catalog", "items": [], "search": true } }
+{
+    "name": "Catalog Picker",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "title": "Catalog", "items": [], "search": true }
+}

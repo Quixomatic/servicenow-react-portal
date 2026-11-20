@@ -20,7 +20,9 @@
     line-height: 1.5;
 }
 /* A collapsed sidebar (app/docs-sidebar sets data-docs-sidebar-collapsed) gives its column back. */
-.rp-docs:has([data-docs-sidebar-collapsed]) { --docs-sidebar-col: 0px; }
+.rp-docs:has([data-docs-sidebar-collapsed]) {
+    --docs-sidebar-col: 0px;
+}
 
 .rp-docs__grid {
     display: grid;
@@ -32,14 +34,17 @@
         var(--docs-toc-col) minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
-        "sidebar sidebar header toc toc"
-        "sidebar sidebar tocbar toc toc"
-        "sidebar sidebar main toc toc"
-        "sidebar sidebar footer toc toc";
+        'sidebar sidebar header toc toc'
+        'sidebar sidebar tocbar toc toc'
+        'sidebar sidebar main toc toc'
+        'sidebar sidebar footer toc toc';
     transition: grid-template-columns 0.2s ease;
 }
 
-.rp-docs__header { grid-area: header; display: none; }
+.rp-docs__header {
+    grid-area: header;
+    display: none;
+}
 .rp-docs__sidebar {
     grid-area: sidebar;
     position: sticky;
@@ -51,29 +56,82 @@
     display: flex;
     flex-direction: column;
 }
-.rp-docs__sidebar > [data-rp-widget] { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.rp-docs__sidebar > [data-rp-widget] > * { flex: 1 1 auto; min-height: 0; }
-.rp-docs__tocbar { grid-area: tocbar; position: sticky; top: var(--docs-header-h); z-index: 15; min-width: 0; }
-.rp-docs__main { grid-area: main; min-width: 0; display: flex; flex-direction: column; }
-.rp-docs__content { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
-.rp-docs__toc { grid-area: toc; position: sticky; top: 0; align-self: start; height: 100cqh; min-width: 0; display: none; }
-.rp-docs__footer { grid-area: footer; min-width: 0; }
+.rp-docs__sidebar > [data-rp-widget] {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.rp-docs__sidebar > [data-rp-widget] > * {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.rp-docs__tocbar {
+    grid-area: tocbar;
+    position: sticky;
+    top: var(--docs-header-h);
+    z-index: 15;
+    min-width: 0;
+}
+.rp-docs__main {
+    grid-area: main;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.rp-docs__content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.rp-docs__toc {
+    grid-area: toc;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100cqh;
+    min-width: 0;
+    display: none;
+}
+.rp-docs__footer {
+    grid-area: footer;
+    min-width: 0;
+}
 
 /* xl: the table of contents column appears, the tocbar goes. */
 @container rp-page (min-width: 1280px) {
-    .rp-docs { --docs-toc-col: var(--docs-toc-width); }
-    .rp-docs__toc { display: flex; flex-direction: column; }
-    .rp-docs__tocbar { display: none; }
+    .rp-docs {
+        --docs-toc-col: var(--docs-toc-width);
+    }
+    .rp-docs__toc {
+        display: flex;
+        flex-direction: column;
+    }
+    .rp-docs__tocbar {
+        display: none;
+    }
 }
 
 /* Below md: one column. The sidebar is a drawer (rendered in the overlay layer by its widget), the
    header is a sticky top bar and the tocbar sits under it. */
 @container rp-page (max-width: 767px) {
-    .rp-docs { --docs-header-h: 56px; --docs-sidebar-col: 0px; scrollbar-gutter: auto; }
+    .rp-docs {
+        --docs-header-h: 56px;
+        --docs-sidebar-col: 0px;
+        scrollbar-gutter: auto;
+    }
     .rp-docs__grid {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "header" "tocbar" "main" "footer";
+        grid-template-areas: 'header' 'tocbar' 'main' 'footer';
     }
-    .rp-docs__header { display: block; position: sticky; top: 0; z-index: 30; }
-    .rp-docs__sidebar { display: none; }
+    .rp-docs__header {
+        display: block;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+    }
+    .rp-docs__sidebar {
+        display: none;
+    }
 }

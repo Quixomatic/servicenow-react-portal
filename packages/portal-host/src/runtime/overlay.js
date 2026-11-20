@@ -10,7 +10,7 @@ export const OverlayContainerContext = createContext(null);
 
 /** The element overlays render into: the nearest OverlayContainerContext, else the renderer's. */
 export function usePortalContainer() {
-	const own = useContext(OverlayContainerContext);
-	const renderer = useRendererContainer();
-	return own || renderer;
+    const own = useContext(OverlayContainerContext);
+    const renderer = useRendererContainer();
+    return own || renderer;
 }

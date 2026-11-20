@@ -14,25 +14,25 @@
  * Colours: theme tokens for info (primary), danger (destructive) and neutral (muted); emerald,
  * amber and sky for success, warning and progress, each with a dark variant.
  */
-import { cx } from 'components:app/field'
+import { cx } from 'components:app/field';
 
-export type HighlightTone = 'neutral' | 'info' | 'progress' | 'warning' | 'success' | 'danger'
+export type HighlightTone = 'neutral' | 'info' | 'progress' | 'warning' | 'success' | 'danger';
 
-const PRIORITY_FIELDS = ['priority', 'urgency', 'impact', 'severity']
+const PRIORITY_FIELDS = ['priority', 'urgency', 'impact', 'severity'];
 
 export function toneFor(label: string, opts: { field?: string; value?: string | number } = {}): HighlightTone {
-    const field = String(opts.field || '').toLowerCase()
-    const raw = String(opts.value === undefined || opts.value === null ? '' : opts.value)
-    const text = String(label || '').toLowerCase()
-    const num = PRIORITY_FIELDS.indexOf(field) >= 0 ? parseInt(raw || text, 10) : NaN
-    if (!isNaN(num)) return num <= 1 ? 'danger' : num === 2 ? 'warning' : num === 3 ? 'info' : 'neutral'
-    if (/reject|denied|fail|breach|error|incomplete|critical/.test(text)) return 'danger'
-    if (/cancel|closed|skipped|retired|inactive|withdrawn|not required|no longer/.test(text)) return 'neutral'
-    if (/resolved|complete|approved|fulfilled|delivered|done|success|published|accepted/.test(text)) return 'success'
-    if (/hold|waiting|pending|requested|approval|awaiting|review|paused/.test(text)) return 'warning'
-    if (/progress|work|assess|scope|assigned|active|fulfil|implement|scheduled/.test(text)) return 'progress'
-    if (/new|open|draft|submitted|created/.test(text)) return 'info'
-    return 'neutral'
+    const field = String(opts.field || '').toLowerCase();
+    const raw = String(opts.value === undefined || opts.value === null ? '' : opts.value);
+    const text = String(label || '').toLowerCase();
+    const num = PRIORITY_FIELDS.indexOf(field) >= 0 ? parseInt(raw || text, 10) : NaN;
+    if (!isNaN(num)) return num <= 1 ? 'danger' : num === 2 ? 'warning' : num === 3 ? 'info' : 'neutral';
+    if (/reject|denied|fail|breach|error|incomplete|critical/.test(text)) return 'danger';
+    if (/cancel|closed|skipped|retired|inactive|withdrawn|not required|no longer/.test(text)) return 'neutral';
+    if (/resolved|complete|approved|fulfilled|delivered|done|success|published|accepted/.test(text)) return 'success';
+    if (/hold|waiting|pending|requested|approval|awaiting|review|paused/.test(text)) return 'warning';
+    if (/progress|work|assess|scope|assigned|active|fulfil|implement|scheduled/.test(text)) return 'progress';
+    if (/new|open|draft|submitted|created/.test(text)) return 'info';
+    return 'neutral';
 }
 
 export const TONE_PILL: Record<HighlightTone, string> = {
@@ -42,7 +42,7 @@ export const TONE_PILL: Record<HighlightTone, string> = {
     warning: 'border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300',
     success: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     danger: 'border-destructive/25 bg-destructive/10 text-destructive',
-}
+};
 
 export const TONE_DOT: Record<HighlightTone, string> = {
     neutral: 'bg-muted-foreground/50',
@@ -51,30 +51,44 @@ export const TONE_DOT: Record<HighlightTone, string> = {
     warning: 'bg-amber-500',
     success: 'bg-emerald-500',
     danger: 'bg-destructive',
-}
+};
 
 export type HighlightedValueProps = {
-    label: string
-    value?: string | number
-    field?: string
-    tone?: HighlightTone
+    label: string;
+    value?: string | number;
+    field?: string;
+    tone?: HighlightTone;
     /** pill (default): tinted rounded badge with a dot; dot: coloured dot + plain text. */
-    variant?: 'pill' | 'dot'
-    size?: 'sm' | 'default'
-    className?: string
-    title?: string
-}
+    variant?: 'pill' | 'dot';
+    size?: 'sm' | 'default';
+    className?: string;
+    title?: string;
+};
 
-export function HighlightedValue({ label, value, field, tone, variant = 'pill', size = 'default', className, title }: HighlightedValueProps) {
-    if (!label) return null
-    const t = tone || toneFor(label, { field, value })
+export function HighlightedValue({
+    label,
+    value,
+    field,
+    tone,
+    variant = 'pill',
+    size = 'default',
+    className,
+    title,
+}: HighlightedValueProps) {
+    if (!label) return null;
+    const t = tone || toneFor(label, { field, value });
     if (variant === 'dot') {
         return (
-            <span data-slot="highlighted-value" data-tone={t} title={title} className={cx('inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}>
+            <span
+                data-slot="highlighted-value"
+                data-tone={t}
+                title={title}
+                className={cx('inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}
+            >
                 <span aria-hidden className={cx('size-1.5 shrink-0 rounded-full', TONE_DOT[t])} />
                 <span className="truncate">{label}</span>
             </span>
-        )
+        );
     }
     return (
         <span
@@ -85,18 +99,18 @@ export function HighlightedValue({ label, value, field, tone, variant = 'pill', 
                 'inline-flex max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-full border font-medium whitespace-nowrap',
                 size === 'sm' ? 'h-5 px-2 text-[11px]' : 'h-6 px-2.5 text-xs',
                 TONE_PILL[t],
-                className,
+                className
             )}
         >
             <span aria-hidden className={cx('size-1.5 shrink-0 rounded-full', TONE_DOT[t])} />
             <span className="truncate">{label}</span>
         </span>
-    )
+    );
 }
 
 /** Preview (Studio). */
 export default function HighlightedValuePreview() {
-    const samples = ['New', 'In Progress', 'On Hold', 'Waiting for Approval', 'Resolved', 'Closed', 'Rejected']
+    const samples = ['New', 'In Progress', 'On Hold', 'Waiting for Approval', 'Resolved', 'Closed', 'Rejected'];
     return (
         <div className="flex flex-wrap gap-2 p-4">
             {samples.map((s) => (
@@ -105,5 +119,5 @@ export default function HighlightedValuePreview() {
             <HighlightedValue label="1 - Critical" field="priority" value="1" />
             <HighlightedValue label="Approved" variant="dot" />
         </div>
-    )
+    );
 }

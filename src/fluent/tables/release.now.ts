@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -9,7 +9,7 @@ import {
     IntegerColumn,
     DateTimeColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /**
  * The compiled form of a portal: exactly one record per portal holding its manifest
@@ -31,16 +31,31 @@ export const x_312987_portal_release = Table({
             unique: true,
             cascadeRule: 'cascade',
         }),
-        revision: IntegerColumn({ label: 'Revision', readOnly: true, default: 0, hint: 'Increments each time the manifest changes' }),
+        revision: IntegerColumn({
+            label: 'Revision',
+            readOnly: true,
+            default: 0,
+            hint: 'Increments each time the manifest changes',
+        }),
         manifest_json: JsonColumn({ label: 'Manifest', maxLength: 4000000, readOnly: true }),
         manifest_hash: StringColumn({ label: 'Manifest hash', maxLength: 64, readOnly: true }),
         host_abi: StringColumn({ label: 'Host ABI', maxLength: 40, readOnly: true }),
-        problems_json: JsonColumn({ label: 'Problems', maxLength: 65000, readOnly: true, hint: 'e.g. components without compiled output' }),
+        problems_json: JsonColumn({
+            label: 'Problems',
+            maxLength: 65000,
+            readOnly: true,
+            hint: 'e.g. components without compiled output',
+        }),
         processed_at: DateTimeColumn({ label: 'Processed', readOnly: true }),
-        processed_by: ReferenceColumn({ label: 'Processed by', referenceTable: 'sys_user', readOnly: true, cascadeRule: 'clear' }),
+        processed_by: ReferenceColumn({
+            label: 'Processed by',
+            referenceTable: 'sys_user',
+            readOnly: true,
+            cascadeRule: 'clear',
+        }),
         notes: MultiLineTextColumn({ label: 'Notes', maxLength: 4000 }),
     },
-})
+});
 
 Form({
     table: 'x_312987_portal_release',
@@ -82,4 +97,4 @@ Form({
             ],
         },
     ],
-})
+});

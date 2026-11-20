@@ -24,65 +24,71 @@ const entries = new Map(); // activity -> entry
 const listeners = new Set();
 
 export function registerStudioLocation(entry) {
-	if (!entry || !entry.activity || !entry.param) throw new Error('registerStudioLocation: activity and param are required');
-	const normalized = {
-		aliases: [],
-		qKeys: [],
-		pushKeys: ['id'],
-		serialize: () => ({}),
-		apply: async () => undefined,
-		subscribe: () => () => {},
-		...entry
-	};
-	entries.set(entry.activity, normalized);
-	listeners.forEach((l) => l());
-	return () => {
-		if (entries.get(entry.activity) === normalized) entries.delete(entry.activity);
-		listeners.forEach((l) => l());
-	};
+    if (!entry || !entry.activity || !entry.param)
+        throw new Error('registerStudioLocation: activity and param are required');
+    const normalized = {
+        aliases: [],
+        qKeys: [],
+        pushKeys: ['id'],
+        serialize: () => ({}),
+        apply: async () => undefined,
+        subscribe: () => () => {},
+        ...entry,
+    };
+    entries.set(entry.activity, normalized);
+    listeners.forEach((l) => l());
+    return () => {
+        if (entries.get(entry.activity) === normalized) entries.delete(entry.activity);
+        listeners.forEach((l) => l());
+    };
 }
 
 export function locationEntries() {
-	return Array.from(entries.values());
+    return Array.from(entries.values());
 }
 
 export function entryForActivity(activity) {
-	return entries.get(activity) || null;
+    return entries.get(activity) || null;
 }
 
 /** The entry for a URL `view` value (its param, an alias, or the activity name). */
 export function entryForView(view) {
-	const v = normalizeView(view);
-	if (!v) return null;
-	for (const e of entries.values()) if (e.param === v || e.activity === view || e.aliases.includes(view) || e.aliases.includes(v)) return e;
-	return null;
+    const v = normalizeView(view);
+    if (!v) return null;
+    for (const e of entries.values())
+        if (e.param === v || e.activity === view || e.aliases.includes(view) || e.aliases.includes(v)) return e;
+    return null;
 }
 
 export function onRegistryChange(fn) {
-	listeners.add(fn);
-	return () => listeners.delete(fn);
+    listeners.add(fn);
+    return () => listeners.delete(fn);
 }
 
 /** A tiny store for activity state that apply() sets before the activity's component mounts. */
 export function createActivityState(initial) {
-	let state = { ...(initial || {}) };
-	const subs = new Set();
-	return {
-		get: () => state,
-		set(partial) {
-			const next = typeof partial === 'function' ? partial(state) : partial;
-			state = { ...state, ...next };
-			subs.forEach((l) => l());
-		},
-		subscribe(l) {
-			subs.add(l);
-			return () => subs.delete(l);
-		}
-	};
+    let state = { ...(initial || {}) };
+    const subs = new Set();
+    return {
+        get: () => state,
+        set(partial) {
+            const next = typeof partial === 'function' ? partial(state) : partial;
+            state = { ...state, ...next };
+            subs.forEach((l) => l());
+        },
+        subscribe(l) {
+            subs.add(l);
+            return () => subs.delete(l);
+        },
+    };
 }
 
 /** React hook for createActivityState stores: useActivityState(store, (s) => s.portalId). */
 export function useActivityState(store, selector) {
-	const pick = selector || ((s) => s);
-	return useSyncExternalStore(store.subscribe, () => pick(store.get()), () => pick(store.get()));
+    const pick = selector || ((s) => s);
+    return useSyncExternalStore(
+        store.subscribe,
+        () => pick(store.get()),
+        () => pick(store.get())
+    );
 }

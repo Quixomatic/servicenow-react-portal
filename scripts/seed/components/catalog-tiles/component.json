@@ -1,1 +1,14 @@
-{ "name": "Catalog Tiles", "kind": "widget", "tailwind": true, "serverMode": "on-load", "defaults": { "title": "Popular requests", "mode": "popular", "limit": 8, "catalogPage": "catalog", "items": [], "exclude": [] } }
+{
+    "name": "Catalog Tiles",
+    "kind": "widget",
+    "tailwind": true,
+    "serverMode": "on-load",
+    "defaults": {
+        "title": "Popular requests",
+        "mode": "popular",
+        "limit": 8,
+        "catalogPage": "catalog",
+        "items": [],
+        "exclude": []
+    }
+}

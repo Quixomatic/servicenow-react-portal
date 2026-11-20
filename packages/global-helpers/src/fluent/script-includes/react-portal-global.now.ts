@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { ScriptInclude } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { ScriptInclude } from '@servicenow/sdk/core';
 
 /**
  * Global-scope helpers for React Portal (x_312987_portal): session message drain, impersonator,
@@ -21,4 +21,4 @@ export const ReactPortalGlobalScriptInclude = ScriptInclude({
     clientCallable: false,
     sandboxCallable: false,
     active: true,
-})
+});

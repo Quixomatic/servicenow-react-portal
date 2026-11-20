@@ -1,6 +1,6 @@
-import { Toc } from 'components:app/toc'
-import type { TocItem } from 'components:app/toc'
-import type { TocHeading } from 'utilities:app/knowledge'
+import { Toc } from 'components:app/toc';
+import type { TocItem } from 'components:app/toc';
+import type { TocHeading } from 'utilities:app/knowledge';
 
 /**
  * components:app/kb-toc: "On this page" for a knowledge article, on the generic components:app/toc
@@ -13,21 +13,29 @@ import type { TocHeading } from 'utilities:app/knowledge'
  * article body (rootRef), and the spy follows the page's scroller.
  */
 export type KbTocProps = {
-    headings: TocHeading[]
-    rootRef: { current: HTMLElement | null }
-    variant?: 'rail' | 'collapsible'
-    title?: string
+    headings: TocHeading[];
+    rootRef: { current: HTMLElement | null };
+    variant?: 'rail' | 'collapsible';
+    title?: string;
     /** Pixels covered by sticky bars at the top of the scroller. */
-    offset?: number
-    className?: string
-    footer?: any
-}
+    offset?: number;
+    className?: string;
+    footer?: any;
+};
 
 export function tocItems(headings: TocHeading[]): TocItem[] {
-    return headings.map((h) => ({ id: h.id, text: h.text, depth: h.level }))
+    return headings.map((h) => ({ id: h.id, text: h.text, depth: h.level }));
 }
 
-export function KbToc({ headings, rootRef, variant = 'rail', title = 'On this page', offset = 0, className, footer }: KbTocProps) {
+export function KbToc({
+    headings,
+    rootRef,
+    variant = 'rail',
+    title = 'On this page',
+    offset = 0,
+    className,
+    footer,
+}: KbTocProps) {
     return (
         <Toc
             items={tocItems(headings)}
@@ -38,9 +46,9 @@ export function KbToc({ headings, rootRef, variant = 'rail', title = 'On this pa
             className={className}
             footer={footer}
         />
-    )
+    );
 }
 
 export default function KbTocPreview() {
-    return null
+    return null;
 }

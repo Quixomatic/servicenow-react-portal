@@ -1,20 +1,26 @@
-import '@servicenow/sdk/global'
-import { BusinessRule } from '@servicenow/sdk/core'
-import { validateSourceFile, trackSourceChange } from '../../server/automation/source-file-rules'
-import { normalizeBuild, inheritBuildScope, normalizeRelease, inheritReleaseScope } from '../../server/automation/build-rules'
+import '@servicenow/sdk/global';
+import { BusinessRule } from '@servicenow/sdk/core';
+import { validateSourceFile, trackSourceChange } from '../../server/automation/source-file-rules';
+import {
+    normalizeBuild,
+    inheritBuildScope,
+    normalizeRelease,
+    inheritReleaseScope,
+} from '../../server/automation/build-rules';
 
 /* Extra source files */
 
 BusinessRule({
     $id: Now.ID['br-source-validate'],
     name: 'RP: Validate source file',
-    description: 'Exactly one owner, safe relative path (main.tsx/styles.css/server.js/theme.css are reserved), unique per owner, size limit, hash and per-file revision.',
+    description:
+        'Exactly one owner, safe relative path (main.tsx/styles.css/server.js/theme.css are reserved), unique per owner, size limit, hash and per-file revision.',
     table: 'x_312987_portal_source_file',
     when: 'before',
     action: ['insert', 'update'],
     order: 100,
     script: validateSourceFile,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-source-track'],
@@ -25,7 +31,7 @@ BusinessRule({
     action: ['insert', 'update', 'delete'],
     order: 100,
     script: trackSourceChange,
-})
+});
 
 /* Generated records: one current record per piece, in the source record's scope */
 
@@ -38,7 +44,7 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: normalizeBuild,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-build-asset-scope'],
@@ -49,7 +55,7 @@ BusinessRule({
     action: ['insert'],
     order: 100,
     script: inheritBuildScope,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-build-dep-scope'],
@@ -60,7 +66,7 @@ BusinessRule({
     action: ['insert'],
     order: 100,
     script: inheritBuildScope,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-release-normalize'],
@@ -71,7 +77,7 @@ BusinessRule({
     action: ['insert'],
     order: 100,
     script: normalizeRelease,
-})
+});
 
 BusinessRule({
     $id: Now.ID['br-release-entry-scope'],
@@ -82,4 +88,4 @@ BusinessRule({
     action: ['insert'],
     order: 100,
     script: inheritReleaseScope,
-})
+});

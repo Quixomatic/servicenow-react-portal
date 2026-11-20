@@ -38,10 +38,10 @@ export {
     kindOfEventTable,
     sortEntries,
     initialsOf,
-} from './documents'
-export { ACTIVITY_KINDS, applyActivityFilters, kindOfFilterField, defaultFiltersFrom, countActivity } from './filters'
-export { dayKey, dayLabel, relativeTime, groupByDay, useNow, formatBytes } from './time'
-export type { ActivityDayGroup } from './time'
+} from './documents';
+export { ACTIVITY_KINDS, applyActivityFilters, kindOfFilterField, defaultFiltersFrom, countActivity } from './filters';
+export { dayKey, dayLabel, relativeTime, groupByDay, useNow, formatBytes } from './time';
+export type { ActivityDayGroup } from './time';
 export {
     activityKeys,
     useActivity,
@@ -52,8 +52,14 @@ export {
     useFullJournalEntry,
     useInvalidateActivity,
     isInternalJournal,
-} from './hooks'
-export type { UseActivityOptions, ActivityResult, ActivityFilterState, ActivityFilterOption, PostJournalState } from './hooks'
+} from './hooks';
+export type {
+    UseActivityOptions,
+    ActivityResult,
+    ActivityFilterState,
+    ActivityFilterOption,
+    PostJournalState,
+} from './hooks';
 export type {
     ActivityKind,
     ActivityUser,
@@ -65,4 +71,4 @@ export type {
     ActivityData,
     ActivityFilters,
     JournalFieldInfo,
-} from './types'
+} from './types';

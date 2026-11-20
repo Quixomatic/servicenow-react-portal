@@ -1,7 +1,23 @@
-import { graphql, authHeaders, normalizePolicy, normalizeClientScripts, executeUiAction, CLIENT_SCRIPT_FIELDS } from 'utilities:app/graphql'
-import { uploadAttachment } from 'utilities:app/attachments'
-import type { ClientScript, ClientScripts, UiPolicy } from 'utilities:app/graphql'
-import type { CatalogItem, CatalogVariable, DelegationResult, MrvsRowField, MrvsRowForm, PriceResult, SubmitResult, VariableEditorData } from './types'
+import {
+    graphql,
+    authHeaders,
+    normalizePolicy,
+    normalizeClientScripts,
+    executeUiAction,
+    CLIENT_SCRIPT_FIELDS,
+} from 'utilities:app/graphql';
+import { uploadAttachment } from 'utilities:app/attachments';
+import type { ClientScript, ClientScripts, UiPolicy } from 'utilities:app/graphql';
+import type {
+    CatalogItem,
+    CatalogVariable,
+    DelegationResult,
+    MrvsRowField,
+    MrvsRowForm,
+    PriceResult,
+    SubmitResult,
+    VariableEditorData,
+} from './types';
 
 /**
  * Catalog platform calls (the same ones Workspace's catalog form makes):
@@ -60,19 +76,31 @@ export const ITEM_LAYOUT_QUERY = `query rpCatalogItem($table: String!, $sysId: S
       }
     }
   }
-}`
+}`;
 
-const bool = (v: unknown) => v === true || v === 'true'
+const bool = (v: unknown) => v === true || v === 'true';
 
 /** Item or record producer, with variables, layout and default values, in one GraphQL request. */
-export async function fetchCatalogItem(sysId: string, table = 'sc_cat_item', signal?: AbortSignal): Promise<CatalogItem> {
-    const data = await graphql(ITEM_LAYOUT_QUERY, { table, sysId }, { signal })
-    const V = data && data.AppCatalogView_Query && data.AppCatalogView_Query.itemViewLayout && data.AppCatalogView_Query.itemViewLayout._query
-    const L = V && V.AppCatalog_Query.itemLayout
-    const S = V && V.GlideClientScriptingEnvironment_Query
-    if (!L) throw new Error('Catalog item not found or not available to you')
-    const values: CatalogItem['values'] = {}
-    for (const v of L.variablesValues || []) values[v.name] = { value: v.value == null ? '' : String(v.value), displayValue: v.displayValue == null ? '' : String(v.displayValue) }
+export async function fetchCatalogItem(
+    sysId: string,
+    table = 'sc_cat_item',
+    signal?: AbortSignal
+): Promise<CatalogItem> {
+    const data = await graphql(ITEM_LAYOUT_QUERY, { table, sysId }, { signal });
+    const V =
+        data &&
+        data.AppCatalogView_Query &&
+        data.AppCatalogView_Query.itemViewLayout &&
+        data.AppCatalogView_Query.itemViewLayout._query;
+    const L = V && V.AppCatalog_Query.itemLayout;
+    const S = V && V.GlideClientScriptingEnvironment_Query;
+    if (!L) throw new Error('Catalog item not found or not available to you');
+    const values: CatalogItem['values'] = {};
+    for (const v of L.variablesValues || [])
+        values[v.name] = {
+            value: v.value == null ? '' : String(v.value),
+            displayValue: v.displayValue == null ? '' : String(v.displayValue),
+        };
     return {
         sysId: L.sysId,
         name: L.name || '',
@@ -93,43 +121,62 @@ export async function fetchCatalogItem(sysId: string, table = 'sc_cat_item', sig
         values,
         policies: ((S && S.CatalogClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
         scripts: normalizeClientScripts(S && S.CatalogClientScriptingEnvironment_Scripts),
-    }
+    };
 }
 
-async function restJson(method: string, url: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<any> {
+async function restJson(
+    method: string,
+    url: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>
+): Promise<any> {
     const response = await fetch(url, {
         method,
         credentials: 'same-origin',
         headers: { ...authHeaders(body !== undefined), ...(extraHeaders || {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
-    })
-    const text = await response.text()
-    let json: any = null
+    });
+    const text = await response.text();
+    let json: any = null;
     try {
-        json = text ? JSON.parse(text) : null
+        json = text ? JSON.parse(text) : null;
     } catch (e) {
         /* not JSON */
     }
     if (!response.ok) {
-        const err = json && (json.error || (json.result && json.result.errMsg))
-        const message = (err && (err.message || err.detail || err)) || `HTTP ${response.status}`
-        throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+        const err = json && (json.error || (json.result && json.result.errMsg));
+        const message = (err && (err.message || err.detail || err)) || `HTTP ${response.status}`;
+        throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
     }
-    return json ? json.result : null
+    return json ? json.result : null;
 }
 
 /** Price for the current values and quantity (variables keyed by variable name). */
-export async function fetchItemPrice(itemId: string, variables: Record<string, string>, quantity = '1'): Promise<PriceResult> {
-    const r = (await restJson('POST', `/api/sn_sc/servicecatalog/items/${encodeURIComponent(itemId)}/price`, { sysparm_id: itemId, sysparm_quantity: quantity, variables })) || {}
+export async function fetchItemPrice(
+    itemId: string,
+    variables: Record<string, string>,
+    quantity = '1'
+): Promise<PriceResult> {
+    const r =
+        (await restJson('POST', `/api/sn_sc/servicecatalog/items/${encodeURIComponent(itemId)}/price`, {
+            sysparm_id: itemId,
+            sysparm_quantity: quantity,
+            variables,
+        })) || {};
     return {
         price: r.price ? String(r.price_display || r.price) : '',
-        recurringPrice: r.recurring_frequency ? `${r.recurring_price_display || r.recurring_price} ${r.recurring_frequency}` : '',
+        recurringPrice: r.recurring_frequency
+            ? `${r.recurring_price_display || r.recurring_price} ${r.recurring_frequency}`
+            : '',
         priceValue: Number(r.price || 0),
         recurringValue: Number(r.recurring_price || 0),
         frequency: r.recurring_frequency || '',
         subtotal: r.price_subtotal_display ? String(r.price_subtotal_display) : '',
-        recurringSubtotal: r.recurring_frequency && r.recurring_price_subtotal_display ? `${r.recurring_price_subtotal_display} ${r.recurring_frequency}` : '',
-    }
+        recurringSubtotal:
+            r.recurring_frequency && r.recurring_price_subtotal_display
+                ? `${r.recurring_price_subtotal_display} ${r.recurring_frequency}`
+                : '',
+    };
 }
 
 /**
@@ -137,20 +184,25 @@ export async function fetchItemPrice(itemId: string, variables: Record<string, s
  * MRVS values are JSON arrays of rows (keyed by the set's variable names), as strings.
  */
 export async function submitCatalogItem(args: {
-    itemId: string
-    kind: 'order_now' | 'submit_producer'
-    variables: Record<string, string>
-    quantity?: string
-    requestedFor?: string
-    itemGuid?: string
+    itemId: string;
+    kind: 'order_now' | 'submit_producer';
+    variables: Record<string, string>;
+    quantity?: string;
+    requestedFor?: string;
+    itemGuid?: string;
 }): Promise<SubmitResult> {
-    const body: Record<string, unknown> = { variables: args.variables }
-    if (args.itemGuid) body.sysparm_item_guid = args.itemGuid
+    const body: Record<string, unknown> = { variables: args.variables };
+    if (args.itemGuid) body.sysparm_item_guid = args.itemGuid;
     if (args.kind === 'order_now') {
-        body.sysparm_quantity = args.quantity || '1'
-        if (args.requestedFor) body.sysparm_requested_for = args.requestedFor
+        body.sysparm_quantity = args.quantity || '1';
+        if (args.requestedFor) body.sysparm_requested_for = args.requestedFor;
     }
-    const r = (await restJson('POST', `/api/sn_sc/servicecatalog/items/${encodeURIComponent(args.itemId)}/${args.kind}`, body)) || {}
+    const r =
+        (await restJson(
+            'POST',
+            `/api/sn_sc/servicecatalog/items/${encodeURIComponent(args.itemId)}/${args.kind}`,
+            body
+        )) || {};
     return {
         table: r.table || (args.kind === 'order_now' ? 'sc_request' : ''),
         sysId: r.sys_id || r.request_id || '',
@@ -158,13 +210,18 @@ export async function submitCatalogItem(args: {
         requestNumber: r.request_number,
         requestId: r.request_id,
         raw: r,
-    }
+    };
 }
 
-const SP_PORTAL = '81b75d3147032100ba13a5554ee4902b' // Service Portal id Workspace sends for this widget
+const SP_PORTAL = '81b75d3147032100ba13a5554ee4902b'; // Service Portal id Workspace sends for this widget
 
 /** MRVS row form: field metadata for one row (add) or prefilled from a row (edit). */
-export async function fetchMrvsRowForm(args: { setId: string; itemId: string; sourceTable?: string; row?: Record<string, string> }): Promise<MrvsRowForm> {
+export async function fetchMrvsRowForm(args: {
+    setId: string;
+    itemId: string;
+    sourceTable?: string;
+    row?: Record<string, string>;
+}): Promise<MrvsRowForm> {
     const r = await restJson(
         'POST',
         '/api/now/sp/widget/sc-multi-row-active-row',
@@ -176,14 +233,14 @@ export async function fetchMrvsRowForm(args: { setId: string; itemId: string; so
             row_data: args.row ? JSON.stringify(args.row) : '',
             workspace_form: true,
         },
-        { 'x-portal': SP_PORTAL },
-    )
-    const row = r && r.data && r.data.active_row
-    if (!row) throw new Error('The platform returned no row form for this variable set')
+        { 'x-portal': SP_PORTAL }
+    );
+    const row = r && r.data && r.data.active_row;
+    if (!row) throw new Error('The platform returned no row form for this variable set');
     const fields: MrvsRowField[] = Object.keys(row._fields || {}).map((name) => {
-        const f = row._fields[name]
-        const ed = f.ed || {}
-        const pricing = !!(f._pricing && bool(f._pricing.pricing_implications))
+        const f = row._fields[name];
+        const ed = f.ed || {};
+        const pricing = !!(f._pricing && bool(f._pricing.pricing_implications));
         return {
             name,
             sysId: f.sys_id,
@@ -197,7 +254,12 @@ export async function fetchMrvsRowForm(args: { setId: string; itemId: string; so
             order: Number(f.order || 0),
             unique: bool(f.unique),
             choices: Array.isArray(f.choices)
-                ? f.choices.map((c: any) => ({ value: String(c.value ?? ''), label: String(c.label ?? c.value ?? ''), price: Number(c.price || 0) || 0, recurringPrice: Number(c.recurring_price || 0) || 0 }))
+                ? f.choices.map((c: any) => ({
+                      value: String(c.value ?? ''),
+                      label: String(c.label ?? c.value ?? ''),
+                      price: Number(c.price || 0) || 0,
+                      recurringPrice: Number(c.recurring_price || 0) || 0,
+                  }))
                 : undefined,
             reference: f.refTable || ed.reference || f.reference || undefined,
             referenceQual: ed.qualifier || f.reference_qual || undefined,
@@ -205,18 +267,19 @@ export async function fetchMrvsRowForm(args: { setId: string; itemId: string; so
             helpText: f.help_text || f.instructions || '',
             placeholder: f.placeholder || '',
             pricing,
-        }
-    })
-    fields.sort((a, b) => a.order - b.order)
-    const columns: string[][] = []
-    for (const s of row._sections || []) for (const c of s.columns || []) columns.push((c.fields || []).map((x: any) => x.name))
+        };
+    });
+    fields.sort((a, b) => a.order - b.order);
+    const columns: string[][] = [];
+    for (const s of row._sections || [])
+        for (const c of s.columns || []) columns.push((c.fields || []).map((x: any) => x.name));
     return {
         fields,
         columns: columns.filter((c) => c.length),
         scripts: spClientScripts(row.client_script),
         policies: (Array.isArray(row.policy) ? row.policy : []).map(spPolicy),
         hasPricing: fields.some((f) => f.pricing),
-    }
+    };
 }
 
 /** Service Portal model client scripts ({ onLoad: [...], onChange: [...], onSubmit: [...], messages: {} }) → ClientScripts. */
@@ -231,15 +294,15 @@ export function spClientScripts(s: any): ClientScripts {
                 type: String(x.type || ''),
                 fieldName: String(x.fieldName || x.field_name || x.cat_variable || x.variable_name || x.field || ''),
                 tableName: String(x.tableName || x.table || ''),
-            }))
-    const messages: Record<string, string> = {}
-    const m = s && s.messages
-    if (Array.isArray(m)) for (const x of m) x && x.name && (messages[String(x.name)] = String(x.value ?? x.name))
-    else if (m && typeof m === 'object') for (const k of Object.keys(m)) messages[k] = String(m[k])
-    return { onLoad: list(s && s.onLoad), onChange: list(s && s.onChange), onSubmit: list(s && s.onSubmit), messages }
+            }));
+    const messages: Record<string, string> = {};
+    const m = s && s.messages;
+    if (Array.isArray(m)) for (const x of m) x && x.name && (messages[String(x.name)] = String(x.value ?? x.name));
+    else if (m && typeof m === 'object') for (const k of Object.keys(m)) messages[k] = String(m[k]);
+    return { onLoad: list(s && s.onLoad), onChange: list(s && s.onChange), onSubmit: list(s && s.onSubmit), messages };
 }
 
-const first = (...v: unknown[]) => v.find((x) => x !== undefined && x !== null)
+const first = (...v: unknown[]) => v.find((x) => x !== undefined && x !== null);
 
 /** Service Portal model UI policy (snake_case, as sp widgets receive it) → UiPolicy. Lenient: camelCase works too. */
 export function spPolicy(p: any): UiPolicy {
@@ -252,8 +315,20 @@ export function spPolicy(p: any): UiPolicy {
         isRunScripts: first(p.run_scripts, p.isRunScripts, !!(p.script_true || p.script_false)),
         preEvaluated: p.preEvaluated,
         preEvaluatedResult: p.preEvaluatedResult,
-        scriptTrue: { script: first(p.script_true, p.scriptTrue && p.scriptTrue.script, typeof p.scriptTrue === 'string' ? p.scriptTrue : undefined) },
-        scriptFalse: { script: first(p.script_false, p.scriptFalse && p.scriptFalse.script, typeof p.scriptFalse === 'string' ? p.scriptFalse : undefined) },
+        scriptTrue: {
+            script: first(
+                p.script_true,
+                p.scriptTrue && p.scriptTrue.script,
+                typeof p.scriptTrue === 'string' ? p.scriptTrue : undefined
+            ),
+        },
+        scriptFalse: {
+            script: first(
+                p.script_false,
+                p.scriptFalse && p.scriptFalse.script,
+                typeof p.scriptFalse === 'string' ? p.scriptFalse : undefined
+            ),
+        },
         actions: (p.actions || []).map((a: any) => ({
             name: first(a.name, a.variable, a.catalog_variable, a.field),
             visible: a.visible,
@@ -276,45 +351,62 @@ export function spPolicy(p: any): UiPolicy {
             preEvaluatedTerm: c.preEvaluatedTerm,
             preEvaluatedTermResult: c.preEvaluatedTermResult,
         })),
-    })
+    });
 }
 
 /** Server-side regex validation of a variable (question regex). Resolves with an error message or ''. */
 export async function validateVariableRegex(questionId: string, value: string): Promise<string> {
     const data = await graphql(
-        `query rpVarRegex($questionId: String!, $value: String!) { snSc { serviceCatalog { validateVariableRegex(questionId: $questionId, value: $value) { result errMsg } } } }`,
-        { questionId, value },
-    )
-    const r = data && data.snSc && data.snSc.serviceCatalog && data.snSc.serviceCatalog.validateVariableRegex
-    return r && r.result === false ? r.errMsg || 'Invalid value' : ''
+        `
+            query rpVarRegex($questionId: String!, $value: String!) {
+                snSc {
+                    serviceCatalog {
+                        validateVariableRegex(questionId: $questionId, value: $value) {
+                            result
+                            errMsg
+                        }
+                    }
+                }
+            }
+        `,
+        { questionId, value }
+    );
+    const r = data && data.snSc && data.snSc.serviceCatalog && data.snSc.serviceCatalog.validateVariableRegex;
+    return r && r.result === false ? r.errMsg || 'Invalid value' : '';
 }
 
 /** The platform's message when the delegation check fails (Workspace's requested-for uses the same). */
-export const REQUESTED_FOR_NOT_ELIGIBLE = "This person isn't eligible for this request."
+export const REQUESTED_FOR_NOT_ELIGIBLE = "This person isn't eligible for this request.";
 
 /**
  * Can the current user request this item for `userId` (delegation rights, the item's user criteria
  * for that person)? The platform answers { result: true | false }. An empty user or item is ok.
  */
 export async function canRequestFor(itemId: string, userId: string): Promise<DelegationResult> {
-    if (!itemId || !userId) return { ok: true, message: '' }
-    const r = await restJson('GET', `/api/sn_sc/v1/servicecatalog/items/${encodeURIComponent(itemId)}/delegation/${encodeURIComponent(userId)}`)
+    if (!itemId || !userId) return { ok: true, message: '' };
+    const r = await restJson(
+        'GET',
+        `/api/sn_sc/v1/servicecatalog/items/${encodeURIComponent(itemId)}/delegation/${encodeURIComponent(userId)}`
+    );
     // { result: false, errMsg: 'Item is unavailable for this user' }: shown as Workspace does.
-    if (r === false || (r && (r.result === false || r.result === 'false'))) return { ok: false, message: REQUESTED_FOR_NOT_ELIGIBLE }
+    if (r === false || (r && (r.result === false || r.result === 'false')))
+        return { ok: false, message: REQUESTED_FOR_NOT_ELIGIBLE };
     // Older shapes: { failed_delegations: [...] } / { errMsg } without a result.
-    if (r && Array.isArray(r.failed_delegations) && r.failed_delegations.length) return { ok: false, message: r.failed_delegations.map((f: any) => f.message || f).join(' ') }
-    if (r && r.result === undefined && r.errMsg) return { ok: false, message: String(r.errMsg) }
-    return { ok: true, message: '' }
+    if (r && Array.isArray(r.failed_delegations) && r.failed_delegations.length)
+        return { ok: false, message: r.failed_delegations.map((f: any) => f.message || f).join(' ') };
+    if (r && r.result === undefined && r.errMsg) return { ok: false, message: String(r.errMsg) };
+    return { ok: true, message: '' };
 }
 
 /** Can the current user request this item for `userId`? Resolves with an error message or ''. */
 export async function checkDelegation(itemId: string, userId: string): Promise<string> {
-    return (await canRequestFor(itemId, userId)).message
+    return (await canRequestFor(itemId, userId)).message;
 }
 
 // ---- variable editor (a record's variables) ---------------------------------------------------
 
-const VE_COMMON = 'type id name variableName label order catalogItem variableSet mandatory canRead canWrite showHelp helpText instructions'
+const VE_COMMON =
+    'type id name variableName label order catalogItem variableSet mandatory canRead canWrite showHelp helpText instructions';
 export const VARIABLE_EDITOR_QUERY = `query rpVariableEditor($table: String!, $sysId: String!) {
   GlideUIAction_Query { uiActions(table: $table, sysId: $sysId, query: "", view: "") { formActions { name sysId } } }
   GlideLayout_Query {
@@ -351,9 +443,9 @@ export const VARIABLE_EDITOR_QUERY = `query rpVariableEditor($table: String!, $s
     }
     CatalogClientScriptingEnvironment_Scripts(table: $table, sysId: $sysId, query: "") { ${CLIENT_SCRIPT_FIELDS} }
   }
-}`
+}`;
 
-const SAVE_ACTION_NAMES = ['sysverb_ws_save', 'sysverb_update', 'sysverb_save']
+const SAVE_ACTION_NAMES = ['sysverb_ws_save', 'sysverb_update', 'sysverb_save'];
 
 /**
  * A record's catalog variables, the way Workspace's variable editor gets them: the form layout's
@@ -362,23 +454,40 @@ const SAVE_ACTION_NAMES = ['sysverb_ws_save', 'sysverb_update', 'sysverb_save']
  * target records), and its Save action. The result has the CatalogItem shape (variables, layout,
  * values, policies, scripts), so createCatalogForm and VariableLayout render it unchanged.
  */
-export async function fetchVariableEditor(table: string, sysId: string, signal?: AbortSignal): Promise<VariableEditorData> {
-    const data = await graphql(VARIABLE_EDITOR_QUERY, { table, sysId }, { signal })
-    const L = data && data.GlideLayout_Query && data.GlideLayout_Query.formLayout
-    if (!L || L.isValidRecord === false || L.canReadRecord === false) throw new Error('Record not found or not available to you')
-    const S = data.GlideClientScriptingEnvironment_Query || {}
-    const actions = (data.GlideUIAction_Query && data.GlideUIAction_Query.uiActions && data.GlideUIAction_Query.uiActions.formActions) || []
-    const save = SAVE_ACTION_NAMES.map((n) => actions.find((a: any) => a && a.name === n)).find(Boolean)
-    const element = (L.elementsData || []).find((e: any) => e && Array.isArray(e.variables))
+export async function fetchVariableEditor(
+    table: string,
+    sysId: string,
+    signal?: AbortSignal
+): Promise<VariableEditorData> {
+    const data = await graphql(VARIABLE_EDITOR_QUERY, { table, sysId }, { signal });
+    const L = data && data.GlideLayout_Query && data.GlideLayout_Query.formLayout;
+    if (!L || L.isValidRecord === false || L.canReadRecord === false)
+        throw new Error('Record not found or not available to you');
+    const S = data.GlideClientScriptingEnvironment_Query || {};
+    const actions =
+        (data.GlideUIAction_Query &&
+            data.GlideUIAction_Query.uiActions &&
+            data.GlideUIAction_Query.uiActions.formActions) ||
+        [];
+    const save = SAVE_ACTION_NAMES.map((n) => actions.find((a: any) => a && a.name === n)).find(Boolean);
+    const element = (L.elementsData || []).find((e: any) => e && Array.isArray(e.variables));
     // GlideLayout_* element types mirror the AppCatalog_* ones the catalog form maps.
     const variables: CatalogVariable[] = ((element && element.variables) || [])
         .filter((v: any) => v && v.name)
-        .map((v: any) => ({ ...v, __typename: String(v.__typename || '').replace(/^GlideLayout_/, 'AppCatalog_'), visible: v.visible === undefined ? v.canRead !== false : v.visible && v.canRead !== false }))
-    const values: CatalogItem['values'] = {}
-    let catItemId = ''
+        .map((v: any) => ({
+            ...v,
+            __typename: String(v.__typename || '').replace(/^GlideLayout_/, 'AppCatalog_'),
+            visible: v.visible === undefined ? v.canRead !== false : v.visible && v.canRead !== false,
+        }));
+    const values: CatalogItem['values'] = {};
+    let catItemId = '';
     for (const v of L.recordValues || []) {
-        if (v.name === 'cat_item') catItemId = String(v.value || '')
-        if (String(v.name).indexOf('variables.') === 0) values[v.name] = { value: v.value == null ? '' : String(v.value), displayValue: v.displayValue == null ? '' : String(v.displayValue) }
+        if (v.name === 'cat_item') catItemId = String(v.value || '');
+        if (String(v.name).indexOf('variables.') === 0)
+            values[v.name] = {
+                value: v.value == null ? '' : String(v.value),
+                displayValue: v.displayValue == null ? '' : String(v.displayValue),
+            };
     }
     return {
         sysId: L.sysId || sysId,
@@ -406,7 +515,7 @@ export async function fetchVariableEditor(table: string, sysId: string, signal?:
         catItemId,
         saveActionId: save ? String(save.sysId) : '',
         canWrite: !!(element && element.dictionary && element.dictionary.canWrite !== false),
-    }
+    };
 }
 
 /**
@@ -418,13 +527,13 @@ export async function fetchVariableEditor(table: string, sysId: string, signal?:
  * the platform deletes every row). Business rules, ACLs and data policies run as on any save.
  */
 export async function saveRecordVariables(args: {
-    data: Pick<VariableEditorData, 'table' | 'recordSysId' | 'encodedRecord' | 'saveActionId'>
-    changes: { variable: CatalogVariable; value: string; displayValue?: string; originalValue?: string }[]
+    data: Pick<VariableEditorData, 'table' | 'recordSysId' | 'encodedRecord' | 'saveActionId'>;
+    changes: { variable: CatalogVariable; value: string; displayValue?: string; originalValue?: string }[];
 }) {
-    if (!args.data.saveActionId) throw new Error('This record has no Save action for you')
+    if (!args.data.saveActionId) throw new Error('This record has no Save action for you');
     const fields = args.changes.map((c) => {
-        const v = c.variable
-        const name = v.variableName || String(v.name || '').replace(/^variables\./, '')
+        const v = c.variable;
+        const name = v.variableName || String(v.name || '').replace(/^variables\./, '');
         const field: Record<string, unknown> = {
             name: `variables.${name}`,
             value: c.value,
@@ -436,26 +545,49 @@ export async function saveRecordVariables(args: {
             variableName: name,
             id: v.id,
             type: v.type,
-        }
-        if (v.containerType) field.containerType = v.containerType
+        };
+        if (v.containerType) field.containerType = v.containerType;
         // HARD GUARD: an MRVS posted without containerType + its column fields makes the platform
         // DELETE every row of the set (verified on a test RITM). Refuse rather than risk data loss.
-        const isMrvs = v.containerType === 'one_to_many' || v.__typename === 'AppCatalog_MultiRowVariableSetType' || (v.type === 'container' && !!v.fields)
+        const isMrvs =
+            v.containerType === 'one_to_many' ||
+            v.__typename === 'AppCatalog_MultiRowVariableSetType' ||
+            (v.type === 'container' && !!v.fields);
         if (isMrvs) {
-            const cols = (v.fields || []).filter((f) => f && f.name && f.id)
+            const cols = (v.fields || []).filter((f) => f && f.name && f.id);
             if (v.containerType !== 'one_to_many' || !cols.length || cols.length !== (v.fields || []).length)
-                throw new Error(`Can't save ${v.label || name}: the multi-row set's column metadata is missing, and saving without it would delete its rows`)
-            field.containerType = 'one_to_many'
-            field.fields = cols
+                throw new Error(
+                    `Can't save ${v.label || name}: the multi-row set's column metadata is missing, and saving without it would delete its rows`
+                );
+            field.containerType = 'one_to_many';
+            field.fields = cols;
         }
-        return field
-    })
-    return executeUiAction({ actionSysId: args.data.saveActionId, table: args.data.table, sysId: args.data.recordSysId, encodedRecord: args.data.encodedRecord, fields: fields as any })
+        return field;
+    });
+    return executeUiAction({
+        actionSysId: args.data.saveActionId,
+        table: args.data.table,
+        sysId: args.data.recordSysId,
+        encodedRecord: args.data.encodedRecord,
+        fields: fields as any,
+    });
 }
 
 /** Upload a file for an attachment variable to the form's draft record; resolves with the attachment sys_id. */
-export async function uploadVariableAttachment(args: { file: File; draftTable: string; draftSysId: string; onProgress?: (fraction: number) => void; signal?: AbortSignal }): Promise<{ sysId: string; fileName: string }> {
+export async function uploadVariableAttachment(args: {
+    file: File;
+    draftTable: string;
+    draftSysId: string;
+    onProgress?: (fraction: number) => void;
+    signal?: AbortSignal;
+}): Promise<{ sysId: string; fileName: string }> {
     // The shared upload (utilities:app/attachments): ZZ_YY<draft table> keeps it out of attachment lists.
-    const att = await uploadAttachment({ file: args.file, table: 'ZZ_YY' + args.draftTable, sysId: args.draftSysId, onProgress: args.onProgress, signal: args.signal })
-    return { sysId: att.sysId, fileName: att.fileName }
+    const att = await uploadAttachment({
+        file: args.file,
+        table: 'ZZ_YY' + args.draftTable,
+        sysId: args.draftSysId,
+        onProgress: args.onProgress,
+        signal: args.signal,
+    });
+    return { sysId: att.sysId, fileName: att.fileName };
 }

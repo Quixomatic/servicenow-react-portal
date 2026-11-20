@@ -1,23 +1,65 @@
 /* Knowledge home: columns follow the widget's width (container queries). */
-.rp-kbh { container-type: inline-size; container-name: rp-kbh; }
-.rp-kbh-bases { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
-.rp-kbh-feat { display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 1fr); }
-.rp-kbh-lists { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.rp-kbh {
+    container-type: inline-size;
+    container-name: rp-kbh;
+}
+.rp-kbh-bases {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+.rp-kbh-feat {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+.rp-kbh-lists {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
 @container rp-kbh (min-width: 620px) {
-    .rp-kbh-bases { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rp-kbh-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rp-kbh-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rp-kbh-cats { grid-column: 1 / -1; }
+    .rp-kbh-bases {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .rp-kbh-feat {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .rp-kbh-lists {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .rp-kbh-cats {
+        grid-column: 1 / -1;
+    }
 }
 @container rp-kbh (min-width: 980px) {
-    .rp-kbh-bases { grid-template-columns: repeat(var(--rp-kbh-cols, 3), minmax(0, 1fr)); }
-    .rp-kbh-feat { grid-template-columns: repeat(var(--rp-kbh-feat-cols, 3), minmax(0, 1fr)); }
-    .rp-kbh-lists { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 17rem; }
-    .rp-kbh-cats { grid-column: auto; }
+    .rp-kbh-bases {
+        grid-template-columns: repeat(var(--rp-kbh-cols, 3), minmax(0, 1fr));
+    }
+    .rp-kbh-feat {
+        grid-template-columns: repeat(var(--rp-kbh-feat-cols, 3), minmax(0, 1fr));
+    }
+    .rp-kbh-lists {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 17rem;
+    }
+    .rp-kbh-cats {
+        grid-column: auto;
+    }
 }
 /* One knowledge base: a wide card, its busiest categories beside the description. */
 @container rp-kbh (min-width: 620px) {
-    .rp-kbh-wide { flex-direction: row; }
-    .rp-kbh-wide > :first-child { flex: 1 1 0; min-width: 0; }
-    .rp-kbh-wide > .rp-kbh-chips { flex: 0 1 46%; border-top: 0; border-left: 1px solid var(--border); padding: 1rem 1.25rem; }
+    .rp-kbh-wide {
+        flex-direction: row;
+    }
+    .rp-kbh-wide > :first-child {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .rp-kbh-wide > .rp-kbh-chips {
+        flex: 0 1 46%;
+        border-top: 0;
+        border-left: 1px solid var(--border);
+        padding: 1rem 1.25rem;
+    }
 }

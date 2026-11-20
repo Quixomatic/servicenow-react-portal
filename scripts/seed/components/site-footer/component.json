@@ -1,1 +1,7 @@
-{ "name": "Site Footer", "kind": "widget", "tailwind": true, "entry": "main.jsx", "defaults": { "text": "", "menu": "footer" } }
+{
+    "name": "Site Footer",
+    "kind": "widget",
+    "tailwind": true,
+    "entry": "main.jsx",
+    "defaults": { "text": "", "menu": "footer" }
+}

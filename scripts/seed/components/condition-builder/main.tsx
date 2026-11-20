@@ -11,27 +11,27 @@
  *   <FieldPicker table value onChange dotWalk? />   the field picker on its own
  *   <ValueEditor editor table field … />            one condition value editor
  */
-import { useState } from 'react'
-import { ConditionBuilder } from './builder'
-import { FilterBreadcrumbs } from './breadcrumbs'
+import { useState } from 'react';
+import { ConditionBuilder } from './builder';
+import { FilterBreadcrumbs } from './breadcrumbs';
 
-export { ConditionBuilder, btn } from './builder'
-export type { ConditionBuilderProps } from './builder'
-export { FilterBreadcrumbs } from './breadcrumbs'
-export type { FilterBreadcrumbsProps } from './breadcrumbs'
-export { FieldPicker } from './field-picker'
-export type { FieldPickerProps, PickedField } from './field-picker'
-export { ValueEditor } from './value-editor'
-export type { ValueEditorProps } from './value-editor'
+export { ConditionBuilder, btn } from './builder';
+export type { ConditionBuilderProps } from './builder';
+export { FilterBreadcrumbs } from './breadcrumbs';
+export type { FilterBreadcrumbsProps } from './breadcrumbs';
+export { FieldPicker } from './field-picker';
+export type { FieldPickerProps, PickedField } from './field-picker';
+export { ValueEditor } from './value-editor';
+export type { ValueEditorProps } from './value-editor';
 
 /** Preview (Studio): builder + breadcrumbs on incident. */
 export default function ConditionBuilderPreview() {
-    const [query, setQuery] = useState('active=true^priority<=2')
+    const [query, setQuery] = useState('active=true^priority<=2');
     return (
         <div className="flex flex-col gap-4 p-4">
             <FilterBreadcrumbs table="incident" query={query} onChange={setQuery} />
             <ConditionBuilder table="incident" value={query} onApply={setQuery} />
             <code className="text-xs break-all text-muted-foreground">{query}</code>
         </div>
-    )
+    );
 }

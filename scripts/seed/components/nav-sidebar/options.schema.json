@@ -1,28 +1,28 @@
 {
-  "type": "object",
-  "properties": {
-    "title": {
-      "type": "string",
-      "title": "Heading",
-      "default": "Pages"
-    },
-    "menu": {
-      "type": "string",
-      "title": "Menu",
-      "description": "Menu key (useNavigation)",
-      "default": "primary"
-    },
-    "collapsible": {
-      "type": "string",
-      "title": "Collapse mode",
-      "enum": ["offcanvas", "icon", "none"],
-      "enumNames": ["Slide out (offcanvas)", "Icon rail with tooltips", "Never collapses"],
-      "description": "The header's toggle and Ctrl/Cmd+B collapse it; on mobile it is an overlay sheet."
-    },
-    "width": {
-      "type": "string",
-      "title": "Expanded width",
-      "default": "220px"
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string",
+            "title": "Heading",
+            "default": "Pages"
+        },
+        "menu": {
+            "type": "string",
+            "title": "Menu",
+            "description": "Menu key (useNavigation)",
+            "default": "primary"
+        },
+        "collapsible": {
+            "type": "string",
+            "title": "Collapse mode",
+            "enum": ["offcanvas", "icon", "none"],
+            "enumNames": ["Slide out (offcanvas)", "Icon rail with tooltips", "Never collapses"],
+            "description": "The header's toggle and Ctrl/Cmd+B collapse it; on mobile it is an overlay sheet."
+        },
+        "width": {
+            "type": "string",
+            "title": "Expanded width",
+            "default": "220px"
+        }
     }
-  }
 }

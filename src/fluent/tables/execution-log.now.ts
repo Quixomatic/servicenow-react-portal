@@ -1,5 +1,14 @@
-import '@servicenow/sdk/global'
-import { Table, Form, default_view, StringColumn, ReferenceColumn, ChoiceColumn, IntegerColumn, MultiLineTextColumn } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import {
+    Table,
+    Form,
+    default_view,
+    StringColumn,
+    ReferenceColumn,
+    ChoiceColumn,
+    IntegerColumn,
+    MultiLineTextColumn,
+} from '@servicenow/sdk/core';
 
 /** Server-script execution log (errors always; successes when log_executions is on). Trimmed nightly. */
 export const x_312987_portal_execution_log = Table({
@@ -12,8 +21,16 @@ export const x_312987_portal_execution_log = Table({
         portal: ReferenceColumn({ label: 'Portal', referenceTable: 'x_312987_portal_portal', cascadeRule: 'clear' }),
         release: ReferenceColumn({ label: 'Release', referenceTable: 'x_312987_portal_release', cascadeRule: 'clear' }),
         build: ReferenceColumn({ label: 'Build', referenceTable: 'x_312987_portal_build', cascadeRule: 'clear' }),
-        placement: ReferenceColumn({ label: 'Instance', referenceTable: 'x_312987_portal_placement', cascadeRule: 'clear' }),
-        component: ReferenceColumn({ label: 'Component', referenceTable: 'x_312987_portal_component', cascadeRule: 'clear' }),
+        placement: ReferenceColumn({
+            label: 'Instance',
+            referenceTable: 'x_312987_portal_placement',
+            cascadeRule: 'clear',
+        }),
+        component: ReferenceColumn({
+            label: 'Component',
+            referenceTable: 'x_312987_portal_component',
+            cascadeRule: 'clear',
+        }),
         instance: StringColumn({ label: 'Instance ID', maxLength: 255 }),
         action: StringColumn({ label: 'Action', maxLength: 40 }),
         duration_ms: IntegerColumn({ label: 'Duration (ms)' }),
@@ -30,7 +47,7 @@ export const x_312987_portal_execution_log = Table({
         sanitized_error: MultiLineTextColumn({ label: 'Error', maxLength: 1000 }),
     },
     index: [{ name: 'rp_log_correlation', element: 'correlation_id', unique: false }],
-})
+});
 
 Form({
     table: 'x_312987_portal_execution_log',
@@ -60,4 +77,4 @@ Form({
             ],
         },
     ],
-})
+});

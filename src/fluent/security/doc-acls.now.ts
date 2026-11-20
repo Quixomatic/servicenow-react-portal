@@ -1,6 +1,6 @@
-import '@servicenow/sdk/global'
-import { Acl } from '@servicenow/sdk/core'
-import { adminRole } from './roles.now'
+import '@servicenow/sdk/global';
+import { Acl } from '@servicenow/sdk/core';
+import { adminRole } from './roles.now';
 
 /**
  * x_312987_portal_doc (the docs portal's pages). Any logged-in user reads active rows: the docs
@@ -18,7 +18,7 @@ Acl({
     condition: 'active=true',
     adminOverrides: true,
     description: 'React Portal: read active doc pages (logged-in users)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-doc-write'],
@@ -28,7 +28,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on doc page',
-})
+});
 
 Acl({
     $id: Now.ID['acl-doc-create'],
@@ -38,7 +38,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on doc page',
-})
+});
 
 Acl({
     $id: Now.ID['acl-doc-delete'],
@@ -48,4 +48,4 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on doc page',
-})
+});

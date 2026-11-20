@@ -12,1113 +12,2323 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.19.0/src/server/'
-    var releases = require(ROOT + 'release/release-service.ts')
-    var T = 'x_312987_portal_'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.19.0/src/server/';
+    var releases = require(ROOT + 'release/release-service.ts');
+    var T = 'x_312987_portal_';
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
-    var UC_ITIL = '2f137fb2eb303010e0ef83c45e52287c'
-    var log = []
+    var UC_ITIL = '2f137fb2eb303010e0ef83c45e52287c';
+    var log = [];
 
     // ---- Batch mode (seed performance) ----
     // 'full' seeds everything; 'components' (build-seed --only a,b) seeds just those components.
-    var SEED_MODE = '__SEED_MODE__'
+    var SEED_MODE = '__SEED_MODE__';
     // Run id (tags the "[seed] done" / failure syslog lines; scripts/seed/run-seed.mjs polls for it)
     // and this template's hash, stored by portals/full runs in TEMPLATE_HASH_PROPERTY when they finish
     // so `npm run seed` reruns the portals step only after the template changes.
-    var SEED_RUN_ID = '__SEED_RUN_ID__'
-    var SEED_TEMPLATE_HASH = '__SEED_TEMPLATE_HASH__'
-    var TEMPLATE_HASH_PROPERTY = 'x_312987_portal.seed.template_hash'
+    var SEED_RUN_ID = '__SEED_RUN_ID__';
+    var SEED_TEMPLATE_HASH = '__SEED_TEMPLATE_HASH__';
+    var TEMPLATE_HASH_PROPERTY = 'x_312987_portal.seed.template_hash';
     // While the seed runs, the compile-on-save rules and per-write portal reprocessing are off:
     // every component compiles ONCE in dependency order below, and every active portal reprocesses
     // ONCE at the end. Without this, each changed record compiled on save, then again in the pass,
     // and each compile rebuilt every portal using it.
-    var seedSession = gs.getSession()
-    var SKIP_COMPILE = 'x_312987_portal.skip_compile'
-    var SKIP_REPROCESS = 'x_312987_portal.skip_reprocess'
-    seedSession.putClientData(SKIP_COMPILE, 'true')
-    seedSession.putClientData(SKIP_REPROCESS, 'true')
+    var seedSession = gs.getSession();
+    var SKIP_COMPILE = 'x_312987_portal.skip_compile';
+    var SKIP_REPROCESS = 'x_312987_portal.skip_reprocess';
+    seedSession.putClientData(SKIP_COMPILE, 'true');
+    seedSession.putClientData(SKIP_REPROCESS, 'true');
     function clearBatchFlags() {
-        seedSession.putClientData(SKIP_COMPILE, '')
-        seedSession.putClientData(SKIP_REPROCESS, '')
+        seedSession.putClientData(SKIP_COMPILE, '');
+        seedSession.putClientData(SKIP_REPROCESS, '');
     }
-    var seedT0 = Date.now()
-    var seedTimes = []
-    var seedStats = { written: 0, compiled: 0, upToDate: 0, failed: 0, portals: 0, byTable: {} }
+    var seedT0 = Date.now();
+    var seedTimes = [];
+    var seedStats = { written: 0, compiled: 0, upToDate: 0, failed: 0, portals: 0, byTable: {} };
     function mark(label) {
-        seedTimes.push(label + ' ' + (Date.now() - seedT0) + 'ms')
+        seedTimes.push(label + ' ' + (Date.now() - seedT0) + 'ms');
     }
     try {
-
-    // Stored vs wanted, ignoring formatting the platform adds: JSON fields compare by canonical
-    // content (key order and whitespace don't matter), booleans as 'true'/'1', text with CRLF/LF
-    // normalised. Without this, unchanged records were rewritten on every run.
-    function canonical(x) {
-        if (Array.isArray(x)) return '[' + x.map(canonical).join(',') + ']'
-        if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map(function (key) { return JSON.stringify(key) + ':' + canonical(x[key]) }).join(',') + '}'
-        return JSON.stringify(x)
-    }
-    function sameValue(stored, wantedStr, wanted) {
-        var cur = String(stored === null || stored === undefined ? '' : stored)
-        if (cur === wantedStr) return true
-        if (typeof wanted === 'boolean') return (cur === '1' || cur === 'true') === wanted
-        if (cur.replace(/\r\n/g, '\n') === wantedStr.replace(/\r\n/g, '\n')) return true
-        if (wanted !== null && typeof wanted === 'object') {
-            try { return canonical(JSON.parse(cur || 'null')) === canonical(wanted) } catch (e) { return false }
+        // Stored vs wanted, ignoring formatting the platform adds: JSON fields compare by canonical
+        // content (key order and whitespace don't matter), booleans as 'true'/'1', text with CRLF/LF
+        // normalised. Without this, unchanged records were rewritten on every run.
+        function canonical(x) {
+            if (Array.isArray(x)) return '[' + x.map(canonical).join(',') + ']';
+            if (x && typeof x === 'object')
+                return (
+                    '{' +
+                    Object.keys(x)
+                        .sort()
+                        .map(function (key) {
+                            return JSON.stringify(key) + ':' + canonical(x[key]);
+                        })
+                        .join(',') +
+                    '}'
+                );
+            return JSON.stringify(x);
         }
-        return false
-    }
-
-    function upsert(table, query, fields) {
-        var gr = new GlideRecord(T + table)
-        gr.addEncodedQuery(query)
-        gr.setLimit(1)
-        gr.query()
-        var isNew = !gr.next()
-        if (isNew) gr.initialize()
-        var dirty = isNew
-        for (var k in fields) {
-            var v = fields[k]
-            var s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
-            if (isNew || !sameValue(gr.getValue(k), s, v)) {
-                gr.setValue(k, s)
-                dirty = true
+        function sameValue(stored, wantedStr, wanted) {
+            var cur = String(stored === null || stored === undefined ? '' : stored);
+            if (cur === wantedStr) return true;
+            if (typeof wanted === 'boolean') return (cur === '1' || cur === 'true') === wanted;
+            if (cur.replace(/\r\n/g, '\n') === wantedStr.replace(/\r\n/g, '\n')) return true;
+            if (wanted !== null && typeof wanted === 'object') {
+                try {
+                    return canonical(JSON.parse(cur || 'null')) === canonical(wanted);
+                } catch (e) {
+                    return false;
+                }
             }
+            return false;
         }
-        var id = isNew ? gr.insert() : dirty ? (gr.update(), gr.getUniqueValue()) : gr.getUniqueValue()
-        if (!id) throw new Error('Could not write ' + table + ' ' + query + ': ' + gs.getErrorMessages())
-        if (dirty) {
-            seedStats.written++
-            seedStats.byTable[table] = (seedStats.byTable[table] || 0) + 1
-        }
-        return id
-    }
 
-    // User criteria m2m rows ("Available for" / "Not available for") for a portal, page or menu item:
-    // def.availableFor / def.notAvailableFor are arrays of existing user_criteria sys_ids. Additive:
-    // rows are upserted, never removed. kind: 'portal' | 'page' | 'item' (table x_312987_portal_<kind>_uc[_no]).
-    function seedCriteria(kind, ownerField, ownerId, def) {
-        var lists = [['_uc', def.availableFor || []], ['_uc_no', def.notAvailableFor || []]]
-        for (var l = 0; l < lists.length; l++) {
-            for (var c = 0; c < lists[l][1].length; c++) {
-                var ucId = lists[l][1][c]
-                var fields = { user_criteria: ucId }
-                fields[ownerField] = ownerId
-                upsert(kind + lists[l][0], ownerField + '=' + ownerId + '^user_criteria=' + ucId, fields)
+        function upsert(table, query, fields) {
+            var gr = new GlideRecord(T + table);
+            gr.addEncodedQuery(query);
+            gr.setLimit(1);
+            gr.query();
+            var isNew = !gr.next();
+            if (isNew) gr.initialize();
+            var dirty = isNew;
+            for (var k in fields) {
+                var v = fields[k];
+                var s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+                if (isNew || !sameValue(gr.getValue(k), s, v)) {
+                    gr.setValue(k, s);
+                    dirty = true;
+                }
             }
-        }
-    }
-
-    /* ---------------- Themes ---------------- */
-
-    var themes = {
-        'sp-light': {
-            name: 'Service Portal',
-            tokens: {
-                light: {
-                    background: 'oklch(0.99 0.003 260)', foreground: 'oklch(0.21 0.02 260)',
-                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.21 0.02 260)',
-                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.21 0.02 260)',
-                    primary: 'oklch(0.55 0.2 260)', 'primary-foreground': 'oklch(0.98 0 0)',
-                    secondary: 'oklch(0.95 0.015 260)', 'secondary-foreground': 'oklch(0.25 0.03 260)',
-                    muted: 'oklch(0.96 0.01 260)', 'muted-foreground': 'oklch(0.5 0.03 260)',
-                    accent: 'oklch(0.95 0.02 260)', 'accent-foreground': 'oklch(0.25 0.03 260)',
-                    destructive: 'oklch(0.58 0.22 27)', border: 'oklch(0.9 0.01 260)', input: 'oklch(0.9 0.01 260)',
-                    ring: 'oklch(0.55 0.2 260)', radius: '0.5rem',
-                    // App shell: a faintly blue sidebar canvas around the white main card; icon-tile
-                    // tints stay in sp's blue family.
-                    'chart-1': 'oklch(0.55 0.2 260)', 'chart-2': 'oklch(0.58 0.12 220)', 'chart-3': 'oklch(0.55 0.17 290)',
-                    'chart-4': 'oklch(0.64 0.15 60)', 'chart-5': 'oklch(0.57 0.12 165)',
-                    sidebar: 'oklch(0.97 0.01 260)', 'sidebar-foreground': 'oklch(0.25 0.03 260)',
-                    'sidebar-primary': 'oklch(0.55 0.2 260)', 'sidebar-primary-foreground': 'oklch(0.98 0 0)',
-                    'sidebar-accent': 'oklch(0.55 0.2 260 / 0.08)', 'sidebar-accent-foreground': 'oklch(0.21 0.02 260)',
-                    'sidebar-border': 'oklch(0.9 0.012 260)', 'sidebar-ring': 'oklch(0.55 0.2 260)',
-                },
-                dark: {
-                    background: 'oklch(0.17 0.02 260)', foreground: 'oklch(0.95 0.01 260)',
-                    card: 'oklch(0.21 0.025 260)', 'card-foreground': 'oklch(0.95 0.01 260)',
-                    popover: 'oklch(0.21 0.025 260)', 'popover-foreground': 'oklch(0.95 0.01 260)',
-                    primary: 'oklch(0.68 0.17 260)', 'primary-foreground': 'oklch(0.17 0.02 260)',
-                    secondary: 'oklch(0.27 0.03 260)', 'secondary-foreground': 'oklch(0.95 0.01 260)',
-                    muted: 'oklch(0.25 0.025 260)', 'muted-foreground': 'oklch(0.7 0.03 260)',
-                    accent: 'oklch(0.28 0.04 260)', 'accent-foreground': 'oklch(0.95 0.01 260)',
-                    destructive: 'oklch(0.65 0.2 25)', border: 'oklch(1 0 0 / 12%)', input: 'oklch(1 0 0 / 15%)',
-                    ring: 'oklch(0.68 0.17 260)', radius: '0.5rem',
-                    'chart-1': 'oklch(0.72 0.15 260)', 'chart-2': 'oklch(0.76 0.11 220)', 'chart-3': 'oklch(0.74 0.14 290)',
-                    'chart-4': 'oklch(0.8 0.13 70)', 'chart-5': 'oklch(0.76 0.12 165)',
-                    sidebar: 'oklch(0.14 0.018 260)', 'sidebar-foreground': 'oklch(0.93 0.01 260)',
-                    'sidebar-primary': 'oklch(0.68 0.17 260)', 'sidebar-primary-foreground': 'oklch(0.17 0.02 260)',
-                    'sidebar-accent': 'oklch(1 0 0 / 0.06)', 'sidebar-accent-foreground': 'oklch(0.95 0.01 260)',
-                    'sidebar-border': 'oklch(1 0 0 / 10%)', 'sidebar-ring': 'oklch(0.68 0.17 260)',
-                },
-            },
-            stylesheet: ':host { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
-        },
-        'crm-dark': {
-            name: 'CRM',
-            tokens: {
-                light: {
-                    background: 'oklch(0.985 0.005 160)', foreground: 'oklch(0.2 0.02 250)',
-                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.2 0.02 250)',
-                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.2 0.02 250)',
-                    primary: 'oklch(0.6 0.15 160)', 'primary-foreground': 'oklch(0.99 0 0)',
-                    secondary: 'oklch(0.95 0.02 160)', 'secondary-foreground': 'oklch(0.25 0.03 250)',
-                    muted: 'oklch(0.96 0.01 200)', 'muted-foreground': 'oklch(0.48 0.02 250)',
-                    accent: 'oklch(0.94 0.03 160)', 'accent-foreground': 'oklch(0.25 0.03 250)',
-                    destructive: 'oklch(0.58 0.22 27)', border: 'oklch(0.9 0.01 200)', input: 'oklch(0.9 0.01 200)',
-                    ring: 'oklch(0.6 0.15 160)', radius: '0.25rem',
-                },
-                dark: {
-                    background: 'oklch(0.18 0.02 250)', foreground: 'oklch(0.95 0.01 250)',
-                    card: 'oklch(0.23 0.02 250)', 'card-foreground': 'oklch(0.95 0.01 250)',
-                    popover: 'oklch(0.23 0.02 250)', 'popover-foreground': 'oklch(0.95 0.01 250)',
-                    primary: 'oklch(0.74 0.17 160)', 'primary-foreground': 'oklch(0.18 0.02 250)',
-                    secondary: 'oklch(0.28 0.02 250)', 'secondary-foreground': 'oklch(0.95 0.01 250)',
-                    muted: 'oklch(0.27 0.02 250)', 'muted-foreground': 'oklch(0.7 0.02 250)',
-                    accent: 'oklch(0.3 0.03 200)', 'accent-foreground': 'oklch(0.95 0.01 250)',
-                    destructive: 'oklch(0.65 0.2 25)', border: 'oklch(0.32 0.02 250)', input: 'oklch(0.35 0.02 250)',
-                    ring: 'oklch(0.74 0.17 160)', radius: '0.25rem',
-                },
-            },
-            stylesheet: ':host { font-family: "Inter", system-ui, sans-serif; letter-spacing: 0.01em; }',
-        },
-        // ChannelGuide's dashboard palette: neutral light, cool blue-black dark, shadcn sidebar tokens,
-        // chart-1…5 as the icon-tile tints, and the noise texture (--rp-noise) the app shell's page
-        // background uses.
-        'app-neutral': {
-            name: 'App Neutral',
-            tokens: {
-                light: {
-                    background: 'oklch(1 0 0)', foreground: 'oklch(0.31 0 0)',
-                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.31 0 0)',
-                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.31 0 0)',
-                    primary: 'oklch(0.55 0.22 264)', 'primary-foreground': 'oklch(0.99 0 0)',
-                    secondary: 'oklch(0.97 0 0)', 'secondary-foreground': 'oklch(0.31 0 0)',
-                    muted: 'oklch(0.97 0 0)', 'muted-foreground': 'oklch(0.52 0 0)',
-                    accent: 'oklch(0.97 0 0)', 'accent-foreground': 'oklch(0.31 0 0)',
-                    destructive: 'oklch(0.577 0.245 27.325)', border: 'oklch(0.92 0 0)', input: 'oklch(0.92 0 0)',
-                    ring: 'oklch(0.705 0 0)', radius: '0.45rem',
-                    'chart-1': 'oklch(0.6 0.11 215)', 'chart-2': 'oklch(0.51 0.2 277)', 'chart-3': 'oklch(0.54 0.22 293)',
-                    'chart-4': 'oklch(0.62 0.15 60)', 'chart-5': 'oklch(0.56 0.13 163)',
-                    sidebar: 'oklch(0.985 0 0)', 'sidebar-foreground': 'oklch(0.31 0 0)',
-                    'sidebar-primary': 'oklch(0.55 0.22 264)', 'sidebar-primary-foreground': 'oklch(0.99 0 0)',
-                    'sidebar-accent': 'oklch(0 0 0 / 0.05)', 'sidebar-accent-foreground': 'oklch(0.31 0 0)',
-                    'sidebar-border': 'oklch(0.92 0 0)', 'sidebar-ring': 'oklch(0.705 0 0)',
-                },
-                dark: {
-                    background: 'oklch(0.176 0.013 258)', foreground: 'oklch(0.97 0.009 250)',
-                    card: 'oklch(0.216 0.015 257)', 'card-foreground': 'oklch(0.97 0.009 250)',
-                    popover: 'oklch(0.216 0.015 257)', 'popover-foreground': 'oklch(0.97 0.009 250)',
-                    primary: 'oklch(0.52 0.2 262)', 'primary-foreground': 'oklch(0.985 0.01 255)',
-                    secondary: 'oklch(0.272 0.013 257)', 'secondary-foreground': 'oklch(0.97 0.009 250)',
-                    muted: 'oklch(0.272 0.013 257)', 'muted-foreground': 'oklch(0.68 0.016 254)',
-                    accent: 'oklch(0.272 0.013 257)', 'accent-foreground': 'oklch(0.97 0.009 250)',
-                    destructive: 'oklch(0.704 0.191 22.216)', border: 'oklch(1 0 0 / 10%)', input: 'oklch(1 0 0 / 15%)',
-                    ring: 'oklch(0.552 0.02 258)', radius: '0.45rem',
-                    'chart-1': 'oklch(0.78 0.11 215)', 'chart-2': 'oklch(0.72 0.14 277)', 'chart-3': 'oklch(0.74 0.15 293)',
-                    'chart-4': 'oklch(0.8 0.13 70)', 'chart-5': 'oklch(0.76 0.13 163)',
-                    sidebar: 'oklch(0.2 0.014 258)', 'sidebar-foreground': 'oklch(0.97 0.009 250)',
-                    'sidebar-primary': 'oklch(0.585 0.2 262)', 'sidebar-primary-foreground': 'oklch(0.985 0.01 255)',
-                    'sidebar-accent': 'oklch(1 0 0 / 0.06)', 'sidebar-accent-foreground': 'oklch(0.97 0.009 250)',
-                    'sidebar-border': 'oklch(1 0 0 / 10%)', 'sidebar-ring': 'oklch(0.552 0.02 258)',
-                },
-            },
-            stylesheet: ':host { font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; --rp-noise: url("__ASSET_DATA_URI:noisy-light.png__"); }\n' +
-                ':host(.dark) { --rp-noise: url("__ASSET_DATA_URI:noisy-dark.jpg__"); }',
-        },
-        // The docs portal's own theme: starts as a copy of sp-light (blue primary, sidebar tints, chart-1…5
-        // icon tiles, system-ui), so it sits in line with the Service Portal and can diverge later.
-        docs: {
-            name: 'Docs',
-            tokens: {
-                light: {
-                    background: 'oklch(0.99 0.003 260)', foreground: 'oklch(0.21 0.02 260)',
-                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.21 0.02 260)',
-                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.21 0.02 260)',
-                    primary: 'oklch(0.55 0.2 260)', 'primary-foreground': 'oklch(0.98 0 0)',
-                    secondary: 'oklch(0.95 0.015 260)', 'secondary-foreground': 'oklch(0.25 0.03 260)',
-                    muted: 'oklch(0.96 0.01 260)', 'muted-foreground': 'oklch(0.5 0.03 260)',
-                    accent: 'oklch(0.95 0.02 260)', 'accent-foreground': 'oklch(0.25 0.03 260)',
-                    destructive: 'oklch(0.58 0.22 27)', border: 'oklch(0.9 0.01 260)', input: 'oklch(0.9 0.01 260)',
-                    ring: 'oklch(0.55 0.2 260)', radius: '0.5rem',
-                    // App shell: a faintly blue sidebar canvas around the white main card; icon-tile
-                    // tints stay in sp's blue family.
-                    'chart-1': 'oklch(0.55 0.2 260)', 'chart-2': 'oklch(0.58 0.12 220)', 'chart-3': 'oklch(0.55 0.17 290)',
-                    'chart-4': 'oklch(0.64 0.15 60)', 'chart-5': 'oklch(0.57 0.12 165)',
-                    sidebar: 'oklch(0.97 0.01 260)', 'sidebar-foreground': 'oklch(0.25 0.03 260)',
-                    'sidebar-primary': 'oklch(0.55 0.2 260)', 'sidebar-primary-foreground': 'oklch(0.98 0 0)',
-                    'sidebar-accent': 'oklch(0.55 0.2 260 / 0.08)', 'sidebar-accent-foreground': 'oklch(0.21 0.02 260)',
-                    'sidebar-border': 'oklch(0.9 0.012 260)', 'sidebar-ring': 'oklch(0.55 0.2 260)',
-                },
-                dark: {
-                    background: 'oklch(0.17 0.02 260)', foreground: 'oklch(0.95 0.01 260)',
-                    card: 'oklch(0.21 0.025 260)', 'card-foreground': 'oklch(0.95 0.01 260)',
-                    popover: 'oklch(0.21 0.025 260)', 'popover-foreground': 'oklch(0.95 0.01 260)',
-                    primary: 'oklch(0.68 0.17 260)', 'primary-foreground': 'oklch(0.17 0.02 260)',
-                    secondary: 'oklch(0.27 0.03 260)', 'secondary-foreground': 'oklch(0.95 0.01 260)',
-                    muted: 'oklch(0.25 0.025 260)', 'muted-foreground': 'oklch(0.7 0.03 260)',
-                    accent: 'oklch(0.28 0.04 260)', 'accent-foreground': 'oklch(0.95 0.01 260)',
-                    destructive: 'oklch(0.65 0.2 25)', border: 'oklch(1 0 0 / 12%)', input: 'oklch(1 0 0 / 15%)',
-                    ring: 'oklch(0.68 0.17 260)', radius: '0.5rem',
-                    'chart-1': 'oklch(0.72 0.15 260)', 'chart-2': 'oklch(0.76 0.11 220)', 'chart-3': 'oklch(0.74 0.14 290)',
-                    'chart-4': 'oklch(0.8 0.13 70)', 'chart-5': 'oklch(0.76 0.12 165)',
-                    sidebar: 'oklch(0.14 0.018 260)', 'sidebar-foreground': 'oklch(0.93 0.01 260)',
-                    'sidebar-primary': 'oklch(0.68 0.17 260)', 'sidebar-primary-foreground': 'oklch(0.17 0.02 260)',
-                    'sidebar-accent': 'oklch(1 0 0 / 0.06)', 'sidebar-accent-foreground': 'oklch(0.95 0.01 260)',
-                    'sidebar-border': 'oklch(1 0 0 / 10%)', 'sidebar-ring': 'oklch(0.68 0.17 260)',
-                },
-            },
-            stylesheet: ':host { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
-        },
-    }
-    var themeIds = {}
-    for (var tk in themes) {
-        var th = themes[tk]
-        themeIds[tk] = upsert('theme', 'key=' + tk, { name: th.name, key: tk, active: true, tokens_json: th.tokens, stylesheet: th.stylesheet })
-    }
-
-    /* ---------------- Components (real source: scripts/seed/components/<key>/) ---------------- */
-
-    // Injected by scripts/seed/build-seed.mjs from the component folders.
-    var components = __COMPONENTS_JSON__
-
-    function buildOf(componentId) {
-        var b = new GlideRecord(T + 'build')
-        b.addQuery('component', componentId)
-        b.setLimit(1)
-        b.query()
-        return b.next() ? b : null
-    }
-
-    var C = {}
-    for (var key in components) {
-        var c = components[key]
-        // Saving the record triggers "RP: Compile component on save" (server compiler).
-        C[key] = upsert('component', 'unique_id=app/' + key, {
-            name: c.meta.name,
-            namespace: 'app',
-            key: key,
-            kind: c.meta.kind,
-            active: true,
-            placeable: c.meta.kind === 'widget',
-            server_mode: c.meta.serverMode || 'none',
-            tailwind: c.meta.tailwind !== false,
-            client_script: c.clientScript,
-            css: c.css || '',
-            script: c.serverScript || '',
-            regions_json: c.meta.regions || '',
-            default_options_json: c.meta.defaults || {},
-            options_schema_json: c.optionsSchema || '',
-        })
-        // Extra files (each insert/update also recompiles the component).
-        var keepPaths = {}
-        for (var i = 0; i < c.extraFiles.length; i++) {
-            var f = c.extraFiles[i]
-            keepPaths[f.path] = true
-            upsert('source_file', 'component=' + C[key] + '^path=' + f.path, { component: C[key], path: f.path, target: f.target, content_text: f.content })
-        }
-        var stale = new GlideRecord(T + 'source_file')
-        stale.addQuery('component', C[key])
-        stale.query()
-        while (stale.next()) if (!keepPaths[stale.getValue('path')]) stale.deleteRecord()
-    }
-
-    // Record imports: components are seeded in dependency order (build-seed.mjs), but save-time
-    // compiles all settle at script end, so an importer can compile before its import is ready and
-    // fail with "hasn't compiled successfully yet". Recompile every component in dependency order
-    // once the save compiles have run (up-to-date builds are skipped).
-    // --portals: no component sources in this payload; placements need the existing component ids.
-    if (SEED_MODE === 'portals') {
-        var existing = new GlideRecord(T + 'component')
-        existing.addQuery('namespace', 'app')
-        existing.query()
-        while (existing.next()) C[existing.getValue('key')] = existing.getUniqueValue()
-    }
-
-    var builds = require(ROOT + 'build/build-service.ts')
-    var owners = require(ROOT + 'source/owner.ts')
-    var importLog = []
-    var importChain = Promise.resolve()
-    mark('records')
-    // Themes compile too (their compile-on-save rule is off during the seed).
-    Object.keys(themeIds).forEach(function (tk) {
-        importChain = importChain.then(function () {
-            return builds.compileOwner(owners.loadOwner('theme', themeIds[tk])).then(function (b) {
-                if (b.upToDate) seedStats.upToDate++
-                else seedStats.compiled++
-            })
-        })
-    })
-    // Every component, not only the import graph: a compiler upgrade (new COMPILER_VERSION) changes
-    // every build's input hash, and unchanged records are not re-saved. Up-to-date builds are skipped.
-    Object.keys(components).forEach(function (key) {
-        importChain = importChain.then(function () {
-            return builds.compileOwner(owners.loadOwner('component', C[key])).then(function (b) {
-                var errs = (b.diagnostics && b.diagnostics.errors) || []
-                if (b.upToDate) seedStats.upToDate++
-                else if (errs.length) seedStats.failed++
-                else seedStats.compiled++
-                importLog.push(key + ': ' + (b.upToDate ? 'up to date' : b.state) + (errs.length ? ' ERR ' + errs.map(function (e) { return e.message }).join('; ') : ''))
-            })
-        })
-    })
-    importChain
-        .then(
-            function () {
-                mark('compiles')
-                gs.info('[seed] compiles (dependency order): ' + importLog.join(' | '))
-            },
-            function (e) { gs.error('[seed] record-import compile pass failed: ' + e) }
-        )
-        .then(function () {
-            // Instance CSS of every placement the seed wrote (grid layout, style tokens, classes,
-            // x-css-var block options): the placement business rule is suppressed by the batch flag,
-            // so compile here, before the reprocess ships it in the manifests.
-            var instanceStyle = require(ROOT + 'design/instance-style.ts')
-            return Promise.all(
-                seedPlacements.map(function (id) {
-                    return instanceStyle.refreshInstanceCss(id).then(null, function (e) {
-                        gs.error('[seed] instance CSS failed for placement ' + id + ': ' + e)
-                        return false
-                    })
-                })
-            ).then(function (changed) {
-                mark('instance css (' + changed.filter(Boolean).length + ' of ' + changed.length + ' changed)')
-            })
-        })
-        .then(function () {
-            // One reprocess per active portal, now that every build is in place (the compiles above
-            // didn't reprocess: the skip flag is still on). The flags are cleared first so a failure
-            // here can't leave the session suppressing compiles.
-            clearBatchFlags()
-            var relLog = []
-            var pgr = new GlideRecord(T + 'portal')
-            pgr.addActiveQuery()
-            // --part runs skip this (the closing --portals run reprocesses once); --only runs keep it.
-            if ('__SEED_REPROCESS__' === 'no') pgr.addQuery('sys_id', 'NULL')
-            pgr.query()
-            while (pgr.next()) {
-                var rel = releases.processPortal(pgr.getUniqueValue(), false) // writes only when the manifest hash changed
-                seedStats.portals++
-                relLog.push(pgr.getValue('slug') + ' rev ' + rel.revision + (rel.problems.length ? ' problems: ' + rel.problems.join('; ') : ''))
+            var id = isNew ? gr.insert() : dirty ? (gr.update(), gr.getUniqueValue()) : gr.getUniqueValue();
+            if (!id) throw new Error('Could not write ' + table + ' ' + query + ': ' + gs.getErrorMessages());
+            if (dirty) {
+                seedStats.written++;
+                seedStats.byTable[table] = (seedStats.byTable[table] || 0) + 1;
             }
-            mark('reprocess')
-            // Portal structure is in place: record which template produced it (scoped gs.setProperty
-            // creates the property in this scope when missing). Written before the done line.
-            if (SEED_MODE === 'portals' || SEED_MODE === 'full') {
-                gs.setProperty(TEMPLATE_HASH_PROPERTY, SEED_TEMPLATE_HASH, 'React Portal: hash of scripts/seed/seed-template.js at the last finished portals/full seed (npm run seed compares it).')
-            }
-            gs.info('[seed] done (' + SEED_MODE + ') run=' + SEED_RUN_ID + ': ' + seedStats.written + ' records written, ' + seedStats.compiled + ' compiled, ' +
-                seedStats.upToDate + ' up to date, ' + seedStats.failed + ' failed, ' + seedStats.portals + ' portals reprocessed (written: ' + JSON.stringify(seedStats.byTable) + ') | ' +
-                relLog.join(', ') + ' | ' + seedTimes.join(', '))
-        })
-        .then(null, function (e) {
-            clearBatchFlags()
-            gs.error('[seed] final reprocess failed run=' + SEED_RUN_ID + ': ' + e)
-        })
-
-    /* ---------------- Portals, pages, placements ---------------- */
-
-    // Place a list of widgets/blocks; a block's `children` maps its drop zones to nested lists.
-    var seedPlacements = []
-    function placeAll(pid, pageId, parentId, list, defaultRegion, kept) {
-        for (var j = 0; j < list.length; j++) {
-            var w = list[j]
-            var region = w.region || defaultRegion
-            var id = upsert('placement', 'page=' + pageId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') + '^region=' + region + '^component=' + C[w.c] + '^order=' + (j + 1) * 100, {
-                portal: pid,
-                page: pageId,
-                parent: parentId,
-                region: region,
-                component: C[w.c],
-                order: (j + 1) * 100,
-                active: true,
-                options_json: w.options || {},
-                layout_json: w.layout || '',
-                style_tokens_json: w.style || '',
-                classes: w.classes || '',
-            })
-            if (kept) kept[id] = true
-            seedPlacements.push(id)
-            if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone, kept)
+            return id;
         }
-    }
 
-    /* ---------------- Menus (x_312987_portal_menu / _menu_item) ---------------- */
-
-    // Upsert a portal's menus by (portal, key) and their items by (menu, parent, label); separators
-    // by (menu, parent, type, order). Item defs:
-    //   { page: '<route>', label?, params?, query?, record? } → page item (references the page record);
-    //                                                         record = explicit URL params { table, sys_id, view, query }
-    //   { route: 'orders?tab=open', label, portal? }       → route item (portal: another portal's slug)
-    //   { url: 'https://…', label, target? }               → external URL item
-    //   { label, children: [...], collapsed? }             → group
-    //   { type: 'separator' }
-    // Common: icon (lucide kebab-case), tooltip, match ('exact' | 'prefix'), roles ('a,b'), badge,
-    // availableFor / notAvailableFor (user_criteria sys_ids, see seedCriteria), condition (script: show the
-    // item only when it returns true for the user).
-    // The menu business rules validate each write; one release reprocess runs at the end of seedPortal.
-    function seedMenuItems(menuId, parentId, list, counts) {
-        var keep = {}
-        for (var i = 0; i < list.length; i++) {
-            var it = list[i]
-            var order = (i + 1) * 100
-            var type = it.type || (it.children ? 'group' : it.page !== undefined ? 'page' : it.url ? 'url' : 'route')
-            var params = null
-            if (it.params || it.query || it.portal || it.record) {
-                params = {}
-                if (it.params) params.params = it.params
-                if (it.query) params.query = it.query
-                if (it.portal) params.portal = it.portal
-                if (it.record) params.record = it.record
-            }
-            var fields = {
-                menu: menuId,
-                parent: parentId,
-                order: order,
-                type: type,
-                label: it.label || '',
-                active: true,
-                page: type === 'page' ? counts.pageIds[it.page] : '',
-                params_json: params ? JSON.stringify(params) : '',
-                route: type === 'route' ? it.route || '' : '',
-                url: type === 'url' ? it.url : '',
-                icon: it.icon || '',
-                target: it.target || (type === 'url' ? '_blank' : ''),
-                match: it.match || 'prefix',
-                tooltip: it.tooltip || '',
-                collapsed: !!it.collapsed,
-                roles: it.roles || '',
-                badge: it.badge || '',
-                condition: it.condition || '',
-            }
-            if (type === 'page' && !fields.page) throw new Error('menu item "' + it.label + '": no page with route ' + it.page)
-            var where = 'menu=' + menuId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') +
-                (type === 'separator' ? '^type=separator^order=' + order : '^label=' + (it.label || ''))
-            var id = upsert('menu_item', where, fields)
-            seedCriteria('item', 'menu_item', id, it)
-            keep[id] = true
-            counts.items++
-            if (it.children) seedMenuItems(menuId, id, it.children, counts)
-        }
-        // Items at this level that the seed no longer lists (e.g. sp's flat menu before it was
-        // grouped) are deactivated, not deleted.
-        var stale = new GlideRecord(T + 'menu_item')
-        stale.addEncodedQuery('menu=' + menuId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') + '^active=true')
-        stale.query()
-        while (stale.next()) {
-            if (keep[stale.getUniqueValue()]) continue
-            stale.setValue('active', false)
-            stale.update()
-            counts.deactivated = (counts.deactivated || 0) + 1
-        }
-    }
-
-    function seedMenus(pid, pageIds, menus) {
-        // The seed-wide batch flag (top of the script) already suppresses per-write reprocessing.
-        {
-            for (var m = 0; m < menus.length; m++) {
-                var def = menus[m]
-                var menuId = upsert('menu', 'portal=' + pid + '^key=' + def.key, {
-                    portal: pid,
-                    key: def.key,
-                    name: def.name || def.key,
-                    description: def.description || '',
-                    active: true,
-                })
-                var counts = { items: 0, pageIds: pageIds }
-                seedMenuItems(menuId, '', def.items, counts)
-                log.push('  menu ' + def.key + ': ' + counts.items + ' items' + (counts.deactivated ? ', ' + counts.deactivated + ' stale deactivated' : ''))
-            }
-        }
-    }
-
-    function seedPortal(def) {
-        if (SEED_MODE === 'components') return '' // build-seed --only: components only, no portal structure
-        var pid = upsert('portal', 'slug=' + def.slug, {
-            name: def.name,
-            slug: def.slug,
-            active: true,
-            is_default: !!def.isDefault,
-            theme: themeIds[def.theme],
-            default_layout: C[def.layout || 'standard-layout'],
-            navigation_json: def.nav,
-            settings_json: def.settings || {},
-        })
-        var pageIds = {}
-        for (var i = 0; i < def.pages.length; i++) {
-            var pg = def.pages[i]
-            pageIds[pg.route] = upsert('page', 'portal=' + pid + '^route_pattern=' + pg.route, {
-                portal: pid,
-                name: pg.name,
-                route_pattern: pg.route,
-                title: pg.name,
-                order: (i + 1) * 100,
-                active: true,
-                layout_override: pg.layout ? C[pg.layout] : '',
-                layout_options_json: pg.layoutOptions || '',
-                content_width: pg.contentWidth || 'inherit',
-            })
-            seedCriteria('page', 'page', pageIds[pg.route], pg)
-            var keptPl = {}
-            placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main', keptPl)
-            // pg.prune: placements on this page that the seed no longer lists (e.g. the old home
-            // page's demo cards) are deactivated, not deleted. Opt-in, so designer-made placements on
-            // other seeded pages stay.
-            if (pg.prune) {
-                var stalePl = new GlideRecord(T + 'placement')
-                stalePl.addEncodedQuery('page=' + pageIds[pg.route] + '^active=true')
-                stalePl.query()
-                while (stalePl.next()) {
-                    if (keptPl[stalePl.getUniqueValue()]) continue
-                    stalePl.setValue('active', false)
-                    stalePl.update()
-                    log.push('  ' + def.slug + '/' + pg.route + ': deactivated placement ' + stalePl.getDisplayValue('component'))
+        // User criteria m2m rows ("Available for" / "Not available for") for a portal, page or menu item:
+        // def.availableFor / def.notAvailableFor are arrays of existing user_criteria sys_ids. Additive:
+        // rows are upserted, never removed. kind: 'portal' | 'page' | 'item' (table x_312987_portal_<kind>_uc[_no]).
+        function seedCriteria(kind, ownerField, ownerId, def) {
+            var lists = [
+                ['_uc', def.availableFor || []],
+                ['_uc_no', def.notAvailableFor || []],
+            ];
+            for (var l = 0; l < lists.length; l++) {
+                for (var c = 0; c < lists[l][1].length; c++) {
+                    var ucId = lists[l][1][c];
+                    var fields = { user_criteria: ucId };
+                    fields[ownerField] = ownerId;
+                    upsert(kind + lists[l][0], ownerField + '=' + ownerId + '^user_criteria=' + ucId, fields);
                 }
             }
         }
-        var portalWidgets = def.portalWidgets || [
-            { c: 'site-header', region: 'header', options: { brand: def.name } },
-            { c: 'nav-sidebar', region: 'sidebar', options: { title: def.name + ' pages' } },
-            { c: 'site-footer', region: 'footer', options: { text: def.name } },
-        ]
-        for (var k = 0; k < portalWidgets.length; k++) {
-            var pw = portalWidgets[k]
-            upsert('placement', 'portal=' + pid + '^pageISEMPTY^region=' + pw.region + '^component=' + C[pw.c], {
-                portal: pid,
-                page: '',
-                region: pw.region,
-                component: C[pw.c],
-                order: 100,
+
+        /* ---------------- Themes ---------------- */
+
+        var themes = {
+            'sp-light': {
+                name: 'Service Portal',
+                tokens: {
+                    light: {
+                        background: 'oklch(0.99 0.003 260)',
+                        foreground: 'oklch(0.21 0.02 260)',
+                        card: 'oklch(1 0 0)',
+                        'card-foreground': 'oklch(0.21 0.02 260)',
+                        popover: 'oklch(1 0 0)',
+                        'popover-foreground': 'oklch(0.21 0.02 260)',
+                        primary: 'oklch(0.55 0.2 260)',
+                        'primary-foreground': 'oklch(0.98 0 0)',
+                        secondary: 'oklch(0.95 0.015 260)',
+                        'secondary-foreground': 'oklch(0.25 0.03 260)',
+                        muted: 'oklch(0.96 0.01 260)',
+                        'muted-foreground': 'oklch(0.5 0.03 260)',
+                        accent: 'oklch(0.95 0.02 260)',
+                        'accent-foreground': 'oklch(0.25 0.03 260)',
+                        destructive: 'oklch(0.58 0.22 27)',
+                        border: 'oklch(0.9 0.01 260)',
+                        input: 'oklch(0.9 0.01 260)',
+                        ring: 'oklch(0.55 0.2 260)',
+                        radius: '0.5rem',
+                        // App shell: a faintly blue sidebar canvas around the white main card; icon-tile
+                        // tints stay in sp's blue family.
+                        'chart-1': 'oklch(0.55 0.2 260)',
+                        'chart-2': 'oklch(0.58 0.12 220)',
+                        'chart-3': 'oklch(0.55 0.17 290)',
+                        'chart-4': 'oklch(0.64 0.15 60)',
+                        'chart-5': 'oklch(0.57 0.12 165)',
+                        sidebar: 'oklch(0.97 0.01 260)',
+                        'sidebar-foreground': 'oklch(0.25 0.03 260)',
+                        'sidebar-primary': 'oklch(0.55 0.2 260)',
+                        'sidebar-primary-foreground': 'oklch(0.98 0 0)',
+                        'sidebar-accent': 'oklch(0.55 0.2 260 / 0.08)',
+                        'sidebar-accent-foreground': 'oklch(0.21 0.02 260)',
+                        'sidebar-border': 'oklch(0.9 0.012 260)',
+                        'sidebar-ring': 'oklch(0.55 0.2 260)',
+                    },
+                    dark: {
+                        background: 'oklch(0.17 0.02 260)',
+                        foreground: 'oklch(0.95 0.01 260)',
+                        card: 'oklch(0.21 0.025 260)',
+                        'card-foreground': 'oklch(0.95 0.01 260)',
+                        popover: 'oklch(0.21 0.025 260)',
+                        'popover-foreground': 'oklch(0.95 0.01 260)',
+                        primary: 'oklch(0.68 0.17 260)',
+                        'primary-foreground': 'oklch(0.17 0.02 260)',
+                        secondary: 'oklch(0.27 0.03 260)',
+                        'secondary-foreground': 'oklch(0.95 0.01 260)',
+                        muted: 'oklch(0.25 0.025 260)',
+                        'muted-foreground': 'oklch(0.7 0.03 260)',
+                        accent: 'oklch(0.28 0.04 260)',
+                        'accent-foreground': 'oklch(0.95 0.01 260)',
+                        destructive: 'oklch(0.65 0.2 25)',
+                        border: 'oklch(1 0 0 / 12%)',
+                        input: 'oklch(1 0 0 / 15%)',
+                        ring: 'oklch(0.68 0.17 260)',
+                        radius: '0.5rem',
+                        'chart-1': 'oklch(0.72 0.15 260)',
+                        'chart-2': 'oklch(0.76 0.11 220)',
+                        'chart-3': 'oklch(0.74 0.14 290)',
+                        'chart-4': 'oklch(0.8 0.13 70)',
+                        'chart-5': 'oklch(0.76 0.12 165)',
+                        sidebar: 'oklch(0.14 0.018 260)',
+                        'sidebar-foreground': 'oklch(0.93 0.01 260)',
+                        'sidebar-primary': 'oklch(0.68 0.17 260)',
+                        'sidebar-primary-foreground': 'oklch(0.17 0.02 260)',
+                        'sidebar-accent': 'oklch(1 0 0 / 0.06)',
+                        'sidebar-accent-foreground': 'oklch(0.95 0.01 260)',
+                        'sidebar-border': 'oklch(1 0 0 / 10%)',
+                        'sidebar-ring': 'oklch(0.68 0.17 260)',
+                    },
+                },
+                stylesheet: ':host { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
+            },
+            'crm-dark': {
+                name: 'CRM',
+                tokens: {
+                    light: {
+                        background: 'oklch(0.985 0.005 160)',
+                        foreground: 'oklch(0.2 0.02 250)',
+                        card: 'oklch(1 0 0)',
+                        'card-foreground': 'oklch(0.2 0.02 250)',
+                        popover: 'oklch(1 0 0)',
+                        'popover-foreground': 'oklch(0.2 0.02 250)',
+                        primary: 'oklch(0.6 0.15 160)',
+                        'primary-foreground': 'oklch(0.99 0 0)',
+                        secondary: 'oklch(0.95 0.02 160)',
+                        'secondary-foreground': 'oklch(0.25 0.03 250)',
+                        muted: 'oklch(0.96 0.01 200)',
+                        'muted-foreground': 'oklch(0.48 0.02 250)',
+                        accent: 'oklch(0.94 0.03 160)',
+                        'accent-foreground': 'oklch(0.25 0.03 250)',
+                        destructive: 'oklch(0.58 0.22 27)',
+                        border: 'oklch(0.9 0.01 200)',
+                        input: 'oklch(0.9 0.01 200)',
+                        ring: 'oklch(0.6 0.15 160)',
+                        radius: '0.25rem',
+                    },
+                    dark: {
+                        background: 'oklch(0.18 0.02 250)',
+                        foreground: 'oklch(0.95 0.01 250)',
+                        card: 'oklch(0.23 0.02 250)',
+                        'card-foreground': 'oklch(0.95 0.01 250)',
+                        popover: 'oklch(0.23 0.02 250)',
+                        'popover-foreground': 'oklch(0.95 0.01 250)',
+                        primary: 'oklch(0.74 0.17 160)',
+                        'primary-foreground': 'oklch(0.18 0.02 250)',
+                        secondary: 'oklch(0.28 0.02 250)',
+                        'secondary-foreground': 'oklch(0.95 0.01 250)',
+                        muted: 'oklch(0.27 0.02 250)',
+                        'muted-foreground': 'oklch(0.7 0.02 250)',
+                        accent: 'oklch(0.3 0.03 200)',
+                        'accent-foreground': 'oklch(0.95 0.01 250)',
+                        destructive: 'oklch(0.65 0.2 25)',
+                        border: 'oklch(0.32 0.02 250)',
+                        input: 'oklch(0.35 0.02 250)',
+                        ring: 'oklch(0.74 0.17 160)',
+                        radius: '0.25rem',
+                    },
+                },
+                stylesheet: ':host { font-family: "Inter", system-ui, sans-serif; letter-spacing: 0.01em; }',
+            },
+            // ChannelGuide's dashboard palette: neutral light, cool blue-black dark, shadcn sidebar tokens,
+            // chart-1…5 as the icon-tile tints, and the noise texture (--rp-noise) the app shell's page
+            // background uses.
+            'app-neutral': {
+                name: 'App Neutral',
+                tokens: {
+                    light: {
+                        background: 'oklch(1 0 0)',
+                        foreground: 'oklch(0.31 0 0)',
+                        card: 'oklch(1 0 0)',
+                        'card-foreground': 'oklch(0.31 0 0)',
+                        popover: 'oklch(1 0 0)',
+                        'popover-foreground': 'oklch(0.31 0 0)',
+                        primary: 'oklch(0.55 0.22 264)',
+                        'primary-foreground': 'oklch(0.99 0 0)',
+                        secondary: 'oklch(0.97 0 0)',
+                        'secondary-foreground': 'oklch(0.31 0 0)',
+                        muted: 'oklch(0.97 0 0)',
+                        'muted-foreground': 'oklch(0.52 0 0)',
+                        accent: 'oklch(0.97 0 0)',
+                        'accent-foreground': 'oklch(0.31 0 0)',
+                        destructive: 'oklch(0.577 0.245 27.325)',
+                        border: 'oklch(0.92 0 0)',
+                        input: 'oklch(0.92 0 0)',
+                        ring: 'oklch(0.705 0 0)',
+                        radius: '0.45rem',
+                        'chart-1': 'oklch(0.6 0.11 215)',
+                        'chart-2': 'oklch(0.51 0.2 277)',
+                        'chart-3': 'oklch(0.54 0.22 293)',
+                        'chart-4': 'oklch(0.62 0.15 60)',
+                        'chart-5': 'oklch(0.56 0.13 163)',
+                        sidebar: 'oklch(0.985 0 0)',
+                        'sidebar-foreground': 'oklch(0.31 0 0)',
+                        'sidebar-primary': 'oklch(0.55 0.22 264)',
+                        'sidebar-primary-foreground': 'oklch(0.99 0 0)',
+                        'sidebar-accent': 'oklch(0 0 0 / 0.05)',
+                        'sidebar-accent-foreground': 'oklch(0.31 0 0)',
+                        'sidebar-border': 'oklch(0.92 0 0)',
+                        'sidebar-ring': 'oklch(0.705 0 0)',
+                    },
+                    dark: {
+                        background: 'oklch(0.176 0.013 258)',
+                        foreground: 'oklch(0.97 0.009 250)',
+                        card: 'oklch(0.216 0.015 257)',
+                        'card-foreground': 'oklch(0.97 0.009 250)',
+                        popover: 'oklch(0.216 0.015 257)',
+                        'popover-foreground': 'oklch(0.97 0.009 250)',
+                        primary: 'oklch(0.52 0.2 262)',
+                        'primary-foreground': 'oklch(0.985 0.01 255)',
+                        secondary: 'oklch(0.272 0.013 257)',
+                        'secondary-foreground': 'oklch(0.97 0.009 250)',
+                        muted: 'oklch(0.272 0.013 257)',
+                        'muted-foreground': 'oklch(0.68 0.016 254)',
+                        accent: 'oklch(0.272 0.013 257)',
+                        'accent-foreground': 'oklch(0.97 0.009 250)',
+                        destructive: 'oklch(0.704 0.191 22.216)',
+                        border: 'oklch(1 0 0 / 10%)',
+                        input: 'oklch(1 0 0 / 15%)',
+                        ring: 'oklch(0.552 0.02 258)',
+                        radius: '0.45rem',
+                        'chart-1': 'oklch(0.78 0.11 215)',
+                        'chart-2': 'oklch(0.72 0.14 277)',
+                        'chart-3': 'oklch(0.74 0.15 293)',
+                        'chart-4': 'oklch(0.8 0.13 70)',
+                        'chart-5': 'oklch(0.76 0.13 163)',
+                        sidebar: 'oklch(0.2 0.014 258)',
+                        'sidebar-foreground': 'oklch(0.97 0.009 250)',
+                        'sidebar-primary': 'oklch(0.585 0.2 262)',
+                        'sidebar-primary-foreground': 'oklch(0.985 0.01 255)',
+                        'sidebar-accent': 'oklch(1 0 0 / 0.06)',
+                        'sidebar-accent-foreground': 'oklch(0.97 0.009 250)',
+                        'sidebar-border': 'oklch(1 0 0 / 10%)',
+                        'sidebar-ring': 'oklch(0.552 0.02 258)',
+                    },
+                },
+                stylesheet:
+                    ':host { font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; --rp-noise: url("__ASSET_DATA_URI:noisy-light.png__"); }\n' +
+                    ':host(.dark) { --rp-noise: url("__ASSET_DATA_URI:noisy-dark.jpg__"); }',
+            },
+            // The docs portal's own theme: starts as a copy of sp-light (blue primary, sidebar tints, chart-1…5
+            // icon tiles, system-ui), so it sits in line with the Service Portal and can diverge later.
+            docs: {
+                name: 'Docs',
+                tokens: {
+                    light: {
+                        background: 'oklch(0.99 0.003 260)',
+                        foreground: 'oklch(0.21 0.02 260)',
+                        card: 'oklch(1 0 0)',
+                        'card-foreground': 'oklch(0.21 0.02 260)',
+                        popover: 'oklch(1 0 0)',
+                        'popover-foreground': 'oklch(0.21 0.02 260)',
+                        primary: 'oklch(0.55 0.2 260)',
+                        'primary-foreground': 'oklch(0.98 0 0)',
+                        secondary: 'oklch(0.95 0.015 260)',
+                        'secondary-foreground': 'oklch(0.25 0.03 260)',
+                        muted: 'oklch(0.96 0.01 260)',
+                        'muted-foreground': 'oklch(0.5 0.03 260)',
+                        accent: 'oklch(0.95 0.02 260)',
+                        'accent-foreground': 'oklch(0.25 0.03 260)',
+                        destructive: 'oklch(0.58 0.22 27)',
+                        border: 'oklch(0.9 0.01 260)',
+                        input: 'oklch(0.9 0.01 260)',
+                        ring: 'oklch(0.55 0.2 260)',
+                        radius: '0.5rem',
+                        // App shell: a faintly blue sidebar canvas around the white main card; icon-tile
+                        // tints stay in sp's blue family.
+                        'chart-1': 'oklch(0.55 0.2 260)',
+                        'chart-2': 'oklch(0.58 0.12 220)',
+                        'chart-3': 'oklch(0.55 0.17 290)',
+                        'chart-4': 'oklch(0.64 0.15 60)',
+                        'chart-5': 'oklch(0.57 0.12 165)',
+                        sidebar: 'oklch(0.97 0.01 260)',
+                        'sidebar-foreground': 'oklch(0.25 0.03 260)',
+                        'sidebar-primary': 'oklch(0.55 0.2 260)',
+                        'sidebar-primary-foreground': 'oklch(0.98 0 0)',
+                        'sidebar-accent': 'oklch(0.55 0.2 260 / 0.08)',
+                        'sidebar-accent-foreground': 'oklch(0.21 0.02 260)',
+                        'sidebar-border': 'oklch(0.9 0.012 260)',
+                        'sidebar-ring': 'oklch(0.55 0.2 260)',
+                    },
+                    dark: {
+                        background: 'oklch(0.17 0.02 260)',
+                        foreground: 'oklch(0.95 0.01 260)',
+                        card: 'oklch(0.21 0.025 260)',
+                        'card-foreground': 'oklch(0.95 0.01 260)',
+                        popover: 'oklch(0.21 0.025 260)',
+                        'popover-foreground': 'oklch(0.95 0.01 260)',
+                        primary: 'oklch(0.68 0.17 260)',
+                        'primary-foreground': 'oklch(0.17 0.02 260)',
+                        secondary: 'oklch(0.27 0.03 260)',
+                        'secondary-foreground': 'oklch(0.95 0.01 260)',
+                        muted: 'oklch(0.25 0.025 260)',
+                        'muted-foreground': 'oklch(0.7 0.03 260)',
+                        accent: 'oklch(0.28 0.04 260)',
+                        'accent-foreground': 'oklch(0.95 0.01 260)',
+                        destructive: 'oklch(0.65 0.2 25)',
+                        border: 'oklch(1 0 0 / 12%)',
+                        input: 'oklch(1 0 0 / 15%)',
+                        ring: 'oklch(0.68 0.17 260)',
+                        radius: '0.5rem',
+                        'chart-1': 'oklch(0.72 0.15 260)',
+                        'chart-2': 'oklch(0.76 0.11 220)',
+                        'chart-3': 'oklch(0.74 0.14 290)',
+                        'chart-4': 'oklch(0.8 0.13 70)',
+                        'chart-5': 'oklch(0.76 0.12 165)',
+                        sidebar: 'oklch(0.14 0.018 260)',
+                        'sidebar-foreground': 'oklch(0.93 0.01 260)',
+                        'sidebar-primary': 'oklch(0.68 0.17 260)',
+                        'sidebar-primary-foreground': 'oklch(0.17 0.02 260)',
+                        'sidebar-accent': 'oklch(1 0 0 / 0.06)',
+                        'sidebar-accent-foreground': 'oklch(0.95 0.01 260)',
+                        'sidebar-border': 'oklch(1 0 0 / 10%)',
+                        'sidebar-ring': 'oklch(0.68 0.17 260)',
+                    },
+                },
+                stylesheet: ':host { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
+            },
+        };
+        var themeIds = {};
+        for (var tk in themes) {
+            var th = themes[tk];
+            themeIds[tk] = upsert('theme', 'key=' + tk, {
+                name: th.name,
+                key: tk,
                 active: true,
-                options_json: pw.options,
+                tokens_json: th.tokens,
+                stylesheet: th.stylesheet,
+            });
+        }
+
+        /* ---------------- Components (real source: scripts/seed/components/<key>/) ---------------- */
+
+        // Injected by scripts/seed/build-seed.mjs from the component folders.
+        var components = __COMPONENTS_JSON__;
+
+        function buildOf(componentId) {
+            var b = new GlideRecord(T + 'build');
+            b.addQuery('component', componentId);
+            b.setLimit(1);
+            b.query();
+            return b.next() ? b : null;
+        }
+
+        var C = {};
+        for (var key in components) {
+            var c = components[key];
+            // Saving the record triggers "RP: Compile component on save" (server compiler).
+            C[key] = upsert('component', 'unique_id=app/' + key, {
+                name: c.meta.name,
+                namespace: 'app',
+                key: key,
+                kind: c.meta.kind,
+                active: true,
+                placeable: c.meta.kind === 'widget',
+                server_mode: c.meta.serverMode || 'none',
+                tailwind: c.meta.tailwind !== false,
+                client_script: c.clientScript,
+                css: c.css || '',
+                script: c.serverScript || '',
+                regions_json: c.meta.regions || '',
+                default_options_json: c.meta.defaults || {},
+                options_schema_json: c.optionsSchema || '',
+            });
+            // Extra files (each insert/update also recompiles the component).
+            var keepPaths = {};
+            for (var i = 0; i < c.extraFiles.length; i++) {
+                var f = c.extraFiles[i];
+                keepPaths[f.path] = true;
+                upsert('source_file', 'component=' + C[key] + '^path=' + f.path, {
+                    component: C[key],
+                    path: f.path,
+                    target: f.target,
+                    content_text: f.content,
+                });
+            }
+            var stale = new GlideRecord(T + 'source_file');
+            stale.addQuery('component', C[key]);
+            stale.query();
+            while (stale.next()) if (!keepPaths[stale.getValue('path')]) stale.deleteRecord();
+        }
+
+        // Record imports: components are seeded in dependency order (build-seed.mjs), but save-time
+        // compiles all settle at script end, so an importer can compile before its import is ready and
+        // fail with "hasn't compiled successfully yet". Recompile every component in dependency order
+        // once the save compiles have run (up-to-date builds are skipped).
+        // --portals: no component sources in this payload; placements need the existing component ids.
+        if (SEED_MODE === 'portals') {
+            var existing = new GlideRecord(T + 'component');
+            existing.addQuery('namespace', 'app');
+            existing.query();
+            while (existing.next()) C[existing.getValue('key')] = existing.getUniqueValue();
+        }
+
+        var builds = require(ROOT + 'build/build-service.ts');
+        var owners = require(ROOT + 'source/owner.ts');
+        var importLog = [];
+        var importChain = Promise.resolve();
+        mark('records');
+        // Themes compile too (their compile-on-save rule is off during the seed).
+        Object.keys(themeIds).forEach(function (tk) {
+            importChain = importChain.then(function () {
+                return builds.compileOwner(owners.loadOwner('theme', themeIds[tk])).then(function (b) {
+                    if (b.upToDate) seedStats.upToDate++;
+                    else seedStats.compiled++;
+                });
+            });
+        });
+        // Every component, not only the import graph: a compiler upgrade (new COMPILER_VERSION) changes
+        // every build's input hash, and unchanged records are not re-saved. Up-to-date builds are skipped.
+        Object.keys(components).forEach(function (key) {
+            importChain = importChain.then(function () {
+                return builds.compileOwner(owners.loadOwner('component', C[key])).then(function (b) {
+                    var errs = (b.diagnostics && b.diagnostics.errors) || [];
+                    if (b.upToDate) seedStats.upToDate++;
+                    else if (errs.length) seedStats.failed++;
+                    else seedStats.compiled++;
+                    importLog.push(
+                        key +
+                            ': ' +
+                            (b.upToDate ? 'up to date' : b.state) +
+                            (errs.length
+                                ? ' ERR ' +
+                                  errs
+                                      .map(function (e) {
+                                          return e.message;
+                                      })
+                                      .join('; ')
+                                : '')
+                    );
+                });
+            });
+        });
+        importChain
+            .then(
+                function () {
+                    mark('compiles');
+                    gs.info('[seed] compiles (dependency order): ' + importLog.join(' | '));
+                },
+                function (e) {
+                    gs.error('[seed] record-import compile pass failed: ' + e);
+                }
+            )
+            .then(function () {
+                // Instance CSS of every placement the seed wrote (grid layout, style tokens, classes,
+                // x-css-var block options): the placement business rule is suppressed by the batch flag,
+                // so compile here, before the reprocess ships it in the manifests.
+                var instanceStyle = require(ROOT + 'design/instance-style.ts');
+                return Promise.all(
+                    seedPlacements.map(function (id) {
+                        return instanceStyle.refreshInstanceCss(id).then(null, function (e) {
+                            gs.error('[seed] instance CSS failed for placement ' + id + ': ' + e);
+                            return false;
+                        });
+                    })
+                ).then(function (changed) {
+                    mark('instance css (' + changed.filter(Boolean).length + ' of ' + changed.length + ' changed)');
+                });
             })
+            .then(function () {
+                // One reprocess per active portal, now that every build is in place (the compiles above
+                // didn't reprocess: the skip flag is still on). The flags are cleared first so a failure
+                // here can't leave the session suppressing compiles.
+                clearBatchFlags();
+                var relLog = [];
+                var pgr = new GlideRecord(T + 'portal');
+                pgr.addActiveQuery();
+                // --part runs skip this (the closing --portals run reprocesses once); --only runs keep it.
+                if ('__SEED_REPROCESS__' === 'no') pgr.addQuery('sys_id', 'NULL');
+                pgr.query();
+                while (pgr.next()) {
+                    var rel = releases.processPortal(pgr.getUniqueValue(), false); // writes only when the manifest hash changed
+                    seedStats.portals++;
+                    relLog.push(
+                        pgr.getValue('slug') +
+                            ' rev ' +
+                            rel.revision +
+                            (rel.problems.length ? ' problems: ' + rel.problems.join('; ') : '')
+                    );
+                }
+                mark('reprocess');
+                // Portal structure is in place: record which template produced it (scoped gs.setProperty
+                // creates the property in this scope when missing). Written before the done line.
+                if (SEED_MODE === 'portals' || SEED_MODE === 'full') {
+                    gs.setProperty(
+                        TEMPLATE_HASH_PROPERTY,
+                        SEED_TEMPLATE_HASH,
+                        'React Portal: hash of scripts/seed/seed-template.js at the last finished portals/full seed (npm run seed compares it).'
+                    );
+                }
+                gs.info(
+                    '[seed] done (' +
+                        SEED_MODE +
+                        ') run=' +
+                        SEED_RUN_ID +
+                        ': ' +
+                        seedStats.written +
+                        ' records written, ' +
+                        seedStats.compiled +
+                        ' compiled, ' +
+                        seedStats.upToDate +
+                        ' up to date, ' +
+                        seedStats.failed +
+                        ' failed, ' +
+                        seedStats.portals +
+                        ' portals reprocessed (written: ' +
+                        JSON.stringify(seedStats.byTable) +
+                        ') | ' +
+                        relLog.join(', ') +
+                        ' | ' +
+                        seedTimes.join(', ')
+                );
+            })
+            .then(null, function (e) {
+                clearBatchFlags();
+                gs.error('[seed] final reprocess failed run=' + SEED_RUN_ID + ': ' + e);
+            });
+
+        /* ---------------- Portals, pages, placements ---------------- */
+
+        // Place a list of widgets/blocks; a block's `children` maps its drop zones to nested lists.
+        var seedPlacements = [];
+        function placeAll(pid, pageId, parentId, list, defaultRegion, kept) {
+            for (var j = 0; j < list.length; j++) {
+                var w = list[j];
+                var region = w.region || defaultRegion;
+                var id = upsert(
+                    'placement',
+                    'page=' +
+                        pageId +
+                        '^parent' +
+                        (parentId ? '=' + parentId : 'ISEMPTY') +
+                        '^region=' +
+                        region +
+                        '^component=' +
+                        C[w.c] +
+                        '^order=' +
+                        (j + 1) * 100,
+                    {
+                        portal: pid,
+                        page: pageId,
+                        parent: parentId,
+                        region: region,
+                        component: C[w.c],
+                        order: (j + 1) * 100,
+                        active: true,
+                        options_json: w.options || {},
+                        layout_json: w.layout || '',
+                        style_tokens_json: w.style || '',
+                        classes: w.classes || '',
+                    }
+                );
+                if (kept) kept[id] = true;
+                seedPlacements.push(id);
+                if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone, kept);
+            }
         }
-        // Portal-level placements no longer listed (e.g. sp's old site-header / nav-sidebar / site-footer
-        // after it moved to the app shell) are deactivated, not deleted.
-        var keepPw = {}
-        for (var kp = 0; kp < portalWidgets.length; kp++) keepPw[portalWidgets[kp].region + '|' + C[portalWidgets[kp].c]] = true
-        var stalePw = new GlideRecord(T + 'placement')
-        stalePw.addEncodedQuery('portal=' + pid + '^pageISEMPTY^parentISEMPTY^active=true')
-        stalePw.query()
-        while (stalePw.next()) {
-            if (keepPw[stalePw.getValue('region') + '|' + stalePw.getValue('component')]) continue
-            stalePw.setValue('active', false)
-            stalePw.update()
-            log.push('  deactivated portal placement ' + stalePw.getValue('region') + ' ' + stalePw.getDisplayValue('component'))
+
+        /* ---------------- Menus (x_312987_portal_menu / _menu_item) ---------------- */
+
+        // Upsert a portal's menus by (portal, key) and their items by (menu, parent, label); separators
+        // by (menu, parent, type, order). Item defs:
+        //   { page: '<route>', label?, params?, query?, record? } → page item (references the page record);
+        //                                                         record = explicit URL params { table, sys_id, view, query }
+        //   { route: 'orders?tab=open', label, portal? }       → route item (portal: another portal's slug)
+        //   { url: 'https://…', label, target? }               → external URL item
+        //   { label, children: [...], collapsed? }             → group
+        //   { type: 'separator' }
+        // Common: icon (lucide kebab-case), tooltip, match ('exact' | 'prefix'), roles ('a,b'), badge,
+        // availableFor / notAvailableFor (user_criteria sys_ids, see seedCriteria), condition (script: show the
+        // item only when it returns true for the user).
+        // The menu business rules validate each write; one release reprocess runs at the end of seedPortal.
+        function seedMenuItems(menuId, parentId, list, counts) {
+            var keep = {};
+            for (var i = 0; i < list.length; i++) {
+                var it = list[i];
+                var order = (i + 1) * 100;
+                var type =
+                    it.type || (it.children ? 'group' : it.page !== undefined ? 'page' : it.url ? 'url' : 'route');
+                var params = null;
+                if (it.params || it.query || it.portal || it.record) {
+                    params = {};
+                    if (it.params) params.params = it.params;
+                    if (it.query) params.query = it.query;
+                    if (it.portal) params.portal = it.portal;
+                    if (it.record) params.record = it.record;
+                }
+                var fields = {
+                    menu: menuId,
+                    parent: parentId,
+                    order: order,
+                    type: type,
+                    label: it.label || '',
+                    active: true,
+                    page: type === 'page' ? counts.pageIds[it.page] : '',
+                    params_json: params ? JSON.stringify(params) : '',
+                    route: type === 'route' ? it.route || '' : '',
+                    url: type === 'url' ? it.url : '',
+                    icon: it.icon || '',
+                    target: it.target || (type === 'url' ? '_blank' : ''),
+                    match: it.match || 'prefix',
+                    tooltip: it.tooltip || '',
+                    collapsed: !!it.collapsed,
+                    roles: it.roles || '',
+                    badge: it.badge || '',
+                    condition: it.condition || '',
+                };
+                if (type === 'page' && !fields.page)
+                    throw new Error('menu item "' + it.label + '": no page with route ' + it.page);
+                var where =
+                    'menu=' +
+                    menuId +
+                    '^parent' +
+                    (parentId ? '=' + parentId : 'ISEMPTY') +
+                    (type === 'separator' ? '^type=separator^order=' + order : '^label=' + (it.label || ''));
+                var id = upsert('menu_item', where, fields);
+                seedCriteria('item', 'menu_item', id, it);
+                keep[id] = true;
+                counts.items++;
+                if (it.children) seedMenuItems(menuId, id, it.children, counts);
+            }
+            // Items at this level that the seed no longer lists (e.g. sp's flat menu before it was
+            // grouped) are deactivated, not deleted.
+            var stale = new GlideRecord(T + 'menu_item');
+            stale.addEncodedQuery(
+                'menu=' + menuId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') + '^active=true'
+            );
+            stale.query();
+            while (stale.next()) {
+                if (keep[stale.getUniqueValue()]) continue;
+                stale.setValue('active', false);
+                stale.update();
+                counts.deactivated = (counts.deactivated || 0) + 1;
+            }
         }
-        upsert('portal', 'slug=' + def.slug, { home_page: pageIds[def.home] })
-        if (def.menus) seedMenus(pid, pageIds, def.menus)
-        // The release reprocesses once at the end of the seed, after every compile (see importChain).
-        log.push('portal ' + def.slug + ': seeded (release reprocesses at the end)')
-        return pid
-    }
 
-    /* ---------------- Demo catalog item (catalog wave 2) ---------------- */
+        function seedMenus(pid, pageIds, menus) {
+            // The seed-wide batch flag (top of the script) already suppresses per-write reprocessing.
+            {
+                for (var m = 0; m < menus.length; m++) {
+                    var def = menus[m];
+                    var menuId = upsert('menu', 'portal=' + pid + '^key=' + def.key, {
+                        portal: pid,
+                        key: def.key,
+                        name: def.name || def.key,
+                        description: def.description || '',
+                        active: true,
+                    });
+                    var counts = { items: 0, pageIds: pageIds };
+                    seedMenuItems(menuId, '', def.items, counts);
+                    log.push(
+                        '  menu ' +
+                            def.key +
+                            ': ' +
+                            counts.items +
+                            ' items' +
+                            (counts.deactivated ? ', ' + counts.deactivated + ' stale deactivated' : '')
+                    );
+                }
+            }
+        }
 
-    // "React Portal demo: Team equipment": an MRVS whose variable set has its own catalog UI policy
-    // and client scripts (they run in each row editor), a Requested For variable and a custom
-    // variable rendered by one of our components (rp_component / rp_options). The catalog tables
-    // refuse writes from this scope, so scripts/seed/catalog-demo-global.js creates it (global scope,
-    // run once); here it's only looked up by name for the sp catalog picker.
-    var DEMO_CATALOG_ITEM = ''
-    var demoItem = new GlideRecord('sc_cat_item')
-    demoItem.addQuery('name', 'React Portal demo: Team equipment')
-    demoItem.setLimit(1)
-    demoItem.query()
-    if (demoItem.next()) DEMO_CATALOG_ITEM = demoItem.getUniqueValue()
-    log.push('demo catalog item: ' + (DEMO_CATALOG_ITEM || 'not found (run scripts/seed/catalog-demo-global.js in global scope)'))
+        function seedPortal(def) {
+            if (SEED_MODE === 'components') return ''; // build-seed --only: components only, no portal structure
+            var pid = upsert('portal', 'slug=' + def.slug, {
+                name: def.name,
+                slug: def.slug,
+                active: true,
+                is_default: !!def.isDefault,
+                theme: themeIds[def.theme],
+                default_layout: C[def.layout || 'standard-layout'],
+                navigation_json: def.nav,
+                settings_json: def.settings || {},
+            });
+            var pageIds = {};
+            for (var i = 0; i < def.pages.length; i++) {
+                var pg = def.pages[i];
+                pageIds[pg.route] = upsert('page', 'portal=' + pid + '^route_pattern=' + pg.route, {
+                    portal: pid,
+                    name: pg.name,
+                    route_pattern: pg.route,
+                    title: pg.name,
+                    order: (i + 1) * 100,
+                    active: true,
+                    layout_override: pg.layout ? C[pg.layout] : '',
+                    layout_options_json: pg.layoutOptions || '',
+                    content_width: pg.contentWidth || 'inherit',
+                });
+                seedCriteria('page', 'page', pageIds[pg.route], pg);
+                var keptPl = {};
+                placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main', keptPl);
+                // pg.prune: placements on this page that the seed no longer lists (e.g. the old home
+                // page's demo cards) are deactivated, not deleted. Opt-in, so designer-made placements on
+                // other seeded pages stay.
+                if (pg.prune) {
+                    var stalePl = new GlideRecord(T + 'placement');
+                    stalePl.addEncodedQuery('page=' + pageIds[pg.route] + '^active=true');
+                    stalePl.query();
+                    while (stalePl.next()) {
+                        if (keptPl[stalePl.getUniqueValue()]) continue;
+                        stalePl.setValue('active', false);
+                        stalePl.update();
+                        log.push(
+                            '  ' +
+                                def.slug +
+                                '/' +
+                                pg.route +
+                                ': deactivated placement ' +
+                                stalePl.getDisplayValue('component')
+                        );
+                    }
+                }
+            }
+            var portalWidgets = def.portalWidgets || [
+                { c: 'site-header', region: 'header', options: { brand: def.name } },
+                { c: 'nav-sidebar', region: 'sidebar', options: { title: def.name + ' pages' } },
+                { c: 'site-footer', region: 'footer', options: { text: def.name } },
+            ];
+            for (var k = 0; k < portalWidgets.length; k++) {
+                var pw = portalWidgets[k];
+                upsert('placement', 'portal=' + pid + '^pageISEMPTY^region=' + pw.region + '^component=' + C[pw.c], {
+                    portal: pid,
+                    page: '',
+                    region: pw.region,
+                    component: C[pw.c],
+                    order: 100,
+                    active: true,
+                    options_json: pw.options,
+                });
+            }
+            // Portal-level placements no longer listed (e.g. sp's old site-header / nav-sidebar / site-footer
+            // after it moved to the app shell) are deactivated, not deleted.
+            var keepPw = {};
+            for (var kp = 0; kp < portalWidgets.length; kp++)
+                keepPw[portalWidgets[kp].region + '|' + C[portalWidgets[kp].c]] = true;
+            var stalePw = new GlideRecord(T + 'placement');
+            stalePw.addEncodedQuery('portal=' + pid + '^pageISEMPTY^parentISEMPTY^active=true');
+            stalePw.query();
+            while (stalePw.next()) {
+                if (keepPw[stalePw.getValue('region') + '|' + stalePw.getValue('component')]) continue;
+                stalePw.setValue('active', false);
+                stalePw.update();
+                log.push(
+                    '  deactivated portal placement ' +
+                        stalePw.getValue('region') +
+                        ' ' +
+                        stalePw.getDisplayValue('component')
+                );
+            }
+            upsert('portal', 'slug=' + def.slug, { home_page: pageIds[def.home] });
+            if (def.menus) seedMenus(pid, pageIds, def.menus);
+            // The release reprocesses once at the end of the seed, after every compile (see importChain).
+            log.push('portal ' + def.slug + ': seeded (release reprocesses at the end)');
+            return pid;
+        }
 
-    // Home page and "My …" menu items: the platform's dynamic filter option "Me", the OOB "Report
-    // Outage" record producer, and menu conditions that hide My tasks / My surveys for users who have none.
-    var ME = 'DYNAMIC90d1921e5f510100a9ad2572f2b477fe'
-    // Menu groups only authors see (gs.hasRole is true for admin too).
-    var STUDIO_ROLES = 'x_312987_portal.developer,x_312987_portal.designer,x_312987_portal.publisher,x_312987_portal.admin'
-    var REPORT_ISSUE = '38c1fc840a0a0b2700285921c2bf5fc8'
-    var COND_HAS_TASKS = "var ga = new GlideAggregate('task'); ga.addQuery('active', true); ga.addQuery('assigned_to', gs.getUserID()); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0"
-    var COND_HAS_SURVEYS = "var ga = new GlideAggregate('asmt_assessment_instance'); ga.addQuery('user', gs.getUserID()); ga.addQuery('state', 'IN', 'ready,wip'); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0"
+        /* ---------------- Demo catalog item (catalog wave 2) ---------------- */
 
-    seedPortal({
-        slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home', layout: 'app-shell',
-        // App shell (like the Dashboard portal) in sp's own look: a plain sidebar-coloured canvas
-        // (no texture), the full-height icon-collapsible sidebar with the header band beside it, and
-        // an inset main card whose sub-header takes the pages' titles and toolbars (header slots).
-        // KB wave: the glide.knowman.* properties utilities:app/knowledge reads (feedback options and
-        // their roles, actionable feedback, the featured keyword, show_only_populated).
-        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' }, exposedProperties: ['glide.sc.checkout.twostep', 'com.glide.attachment.max_size', 'glide.attachment.extensions', 'glide.knowman.default_keyword', 'glide.knowman.show_rating_options', 'glide.knowman.show_rating_options.roles', 'glide.knowman.show_yn_rating', 'glide.knowman.show_yn_rating.roles', 'glide.knowman.show_star_rating', 'glide.knowman.show_star_rating.roles', 'glide.knowman.show_flag', 'glide.knowman.show_flag.roles', 'glide.knowman.feedback.enable_actionable_feedback_for_flag', 'glide.knowman.feedback.enable_actionable_feedback_for_helpful', 'glide.knowman.show_only_populated'] },
-        nav: [{ label: 'Home', to: '', icon: 'house' }, { label: 'Incidents', to: 'incidents', icon: 'ticket' }, { label: 'Record list', to: 'list', icon: 'table-2' }, { label: 'Lists', to: 'lists', icon: 'list' }, { label: 'Orders', to: 'orders', icon: 'shopping-cart' }, { label: 'Tests', to: 'tests', icon: 'flask-conical' }, { label: 'Embeds', to: 'embeds', icon: 'layers' }, { label: 'Layouts', to: 'layouts', icon: 'layout-grid' }, { label: 'Fields', to: 'fields', icon: 'text-cursor-input' }, { label: 'Catalog', to: 'catalog', icon: 'store' }, { label: 'Form', to: 'form', icon: 'file-text' }, { label: 'About', to: 'about', icon: 'info' }],
-        // Menu records (navigation_json above stays one release as the fallback).
-        menus: [
-            { key: 'primary', name: 'Primary', items: [
-                // User-centred items: the generic list page with explicit record params (table + a
-                // "Me" query: the platform's dynamic filter) and a title (q title=…). Items that only
-                // apply to some users carry a condition (My tasks, My surveys).
-                { label: 'Service desk', children: [
-                    { page: 'home', label: 'Home', icon: 'house', match: 'exact' },
-                    { page: 'list', label: 'My requests', icon: 'package', record: { table: 'sc_req_item', query: 'active=true^requested_for' + ME + '^ORopened_by' + ME }, query: { title: 'My requests' } },
-                    { page: 'list', label: 'My incidents', icon: 'life-buoy', record: { table: 'incident', query: 'active=true^caller_id' + ME + '^ORopened_by' + ME }, query: { title: 'My incidents' } },
-                    { page: 'list', label: 'My approvals', icon: 'stamp', record: { table: 'sysapproval_approver', query: 'approver' + ME + '^state=requested' }, query: { title: 'My approvals' } },
-                    { page: 'list', label: 'My tasks', icon: 'list-checks', record: { table: 'task', query: 'active=true^assigned_to' + ME }, query: { title: 'My tasks' }, condition: COND_HAS_TASKS },
-                    { page: 'list', label: 'My surveys', icon: 'clipboard-check', record: { table: 'asmt_assessment_instance', query: 'user' + ME + '^stateINready,wip' }, query: { title: 'My surveys' }, condition: COND_HAS_SURVEYS },
-                    { page: 'kb', label: 'Knowledge', icon: 'book-open' },
-                    { page: 'catalog', label: 'Catalog', icon: 'store' },
-                ] },
-                // Demo groups are for authors only (roleless customer test): customers see Service desk.
-                { label: 'Components', roles: STUDIO_ROLES, children: [
-                    { page: 'list', label: 'Record list', icon: 'table-2', tooltip: 'Any table: ?table=&query=&view=' },
-                    { page: 'form', label: 'Record form', icon: 'file-text', tooltip: 'Any record: ?table=&sys_id=&view=' },
-                    { page: 'incidents', label: 'Incidents', icon: 'ticket' },
-                    { page: 'orders', label: 'Orders', icon: 'shopping-cart' },
-                    { page: 'lists', label: 'List cards', icon: 'list' },
-                    { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
-                    { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
-                    { page: 'embeds', label: 'Embeds', icon: 'layers' },
-                    { page: 'variable-editor', label: 'Variable editor', icon: 'clipboard-list' },
-                    // Activity (A5): app/activity-card demo.
-                    { page: 'activity', label: 'Activity', icon: 'messages-square' },
-                    // Attachments (A6): presentation variants of one record's attachments.
-                    { page: 'attachments', label: 'Attachments', icon: 'paperclip' },
-                ] },
-                { label: 'More', roles: STUDIO_ROLES, children: [
-                    { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
-                    { page: 'about', label: 'About', icon: 'info' },
-                    // User criteria demo: the page item drops for users the page's criteria exclude; the
-                    // URL item carries its own criteria. Both: "Users with 'itil' role" (existing OOB record).
-                    { page: 'agents', label: 'Agents only', icon: 'shield-check' },
-                    { url: 'https://www.servicenow.com/docs/r/it-service-management/incident-management/c_IncidentManagement.html', label: 'Agent handbook', icon: 'book-marked', availableFor: [UC_ITIL] },
-                ] },
-            ] },
-            // No footer on sp (James): the old `footer` menu's links are all in primary; Lucide icons
-            // moved to the account menu. The footer menu record is left in place, unused.
-            // The sidebar user menu (app-sidebar, above Theme / Sign out).
-            { key: 'account', name: 'Account', items: [
-                { page: 'list', label: 'My open incidents', icon: 'inbox', record: { table: 'incident', query: 'active=true^caller_id' + ME + '^ORopened_by' + ME }, query: { title: 'My incidents' } },
-                { page: 'catalog', label: 'Request something', icon: 'store' },
-                { type: 'separator' },
-                { route: '', portal: 'app', label: 'Dashboard', icon: 'layout-dashboard' },
-                { route: '', portal: 'crm', label: 'CRM', icon: 'building-2' },
-                { type: 'separator' },
-                { url: 'https://www.servicenow.com/docs/', label: 'Documentation', icon: 'book-open' },
-                { url: 'https://lucide.dev/icons/', label: 'Lucide icons', icon: 'shapes' },
-            ] },
-        ],
-        // The Dashboard's shell widgets with sp's brand: the sidebar header (brand tile) and the
-        // header band share one height; the user menu sits in the sidebar footer.
-        portalWidgets: [
-            { c: 'app-sidebar', region: 'sidebar', options: { collapsible: 'icon', variant: 'inset', userMenu: 'footer', brand: 'Service Portal', brandIcon: 'life-buoy', tints: true } },
-            { c: 'app-header', region: 'header', options: { sidebarTrigger: true, brand: 'Service Portal' } },
-            { c: 'app-subheader', region: 'subheader', options: { note: 'Service Portal' } },
-            // Cart icon + count badge + popover, portalled into app-header's "header-actions" slot.
-            { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
-        ],
-        pages: [
-            // Banner sub-header (app-shell layout option subheader): a hero band over the home page.
-            // Home: the banner sub-header with the hero search in it (app/hero-search → the banner's
-            // "below" slot), announcements, quick links, my items + knowledge side by side, popular
-            // catalog items and a get-help band. prune: the old demo cards are deactivated.
-            { route: 'home', name: 'Home', prune: true, layoutOptions: { subheader: 'banner', subheaderTitle: 'How can we help?', subheaderSubtitle: 'Search for answers, request something, or check on your requests.', subheaderIcon: 'life-buoy' }, widgets: [
-                { c: 'hero-search', options: { placement: 'banner', placeholder: 'Search for help, services and your requests', suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'], kbPage: 'kb/article', kbSearchPage: 'kb/search' } },
-                { c: 'announcements', options: { types: 'widget', limit: 2 } },
-                { c: 'quick-links', options: { variant: 'tiles', columns: 4, items: [
-                    { label: 'Report an issue', description: 'Something broken? Let the service desk know.', icon: 'triangle-alert', tint: 'chart-4', to: 'catalog', q: { item: REPORT_ISSUE } },
-                    { label: 'Request something', description: 'Hardware, software and services from the catalog.', icon: 'store', tint: 'chart-2', to: 'catalog' },
-                    { label: 'Knowledge', description: 'How-to articles and answers to common questions.', icon: 'book-open', tint: 'chart-1', to: 'kb' },
-                    { label: 'My approvals', description: 'Requests waiting for your decision.', icon: 'stamp', tint: 'chart-3', to: 'list', table: 'sysapproval_approver', query: 'approver' + ME + '^state=requested', q: { title: 'My approvals' }, countTable: 'sysapproval_approver', countQuery: 'approver' + ME + '^state=requested', countLabel: 'pending' },
-                ] } },
-                { c: 'grid', options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1.5rem', itemSpan: 6 }, children: { items: [
-                    { c: 'my-items', layout: { colSpan: 7, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'My active items', limit: 5, recordPage: 'form', listPage: 'list', live: true } },
-                    { c: 'kb-articles', layout: { colSpan: 5, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'Knowledge', limit: 5, kbPage: 'kb', articlePage: 'kb/article', categoryPage: 'kb/category', categoriesLimit: 6, compact: true } },
-                ] } },
-                { c: 'catalog-tiles', options: { title: 'Popular requests', description: 'What people around you order most.', mode: 'popular', limit: 8, columns: 4, catalogPage: 'catalog', items: ['73b1bafa9752cd1021983d1e6253afb5', 'c3b9cbf29716cd1021983d1e6253afad', '774906834fbb4200086eeed18110c737', '3022c182d52d3904c602d97466d5a6b1', '729166dc47d20950f53d37d2846d434a', '4a17d6a3ff133100ba13ffffffffffe7', '54c9ead947dec110f53d37d2846d43ea'], exclude: ['2f600ac0935d86d0df2f76718bba1077'] } },
-                { c: 'quick-links', options: { variant: 'cta', title: "Can't find what you need?", description: 'Search the knowledge base or tell the service desk. We usually answer within a business day.', items: [
-                    { label: 'Report an issue', icon: 'triangle-alert', to: 'catalog', q: { item: REPORT_ISSUE } },
-                    { label: 'Browse knowledge', icon: 'book-open', to: 'kb' },
-                ] } },
-            ] },
-            // Portal search results (app/search-results): q term=…&source=… (the hero search's Enter).
-            { route: 'search', name: 'Search', widgets: [
-                { c: 'search-results', options: { resultsPage: 'search', catalogPage: 'catalog', kbPage: 'kb/article', kbSearchPage: 'kb/search', recordPage: 'form', pageSize: 10, suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'] } },
-            ] },
-            // Knowledge (KB wave): four pages on utilities:app/knowledge. The primary menu's Knowledge item
-            // (page kb, prefix match) stays active on all of them. kb: the banner sub-header with a
-            // knowledge-only hero search, then app/kb-home (KB cards, featured / most viewed / recently
-            // updated, category trees). Old kb links with a sys_id or q category are forwarded.
-            { route: 'kb', name: 'Knowledge', prune: true, layoutOptions: { subheader: 'banner', subheaderTitle: 'Knowledge', subheaderSubtitle: 'How-to guides, answers and policies from the service desk.', subheaderIcon: 'book-open' }, widgets: [
-                { c: 'hero-search', options: { placement: 'banner', sources: ['knowledge'], placeholder: 'Search knowledge articles', resultsPage: 'kb/search', kbPage: 'kb/article', kbSearchPage: 'kb/search', suggestions: ['Outlook', 'VPN', 'Windows', 'Spam'] } },
-                { c: 'kb-home', options: { showSearch: false, limit: 6, articlePage: 'kb/article', categoryPage: 'kb/category', searchPage: 'kb/search' } },
-            ] },
-            // One article (sys_id): reading layout, "On this page", attachments, feedback, related; counts the view.
-            { route: 'kb/article', name: 'Knowledge article', widgets: [
-                { c: 'kb-article', options: { homePage: 'kb', categoryPage: 'kb/category', searchPage: 'kb/search', articlePage: 'kb/article' } },
-            ] },
-            // A knowledge base or category (q kb=…&category=…&sort=…&page=…).
-            { route: 'kb/category', name: 'Knowledge category', widgets: [
-                { c: 'kb-category', options: { pageSize: 15, homePage: 'kb', articlePage: 'kb/article', searchPage: 'kb/search' } },
-            ] },
-            // KB search with facets (q term=…&kb=…&category=…&type=…&sort=…&page=…).
-            { route: 'kb/search', name: 'Knowledge search', widgets: [
-                { c: 'kb-search', options: { pageSize: 10, homePage: 'kb', articlePage: 'kb/article', categoryPage: 'kb/category', suggestions: ['Outlook', 'VPN', 'Windows', 'Spam'] } },
-            ] },
-            { route: 'orders', name: 'Orders', widgets: [
-                { c: 'hello-card', options: { title: 'Orders', body: 'Pick an order. Each opens the orders/:id route.', links: [{ label: 'Order 42', to: 'orders/42' }, { label: 'Order 43', to: 'orders/43' }, { label: 'Order 44 (with q)', to: 'orders/44', q: 'view=summary&tab=2' }] } },
-            ] },
-            { route: 'orders/:id', name: 'Order', widgets: [
-                { c: 'record-detail', options: { label: 'Order', back: 'orders' } },
-                { c: 'server-clock' },
-            ] },
-            { route: 'incidents', name: 'Incidents', widgets: [
-                { c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } },
-            ] },
-            // Lists inside widgets (app/list-card embeds app/data-table's RecordList): a configured
-            // list and a related list (an incident's SLAs, via a fixed parent condition).
-            { route: 'lists', name: 'Lists', widgets: [
-                { c: 'list-card', options: { title: 'My open incidents', table: 'incident', query: 'active=true^caller_id=javascript:gs.getUserID()^ORassigned_to=javascript:gs.getUserID()', columns: 'number,short_description,priority,state,assigned_to,sys_updated_on', orderBy: '-sys_updated_on', pageSize: 10 } },
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
-                    'col-1': [
-                        { c: 'list-card', options: { title: 'Critical, unassigned', table: 'incident', query: 'active=true^priority=1^assigned_toISEMPTY', columns: 'number,short_description,caller_id,opened_at', orderBy: '-opened_at', pageSize: 5, hide: ['columnChooser', 'export'], liveUpdates: true } },
+        // "React Portal demo: Team equipment": an MRVS whose variable set has its own catalog UI policy
+        // and client scripts (they run in each row editor), a Requested For variable and a custom
+        // variable rendered by one of our components (rp_component / rp_options). The catalog tables
+        // refuse writes from this scope, so scripts/seed/catalog-demo-global.js creates it (global scope,
+        // run once); here it's only looked up by name for the sp catalog picker.
+        var DEMO_CATALOG_ITEM = '';
+        var demoItem = new GlideRecord('sc_cat_item');
+        demoItem.addQuery('name', 'React Portal demo: Team equipment');
+        demoItem.setLimit(1);
+        demoItem.query();
+        if (demoItem.next()) DEMO_CATALOG_ITEM = demoItem.getUniqueValue();
+        log.push(
+            'demo catalog item: ' +
+                (DEMO_CATALOG_ITEM || 'not found (run scripts/seed/catalog-demo-global.js in global scope)')
+        );
+
+        // Home page and "My …" menu items: the platform's dynamic filter option "Me", the OOB "Report
+        // Outage" record producer, and menu conditions that hide My tasks / My surveys for users who have none.
+        var ME = 'DYNAMIC90d1921e5f510100a9ad2572f2b477fe';
+        // Menu groups only authors see (gs.hasRole is true for admin too).
+        var STUDIO_ROLES =
+            'x_312987_portal.developer,x_312987_portal.designer,x_312987_portal.publisher,x_312987_portal.admin';
+        var REPORT_ISSUE = '38c1fc840a0a0b2700285921c2bf5fc8';
+        var COND_HAS_TASKS =
+            "var ga = new GlideAggregate('task'); ga.addQuery('active', true); ga.addQuery('assigned_to', gs.getUserID()); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0";
+        var COND_HAS_SURVEYS =
+            "var ga = new GlideAggregate('asmt_assessment_instance'); ga.addQuery('user', gs.getUserID()); ga.addQuery('state', 'IN', 'ready,wip'); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0";
+
+        seedPortal({
+            slug: 'sp',
+            name: 'Service Portal',
+            theme: 'sp-light',
+            isDefault: true,
+            home: 'home',
+            layout: 'app-shell',
+            // App shell (like the Dashboard portal) in sp's own look: a plain sidebar-coloured canvas
+            // (no texture), the full-height icon-collapsible sidebar with the header band beside it, and
+            // an inset main card whose sub-header takes the pages' titles and toolbars (header slots).
+            // KB wave: the glide.knowman.* properties utilities:app/knowledge reads (feedback options and
+            // their roles, actionable feedback, the featured keyword, show_only_populated).
+            settings: {
+                contentWidth: '6xl',
+                layoutOptions: { texture: 'plain', contentPadding: 'md' },
+                exposedProperties: [
+                    'glide.sc.checkout.twostep',
+                    'com.glide.attachment.max_size',
+                    'glide.attachment.extensions',
+                    'glide.knowman.default_keyword',
+                    'glide.knowman.show_rating_options',
+                    'glide.knowman.show_rating_options.roles',
+                    'glide.knowman.show_yn_rating',
+                    'glide.knowman.show_yn_rating.roles',
+                    'glide.knowman.show_star_rating',
+                    'glide.knowman.show_star_rating.roles',
+                    'glide.knowman.show_flag',
+                    'glide.knowman.show_flag.roles',
+                    'glide.knowman.feedback.enable_actionable_feedback_for_flag',
+                    'glide.knowman.feedback.enable_actionable_feedback_for_helpful',
+                    'glide.knowman.show_only_populated',
+                ],
+            },
+            nav: [
+                { label: 'Home', to: '', icon: 'house' },
+                { label: 'Incidents', to: 'incidents', icon: 'ticket' },
+                { label: 'Record list', to: 'list', icon: 'table-2' },
+                { label: 'Lists', to: 'lists', icon: 'list' },
+                { label: 'Orders', to: 'orders', icon: 'shopping-cart' },
+                { label: 'Tests', to: 'tests', icon: 'flask-conical' },
+                { label: 'Embeds', to: 'embeds', icon: 'layers' },
+                { label: 'Layouts', to: 'layouts', icon: 'layout-grid' },
+                { label: 'Fields', to: 'fields', icon: 'text-cursor-input' },
+                { label: 'Catalog', to: 'catalog', icon: 'store' },
+                { label: 'Form', to: 'form', icon: 'file-text' },
+                { label: 'About', to: 'about', icon: 'info' },
+            ],
+            // Menu records (navigation_json above stays one release as the fallback).
+            menus: [
+                {
+                    key: 'primary',
+                    name: 'Primary',
+                    items: [
+                        // User-centred items: the generic list page with explicit record params (table + a
+                        // "Me" query: the platform's dynamic filter) and a title (q title=…). Items that only
+                        // apply to some users carry a condition (My tasks, My surveys).
+                        {
+                            label: 'Service desk',
+                            children: [
+                                { page: 'home', label: 'Home', icon: 'house', match: 'exact' },
+                                {
+                                    page: 'list',
+                                    label: 'My requests',
+                                    icon: 'package',
+                                    record: {
+                                        table: 'sc_req_item',
+                                        query: 'active=true^requested_for' + ME + '^ORopened_by' + ME,
+                                    },
+                                    query: { title: 'My requests' },
+                                },
+                                {
+                                    page: 'list',
+                                    label: 'My incidents',
+                                    icon: 'life-buoy',
+                                    record: {
+                                        table: 'incident',
+                                        query: 'active=true^caller_id' + ME + '^ORopened_by' + ME,
+                                    },
+                                    query: { title: 'My incidents' },
+                                },
+                                {
+                                    page: 'list',
+                                    label: 'My approvals',
+                                    icon: 'stamp',
+                                    record: {
+                                        table: 'sysapproval_approver',
+                                        query: 'approver' + ME + '^state=requested',
+                                    },
+                                    query: { title: 'My approvals' },
+                                },
+                                {
+                                    page: 'list',
+                                    label: 'My tasks',
+                                    icon: 'list-checks',
+                                    record: { table: 'task', query: 'active=true^assigned_to' + ME },
+                                    query: { title: 'My tasks' },
+                                    condition: COND_HAS_TASKS,
+                                },
+                                {
+                                    page: 'list',
+                                    label: 'My surveys',
+                                    icon: 'clipboard-check',
+                                    record: {
+                                        table: 'asmt_assessment_instance',
+                                        query: 'user' + ME + '^stateINready,wip',
+                                    },
+                                    query: { title: 'My surveys' },
+                                    condition: COND_HAS_SURVEYS,
+                                },
+                                { page: 'kb', label: 'Knowledge', icon: 'book-open' },
+                                { page: 'catalog', label: 'Catalog', icon: 'store' },
+                            ],
+                        },
+                        // Demo groups are for authors only (roleless customer test): customers see Service desk.
+                        {
+                            label: 'Components',
+                            roles: STUDIO_ROLES,
+                            children: [
+                                {
+                                    page: 'list',
+                                    label: 'Record list',
+                                    icon: 'table-2',
+                                    tooltip: 'Any table: ?table=&query=&view=',
+                                },
+                                {
+                                    page: 'form',
+                                    label: 'Record form',
+                                    icon: 'file-text',
+                                    tooltip: 'Any record: ?table=&sys_id=&view=',
+                                },
+                                { page: 'incidents', label: 'Incidents', icon: 'ticket' },
+                                { page: 'orders', label: 'Orders', icon: 'shopping-cart' },
+                                { page: 'lists', label: 'List cards', icon: 'list' },
+                                { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
+                                { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
+                                { page: 'embeds', label: 'Embeds', icon: 'layers' },
+                                { page: 'variable-editor', label: 'Variable editor', icon: 'clipboard-list' },
+                                // Activity (A5): app/activity-card demo.
+                                { page: 'activity', label: 'Activity', icon: 'messages-square' },
+                                // Attachments (A6): presentation variants of one record's attachments.
+                                { page: 'attachments', label: 'Attachments', icon: 'paperclip' },
+                            ],
+                        },
+                        {
+                            label: 'More',
+                            roles: STUDIO_ROLES,
+                            children: [
+                                { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
+                                { page: 'about', label: 'About', icon: 'info' },
+                                // User criteria demo: the page item drops for users the page's criteria exclude; the
+                                // URL item carries its own criteria. Both: "Users with 'itil' role" (existing OOB record).
+                                { page: 'agents', label: 'Agents only', icon: 'shield-check' },
+                                {
+                                    url: 'https://www.servicenow.com/docs/r/it-service-management/incident-management/c_IncidentManagement.html',
+                                    label: 'Agent handbook',
+                                    icon: 'book-marked',
+                                    availableFor: [UC_ITIL],
+                                },
+                            ],
+                        },
                     ],
-                    'col-2': [
-                        { c: 'list-card', options: { title: 'SLAs of INC0000060 (related list)', table: 'task_sla', parentField: 'task', parentSysId: '1c741bd70b2322007518478d83673af3', columns: 'sla,stage,has_breached,business_percentage,planned_end_time', pageSize: 5, hide: ['search', 'selection', 'actions', 'export'] } },
+                },
+                // No footer on sp (James): the old `footer` menu's links are all in primary; Lucide icons
+                // moved to the account menu. The footer menu record is left in place, unused.
+                // The sidebar user menu (app-sidebar, above Theme / Sign out).
+                {
+                    key: 'account',
+                    name: 'Account',
+                    items: [
+                        {
+                            page: 'list',
+                            label: 'My open incidents',
+                            icon: 'inbox',
+                            record: { table: 'incident', query: 'active=true^caller_id' + ME + '^ORopened_by' + ME },
+                            query: { title: 'My incidents' },
+                        },
+                        { page: 'catalog', label: 'Request something', icon: 'store' },
+                        { type: 'separator' },
+                        { route: '', portal: 'app', label: 'Dashboard', icon: 'layout-dashboard' },
+                        { route: '', portal: 'crm', label: 'CRM', icon: 'building-2' },
+                        { type: 'separator' },
+                        { url: 'https://www.servicenow.com/docs/', label: 'Documentation', icon: 'book-open' },
+                        { url: 'https://lucide.dev/icons/', label: 'Lucide icons', icon: 'shapes' },
                     ],
-                } },
-                // Related lists (app/related-lists-card): a record's related lists outside a form. INC0000060
-                // as tabs (counts on the tabs, lazy), the Service Desk group stacked (m2m Group Members: Add / Edit… / Remove).
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
-                    'col-1': [
-                        { c: 'related-lists-card', options: { title: 'INC0000060: related lists', table: 'incident', sysId: '1c741bd70b2322007518478d83673af3', layout: 'tabs', liveUpdates: true } },
+                },
+            ],
+            // The Dashboard's shell widgets with sp's brand: the sidebar header (brand tile) and the
+            // header band share one height; the user menu sits in the sidebar footer.
+            portalWidgets: [
+                {
+                    c: 'app-sidebar',
+                    region: 'sidebar',
+                    options: {
+                        collapsible: 'icon',
+                        variant: 'inset',
+                        userMenu: 'footer',
+                        brand: 'Service Portal',
+                        brandIcon: 'life-buoy',
+                        tints: true,
+                    },
+                },
+                { c: 'app-header', region: 'header', options: { sidebarTrigger: true, brand: 'Service Portal' } },
+                { c: 'app-subheader', region: 'subheader', options: { note: 'Service Portal' } },
+                // Cart icon + count badge + popover, portalled into app-header's "header-actions" slot.
+                { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
+            ],
+            pages: [
+                // Banner sub-header (app-shell layout option subheader): a hero band over the home page.
+                // Home: the banner sub-header with the hero search in it (app/hero-search → the banner's
+                // "below" slot), announcements, quick links, my items + knowledge side by side, popular
+                // catalog items and a get-help band. prune: the old demo cards are deactivated.
+                {
+                    route: 'home',
+                    name: 'Home',
+                    prune: true,
+                    layoutOptions: {
+                        subheader: 'banner',
+                        subheaderTitle: 'How can we help?',
+                        subheaderSubtitle: 'Search for answers, request something, or check on your requests.',
+                        subheaderIcon: 'life-buoy',
+                    },
+                    widgets: [
+                        {
+                            c: 'hero-search',
+                            options: {
+                                placement: 'banner',
+                                placeholder: 'Search for help, services and your requests',
+                                suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'],
+                                kbPage: 'kb/article',
+                                kbSearchPage: 'kb/search',
+                            },
+                        },
+                        { c: 'announcements', options: { types: 'widget', limit: 2 } },
+                        {
+                            c: 'quick-links',
+                            options: {
+                                variant: 'tiles',
+                                columns: 4,
+                                items: [
+                                    {
+                                        label: 'Report an issue',
+                                        description: 'Something broken? Let the service desk know.',
+                                        icon: 'triangle-alert',
+                                        tint: 'chart-4',
+                                        to: 'catalog',
+                                        q: { item: REPORT_ISSUE },
+                                    },
+                                    {
+                                        label: 'Request something',
+                                        description: 'Hardware, software and services from the catalog.',
+                                        icon: 'store',
+                                        tint: 'chart-2',
+                                        to: 'catalog',
+                                    },
+                                    {
+                                        label: 'Knowledge',
+                                        description: 'How-to articles and answers to common questions.',
+                                        icon: 'book-open',
+                                        tint: 'chart-1',
+                                        to: 'kb',
+                                    },
+                                    {
+                                        label: 'My approvals',
+                                        description: 'Requests waiting for your decision.',
+                                        icon: 'stamp',
+                                        tint: 'chart-3',
+                                        to: 'list',
+                                        table: 'sysapproval_approver',
+                                        query: 'approver' + ME + '^state=requested',
+                                        q: { title: 'My approvals' },
+                                        countTable: 'sysapproval_approver',
+                                        countQuery: 'approver' + ME + '^state=requested',
+                                        countLabel: 'pending',
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'grid',
+                            options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1.5rem', itemSpan: 6 },
+                            children: {
+                                items: [
+                                    {
+                                        c: 'my-items',
+                                        layout: { colSpan: 7, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'My active items',
+                                            limit: 5,
+                                            recordPage: 'form',
+                                            listPage: 'list',
+                                            live: true,
+                                        },
+                                    },
+                                    {
+                                        c: 'kb-articles',
+                                        layout: { colSpan: 5, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'Knowledge',
+                                            limit: 5,
+                                            kbPage: 'kb',
+                                            articlePage: 'kb/article',
+                                            categoryPage: 'kb/category',
+                                            categoriesLimit: 6,
+                                            compact: true,
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'catalog-tiles',
+                            options: {
+                                title: 'Popular requests',
+                                description: 'What people around you order most.',
+                                mode: 'popular',
+                                limit: 8,
+                                columns: 4,
+                                catalogPage: 'catalog',
+                                items: [
+                                    '73b1bafa9752cd1021983d1e6253afb5',
+                                    'c3b9cbf29716cd1021983d1e6253afad',
+                                    '774906834fbb4200086eeed18110c737',
+                                    '3022c182d52d3904c602d97466d5a6b1',
+                                    '729166dc47d20950f53d37d2846d434a',
+                                    '4a17d6a3ff133100ba13ffffffffffe7',
+                                    '54c9ead947dec110f53d37d2846d43ea',
+                                ],
+                                exclude: ['2f600ac0935d86d0df2f76718bba1077'],
+                            },
+                        },
+                        {
+                            c: 'quick-links',
+                            options: {
+                                variant: 'cta',
+                                title: "Can't find what you need?",
+                                description:
+                                    'Search the knowledge base or tell the service desk. We usually answer within a business day.',
+                                items: [
+                                    {
+                                        label: 'Report an issue',
+                                        icon: 'triangle-alert',
+                                        to: 'catalog',
+                                        q: { item: REPORT_ISSUE },
+                                    },
+                                    { label: 'Browse knowledge', icon: 'book-open', to: 'kb' },
+                                ],
+                            },
+                        },
                     ],
-                    'col-2': [
-                        { c: 'related-lists-card', options: { title: 'Service Desk group: related lists', table: 'sys_user_group', sysId: 'd625dccec0a8016700a222a0f7900d06', layout: 'stacked' } },
+                },
+                // Portal search results (app/search-results): q term=…&source=… (the hero search's Enter).
+                {
+                    route: 'search',
+                    name: 'Search',
+                    widgets: [
+                        {
+                            c: 'search-results',
+                            options: {
+                                resultsPage: 'search',
+                                catalogPage: 'catalog',
+                                kbPage: 'kb/article',
+                                kbSearchPage: 'kb/search',
+                                recordPage: 'form',
+                                pageSize: 10,
+                                suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'],
+                            },
+                        },
                     ],
-                } },
-            ] },
-            // No sub-header (its card has its own title): main reclaims the band.
-            { route: 'tests', name: 'Runtime Tests', layoutOptions: { subheader: 'hidden' }, widgets: [
-                { c: 'runtime-tests', options: { label: 'from placement options' } },
-            ] },
-            // Embedded widgets: Server Clock imported by app/embed-demo and rendered as its own
-            // instances (client-declared, server-built with $sp.getWidget, fetched on demand).
-            { route: 'embeds', name: 'Embedded Widgets', widgets: [
-                { c: 'embed-demo', options: { title: 'Embedded widgets' } },
-            ] },
-            // Layout-rooted embeds (test page, not in the menus): the Embed Test Layout imports Server
-            // Clock and embeds it client-side and from its own server script ($sp.getWidget).
-            { route: 'embeds/layout', name: 'Layout embeds', layout: 'embed-test-layout', widgets: [
-                { c: 'hello-card', options: { title: 'Layout-rooted embeds', body: 'The two clocks above are embedded by the page\'s layout (Embed Test Layout), rooted at layout:<sys_id> and authorized against this page\'s effective layout. Runtime Tests use this page for its layout-root checks.', links: [{ label: 'Back to Embedded Widgets', to: 'embeds' }, { label: 'Runtime Tests', to: 'tests' }] } },
-            ] },
-            // Blocks demo: a ⅓ + ⅔ Columns block; the wide column holds a 12-track Grid whose cards
-            // span 6, plus a nested Grid that uses subgrid to line up on the parent's tracks.
-            { route: 'layouts', name: 'Layouts', widgets: [
-                { c: 'section', style: { background: 'muted', radius: '0.75rem', paddingX: '1.5rem' }, options: { paddingY: '1.5rem' }, children: { content: [
-                    { c: 'hello-card', options: { title: 'Blocks', body: 'Sections, containers, grids, columns, stacks and splits are page-structure components with drop zones. This band is a Section with a muted background from its instance styling.' } },
-                ] } },
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2fr)' }] }, children: {
-                    'col-1': [
-                        { c: 'hello-card', options: { title: 'Column 1 (⅓)', body: 'Stacks on mobile.' } },
+                },
+                // Knowledge (KB wave): four pages on utilities:app/knowledge. The primary menu's Knowledge item
+                // (page kb, prefix match) stays active on all of them. kb: the banner sub-header with a
+                // knowledge-only hero search, then app/kb-home (KB cards, featured / most viewed / recently
+                // updated, category trees). Old kb links with a sys_id or q category are forwarded.
+                {
+                    route: 'kb',
+                    name: 'Knowledge',
+                    prune: true,
+                    layoutOptions: {
+                        subheader: 'banner',
+                        subheaderTitle: 'Knowledge',
+                        subheaderSubtitle: 'How-to guides, answers and policies from the service desk.',
+                        subheaderIcon: 'book-open',
+                    },
+                    widgets: [
+                        {
+                            c: 'hero-search',
+                            options: {
+                                placement: 'banner',
+                                sources: ['knowledge'],
+                                placeholder: 'Search knowledge articles',
+                                resultsPage: 'kb/search',
+                                kbPage: 'kb/article',
+                                kbSearchPage: 'kb/search',
+                                suggestions: ['Outlook', 'VPN', 'Windows', 'Spam'],
+                            },
+                        },
+                        {
+                            c: 'kb-home',
+                            options: {
+                                showSearch: false,
+                                limit: 6,
+                                articlePage: 'kb/article',
+                                categoryPage: 'kb/category',
+                                searchPage: 'kb/search',
+                            },
+                        },
+                    ],
+                },
+                // One article (sys_id): reading layout, "On this page", attachments, feedback, related; counts the view.
+                {
+                    route: 'kb/article',
+                    name: 'Knowledge article',
+                    widgets: [
+                        {
+                            c: 'kb-article',
+                            options: {
+                                homePage: 'kb',
+                                categoryPage: 'kb/category',
+                                searchPage: 'kb/search',
+                                articlePage: 'kb/article',
+                            },
+                        },
+                    ],
+                },
+                // A knowledge base or category (q kb=…&category=…&sort=…&page=…).
+                {
+                    route: 'kb/category',
+                    name: 'Knowledge category',
+                    widgets: [
+                        {
+                            c: 'kb-category',
+                            options: {
+                                pageSize: 15,
+                                homePage: 'kb',
+                                articlePage: 'kb/article',
+                                searchPage: 'kb/search',
+                            },
+                        },
+                    ],
+                },
+                // KB search with facets (q term=…&kb=…&category=…&type=…&sort=…&page=…).
+                {
+                    route: 'kb/search',
+                    name: 'Knowledge search',
+                    widgets: [
+                        {
+                            c: 'kb-search',
+                            options: {
+                                pageSize: 10,
+                                homePage: 'kb',
+                                articlePage: 'kb/article',
+                                categoryPage: 'kb/category',
+                                suggestions: ['Outlook', 'VPN', 'Windows', 'Spam'],
+                            },
+                        },
+                    ],
+                },
+                {
+                    route: 'orders',
+                    name: 'Orders',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Orders',
+                                body: 'Pick an order. Each opens the orders/:id route.',
+                                links: [
+                                    { label: 'Order 42', to: 'orders/42' },
+                                    { label: 'Order 43', to: 'orders/43' },
+                                    { label: 'Order 44 (with q)', to: 'orders/44', q: 'view=summary&tab=2' },
+                                ],
+                            },
+                        },
+                    ],
+                },
+                {
+                    route: 'orders/:id',
+                    name: 'Order',
+                    widgets: [
+                        { c: 'record-detail', options: { label: 'Order', back: 'orders' } },
                         { c: 'server-clock' },
                     ],
-                    'col-2': [
-                        { c: 'grid', options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 6 }, children: { items: [
-                            { c: 'hello-card', options: { title: 'Card A', body: 'span 6' } },
-                            { c: 'hello-card', options: { title: 'Card B', body: 'span 6' } },
-                            { c: 'grid', layout: { colSpan: 'full' }, options: { subgrid: 'columns', itemSpan: 4 }, classes: 'rounded-xl border border-dashed p-3', children: { items: [
-                                { c: 'hello-card', options: { title: 'Sub 1', body: 'subgrid, span 4' } },
-                                { c: 'hello-card', options: { title: 'Sub 2', body: 'subgrid, span 4' } },
-                                { c: 'hello-card', options: { title: 'Sub 3', body: 'subgrid, span 4' } },
-                            ] } },
-                        ] } },
+                },
+                {
+                    route: 'incidents',
+                    name: 'Incidents',
+                    widgets: [{ c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } }],
+                },
+                // Lists inside widgets (app/list-card embeds app/data-table's RecordList): a configured
+                // list and a related list (an incident's SLAs, via a fixed parent condition).
+                {
+                    route: 'lists',
+                    name: 'Lists',
+                    widgets: [
+                        {
+                            c: 'list-card',
+                            options: {
+                                title: 'My open incidents',
+                                table: 'incident',
+                                query: 'active=true^caller_id=javascript:gs.getUserID()^ORassigned_to=javascript:gs.getUserID()',
+                                columns: 'number,short_description,priority,state,assigned_to,sys_updated_on',
+                                orderBy: '-sys_updated_on',
+                                pageSize: 10,
+                            },
+                        },
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'list-card',
+                                        options: {
+                                            title: 'Critical, unassigned',
+                                            table: 'incident',
+                                            query: 'active=true^priority=1^assigned_toISEMPTY',
+                                            columns: 'number,short_description,caller_id,opened_at',
+                                            orderBy: '-opened_at',
+                                            pageSize: 5,
+                                            hide: ['columnChooser', 'export'],
+                                            liveUpdates: true,
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'list-card',
+                                        options: {
+                                            title: 'SLAs of INC0000060 (related list)',
+                                            table: 'task_sla',
+                                            parentField: 'task',
+                                            parentSysId: '1c741bd70b2322007518478d83673af3',
+                                            columns: 'sla,stage,has_breached,business_percentage,planned_end_time',
+                                            pageSize: 5,
+                                            hide: ['search', 'selection', 'actions', 'export'],
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        // Related lists (app/related-lists-card): a record's related lists outside a form. INC0000060
+                        // as tabs (counts on the tabs, lazy), the Service Desk group stacked (m2m Group Members: Add / Edit… / Remove).
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'related-lists-card',
+                                        options: {
+                                            title: 'INC0000060: related lists',
+                                            table: 'incident',
+                                            sysId: '1c741bd70b2322007518478d83673af3',
+                                            layout: 'tabs',
+                                            liveUpdates: true,
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'related-lists-card',
+                                        options: {
+                                            title: 'Service Desk group: related lists',
+                                            table: 'sys_user_group',
+                                            sysId: 'd625dccec0a8016700a222a0f7900d06',
+                                            layout: 'stacked',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
                     ],
-                } },
-            ] },
-            // Field primitives (app/field + app/*-field): standalone and bound to a real incident.
-            { route: 'fields', name: 'Fields', widgets: [
-                { c: 'field-demo', options: { table: 'incident' } },
-            ] },
-            // Generic record list (app/list-view) for any table, full bleed: explicit URL params table /
-            // query / view (no table → incident); search / sort / page ride in q. The toolbar goes into
-            // the sub-header slots and the table is the only scroller. Rows open the form page.
-            { route: 'list', name: 'Record list', contentWidth: 'full', layoutOptions: { texture: 'plain', contentPadding: 'sm' }, widgets: [
-                { c: 'list-view', options: { orderBy: '-sys_updated_on', pageSize: 50, recordPage: 'form', liveUpdates: true } },
-            ] },
-            // Generic record form (app/form, app/record-form) for any table: explicit params table / sys-id /
-            // view (sys_id=-1 = new); no table → incident. Title, state and actions go to the sub-header
-            // slots, the record picker to its centre (a demo convenience); back goes to the list page.
-            { route: 'form', name: 'Record form', layoutOptions: { texture: 'plain', contentPadding: 'sm', subheader: 'banner' }, widgets: [
-                { c: 'record-form', options: { picker: true, showViews: true, listPage: 'list' } },
-            ] },
-            // Catalog variables (app/variable, app/mrvs, app/catalog-item): picker + item, chosen via ?item=<sys_id>.
-            { route: 'catalog', name: 'Catalog', widgets: [
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] }, children: {
-                    'col-1': [
-                        { c: 'catalog-picker', options: { title: 'Catalog', search: true, items: [
-                            { sysId: '54c9ead947dec110f53d37d2846d43ea', label: 'Request zoom webinar', note: 'Item · text, date/time, checkbox, masked, list collector' },
-                            { sysId: 'e56a7ffe41011300964ff05369414ebd', label: 'Corporate Mobile Devices - Bulk Orders', note: 'Item · reference, multi-row variable set' },
-                            { sysId: '575274511d830010f8776f77b927f284', label: 'Parking Sticker Request', note: 'Item · requested for, rich text, attachments' },
-                            { sysId: '04b7e94b4f7b4200086eeed18110c7fd', label: 'Standard Laptop', note: 'Item · checkbox group, price' },
-                            { sysId: '67e2f2da4fff0200086eeed18110c7dd', label: 'Firewall Rule Change', note: 'Item · variable set, IP address, radio' },
-                            { sysId: '38c1fc840a0a0b2700285921c2bf5fc8', label: 'Report Outage', note: 'Record producer · incident' },
-                        ].concat(DEMO_CATALOG_ITEM ? [
-                            { sysId: DEMO_CATALOG_ITEM, label: 'React Portal demo: Team equipment', note: 'Item · MRVS row policies + scripts, requested for, custom variable' },
-                        ] : []) } },
+                },
+                // No sub-header (its card has its own title): main reclaims the band.
+                {
+                    route: 'tests',
+                    name: 'Runtime Tests',
+                    layoutOptions: { subheader: 'hidden' },
+                    widgets: [{ c: 'runtime-tests', options: { label: 'from placement options' } }],
+                },
+                // Embedded widgets: Server Clock imported by app/embed-demo and rendered as its own
+                // instances (client-declared, server-built with $sp.getWidget, fetched on demand).
+                {
+                    route: 'embeds',
+                    name: 'Embedded Widgets',
+                    widgets: [{ c: 'embed-demo', options: { title: 'Embedded widgets' } }],
+                },
+                // Layout-rooted embeds (test page, not in the menus): the Embed Test Layout imports Server
+                // Clock and embeds it client-side and from its own server script ($sp.getWidget).
+                {
+                    route: 'embeds/layout',
+                    name: 'Layout embeds',
+                    layout: 'embed-test-layout',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Layout-rooted embeds',
+                                body: "The two clocks above are embedded by the page's layout (Embed Test Layout), rooted at layout:<sys_id> and authorized against this page's effective layout. Runtime Tests use this page for its layout-root checks.",
+                                links: [
+                                    { label: 'Back to Embedded Widgets', to: 'embeds' },
+                                    { label: 'Runtime Tests', to: 'tests' },
+                                ],
+                            },
+                        },
                     ],
-                    'col-2': [
-                        { c: 'catalog-item', options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' } },
+                },
+                // Blocks demo: a ⅓ + ⅔ Columns block; the wide column holds a 12-track Grid whose cards
+                // span 6, plus a nested Grid that uses subgrid to line up on the parent's tracks.
+                {
+                    route: 'layouts',
+                    name: 'Layouts',
+                    widgets: [
+                        {
+                            c: 'section',
+                            style: { background: 'muted', radius: '0.75rem', paddingX: '1.5rem' },
+                            options: { paddingY: '1.5rem' },
+                            children: {
+                                content: [
+                                    {
+                                        c: 'hello-card',
+                                        options: {
+                                            title: 'Blocks',
+                                            body: 'Sections, containers, grids, columns, stacks and splits are page-structure components with drop zones. This band is a Section with a muted background from its instance styling.',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2fr)' }] },
+                            children: {
+                                'col-1': [
+                                    { c: 'hello-card', options: { title: 'Column 1 (⅓)', body: 'Stacks on mobile.' } },
+                                    { c: 'server-clock' },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'grid',
+                                        options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 6 },
+                                        children: {
+                                            items: [
+                                                { c: 'hello-card', options: { title: 'Card A', body: 'span 6' } },
+                                                { c: 'hello-card', options: { title: 'Card B', body: 'span 6' } },
+                                                {
+                                                    c: 'grid',
+                                                    layout: { colSpan: 'full' },
+                                                    options: { subgrid: 'columns', itemSpan: 4 },
+                                                    classes: 'rounded-xl border border-dashed p-3',
+                                                    children: {
+                                                        items: [
+                                                            {
+                                                                c: 'hello-card',
+                                                                options: { title: 'Sub 1', body: 'subgrid, span 4' },
+                                                            },
+                                                            {
+                                                                c: 'hello-card',
+                                                                options: { title: 'Sub 2', body: 'subgrid, span 4' },
+                                                            },
+                                                            {
+                                                                c: 'hello-card',
+                                                                options: { title: 'Sub 3', body: 'subgrid, span 4' },
+                                                            },
+                                                        ],
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    },
+                                ],
+                            },
+                        },
                     ],
-                } },
-            ] },
-            // Variable editor (app/variable-editor): a submitted request item's variables, read-only or
-            // editable, from the platform's form layout (GlideLayout_Query.formLayout variables).
-            // Attachments (A6): one record's attachments (INC0020825, a 'safe to delete' test incident) in
-            // three presentations of app/attachments-card, plus app/record-form with its attachments option.
-            // James is still choosing the look: these are side-by-side variants, not a decision.
-            { route: 'attachments', name: 'Attachments', widgets: [
-                { c: 'hello-card', options: { title: 'Attachments: presentation variants', body: 'The same record (INC0020825) three ways: a list, compact chips and a thumbnail grid. Drop, paste or browse files on any of them; the others update live. The form below has the record form\'s attachments option (header toggle): pick a test record, or New to add files before the first save.' } },
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1.4fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
-                    'col-1': [
-                        { c: 'attachments-card', options: { table: 'incident', sysId: '1964bd1783e05310e8fbc9a6feaad338', title: 'List', layout: 'list', dropzone: 'area' } },
+                },
+                // Field primitives (app/field + app/*-field): standalone and bound to a real incident.
+                { route: 'fields', name: 'Fields', widgets: [{ c: 'field-demo', options: { table: 'incident' } }] },
+                // Generic record list (app/list-view) for any table, full bleed: explicit URL params table /
+                // query / view (no table → incident); search / sort / page ride in q. The toolbar goes into
+                // the sub-header slots and the table is the only scroller. Rows open the form page.
+                {
+                    route: 'list',
+                    name: 'Record list',
+                    contentWidth: 'full',
+                    layoutOptions: { texture: 'plain', contentPadding: 'sm' },
+                    widgets: [
+                        {
+                            c: 'list-view',
+                            options: {
+                                orderBy: '-sys_updated_on',
+                                pageSize: 50,
+                                recordPage: 'form',
+                                liveUpdates: true,
+                            },
+                        },
                     ],
-                    'col-2': [
-                        { c: 'attachments-card', options: { table: 'incident', sysId: '1964bd1783e05310e8fbc9a6feaad338', title: 'Compact chips', layout: 'chips', dropzone: 'button' } },
+                },
+                // Generic record form (app/form, app/record-form) for any table: explicit params table / sys-id /
+                // view (sys_id=-1 = new); no table → incident. Title, state and actions go to the sub-header
+                // slots, the record picker to its centre (a demo convenience); back goes to the list page.
+                {
+                    route: 'form',
+                    name: 'Record form',
+                    layoutOptions: { texture: 'plain', contentPadding: 'sm', subheader: 'banner' },
+                    widgets: [{ c: 'record-form', options: { picker: true, showViews: true, listPage: 'list' } }],
+                },
+                // Catalog variables (app/variable, app/mrvs, app/catalog-item): picker + item, chosen via ?item=<sys_id>.
+                {
+                    route: 'catalog',
+                    name: 'Catalog',
+                    widgets: [
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'catalog-picker',
+                                        options: {
+                                            title: 'Catalog',
+                                            search: true,
+                                            items: [
+                                                {
+                                                    sysId: '54c9ead947dec110f53d37d2846d43ea',
+                                                    label: 'Request zoom webinar',
+                                                    note: 'Item · text, date/time, checkbox, masked, list collector',
+                                                },
+                                                {
+                                                    sysId: 'e56a7ffe41011300964ff05369414ebd',
+                                                    label: 'Corporate Mobile Devices - Bulk Orders',
+                                                    note: 'Item · reference, multi-row variable set',
+                                                },
+                                                {
+                                                    sysId: '575274511d830010f8776f77b927f284',
+                                                    label: 'Parking Sticker Request',
+                                                    note: 'Item · requested for, rich text, attachments',
+                                                },
+                                                {
+                                                    sysId: '04b7e94b4f7b4200086eeed18110c7fd',
+                                                    label: 'Standard Laptop',
+                                                    note: 'Item · checkbox group, price',
+                                                },
+                                                {
+                                                    sysId: '67e2f2da4fff0200086eeed18110c7dd',
+                                                    label: 'Firewall Rule Change',
+                                                    note: 'Item · variable set, IP address, radio',
+                                                },
+                                                {
+                                                    sysId: '38c1fc840a0a0b2700285921c2bf5fc8',
+                                                    label: 'Report Outage',
+                                                    note: 'Record producer · incident',
+                                                },
+                                            ].concat(
+                                                DEMO_CATALOG_ITEM
+                                                    ? [
+                                                          {
+                                                              sysId: DEMO_CATALOG_ITEM,
+                                                              label: 'React Portal demo: Team equipment',
+                                                              note: 'Item · MRVS row policies + scripts, requested for, custom variable',
+                                                          },
+                                                      ]
+                                                    : []
+                                            ),
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'catalog-item',
+                                        options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' },
+                                    },
+                                ],
+                            },
+                        },
                     ],
-                } },
-                { c: 'attachments-card', options: { table: 'incident', sysId: '1964bd1783e05310e8fbc9a6feaad338', title: 'Grid', layout: 'grid', dropzone: 'compact' } },
-                { c: 'record-form', options: { table: 'incident', picker: true, pickerQuery: 'short_descriptionLIKEsafe to delete', showViews: false, headerPlacement: 'inline', attachments: 'header' } },
-            ] },
-            { route: 'variable-editor', name: 'Variable editor', widgets: [
-                { c: 'variable-editor-demo', options: {} },
-            ] },
-            // Activity (A5): presentation variants of one record's activity (INC0020831, a "safe to delete" test
-            // incident), side by side so James can compare. Nothing is decided: the record form keeps its
-            // activity option off by default; the last variant shows the opt-in "notes" mode. prune: the first
-            // seed's Columns block and its two cards are deactivated.
-            { route: 'activity', name: 'Activity', prune: true, widgets: [
-                { c: 'hello-card', options: { title: 'Activity: presentation variants', body: 'The same record (INC0020831) four ways: A, a full timeline (composer on top, filters, day headings); B, a narrow side panel; C, a chat-style conversation (Service Portal Ticket conversations, comments and attachments); D, inside the record form (the opt-in activity: notes option). Post from any of them: the others update live.' } },
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1.6fr)' }, { size: 'minmax(0, 1fr)' }], mobile: { tracks: [{ size: 'minmax(0, 1fr)' }] } }, children: {
-                    'col-1': [
-                        { c: 'activity-card', options: { variant: 'timeline', title: 'A · Timeline', table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', pageSize: 10, recordPage: 'form' } },
+                },
+                // Variable editor (app/variable-editor): a submitted request item's variables, read-only or
+                // editable, from the platform's form layout (GlideLayout_Query.formLayout variables).
+                // Attachments (A6): one record's attachments (INC0020825, a 'safe to delete' test incident) in
+                // three presentations of app/attachments-card, plus app/record-form with its attachments option.
+                // James is still choosing the look: these are side-by-side variants, not a decision.
+                {
+                    route: 'attachments',
+                    name: 'Attachments',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Attachments: presentation variants',
+                                body: "The same record (INC0020825) three ways: a list, compact chips and a thumbnail grid. Drop, paste or browse files on any of them; the others update live. The form below has the record form's attachments option (header toggle): pick a test record, or New to add files before the first save.",
+                            },
+                        },
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1.4fr)' }, { size: 'minmax(0, 1fr)' }] },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'attachments-card',
+                                        options: {
+                                            table: 'incident',
+                                            sysId: '1964bd1783e05310e8fbc9a6feaad338',
+                                            title: 'List',
+                                            layout: 'list',
+                                            dropzone: 'area',
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'attachments-card',
+                                        options: {
+                                            table: 'incident',
+                                            sysId: '1964bd1783e05310e8fbc9a6feaad338',
+                                            title: 'Compact chips',
+                                            layout: 'chips',
+                                            dropzone: 'button',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'attachments-card',
+                            options: {
+                                table: 'incident',
+                                sysId: '1964bd1783e05310e8fbc9a6feaad338',
+                                title: 'Grid',
+                                layout: 'grid',
+                                dropzone: 'compact',
+                            },
+                        },
+                        {
+                            c: 'record-form',
+                            options: {
+                                table: 'incident',
+                                picker: true,
+                                pickerQuery: 'short_descriptionLIKEsafe to delete',
+                                showViews: false,
+                                headerPlacement: 'inline',
+                                attachments: 'header',
+                            },
+                        },
                     ],
-                    'col-2': [
-                        { c: 'activity-card', options: { variant: 'compact', title: 'B · Side panel', table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', showFilters: false, pageSize: 8, recordPage: 'form' } },
+                },
+                {
+                    route: 'variable-editor',
+                    name: 'Variable editor',
+                    widgets: [{ c: 'variable-editor-demo', options: {} }],
+                },
+                // Activity (A5): presentation variants of one record's activity (INC0020831, a "safe to delete" test
+                // incident), side by side so James can compare. Nothing is decided: the record form keeps its
+                // activity option off by default; the last variant shows the opt-in "notes" mode. prune: the first
+                // seed's Columns block and its two cards are deactivated.
+                {
+                    route: 'activity',
+                    name: 'Activity',
+                    prune: true,
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Activity: presentation variants',
+                                body: 'The same record (INC0020831) four ways: A, a full timeline (composer on top, filters, day headings); B, a narrow side panel; C, a chat-style conversation (Service Portal Ticket conversations, comments and attachments); D, inside the record form (the opt-in activity: notes option). Post from any of them: the others update live.',
+                            },
+                        },
+                        {
+                            c: 'columns',
+                            options: {
+                                tracks: [{ size: 'minmax(0, 1.6fr)' }, { size: 'minmax(0, 1fr)' }],
+                                mobile: { tracks: [{ size: 'minmax(0, 1fr)' }] },
+                            },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'activity-card',
+                                        options: {
+                                            variant: 'timeline',
+                                            title: 'A · Timeline',
+                                            table: 'incident',
+                                            sysId: '34f4b59b83e05310e8fbc9a6feaad3e4',
+                                            pageSize: 10,
+                                            recordPage: 'form',
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'activity-card',
+                                        options: {
+                                            variant: 'compact',
+                                            title: 'B · Side panel',
+                                            table: 'incident',
+                                            sysId: '34f4b59b83e05310e8fbc9a6feaad3e4',
+                                            showFilters: false,
+                                            pageSize: 8,
+                                            recordPage: 'form',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'activity-card',
+                            options: {
+                                variant: 'conversation',
+                                title: 'C · Conversation',
+                                table: 'incident',
+                                sysId: '34f4b59b83e05310e8fbc9a6feaad3e4',
+                                journalFields: 'comments',
+                                kinds: 'journal,attachment',
+                                pageSize: 20,
+                                recordPage: 'form',
+                            },
+                        },
+                        {
+                            c: 'record-form',
+                            options: {
+                                table: 'incident',
+                                sysId: '34f4b59b83e05310e8fbc9a6feaad3e4',
+                                picker: false,
+                                showViews: false,
+                                headerPlacement: 'inline',
+                                activity: 'notes',
+                            },
+                        },
                     ],
-                } },
-                { c: 'activity-card', options: { variant: 'conversation', title: 'C · Conversation', table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', journalFields: 'comments', kinds: 'journal,attachment', pageSize: 20, recordPage: 'form' } },
-                { c: 'record-form', options: { table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', picker: false, showViews: false, headerPlacement: 'inline', activity: 'notes' } },
-            ] },
-            // Cart and checkout (app/cart): lines, quantity, requested for, Empty cart, Checkout. The
-            // placed request opens on the generic record form page.
-            { route: 'cart', name: 'Cart', widgets: [
-                { c: 'cart', options: { catalogPage: 'catalog', recordPage: 'form' } },
-            ] },
-            { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
-                { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },
-            ] },
-            // User criteria demo: "Available for" = Users with 'itil' role. Others get the page-not-found
-            // path, and its menu item drops (admins and studio users always see it).
-            { route: 'agents', name: 'Agents only', availableFor: [UC_ITIL], widgets: [
-                { c: 'hello-card', options: { title: 'Agents only', body: "This page is available for the user criteria \"Users with 'itil' role\" (Page Available For). Users who don't match never see it in the menu, and its URL answers page-not-found." } },
-            ] },
-        ],
-    })
+                },
+                // Cart and checkout (app/cart): lines, quantity, requested for, Empty cart, Checkout. The
+                // placed request opens on the generic record form page.
+                {
+                    route: 'cart',
+                    name: 'Cart',
+                    widgets: [{ c: 'cart', options: { catalogPage: 'catalog', recordPage: 'form' } }],
+                },
+                {
+                    route: 'about',
+                    name: 'About',
+                    layout: 'centered-layout',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'About',
+                                body: 'This page overrides the portal layout with the Centered Layout (no sidebar).',
+                            },
+                        },
+                    ],
+                },
+                // User criteria demo: "Available for" = Users with 'itil' role. Others get the page-not-found
+                // path, and its menu item drops (admins and studio users always see it).
+                {
+                    route: 'agents',
+                    name: 'Agents only',
+                    availableFor: [UC_ITIL],
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Agents only',
+                                body: "This page is available for the user criteria \"Users with 'itil' role\" (Page Available For). Users who don't match never see it in the menu, and its URL answers page-not-found.",
+                            },
+                        },
+                    ],
+                },
+            ],
+        });
 
-    seedPortal({
-        slug: 'crm', name: 'CRM', theme: 'crm-dark', home: 'dashboard',
-        nav: [{ label: 'Dashboard', to: '', icon: 'layout-dashboard' }, { label: 'Accounts', to: 'accounts', icon: 'building' }],
-        menus: [
-            { key: 'primary', name: 'Primary', items: [
-                { page: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
-                { page: 'accounts', label: 'Accounts', icon: 'building' },
-            ] },
-            { key: 'footer', name: 'Footer', items: [
-                { route: '', portal: 'sp', label: 'Service Portal', icon: 'life-buoy' },
-                { url: 'mailto:crm-support@example.com', label: 'Contact support', icon: 'mail' },
-            ] },
-        ],
-        // Offcanvas sidebar: the header's toggle slides it out completely.
-        portalWidgets: [
-            { c: 'site-header', region: 'header', options: { brand: 'CRM', sidebarTrigger: true } },
-            { c: 'nav-sidebar', region: 'sidebar', options: { title: 'CRM pages', collapsible: 'offcanvas' } },
-            { c: 'site-footer', region: 'footer', options: { text: 'CRM' } },
-        ],
-        pages: [
-            { route: 'dashboard', name: 'Dashboard', widgets: [
-                { c: 'hello-card', options: { title: 'CRM Dashboard', body: 'Same widgets, different portal, theme and data.', links: [{ label: 'Accounts', to: 'accounts' }, { label: 'Account 7', to: 'accounts/7' }] } },
-                { c: 'server-clock' },
-            ] },
-            { route: 'accounts', name: 'Accounts', widgets: [
-                { c: 'hello-card', options: { title: 'Accounts', body: 'Open an account.', links: [{ label: 'Acme (7)', to: 'accounts/7' }, { label: 'Globex (8)', to: 'accounts/8' }] } },
-            ] },
-            { route: 'accounts/:id', name: 'Account', widgets: [
-                { c: 'record-detail', options: { label: 'Account', back: 'accounts' } },
-            ] },
-        ],
-    })
-
-    // Dashboard (ChannelGuide style): App Shell layout, inset icon-collapsible sidebar with grouped,
-    // tinted menu items, a transparent top header with breadcrumbs, and an inset card main.
-    seedPortal({
-        slug: 'app', name: 'Dashboard', theme: 'app-neutral', home: 'overview', layout: 'app-shell',
-        settings: { contentWidth: '6xl', exposedProperties: ['glide.sc.checkout.twostep', 'com.glide.attachment.max_size', 'glide.attachment.extensions'] },
-        nav: [
-            { label: 'Workspace', children: [
-                { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
-                { label: 'Incidents', to: 'incidents', icon: 'ticket', tint: 'chart-2' },
-                { label: 'Incident list', to: 'incidents-list', icon: 'list', tint: 'chart-3' },
-                { label: 'Record form', to: 'form', icon: 'file-text', tint: 'chart-4' },
-            ] },
-            { label: 'Build', children: [
-                { label: 'Fields', to: 'fields', icon: 'text-cursor-input', tint: 'chart-3' },
-                { label: 'Catalog', to: 'catalog', icon: 'store', tint: 'chart-4' },
-                { label: 'Layouts', to: 'layouts', icon: 'layout-grid', tint: 'chart-5' },
-            ] },
-            { label: 'More', children: [
-                { label: 'Service Portal', to: '', portalSlug: 'sp', icon: 'external-link' },
-            ] },
-        ],
-        // Leaves get chart-1…5 tile tints by position (useNavigation), as the legacy nav set them.
-        menus: [
-            { key: 'primary', name: 'Primary', items: [
-                { label: 'Workspace', children: [
-                    { page: 'overview', label: 'Overview', icon: 'layout-dashboard' },
-                    { page: 'incidents', label: 'Incidents', icon: 'ticket' },
-                    { page: 'incidents-list', label: 'Incident list', icon: 'list' },
-                    { page: 'form', label: 'Record form', icon: 'file-text' },
-                ] },
-                { label: 'Build', children: [
-                    { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
-                    { page: 'catalog', label: 'Catalog', icon: 'store' },
-                    { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
-                ] },
-                { label: 'More', children: [
-                    { route: '', portal: 'sp', label: 'Service Portal', icon: 'external-link' },
-                ] },
-            ] },
-            // The sidebar user menu (app-sidebar, above Theme / Sign out).
-            { key: 'account', name: 'Account', items: [
-                { route: '', portal: 'sp', label: 'Service Portal', icon: 'life-buoy' },
-                { route: '', portal: 'crm', label: 'CRM', icon: 'building-2' },
-                { type: 'separator' },
-                { url: 'https://www.servicenow.com/docs/', label: 'Documentation', icon: 'book-open' },
-                { url: 'https://lucide.dev/icons/', label: 'Lucide icons', icon: 'shapes', roles: 'x_312987_portal.developer' },
-            ] },
-        ],
-        portalWidgets: [
-            { c: 'app-sidebar', region: 'sidebar', options: { collapsible: 'icon', variant: 'inset', userMenu: 'footer' } },
-            { c: 'app-header', region: 'header', options: { sidebarTrigger: true } },
-            { c: 'app-subheader', region: 'subheader', options: { note: 'React Portal · app shell' } },
-            { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
-        ],
-        pages: [
-            { route: 'overview', name: 'Overview', widgets: [
-                { c: 'hello-card', options: { title: 'Dashboard', body: 'The App Shell layout only places slots: the sidebar, header and sub-header are widgets that own their look. Ctrl/Cmd+B collapses the sidebar to an icon rail.', links: [{ label: 'Incidents', to: 'incidents' }, { label: 'Catalog', to: 'catalog' }] } },
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
-                    'col-1': [{ c: 'server-clock' }],
-                    'col-2': [{ c: 'hello-card', options: { title: 'Shell state', body: 'The sidebar state persists per portal (localStorage rp-sidebar:app).' } }],
-                } },
-            ] },
-            { route: 'incidents', name: 'Incidents', widgets: [
-                { c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } },
-            ] },
-            // Full-bleed list view (app/list-view): server-side paging/sorting/filtering, condition
-            // builder, breadcrumbs, right-click filters, inline edit; state lives in the URL.
-            { route: 'incidents-list', name: 'Incident List', contentWidth: 'full', layoutOptions: { contentPadding: 'sm' }, widgets: [
-                { c: 'list-view', options: { table: 'incident', title: 'Incidents', query: 'active=true', columns: 'number,short_description,caller_id,priority,state,category,assignment_group,assigned_to,opened_at,sys_updated_on', orderBy: '-number', pageSize: 50, liveUpdates: true } },
-            ] },
-            // The list's rows open this generic form (explicit table / sys-id / view params): title, state
-            // and actions in the sub-header slots; back returns to the incident list.
-            { route: 'form', name: 'Record form', layoutOptions: { contentPadding: 'sm', subheader: 'banner' }, widgets: [
-                { c: 'record-form', options: { picker: true, showViews: true, listPage: 'incidents-list' } },
-            ] },
-            { route: 'fields', name: 'Fields', widgets: [
-                { c: 'field-demo', options: { table: 'incident' } },
-            ] },
-            { route: 'catalog', name: 'Catalog', widgets: [
-                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] }, children: {
-                    'col-1': [
-                        { c: 'catalog-picker', options: { title: 'Catalog', search: true, items: [
-                            { sysId: '54c9ead947dec110f53d37d2846d43ea', label: 'Request zoom webinar', note: 'Item · text, date/time, checkbox, masked, list collector' },
-                            { sysId: '04b7e94b4f7b4200086eeed18110c7fd', label: 'Standard Laptop', note: 'Item · checkbox group, price' },
-                            { sysId: '38c1fc840a0a0b2700285921c2bf5fc8', label: 'Report Outage', note: 'Record producer · incident' },
-                        ] } },
+        seedPortal({
+            slug: 'crm',
+            name: 'CRM',
+            theme: 'crm-dark',
+            home: 'dashboard',
+            nav: [
+                { label: 'Dashboard', to: '', icon: 'layout-dashboard' },
+                { label: 'Accounts', to: 'accounts', icon: 'building' },
+            ],
+            menus: [
+                {
+                    key: 'primary',
+                    name: 'Primary',
+                    items: [
+                        { page: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+                        { page: 'accounts', label: 'Accounts', icon: 'building' },
                     ],
-                    'col-2': [
-                        { c: 'catalog-item', options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' } },
+                },
+                {
+                    key: 'footer',
+                    name: 'Footer',
+                    items: [
+                        { route: '', portal: 'sp', label: 'Service Portal', icon: 'life-buoy' },
+                        { url: 'mailto:crm-support@example.com', label: 'Contact support', icon: 'mail' },
                     ],
-                } },
-            ] },
-            { route: 'cart', name: 'Cart', widgets: [
-                { c: 'cart', options: { catalogPage: 'catalog', recordPage: 'form' } },
-            ] },
-            // Blocks page with its own layout options (large content padding).
-            { route: 'layouts', name: 'Layouts', layoutOptions: { contentPadding: 'lg' }, widgets: [
-                { c: 'section', style: { background: 'muted', radius: '0.75rem', paddingX: '1.5rem' }, options: { paddingY: '1.5rem' }, children: { content: [
-                    { c: 'hello-card', options: { title: 'Blocks in the app shell', body: 'This page sets its own layout options (large content padding).' } },
-                ] } },
-                { c: 'grid', options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 4 }, children: { items: [
-                    { c: 'hello-card', options: { title: 'One', body: 'span 4' } },
-                    { c: 'hello-card', options: { title: 'Two', body: 'span 4' } },
-                    { c: 'hello-card', options: { title: 'Three', body: 'span 4' } },
-                ] } },
-            ] },
-        ],
-    })
+                },
+            ],
+            // Offcanvas sidebar: the header's toggle slides it out completely.
+            portalWidgets: [
+                { c: 'site-header', region: 'header', options: { brand: 'CRM', sidebarTrigger: true } },
+                { c: 'nav-sidebar', region: 'sidebar', options: { title: 'CRM pages', collapsible: 'offcanvas' } },
+                { c: 'site-footer', region: 'footer', options: { text: 'CRM' } },
+            ],
+            pages: [
+                {
+                    route: 'dashboard',
+                    name: 'Dashboard',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'CRM Dashboard',
+                                body: 'Same widgets, different portal, theme and data.',
+                                links: [
+                                    { label: 'Accounts', to: 'accounts' },
+                                    { label: 'Account 7', to: 'accounts/7' },
+                                ],
+                            },
+                        },
+                        { c: 'server-clock' },
+                    ],
+                },
+                {
+                    route: 'accounts',
+                    name: 'Accounts',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Accounts',
+                                body: 'Open an account.',
+                                links: [
+                                    { label: 'Acme (7)', to: 'accounts/7' },
+                                    { label: 'Globex (8)', to: 'accounts/8' },
+                                ],
+                            },
+                        },
+                    ],
+                },
+                {
+                    route: 'accounts/:id',
+                    name: 'Account',
+                    widgets: [{ c: 'record-detail', options: { label: 'Account', back: 'accounts' } }],
+                },
+            ],
+        });
 
-    // Docs (ChannelGuide's fumadocs docs layout and UX, in its own docs theme, a copy of sp-light): docs/guide rendered from x_312987_portal_doc (the docs
-    // step of `npm run seed`). Two pages: the home page 'index' (the Introduction) and '*', which takes
-    // every other doc path (…/site/docs/params/page-id/concepts%2Flayouts). The layout does the framing.
-    seedPortal({
-        slug: 'docs', name: 'React Portal Docs', theme: 'docs', home: 'index', layout: 'docs-layout',
-        settings: { contentWidth: 'full' },
-        portalWidgets: [
-            { c: 'docs-sidebar', region: 'sidebar', options: {
-                title: 'React Portal', icon: 'book-open', search: true, collapsible: true,
-                switcher: [
-                    { title: 'Documentation', description: 'Guides & reference', icon: 'book-text', tint: 'chart-1' },
-                    { title: 'Service Portal', description: 'The sp demo portal', icon: 'life-buoy', tint: 'chart-2', portal: 'sp' },
-                    { title: 'Dashboard', description: 'The app shell demo', icon: 'layout-dashboard', tint: 'chart-3', portal: 'app' },
-                    { title: 'CRM', description: 'Another theme and layout', icon: 'building-2', tint: 'chart-4', portal: 'crm' },
+        // Dashboard (ChannelGuide style): App Shell layout, inset icon-collapsible sidebar with grouped,
+        // tinted menu items, a transparent top header with breadcrumbs, and an inset card main.
+        seedPortal({
+            slug: 'app',
+            name: 'Dashboard',
+            theme: 'app-neutral',
+            home: 'overview',
+            layout: 'app-shell',
+            settings: {
+                contentWidth: '6xl',
+                exposedProperties: [
+                    'glide.sc.checkout.twostep',
+                    'com.glide.attachment.max_size',
+                    'glide.attachment.extensions',
                 ],
-                tintSections: ['introduction', 'getting-started', 'concepts', 'authoring', 'runtime-api', 'server-api', 'primitives', 'rest-api', 'studio', 'security', 'internals', 'reference'],
-                links: [{ label: 'Source on GitHub', icon: 'code-xml', url: 'https://github.com/Quixomatic/servicenow-react-portal' }],
-            } },
-            { c: 'docs-header', region: 'header', options: { title: 'React Portal', icon: 'book-open', search: true } },
-        ],
-        pages: [
-            { route: 'index', name: 'Introduction', widgets: [{ c: 'docs-page', options: { breadcrumb: true, tocDepth: 3, prevNext: true } }] },
-            { route: '*', name: 'Docs page', widgets: [{ c: 'docs-page', options: { breadcrumb: true, tocDepth: 3, prevNext: true } }] },
-        ],
-    })
+            },
+            nav: [
+                {
+                    label: 'Workspace',
+                    children: [
+                        { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
+                        { label: 'Incidents', to: 'incidents', icon: 'ticket', tint: 'chart-2' },
+                        { label: 'Incident list', to: 'incidents-list', icon: 'list', tint: 'chart-3' },
+                        { label: 'Record form', to: 'form', icon: 'file-text', tint: 'chart-4' },
+                    ],
+                },
+                {
+                    label: 'Build',
+                    children: [
+                        { label: 'Fields', to: 'fields', icon: 'text-cursor-input', tint: 'chart-3' },
+                        { label: 'Catalog', to: 'catalog', icon: 'store', tint: 'chart-4' },
+                        { label: 'Layouts', to: 'layouts', icon: 'layout-grid', tint: 'chart-5' },
+                    ],
+                },
+                {
+                    label: 'More',
+                    children: [{ label: 'Service Portal', to: '', portalSlug: 'sp', icon: 'external-link' }],
+                },
+            ],
+            // Leaves get chart-1…5 tile tints by position (useNavigation), as the legacy nav set them.
+            menus: [
+                {
+                    key: 'primary',
+                    name: 'Primary',
+                    items: [
+                        {
+                            label: 'Workspace',
+                            children: [
+                                { page: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+                                { page: 'incidents', label: 'Incidents', icon: 'ticket' },
+                                { page: 'incidents-list', label: 'Incident list', icon: 'list' },
+                                { page: 'form', label: 'Record form', icon: 'file-text' },
+                            ],
+                        },
+                        {
+                            label: 'Build',
+                            children: [
+                                { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
+                                { page: 'catalog', label: 'Catalog', icon: 'store' },
+                                { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
+                            ],
+                        },
+                        {
+                            label: 'More',
+                            children: [{ route: '', portal: 'sp', label: 'Service Portal', icon: 'external-link' }],
+                        },
+                    ],
+                },
+                // The sidebar user menu (app-sidebar, above Theme / Sign out).
+                {
+                    key: 'account',
+                    name: 'Account',
+                    items: [
+                        { route: '', portal: 'sp', label: 'Service Portal', icon: 'life-buoy' },
+                        { route: '', portal: 'crm', label: 'CRM', icon: 'building-2' },
+                        { type: 'separator' },
+                        { url: 'https://www.servicenow.com/docs/', label: 'Documentation', icon: 'book-open' },
+                        {
+                            url: 'https://lucide.dev/icons/',
+                            label: 'Lucide icons',
+                            icon: 'shapes',
+                            roles: 'x_312987_portal.developer',
+                        },
+                    ],
+                },
+            ],
+            portalWidgets: [
+                {
+                    c: 'app-sidebar',
+                    region: 'sidebar',
+                    options: { collapsible: 'icon', variant: 'inset', userMenu: 'footer' },
+                },
+                { c: 'app-header', region: 'header', options: { sidebarTrigger: true } },
+                { c: 'app-subheader', region: 'subheader', options: { note: 'React Portal · app shell' } },
+                { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
+            ],
+            pages: [
+                {
+                    route: 'overview',
+                    name: 'Overview',
+                    widgets: [
+                        {
+                            c: 'hello-card',
+                            options: {
+                                title: 'Dashboard',
+                                body: 'The App Shell layout only places slots: the sidebar, header and sub-header are widgets that own their look. Ctrl/Cmd+B collapses the sidebar to an icon rail.',
+                                links: [
+                                    { label: 'Incidents', to: 'incidents' },
+                                    { label: 'Catalog', to: 'catalog' },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+                            children: {
+                                'col-1': [{ c: 'server-clock' }],
+                                'col-2': [
+                                    {
+                                        c: 'hello-card',
+                                        options: {
+                                            title: 'Shell state',
+                                            body: 'The sidebar state persists per portal (localStorage rp-sidebar:app).',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+                {
+                    route: 'incidents',
+                    name: 'Incidents',
+                    widgets: [{ c: 'incident-list', options: { title: 'Incidents', limit: 25, filter: 'active' } }],
+                },
+                // Full-bleed list view (app/list-view): server-side paging/sorting/filtering, condition
+                // builder, breadcrumbs, right-click filters, inline edit; state lives in the URL.
+                {
+                    route: 'incidents-list',
+                    name: 'Incident List',
+                    contentWidth: 'full',
+                    layoutOptions: { contentPadding: 'sm' },
+                    widgets: [
+                        {
+                            c: 'list-view',
+                            options: {
+                                table: 'incident',
+                                title: 'Incidents',
+                                query: 'active=true',
+                                columns:
+                                    'number,short_description,caller_id,priority,state,category,assignment_group,assigned_to,opened_at,sys_updated_on',
+                                orderBy: '-number',
+                                pageSize: 50,
+                                liveUpdates: true,
+                            },
+                        },
+                    ],
+                },
+                // The list's rows open this generic form (explicit table / sys-id / view params): title, state
+                // and actions in the sub-header slots; back returns to the incident list.
+                {
+                    route: 'form',
+                    name: 'Record form',
+                    layoutOptions: { contentPadding: 'sm', subheader: 'banner' },
+                    widgets: [
+                        { c: 'record-form', options: { picker: true, showViews: true, listPage: 'incidents-list' } },
+                    ],
+                },
+                { route: 'fields', name: 'Fields', widgets: [{ c: 'field-demo', options: { table: 'incident' } }] },
+                {
+                    route: 'catalog',
+                    name: 'Catalog',
+                    widgets: [
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 2.4fr)' }] },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'catalog-picker',
+                                        options: {
+                                            title: 'Catalog',
+                                            search: true,
+                                            items: [
+                                                {
+                                                    sysId: '54c9ead947dec110f53d37d2846d43ea',
+                                                    label: 'Request zoom webinar',
+                                                    note: 'Item · text, date/time, checkbox, masked, list collector',
+                                                },
+                                                {
+                                                    sysId: '04b7e94b4f7b4200086eeed18110c7fd',
+                                                    label: 'Standard Laptop',
+                                                    note: 'Item · checkbox group, price',
+                                                },
+                                                {
+                                                    sysId: '38c1fc840a0a0b2700285921c2bf5fc8',
+                                                    label: 'Report Outage',
+                                                    note: 'Record producer · incident',
+                                                },
+                                            ],
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'catalog-item',
+                                        options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' },
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+                {
+                    route: 'cart',
+                    name: 'Cart',
+                    widgets: [{ c: 'cart', options: { catalogPage: 'catalog', recordPage: 'form' } }],
+                },
+                // Blocks page with its own layout options (large content padding).
+                {
+                    route: 'layouts',
+                    name: 'Layouts',
+                    layoutOptions: { contentPadding: 'lg' },
+                    widgets: [
+                        {
+                            c: 'section',
+                            style: { background: 'muted', radius: '0.75rem', paddingX: '1.5rem' },
+                            options: { paddingY: '1.5rem' },
+                            children: {
+                                content: [
+                                    {
+                                        c: 'hello-card',
+                                        options: {
+                                            title: 'Blocks in the app shell',
+                                            body: 'This page sets its own layout options (large content padding).',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'grid',
+                            options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 4 },
+                            children: {
+                                items: [
+                                    { c: 'hello-card', options: { title: 'One', body: 'span 4' } },
+                                    { c: 'hello-card', options: { title: 'Two', body: 'span 4' } },
+                                    { c: 'hello-card', options: { title: 'Three', body: 'span 4' } },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            ],
+        });
 
-    /* ---------------- Smoke test through the bridge ---------------- */
+        // Docs (ChannelGuide's fumadocs docs layout and UX, in its own docs theme, a copy of sp-light): docs/guide rendered from x_312987_portal_doc (the docs
+        // step of `npm run seed`). Two pages: the home page 'index' (the Introduction) and '*', which takes
+        // every other doc path (…/site/docs/params/page-id/concepts%2Flayouts). The layout does the framing.
+        seedPortal({
+            slug: 'docs',
+            name: 'React Portal Docs',
+            theme: 'docs',
+            home: 'index',
+            layout: 'docs-layout',
+            settings: { contentWidth: 'full' },
+            portalWidgets: [
+                {
+                    c: 'docs-sidebar',
+                    region: 'sidebar',
+                    options: {
+                        title: 'React Portal',
+                        icon: 'book-open',
+                        search: true,
+                        collapsible: true,
+                        switcher: [
+                            {
+                                title: 'Documentation',
+                                description: 'Guides & reference',
+                                icon: 'book-text',
+                                tint: 'chart-1',
+                            },
+                            {
+                                title: 'Service Portal',
+                                description: 'The sp demo portal',
+                                icon: 'life-buoy',
+                                tint: 'chart-2',
+                                portal: 'sp',
+                            },
+                            {
+                                title: 'Dashboard',
+                                description: 'The app shell demo',
+                                icon: 'layout-dashboard',
+                                tint: 'chart-3',
+                                portal: 'app',
+                            },
+                            {
+                                title: 'CRM',
+                                description: 'Another theme and layout',
+                                icon: 'building-2',
+                                tint: 'chart-4',
+                                portal: 'crm',
+                            },
+                        ],
+                        tintSections: [
+                            'introduction',
+                            'getting-started',
+                            'concepts',
+                            'authoring',
+                            'runtime-api',
+                            'server-api',
+                            'primitives',
+                            'rest-api',
+                            'studio',
+                            'security',
+                            'internals',
+                            'reference',
+                        ],
+                        links: [
+                            {
+                                label: 'Source on GitHub',
+                                icon: 'code-xml',
+                                url: 'https://github.com/Quixomatic/servicenow-react-portal',
+                            },
+                        ],
+                    },
+                },
+                {
+                    c: 'docs-header',
+                    region: 'header',
+                    options: { title: 'React Portal', icon: 'book-open', search: true },
+                },
+            ],
+            pages: [
+                {
+                    route: 'index',
+                    name: 'Introduction',
+                    widgets: [{ c: 'docs-page', options: { breadcrumb: true, tocDepth: 3, prevNext: true } }],
+                },
+                {
+                    route: '*',
+                    name: 'Docs page',
+                    widgets: [{ c: 'docs-page', options: { breadcrumb: true, tocDepth: 3, prevNext: true } }],
+                },
+            ],
+        });
 
-    var rp = new x_312987_portal.ReactPortal()
-    var boot = rp.bootstrap('sp')
-    log.push('bootstrap sp: layout=' + (boot.layout && boot.layout.uniqueId) + ' theme=' + (boot.theme && boot.theme.key) +
-        ' regions=' + Object.keys(boot.regions).join(',') + ' pages=' + boot.pages.map(function (p) { return p.route }).join(','))
-    var page = rp.resolvePage('sp', 'orders/42')
-    log.push('resolve sp orders/42: page=' + page.page.route + ' params=' + JSON.stringify(page.page.params) + ' main=' +
-        (page.regions.main || []).map(function (p) { return p.component.uniqueId }).join(','))
-    var clock = (page.regions.main || []).filter(function (p) { return p.component.uniqueId === 'app/server-clock' })[0]
-    if (clock) {
-        var r = rp.execute('sp', clock.id, 'get', { message: 'hi' })
-        log.push('execute server-clock: ' + JSON.stringify(r.data))
-    }
-    log.push('js url: ' + (boot.layout && boot.layout.build && boot.layout.build.js))
+        /* ---------------- Smoke test through the bridge ---------------- */
 
-    // Stale report (full seeds only): app/* component records on the instance with no seed folder.
-    // Reported, never deleted (deletions are a deliberate, separate step).
-    if (SEED_MODE === 'full') {
-        var staleComps = []
-        var sc = new GlideRecord(T + 'component')
-        sc.addQuery('namespace', 'app')
-        sc.query()
-        while (sc.next()) if (!components[sc.getValue('key')]) staleComps.push(sc.getValue('unique_id') + (sc.getValue('active') === '1' ? '' : ' (inactive)'))
-        log.push('stale components (no seed folder; not deleted): ' + (staleComps.length ? staleComps.join(', ') : 'none'))
-    }
-    mark('seed script')
+        var rp = new x_312987_portal.ReactPortal();
+        var boot = rp.bootstrap('sp');
+        log.push(
+            'bootstrap sp: layout=' +
+                (boot.layout && boot.layout.uniqueId) +
+                ' theme=' +
+                (boot.theme && boot.theme.key) +
+                ' regions=' +
+                Object.keys(boot.regions).join(',') +
+                ' pages=' +
+                boot.pages
+                    .map(function (p) {
+                        return p.route;
+                    })
+                    .join(',')
+        );
+        var page = rp.resolvePage('sp', 'orders/42');
+        log.push(
+            'resolve sp orders/42: page=' +
+                page.page.route +
+                ' params=' +
+                JSON.stringify(page.page.params) +
+                ' main=' +
+                (page.regions.main || [])
+                    .map(function (p) {
+                        return p.component.uniqueId;
+                    })
+                    .join(',')
+        );
+        var clock = (page.regions.main || []).filter(function (p) {
+            return p.component.uniqueId === 'app/server-clock';
+        })[0];
+        if (clock) {
+            var r = rp.execute('sp', clock.id, 'get', { message: 'hi' });
+            log.push('execute server-clock: ' + JSON.stringify(r.data));
+        }
+        log.push('js url: ' + (boot.layout && boot.layout.build && boot.layout.build.js));
 
-    gs.info(log.join('\n'))
+        // Stale report (full seeds only): app/* component records on the instance with no seed folder.
+        // Reported, never deleted (deletions are a deliberate, separate step).
+        if (SEED_MODE === 'full') {
+            var staleComps = [];
+            var sc = new GlideRecord(T + 'component');
+            sc.addQuery('namespace', 'app');
+            sc.query();
+            while (sc.next())
+                if (!components[sc.getValue('key')])
+                    staleComps.push(sc.getValue('unique_id') + (sc.getValue('active') === '1' ? '' : ' (inactive)'));
+            log.push(
+                'stale components (no seed folder; not deleted): ' +
+                    (staleComps.length ? staleComps.join(', ') : 'none')
+            );
+        }
+        mark('seed script');
+
+        gs.info(log.join('\n'));
     } catch (seedError) {
-        clearBatchFlags()
-        gs.error('[seed] failed run=' + SEED_RUN_ID + ': ' + seedError)
-        throw seedError
+        clearBatchFlags();
+        gs.error('[seed] failed run=' + SEED_RUN_ID + ': ' + seedError);
+        throw seedError;
     }
-})()
+})();

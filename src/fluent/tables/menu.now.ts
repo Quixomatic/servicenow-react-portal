@@ -1,5 +1,13 @@
-import '@servicenow/sdk/global'
-import { Table, Form, default_view, StringColumn, BooleanColumn, ReferenceColumn, MultiLineTextColumn } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import {
+    Table,
+    Form,
+    default_view,
+    StringColumn,
+    BooleanColumn,
+    ReferenceColumn,
+    MultiLineTextColumn,
+} from '@servicenow/sdk/core';
 
 /**
  * A portal menu (primary, footer, account, …). Menus belong to exactly one portal, like pages:
@@ -15,7 +23,12 @@ export const x_312987_portal_menu = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        portal: ReferenceColumn({ label: 'Portal', referenceTable: 'x_312987_portal_portal', mandatory: true, cascadeRule: 'cascade' }),
+        portal: ReferenceColumn({
+            label: 'Portal',
+            referenceTable: 'x_312987_portal_portal',
+            mandatory: true,
+            cascadeRule: 'cascade',
+        }),
         key: StringColumn({
             label: 'Key',
             maxLength: 40,
@@ -27,7 +40,7 @@ export const x_312987_portal_menu = Table({
         active: BooleanColumn({ label: 'Active', default: true }),
     },
     index: [{ name: 'rp_menu_portal_key', element: ['portal', 'key'], unique: true }],
-})
+});
 
 Form({
     table: 'x_312987_portal_menu',
@@ -51,4 +64,4 @@ Form({
             ],
         },
     ],
-})
+});

@@ -1,6 +1,6 @@
 nodeLinker: hoisted
 allowBuilds:
   sn-http-request: true
-  "@parcel/watcher": false
+  '@parcel/watcher': false
 minimumReleaseAgeExclude:
-  - "@quixomatic/ui-renderer-react-simple@2.1.1"
+  - '@quixomatic/ui-renderer-react-simple@2.1.1'

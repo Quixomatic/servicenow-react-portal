@@ -1,57 +1,53 @@
 {
-  "type": "object",
-  "properties": {
-    "title": {
-      "type": "string",
-      "title": "Title"
-    },
-    "modes": {
-      "type": "array",
-      "title": "Tabs (in order)",
-      "items": {
-        "type": "string",
-        "enum": [
-          "popular",
-          "recent",
-          "featured"
-        ]
-      }
-    },
-    "limit": {
-      "type": "integer",
-      "title": "Articles",
-      "minimum": 1,
-      "maximum": 12
-    },
-    "knowledgeBase": {
-      "type": "string",
-      "title": "Knowledge base (sys_id, empty = all)"
-    },
-    "kbPage": {
-      "type": "string",
-      "title": "Knowledge home page route"
-    },
-    "showCategories": {
-      "type": "boolean",
-      "title": "Browse by topic"
-    },
-    "categoriesLimit": {
-      "type": "integer",
-      "title": "Topics",
-      "minimum": 1,
-      "maximum": 20
-    },
-    "compact": {
-      "type": "boolean",
-      "title": "One-line titles"
-    },
-    "articlePage": {
-      "type": "string",
-      "title": "Article page route"
-    },
-    "categoryPage": {
-      "type": "string",
-      "title": "Category page route"
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string",
+            "title": "Title"
+        },
+        "modes": {
+            "type": "array",
+            "title": "Tabs (in order)",
+            "items": {
+                "type": "string",
+                "enum": ["popular", "recent", "featured"]
+            }
+        },
+        "limit": {
+            "type": "integer",
+            "title": "Articles",
+            "minimum": 1,
+            "maximum": 12
+        },
+        "knowledgeBase": {
+            "type": "string",
+            "title": "Knowledge base (sys_id, empty = all)"
+        },
+        "kbPage": {
+            "type": "string",
+            "title": "Knowledge home page route"
+        },
+        "showCategories": {
+            "type": "boolean",
+            "title": "Browse by topic"
+        },
+        "categoriesLimit": {
+            "type": "integer",
+            "title": "Topics",
+            "minimum": 1,
+            "maximum": 20
+        },
+        "compact": {
+            "type": "boolean",
+            "title": "One-line titles"
+        },
+        "articlePage": {
+            "type": "string",
+            "title": "Article page route"
+        },
+        "categoryPage": {
+            "type": "string",
+            "title": "Category page route"
+        }
     }
-  }
 }

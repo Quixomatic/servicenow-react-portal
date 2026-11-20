@@ -16,37 +16,37 @@ const observers = new Map(); // rootMargin -> { io, callbacks: Map(element -> fn
  * one batched initialize). Without IntersectionObserver, onVisible runs at once.
  */
 export function observeOnce(el, rootMargin, onVisible) {
-	if (!el) return () => {};
-	if (typeof IntersectionObserver === 'undefined') {
-		onVisible();
-		return () => {};
-	}
-	const margin = rootMargin || DEFAULT_ROOT_MARGIN;
-	let entry = observers.get(margin);
-	if (!entry) {
-		const callbacks = new Map();
-		const io = new IntersectionObserver(
-			(records) =>
-				records.forEach((r) => {
-					if (!r.isIntersecting) return;
-					const fn = callbacks.get(r.target);
-					if (!fn) return;
-					callbacks.delete(r.target);
-					io.unobserve(r.target);
-					fn();
-				}),
-			{ rootMargin: margin }
-		);
-		entry = { io, callbacks };
-		observers.set(margin, entry);
-	}
-	const current = entry;
-	current.callbacks.set(el, onVisible);
-	current.io.observe(el);
-	return () => {
-		current.callbacks.delete(el);
-		current.io.unobserve(el);
-	};
+    if (!el) return () => {};
+    if (typeof IntersectionObserver === 'undefined') {
+        onVisible();
+        return () => {};
+    }
+    const margin = rootMargin || DEFAULT_ROOT_MARGIN;
+    let entry = observers.get(margin);
+    if (!entry) {
+        const callbacks = new Map();
+        const io = new IntersectionObserver(
+            (records) =>
+                records.forEach((r) => {
+                    if (!r.isIntersecting) return;
+                    const fn = callbacks.get(r.target);
+                    if (!fn) return;
+                    callbacks.delete(r.target);
+                    io.unobserve(r.target);
+                    fn();
+                }),
+            { rootMargin: margin }
+        );
+        entry = { io, callbacks };
+        observers.set(margin, entry);
+    }
+    const current = entry;
+    current.callbacks.set(el, onVisible);
+    current.io.observe(el);
+    return () => {
+        current.callbacks.delete(el);
+        current.io.unobserve(el);
+    };
 }
 
 /**
@@ -55,17 +55,17 @@ export function observeOnce(el, rootMargin, onVisible) {
  * true reports inView immediately (nothing is observed).
  */
 export function useInViewOnce(settings) {
-	const disabled = !!(settings && settings.disabled);
-	const rootMargin = (settings && settings.rootMargin) || DEFAULT_ROOT_MARGIN;
-	const [inView, setInView] = useState(disabled);
-	const [el, setEl] = useState(null);
-	const ref = useCallback((node) => setEl(node), []);
-	useEffect(() => {
-		if (disabled && !inView) setInView(true);
-	}, [disabled, inView]);
-	useEffect(() => {
-		if (inView || disabled || !el) return undefined;
-		return observeOnce(el, rootMargin, () => setInView(true));
-	}, [el, rootMargin, inView, disabled]);
-	return [ref, inView || disabled];
+    const disabled = !!(settings && settings.disabled);
+    const rootMargin = (settings && settings.rootMargin) || DEFAULT_ROOT_MARGIN;
+    const [inView, setInView] = useState(disabled);
+    const [el, setEl] = useState(null);
+    const ref = useCallback((node) => setEl(node), []);
+    useEffect(() => {
+        if (disabled && !inView) setInView(true);
+    }, [disabled, inView]);
+    useEffect(() => {
+        if (inView || disabled || !el) return undefined;
+        return observeOnce(el, rootMargin, () => setInView(true));
+    }, [el, rootMargin, inView, disabled]);
+    return [ref, inView || disabled];
 }

@@ -1,1 +1,6 @@
-{ "name": "Cart", "kind": "widget", "tailwind": true, "defaults": { "title": "Your cart", "catalogPage": "catalog", "recordPage": "form", "review": "auto" } }
+{
+    "name": "Cart",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "title": "Your cart", "catalogPage": "catalog", "recordPage": "form", "review": "auto" }
+}

@@ -3,16 +3,16 @@
  * button that opens app/docs-sidebar's drawer (useSidebar().openMobile). The docs layout only shows
  * its header region below md, so on desktop this renders nothing visible.
  */
-import { Link, usePortal, useSidebar } from '@portal/runtime'
-import { Icon } from 'components:icon'
-import { DocsSearchButton } from 'components:app/docs-search'
+import { Link, usePortal, useSidebar } from '@portal/runtime';
+import { Icon } from 'components:icon';
+import { DocsSearchButton } from 'components:app/docs-search';
 
-type Options = { title?: string; icon?: string; search?: boolean }
+type Options = { title?: string; icon?: string; search?: boolean };
 
 export default function DocsHeader({ options = {} }: { options?: Options }) {
-    const portal = usePortal()
-    const sidebar = useSidebar()
-    if (!sidebar.isMobile) return null
+    const portal = usePortal();
+    const sidebar = useSidebar();
+    if (!sidebar.isMobile) return null;
     return (
         <div className="flex h-14 items-center border-b bg-background/80 ps-4 pe-2.5 backdrop-blur-sm">
             <Link to="" className="inline-flex min-w-0 items-center gap-2.5 font-semibold text-foreground no-underline">
@@ -35,5 +35,5 @@ export default function DocsHeader({ options = {} }: { options?: Options }) {
                 <Icon name="panel-left" className="size-4.5" />
             </button>
         </div>
-    )
+    );
 }

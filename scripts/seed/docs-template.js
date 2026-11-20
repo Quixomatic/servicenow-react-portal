@@ -6,60 +6,77 @@
  * Logs "[seed] done (docs) run=<id>: …" (or "[seed] failed run=<id>") for run-seed.mjs to wait on.
  */
 (function () {
-    var SEED_RUN_ID = '__SEED_RUN_ID__'
-    var DOCS = __DOCS_JSON__
-    var DEACTIVATE = __DOCS_DEACTIVATE__
+    var SEED_RUN_ID = '__SEED_RUN_ID__';
+    var DOCS = __DOCS_JSON__;
+    var DEACTIVATE = __DOCS_DEACTIVATE__;
     // [{ path, seed_hash }]: content already matches the repo (e.g. a pulled Studio edit); stamp only.
-    var ADOPT = __DOCS_ADOPT__
-    var T = 'x_312987_portal_doc'
-    var t0 = Date.now()
-    var written = 0
-    var created = 0
-    var deactivated = 0
-    var adopted = 0
+    var ADOPT = __DOCS_ADOPT__;
+    var T = 'x_312987_portal_doc';
+    var t0 = Date.now();
+    var written = 0;
+    var created = 0;
+    var deactivated = 0;
+    var adopted = 0;
     try {
         for (var i = 0; i < DOCS.length; i++) {
-            var d = DOCS[i]
-            var gr = new GlideRecord(T)
-            gr.addQuery('path', d.path)
-            gr.setLimit(1)
-            gr.query()
-            var isNew = !gr.next()
-            if (isNew) gr.initialize()
+            var d = DOCS[i];
+            var gr = new GlideRecord(T);
+            gr.addQuery('path', d.path);
+            gr.setLimit(1);
+            gr.query();
+            var isNew = !gr.next();
+            if (isNew) gr.initialize();
             for (var k in d) {
-                var v = d[k]
-                gr.setValue(k, v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+                var v = d[k];
+                gr.setValue(
+                    k,
+                    v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
+                );
             }
-            var id = isNew ? gr.insert() : (gr.update(), gr.getUniqueValue())
-            if (!id) throw new Error('Could not write doc ' + d.path + ': ' + gs.getErrorMessages())
-            written++
-            if (isNew) created++
+            var id = isNew ? gr.insert() : (gr.update(), gr.getUniqueValue());
+            if (!id) throw new Error('Could not write doc ' + d.path + ': ' + gs.getErrorMessages());
+            written++;
+            if (isNew) created++;
         }
         for (var j = 0; j < DEACTIVATE.length; j++) {
-            var old = new GlideRecord(T)
-            old.addQuery('path', DEACTIVATE[j])
-            old.addQuery('active', true)
-            old.query()
+            var old = new GlideRecord(T);
+            old.addQuery('path', DEACTIVATE[j]);
+            old.addQuery('active', true);
+            old.query();
             while (old.next()) {
-                old.setValue('active', false)
-                old.update()
-                deactivated++
+                old.setValue('active', false);
+                old.update();
+                deactivated++;
             }
         }
         for (var a = 0; a < ADOPT.length; a++) {
-            var ad = new GlideRecord(T)
-            ad.addQuery('path', ADOPT[a].path)
-            ad.setLimit(1)
-            ad.query()
-            if (!ad.next()) continue
-            ad.setValue('seed_hash', ADOPT[a].seed_hash)
-            ad.setValue('origin', 'repo')
-            ad.update()
-            adopted++
+            var ad = new GlideRecord(T);
+            ad.addQuery('path', ADOPT[a].path);
+            ad.setLimit(1);
+            ad.query();
+            if (!ad.next()) continue;
+            ad.setValue('seed_hash', ADOPT[a].seed_hash);
+            ad.setValue('origin', 'repo');
+            ad.update();
+            adopted++;
         }
-        gs.info('[seed] done (docs) run=' + SEED_RUN_ID + ': ' + written + ' docs written (' + created + ' new), ' + adopted + ' adopted, ' + deactivated + ' deactivated |  | docs ' + (Date.now() - t0) + 'ms')
+        gs.info(
+            '[seed] done (docs) run=' +
+                SEED_RUN_ID +
+                ': ' +
+                written +
+                ' docs written (' +
+                created +
+                ' new), ' +
+                adopted +
+                ' adopted, ' +
+                deactivated +
+                ' deactivated |  | docs ' +
+                (Date.now() - t0) +
+                'ms'
+        );
     } catch (e) {
-        gs.error('[seed] failed run=' + SEED_RUN_ID + ': ' + e)
-        throw e
+        gs.error('[seed] failed run=' + SEED_RUN_ID + ': ' + e);
+        throw e;
     }
-})()
+})();

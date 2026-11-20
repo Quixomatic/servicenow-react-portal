@@ -1,1 +1,6 @@
-{ "name": "Docs Header", "kind": "widget", "tailwind": true, "defaults": { "title": "", "icon": "book-open", "search": true } }
+{
+    "name": "Docs Header",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "title": "", "icon": "book-open", "search": true }
+}

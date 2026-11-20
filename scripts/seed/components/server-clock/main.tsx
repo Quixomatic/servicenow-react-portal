@@ -1,22 +1,39 @@
-import { useState, type ReactNode } from 'react'
-import { useComponent } from '@portal/runtime'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'
-import { Button } from 'components:button'
-import { Badge } from 'components:badge'
+import { useState, type ReactNode } from 'react';
+import { useComponent } from '@portal/runtime';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card';
+import { Button } from 'components:button';
+import { Badge } from 'components:badge';
 
-type ClockData = { serverTime?: string; user?: string; action?: string; echo?: string; instanceId?: string; embedded?: boolean; key?: string | null; badge?: string }
-type ClockOptions = { title?: string; format?: string; badge?: string }
+type ClockData = {
+    serverTime?: string;
+    user?: string;
+    action?: string;
+    echo?: string;
+    instanceId?: string;
+    embedded?: boolean;
+    key?: string | null;
+    badge?: string;
+};
+type ClockOptions = { title?: string; format?: string; badge?: string };
 
 /**
  * On-load widget: initial data comes from its server script; buttons call it again.
  * Placed on a page or embedded in another widget (import ServerClock from 'components:app/server-clock'):
  * embedded, it's its own instance with its own options. `children` and `onRefresh` are client-only props.
  */
-export default function ServerClock({ embedded, children, onRefresh }: { embedded?: boolean; children?: ReactNode; onRefresh?: (data: ClockData) => void }) {
-    const { data, options, pending, error, server, instanceId } = useComponent()
-    const d = (data || {}) as ClockData
-    const o = (options || {}) as ClockOptions
-    const [reply, setReply] = useState<unknown>(null)
+export default function ServerClock({
+    embedded,
+    children,
+    onRefresh,
+}: {
+    embedded?: boolean;
+    children?: ReactNode;
+    onRefresh?: (data: ClockData) => void;
+}) {
+    const { data, options, pending, error, server, instanceId } = useComponent();
+    const d = (data || {}) as ClockData;
+    const o = (options || {}) as ClockOptions;
+    const [reply, setReply] = useState<unknown>(null);
 
     return (
         <Card data-embedded={embedded ? '' : undefined}>
@@ -50,7 +67,14 @@ export default function ServerClock({ embedded, children, onRefresh }: { embedde
                     <dd className="font-mono">{o.format || 'datetime'}</dd>
                 </dl>
                 <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => server.get({ message: 'ping from the browser' }).then(setReply, (e: Error) => setReply({ error: e.message }))}>
+                    <Button
+                        size="sm"
+                        onClick={() =>
+                            server
+                                .get({ message: 'ping from the browser' })
+                                .then(setReply, (e: Error) => setReply({ error: e.message }))
+                        }
+                    >
                         server.get()
                     </Button>
                     <Button
@@ -59,16 +83,20 @@ export default function ServerClock({ embedded, children, onRefresh }: { embedde
                         onClick={() =>
                             server.refresh().then(
                                 (next: ClockData) => onRefresh && onRefresh(next),
-                                () => {},
+                                () => {}
                             )
                         }
                     >
                         server.refresh()
                     </Button>
                 </div>
-                {reply ? <pre className="overflow-auto rounded-md bg-muted p-2 text-xs">{JSON.stringify(reply, null, 2)}</pre> : null}
+                {reply ? (
+                    <pre className="overflow-auto rounded-md bg-muted p-2 text-xs">
+                        {JSON.stringify(reply, null, 2)}
+                    </pre>
+                ) : null}
                 {children}
             </CardContent>
         </Card>
-    )
+    );
 }

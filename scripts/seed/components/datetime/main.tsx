@@ -42,7 +42,16 @@ export {
     weekdayOf,
     weekStartFor,
     isValidYmd,
-} from './dates'
-export type { UserFormats } from './dates'
-export { parseTime, formatTime, timeValueToSeconds, secondsToTimeValue, isUtcTimeValue, hms, parseDateTime, wallOf } from './times'
-export type { TimeOfDay } from './times'
+} from './dates';
+export type { UserFormats } from './dates';
+export {
+    parseTime,
+    formatTime,
+    timeValueToSeconds,
+    secondsToTimeValue,
+    isUtcTimeValue,
+    hms,
+    parseDateTime,
+    wallOf,
+} from './times';
+export type { TimeOfDay } from './times';

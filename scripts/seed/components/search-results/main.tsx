@@ -1,46 +1,47 @@
-import { usePortalLocation, useNavigate, Link } from '@portal/runtime'
-import { Card } from 'components:card'
-import { Button } from 'components:button'
-import { Icon } from 'components:icon'
-import { Skeleton } from 'components:skeleton'
-import { Tabs, TabsList, TabsTrigger } from 'components:tabs'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from 'components:empty'
-import { cx } from 'components:app/field'
-import { SearchBox, SearchHitRow } from 'components:app/search-box'
-import { useSearch, useSearchSource, normalizeSources, hitLinkProps, SEARCH_SOURCES } from 'utilities:app/search'
-import type { SearchHit, SearchSourceId, SearchTargets } from 'utilities:app/search'
+import { usePortalLocation, useNavigate, Link } from '@portal/runtime';
+import { Card } from 'components:card';
+import { Button } from 'components:button';
+import { Icon } from 'components:icon';
+import { Skeleton } from 'components:skeleton';
+import { Tabs, TabsList, TabsTrigger } from 'components:tabs';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from 'components:empty';
+import { cx } from 'components:app/field';
+import { SearchBox, SearchHitRow } from 'components:app/search-box';
+import { useSearch, useSearchSource, normalizeSources, hitLinkProps, SEARCH_SOURCES } from 'utilities:app/search';
+import type { SearchHit, SearchSourceId, SearchTargets } from 'utilities:app/search';
 
 type Options = {
     /** This page's route (tab and term links stay on it). */
-    resultsPage?: string
-    sources?: string[] | string
-    catalogPage?: string
-    kbPage?: string
+    resultsPage?: string;
+    sources?: string[] | string;
+    catalogPage?: string;
+    kbPage?: string;
     /** Knowledge search page (app/kb-search): the knowledge results link to it ("Search in Knowledge"). */
-    kbSearchPage?: string
-    recordPage?: string
+    kbSearchPage?: string;
+    recordPage?: string;
     /** Results per page in a source tab ("Load more" adds as many). */
-    pageSize?: number
+    pageSize?: number;
     /** Hits per source on the "All" tab. */
-    perSource?: number
-    suggestions?: string[]
-}
+    perSource?: number;
+    suggestions?: string[];
+};
 
 function HitLink({ hit, term }: { hit: SearchHit; term: string }) {
-    const cls = 'flex min-w-0 items-center gap-3 px-4 py-3 no-underline outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset'
+    const cls =
+        'flex min-w-0 items-center gap-3 px-4 py-3 no-underline outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset';
     if (hit.link.href) {
         return (
             <a href={hit.link.href} target="_blank" rel="noopener noreferrer" className={cls}>
                 <SearchHitRow hit={hit} term={term} />
             </a>
-        )
+        );
     }
     return (
         <Link {...hitLinkProps(hit.link)} className={cls}>
             <SearchHitRow hit={hit} term={term} />
             <Icon name="chevron-right" className="size-4 shrink-0 text-muted-foreground/60" />
         </Link>
-    )
+    );
 }
 
 function RowsSkeleton({ rows = 3 }: { rows?: number }) {
@@ -56,17 +57,37 @@ function RowsSkeleton({ rows = 3 }: { rows?: number }) {
                 </div>
             ))}
         </div>
-    )
+    );
 }
 
-function SourceTab({ source, term, pageSize, targets }: { source: SearchSourceId; term: string; pageSize: number; targets: SearchTargets }) {
-    const q = useSearchSource(source, term, { pageSize, targets }) as any
-    const pages = (q.data && q.data.pages) || []
-    const hits: SearchHit[] = pages.reduce((acc: SearchHit[], p: any) => acc.concat(p.hits), [])
-    const total = pages.length ? pages[pages.length - 1].total : 0
-    if (q.isLoading) return <Card className="gap-0 py-0"><RowsSkeleton rows={5} /></Card>
-    if (q.error) return <p className="text-sm text-destructive">Couldn't search {SEARCH_SOURCES[source].label.toLowerCase()}: {String(q.error.message || q.error)}</p>
-    if (!hits.length) return <NoResults term={term} label={SEARCH_SOURCES[source].label} />
+function SourceTab({
+    source,
+    term,
+    pageSize,
+    targets,
+}: {
+    source: SearchSourceId;
+    term: string;
+    pageSize: number;
+    targets: SearchTargets;
+}) {
+    const q = useSearchSource(source, term, { pageSize, targets }) as any;
+    const pages = (q.data && q.data.pages) || [];
+    const hits: SearchHit[] = pages.reduce((acc: SearchHit[], p: any) => acc.concat(p.hits), []);
+    const total = pages.length ? pages[pages.length - 1].total : 0;
+    if (q.isLoading)
+        return (
+            <Card className="gap-0 py-0">
+                <RowsSkeleton rows={5} />
+            </Card>
+        );
+    if (q.error)
+        return (
+            <p className="text-sm text-destructive">
+                Couldn't search {SEARCH_SOURCES[source].label.toLowerCase()}: {String(q.error.message || q.error)}
+            </p>
+        );
+    if (!hits.length) return <NoResults term={term} label={SEARCH_SOURCES[source].label} />;
     return (
         <div className="flex flex-col gap-3">
             <Card className="gap-0 py-0">
@@ -81,14 +102,19 @@ function SourceTab({ source, term, pageSize, targets }: { source: SearchSourceId
                     Showing {hits.length.toLocaleString()} of {Math.max(total, hits.length).toLocaleString()}
                 </span>
                 {q.hasNextPage ? (
-                    <Button variant="outline" size="sm" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={q.isFetchingNextPage}
+                        onClick={() => q.fetchNextPage()}
+                    >
                         {q.isFetchingNextPage ? <Icon name="loader-circle" className="animate-spin" /> : null}
                         Load more
                     </Button>
                 ) : null}
             </div>
         </div>
-    )
+    );
 }
 
 function NoResults({ term, label }: { term: string; label?: string }) {
@@ -99,8 +125,12 @@ function NoResults({ term, label }: { term: string; label?: string }) {
                     <EmptyMedia variant="icon">
                         <Icon name="search-x" />
                     </EmptyMedia>
-                    <EmptyTitle>No {label ? label.toLowerCase() : 'results'} for “{term}”</EmptyTitle>
-                    <EmptyDescription>Check the spelling, try fewer or more general words, or browse instead.</EmptyDescription>
+                    <EmptyTitle>
+                        No {label ? label.toLowerCase() : 'results'} for “{term}”
+                    </EmptyTitle>
+                    <EmptyDescription>
+                        Check the spelling, try fewer or more general words, or browse instead.
+                    </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent className="flex-row justify-center">
                     <Button variant="outline" size="sm" render={<Link to="catalog" />}>
@@ -114,7 +144,7 @@ function NoResults({ term, label }: { term: string; label?: string }) {
                 </EmptyContent>
             </Empty>
         </Card>
-    )
+    );
 }
 
 /**
@@ -124,23 +154,39 @@ function NoResults({ term, label }: { term: string; label?: string }) {
  * so the results are the platform's own search (catalog search API, text index), as the user.
  */
 export default function SearchResults({ options = {} }: { options?: Options }) {
-    const loc = (usePortalLocation() as any) || {}
-    const navigate = useNavigate()
-    const qp = (loc.qParams || {}) as Record<string, string>
+    const loc = (usePortalLocation() as any) || {};
+    const navigate = useNavigate();
+    const qp = (loc.qParams || {}) as Record<string, string>;
     // term=… (our links); q=… too (Service Portal's search page takes ?q=, and hand-typed links use it).
-    const term = String(qp.term || qp.q || '').trim()
-    const sources = normalizeSources(options.sources)
-    const tab = sources.indexOf(qp.source as SearchSourceId) >= 0 ? (qp.source as SearchSourceId) : 'all'
-    const page = options.resultsPage || String(loc.page || 'search')
-    const targets: SearchTargets = { catalogPage: options.catalogPage || 'catalog', kbPage: options.kbPage || 'kb', recordPage: options.recordPage || 'form', kbSearchPage: options.kbSearchPage || '' }
-    const all = useSearch(term, { sources, limit: options.perSource || 4, targets })
-    const go = (t: string, source?: string) => navigate(page, { q: source && source !== 'all' ? { term: t, source } : { term: t } })
-    const totalAll = all.groups.reduce((n, g) => n + g.total, 0)
-    const withHits = all.groups.filter((g) => g.hits.length)
+    const term = String(qp.term || qp.q || '').trim();
+    const sources = normalizeSources(options.sources);
+    const tab = sources.indexOf(qp.source as SearchSourceId) >= 0 ? (qp.source as SearchSourceId) : 'all';
+    const page = options.resultsPage || String(loc.page || 'search');
+    const targets: SearchTargets = {
+        catalogPage: options.catalogPage || 'catalog',
+        kbPage: options.kbPage || 'kb',
+        recordPage: options.recordPage || 'form',
+        kbSearchPage: options.kbSearchPage || '',
+    };
+    const all = useSearch(term, { sources, limit: options.perSource || 4, targets });
+    const go = (t: string, source?: string) =>
+        navigate(page, { q: source && source !== 'all' ? { term: t, source } : { term: t } });
+    const totalAll = all.groups.reduce((n, g) => n + g.total, 0);
+    const withHits = all.groups.filter((g) => g.hits.length);
 
     return (
         <div className="flex min-w-0 flex-col gap-5" data-rp-search-results="">
-            <SearchBox size="lg" defaultValue={term} sources={sources} targets={targets} resultsPage={page} onSubmit={(t) => go(t, tab)} shortcut={false} suggestions={options.suggestions} aria-label="Search the portal" />
+            <SearchBox
+                size="lg"
+                defaultValue={term}
+                sources={sources}
+                targets={targets}
+                resultsPage={page}
+                onSubmit={(t) => go(t, tab)}
+                shortcut={false}
+                suggestions={options.suggestions}
+                aria-label="Search the portal"
+            />
 
             {!term ? (
                 <Card className="py-0">
@@ -150,12 +196,20 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
                                 <Icon name="search" />
                             </EmptyMedia>
                             <EmptyTitle>Search the portal</EmptyTitle>
-                            <EmptyDescription>Find catalog items, knowledge articles, your requests and incidents, and portal pages.</EmptyDescription>
+                            <EmptyDescription>
+                                Find catalog items, knowledge articles, your requests and incidents, and portal pages.
+                            </EmptyDescription>
                         </EmptyHeader>
                         {options.suggestions && options.suggestions.length ? (
                             <EmptyContent className="flex-row flex-wrap justify-center gap-2">
                                 {options.suggestions.map((s) => (
-                                    <Button key={s} variant="outline" size="sm" className="rounded-full" onClick={() => go(s)}>
+                                    <Button
+                                        key={s}
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-full"
+                                        onClick={() => go(s)}
+                                    >
                                         {s}
                                     </Button>
                                 ))}
@@ -185,26 +239,47 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
 
                     {tab === 'all' ? (
                         !all.ready && !withHits.length ? (
-                            <Card className="gap-0 py-0"><RowsSkeleton rows={5} /></Card>
+                            <Card className="gap-0 py-0">
+                                <RowsSkeleton rows={5} />
+                            </Card>
                         ) : !withHits.length ? (
                             <NoResults term={term} />
                         ) : (
                             <div className="flex flex-col gap-5">
                                 {withHits.map((g) => (
-                                    <section key={g.id} aria-labelledby={`rp-sr-${g.id}`} className="flex flex-col gap-2">
+                                    <section
+                                        key={g.id}
+                                        aria-labelledby={`rp-sr-${g.id}`}
+                                        className="flex flex-col gap-2"
+                                    >
                                         <div className="flex items-center justify-between gap-3">
-                                            <h2 id={`rp-sr-${g.id}`} className="m-0 flex items-center gap-2 text-sm font-semibold">
+                                            <h2
+                                                id={`rp-sr-${g.id}`}
+                                                className="m-0 flex items-center gap-2 text-sm font-semibold"
+                                            >
                                                 <Icon name={g.icon} className="size-4 text-muted-foreground" />
                                                 {g.label}
-                                                <span className="font-normal text-muted-foreground tabular-nums">{g.total.toLocaleString()}</span>
+                                                <span className="font-normal text-muted-foreground tabular-nums">
+                                                    {g.total.toLocaleString()}
+                                                </span>
                                             </h2>
                                             {g.id === 'knowledge' && targets.kbSearchPage ? (
-                                                <Button variant="ghost" size="sm" className="text-muted-foreground" render={<Link to={targets.kbSearchPage} q={{ term }} />}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-muted-foreground"
+                                                    render={<Link to={targets.kbSearchPage} q={{ term }} />}
+                                                >
                                                     Search in Knowledge
                                                     <Icon name="arrow-right" />
                                                 </Button>
                                             ) : g.total > g.hits.length ? (
-                                                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => go(term, g.id)}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-muted-foreground"
+                                                    onClick={() => go(term, g.id)}
+                                                >
                                                     See all
                                                     <Icon name="arrow-right" />
                                                 </Button>
@@ -236,16 +311,31 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
                                     <Icon name="arrow-right" className="size-4 shrink-0 text-muted-foreground" />
                                 </Link>
                             ) : null}
-                            <SourceTab key={tab + '|' + term} source={tab} term={term} pageSize={options.pageSize || 10} targets={targets} />
+                            <SourceTab
+                                key={tab + '|' + term}
+                                source={tab}
+                                term={term}
+                                pageSize={options.pageSize || 10}
+                                targets={targets}
+                            />
                         </>
                     )}
                 </>
             )}
         </div>
-    )
+    );
 }
 
 function Count({ n, loading }: { n: number; loading?: boolean }) {
-    if (loading) return <Skeleton className="h-4 w-5 rounded-full" />
-    return <span className={cx('rounded-full px-1.5 text-[11px] leading-4 font-medium tabular-nums', n ? 'bg-muted text-foreground' : 'text-muted-foreground')}>{n.toLocaleString()}</span>
+    if (loading) return <Skeleton className="h-4 w-5 rounded-full" />;
+    return (
+        <span
+            className={cx(
+                'rounded-full px-1.5 text-[11px] leading-4 font-medium tabular-nums',
+                n ? 'bg-muted text-foreground' : 'text-muted-foreground'
+            )}
+        >
+            {n.toLocaleString()}
+        </span>
+    );
 }

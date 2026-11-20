@@ -1,5 +1,16 @@
 /* Compact strip: one row per announcement, a thin accent on each row's leading edge (primary, or
    destructive for urgent display styles). */
-.rp-ann__row { position: relative; }
-.rp-ann__row::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--primary); opacity: 0.75; }
-.rp-ann__row.rp-ann--urgent::before { background: var(--destructive); }
+.rp-ann__row {
+    position: relative;
+}
+.rp-ann__row::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--primary);
+    opacity: 0.75;
+}
+.rp-ann__row.rp-ann--urgent::before {
+    background: var(--destructive);
+}

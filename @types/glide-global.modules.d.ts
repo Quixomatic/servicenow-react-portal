@@ -5,23 +5,23 @@
  */
 declare module '@servicenow/glide/global' {
     interface ReactPortalGlobalMessages {
-        info: string[]
-        error: string[]
-        warning: string[]
+        info: string[];
+        error: string[];
+        warning: string[];
     }
 
     class ReactPortalGlobal {
-        constructor()
-        version(): string
-        drainSessionMessages(): ReactPortalGlobalMessages
-        getImpersonatingUserName(): string | null
-        getPreference(name: string): string | null
-        clearClientData(key: string): boolean
-        currentApplication(): { id: string; scope: string; name: string } | null
+        constructor();
+        version(): string;
+        drainSessionMessages(): ReactPortalGlobalMessages;
+        getImpersonatingUserName(): string | null;
+        getPreference(name: string): string | null;
+        clearClientData(key: string): boolean;
+        currentApplication(): { id: string; scope: string; name: string } | null;
     }
 
     export const global: {
-        ReactPortalGlobal: typeof ReactPortalGlobal
-        [name: string]: any
-    }
+        ReactPortalGlobal: typeof ReactPortalGlobal;
+        [name: string]: any;
+    };
 }

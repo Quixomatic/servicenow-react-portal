@@ -1,1 +1,19 @@
-{"name":"Activity Card","kind":"widget","tailwind":true,"defaults":{"variant":"timeline","table":"","sysId":"","title":"Activity","showRecord":true,"composer":true,"journalFields":"","defaultJournalField":"","kinds":"","showFilters":true,"pageSize":10,"recordPage":"form"}}
+{
+    "name": "Activity Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "variant": "timeline",
+        "table": "",
+        "sysId": "",
+        "title": "Activity",
+        "showRecord": true,
+        "composer": true,
+        "journalFields": "",
+        "defaultJournalField": "",
+        "kinds": "",
+        "showFilters": true,
+        "pageSize": 10,
+        "recordPage": "form"
+    }
+}

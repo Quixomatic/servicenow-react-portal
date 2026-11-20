@@ -1,1 +1,13 @@
-{ "name": "My Items", "kind": "widget", "tailwind": true, "defaults": { "title": "My active items", "sources": ["requests", "incidents", "approvals"], "limit": 5, "recordPage": "form", "listPage": "list", "live": true } }
+{
+    "name": "My Items",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "title": "My active items",
+        "sources": ["requests", "incidents", "approvals"],
+        "limit": 5,
+        "recordPage": "form",
+        "listPage": "list",
+        "live": true
+    }
+}

@@ -1,39 +1,39 @@
 {
-  "type": "object",
-  "properties": {
-    "title": {
-      "type": "string",
-      "title": "Title"
-    },
-    "body": {
-      "type": "string",
-      "title": "Body",
-      "format": "textarea"
-    },
-    "links": {
-      "type": "array",
-      "title": "Links",
-      "items": {
-        "type": "object",
-        "properties": {
-          "label": {
+    "type": "object",
+    "properties": {
+        "title": {
             "type": "string",
-            "title": "Label"
-          },
-          "to": {
+            "title": "Title"
+        },
+        "body": {
             "type": "string",
-            "title": "Page route"
-          },
-          "recordId": {
-            "type": "string",
-            "title": "Record id"
-          },
-          "q": {
-            "type": "string",
-            "title": "Query"
-          }
+            "title": "Body",
+            "format": "textarea"
+        },
+        "links": {
+            "type": "array",
+            "title": "Links",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {
+                        "type": "string",
+                        "title": "Label"
+                    },
+                    "to": {
+                        "type": "string",
+                        "title": "Page route"
+                    },
+                    "recordId": {
+                        "type": "string",
+                        "title": "Record id"
+                    },
+                    "q": {
+                        "type": "string",
+                        "title": "Query"
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }

@@ -14,56 +14,63 @@
  * - Everything presentational is swappable: layout, dropzone variant, renderItem, or build your own
  *   on useRecordAttachments.
  */
-import { useRef } from 'react'
-import { toast } from '@portal/runtime'
-import { useRecordAttachments, useAttachments, useFileDrop, usePasteFiles, describeRules, downloadAllUrl } from 'utilities:app/attachments'
-import type { Attachment, UseRecordAttachmentsOptions } from 'utilities:app/attachments'
-import { AttachmentDropzone } from 'components:app/attachment-dropzone'
-import { AttachmentList, UploadQueue } from 'components:app/attachment-list'
-import type { AttachmentLayout, AttachmentItemContext } from 'components:app/attachment-list'
-import { DialogOutlet } from 'components:app/confirm-dialog'
-import { useFormContext, cx } from 'components:app/field'
-import { Icon } from 'components:icon'
+import { useRef } from 'react';
+import { toast } from '@portal/runtime';
+import {
+    useRecordAttachments,
+    useAttachments,
+    useFileDrop,
+    usePasteFiles,
+    describeRules,
+    downloadAllUrl,
+} from 'utilities:app/attachments';
+import type { Attachment, UseRecordAttachmentsOptions } from 'utilities:app/attachments';
+import { AttachmentDropzone } from 'components:app/attachment-dropzone';
+import { AttachmentList, UploadQueue } from 'components:app/attachment-list';
+import type { AttachmentLayout, AttachmentItemContext } from 'components:app/attachment-list';
+import { DialogOutlet } from 'components:app/confirm-dialog';
+import { useFormContext, cx } from 'components:app/field';
+import { Icon } from 'components:icon';
 
 export type AttachmentPanelProps = {
     /** The record (default: the surrounding form's). */
-    table?: string
-    sysId?: string
+    table?: string;
+    sysId?: string;
     /** The form these attachments belong to (default: the surrounding FormProvider's). */
-    form?: any
-    layout?: AttachmentLayout
+    form?: any;
+    layout?: AttachmentLayout;
     /** How files are added: a drop area, a one-line strip, a header button, or not at all. */
-    dropzone?: 'area' | 'compact' | 'button' | 'none'
+    dropzone?: 'area' | 'compact' | 'button' | 'none';
     /** Heading ('Attachments'); null hides the header row. */
-    title?: string | null
+    title?: string | null;
     /** Heading level for the title (default 3). */
-    headingLevel?: 2 | 3 | 4
-    readOnly?: boolean
-    live?: boolean
-    paste?: boolean | 'window'
+    headingLevel?: 2 | 3 | 4;
+    readOnly?: boolean;
+    live?: boolean;
+    paste?: boolean | 'window';
     /** Narrow the platform's allowed extensions / size for this panel. */
-    extensions?: string[] | string
-    maxBytes?: number | null
+    extensions?: string[] | string;
+    maxBytes?: number | null;
     /** "Download all" (zip) when there are two or more files. Default true. */
-    downloadAll?: boolean
-    emptyText?: any
-    showMeta?: boolean
-    renderItem?: (a: Attachment, ctx: AttachmentItemContext) => any
+    downloadAll?: boolean;
+    emptyText?: any;
+    showMeta?: boolean;
+    renderItem?: (a: Attachment, ctx: AttachmentItemContext) => any;
     /** Extra header content (right side). */
-    headerActions?: any
+    headerActions?: any;
     /** No border / padding (the host card provides them). */
-    bare?: boolean
-    className?: string
-    onUploaded?: UseRecordAttachmentsOptions['onUploaded']
-    id?: string
-}
+    bare?: boolean;
+    className?: string;
+    onUploaded?: UseRecordAttachmentsOptions['onUploaded'];
+    id?: string;
+};
 
 export function AttachmentPanel(props: AttachmentPanelProps) {
-    const ctxForm = useFormContext() as any
-    const form = props.form || ctxForm
-    const table = props.table || (form && form.table) || ''
-    const sysId = props.sysId || (form && form.sysId) || ''
-    const root = useRef<HTMLElement | null>(null)
+    const ctxForm = useFormContext() as any;
+    const form = props.form || ctxForm;
+    const table = props.table || (form && form.table) || '';
+    const sysId = props.sysId || (form && form.sysId) || '';
+    const root = useRef<HTMLElement | null>(null);
     const att = useRecordAttachments(table, sysId, {
         form,
         readOnly: props.readOnly,
@@ -72,20 +79,33 @@ export function AttachmentPanel(props: AttachmentPanelProps) {
         live: props.live,
         onUploaded: props.onUploaded,
         onFailure: (m) => toast.error(m),
-    })
-    const { permission } = att
-    const canUpload = permission.canUpload
-    const variant = props.dropzone || 'area'
+    });
+    const { permission } = att;
+    const canUpload = permission.canUpload;
+    const variant = props.dropzone || 'area';
     // The whole panel accepts drops (the drop zone inside handles its own).
-    const drop = useFileDrop({ onFiles: (f) => att.upload(f), disabled: !canUpload || variant === 'none' })
-    usePasteFiles(props.paste === 'window' ? 'window' : root, (f) => att.upload(f), canUpload && variant !== 'none' && props.paste !== false)
-    const hint = describeRules(permission.rules)
-    const title = props.title === undefined ? 'Attachments' : props.title
-    const H: any = `h${props.headingLevel || 3}`
-    const showDownloadAll = props.downloadAll !== false && att.count > 1
+    const drop = useFileDrop({ onFiles: (f) => att.upload(f), disabled: !canUpload || variant === 'none' });
+    usePasteFiles(
+        props.paste === 'window' ? 'window' : root,
+        (f) => att.upload(f),
+        canUpload && variant !== 'none' && props.paste !== false
+    );
+    const hint = describeRules(permission.rules);
+    const title = props.title === undefined ? 'Attachments' : props.title;
+    const H: any = `h${props.headingLevel || 3}`;
+    const showDownloadAll = props.downloadAll !== false && att.count > 1;
 
     const dropButton =
-        variant === 'button' && canUpload ? <AttachmentDropzone variant="button" onFiles={(f) => att.upload(f)} extensions={permission.rules.extensions} hint={hint} paste={false} busy={att.busy} /> : null
+        variant === 'button' && canUpload ? (
+            <AttachmentDropzone
+                variant="button"
+                onFiles={(f) => att.upload(f)}
+                extensions={permission.rules.extensions}
+                hint={hint}
+                paste={false}
+                busy={att.busy}
+            />
+        ) : null;
 
     return (
         <section
@@ -97,17 +117,27 @@ export function AttachmentPanel(props: AttachmentPanelProps) {
             data-rp-attachment-panel={`${table}:${sysId}`}
             data-dragging={drop.dragging || undefined}
             {...drop.rootProps}
-            className={cx('relative flex flex-col gap-3', !props.bare && 'rounded-xl border border-border bg-card p-4', props.className)}
+            className={cx(
+                'relative flex flex-col gap-3',
+                !props.bare && 'rounded-xl border border-border bg-card p-4',
+                props.className
+            )}
         >
             <DialogOutlet />
             {title !== null || dropButton || showDownloadAll || props.headerActions ? (
                 <div className="flex min-h-8 flex-wrap items-center gap-2">
                     {title !== null ? (
-                        <H id={`${props.id || 'rp-att'}-title`} className="m-0 mr-auto flex items-center gap-2 text-sm font-semibold">
+                        <H
+                            id={`${props.id || 'rp-att'}-title`}
+                            className="m-0 mr-auto flex items-center gap-2 text-sm font-semibold"
+                        >
                             <Icon name="paperclip" size={15} aria-hidden="true" className="text-muted-foreground" />
                             {title}
                             {att.count ? (
-                                <span className="rounded-full bg-muted px-1.5 py-px text-xs font-medium text-muted-foreground" aria-label={`${att.count} files`}>
+                                <span
+                                    className="rounded-full bg-muted px-1.5 py-px text-xs font-medium text-muted-foreground"
+                                    aria-label={`${att.count} files`}
+                                >
                                     {att.count}
                                 </span>
                             ) : null}
@@ -130,18 +160,34 @@ export function AttachmentPanel(props: AttachmentPanelProps) {
             ) : null}
 
             {canUpload && (variant === 'area' || variant === 'compact') ? (
-                <AttachmentDropzone variant={variant} onFiles={(f) => att.upload(f)} extensions={permission.rules.extensions} hint={hint} paste={false} busy={att.busy} />
+                <AttachmentDropzone
+                    variant={variant}
+                    onFiles={(f) => att.upload(f)}
+                    extensions={permission.rules.extensions}
+                    hint={hint}
+                    paste={false}
+                    busy={att.busy}
+                />
             ) : null}
 
             {att.rejected.length ? (
-                <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-rp-attachments-rejected="">
+                <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                    data-rp-attachments-rejected=""
+                >
                     <Icon name="circle-alert" size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
                     <ul className="m-0 flex min-w-0 flex-1 list-none flex-col gap-0.5 p-0">
                         {att.rejected.map((r, i) => (
                             <li key={i}>{r.message}</li>
                         ))}
                     </ul>
-                    <button type="button" className="inline-flex size-6 shrink-0 items-center justify-center rounded-md outline-none hover:bg-destructive/10 focus-visible:ring-3 focus-visible:ring-ring/50" aria-label="Dismiss" onClick={att.dismissRejected}>
+                    <button
+                        type="button"
+                        className="inline-flex size-6 shrink-0 items-center justify-center rounded-md outline-none hover:bg-destructive/10 focus-visible:ring-3 focus-visible:ring-ring/50"
+                        aria-label="Dismiss"
+                        onClick={att.dismissRejected}
+                    >
                         <Icon name="x" size={14} aria-hidden="true" />
                     </button>
                 </div>
@@ -180,22 +226,33 @@ export function AttachmentPanel(props: AttachmentPanelProps) {
             ) : null}
 
             {drop.dragging ? (
-                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/85 text-sm font-medium" aria-hidden="true">
+                <div
+                    className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/85 text-sm font-medium"
+                    aria-hidden="true"
+                >
                     <Icon name="download" size={18} className="mr-2" /> Drop files to attach
                 </div>
             ) : null}
         </section>
-    )
+    );
 }
 
 /**
  * A paperclip button with the record's attachment count (e.g. in a form header) that shows / hides
  * a panel: <AttachmentsToggle table sysId pressed={open} onPressedChange={setOpen} controls="panel-id" />.
  */
-export function AttachmentsToggle(props: { table: string; sysId: string; pressed: boolean; onPressedChange: (pressed: boolean) => void; controls?: string; size?: 'sm' | 'icon-sm'; className?: string }) {
-    const { count } = useAttachments(props.table, props.sysId)
-    const label = count ? `Attachments (${count})` : 'Attachments'
-    const iconOnly = props.size === 'icon-sm'
+export function AttachmentsToggle(props: {
+    table: string;
+    sysId: string;
+    pressed: boolean;
+    onPressedChange: (pressed: boolean) => void;
+    controls?: string;
+    size?: 'sm' | 'icon-sm';
+    className?: string;
+}) {
+    const { count } = useAttachments(props.table, props.sysId);
+    const label = count ? `Attachments (${count})` : 'Attachments';
+    const iconOnly = props.size === 'icon-sm';
     return (
         <button
             type="button"
@@ -208,14 +265,14 @@ export function AttachmentsToggle(props: { table: string; sysId: string; pressed
             className={cx(
                 'inline-flex h-7 shrink-0 items-center gap-1 rounded-[min(var(--radius-md),12px)] border border-transparent px-2 text-[0.8rem] font-medium outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50',
                 props.pressed && 'bg-accent text-accent-foreground',
-                props.className,
+                props.className
             )}
         >
             <Icon name="paperclip" size={14} aria-hidden="true" />
             {count ? <span className="tabular-nums">{count}</span> : null}
             {iconOnly ? null : <span className="sr-only">{count ? ` attachments` : 'Attachments'}</span>}
         </button>
-    )
+    );
 }
 
 export default function AttachmentPanelPreview() {
@@ -223,5 +280,5 @@ export default function AttachmentPanelPreview() {
         <div className="max-w-2xl p-4">
             <AttachmentPanel table="incident" sysId="1964bd1783e05310e8fbc9a6feaad338" />
         </div>
-    )
+    );
 }

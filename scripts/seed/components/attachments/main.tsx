@@ -45,8 +45,8 @@ export {
     UploadAbortedError,
     ATTACHMENTS_QUERY,
     RENAME_ATTACHMENT_MUTATION,
-} from './api'
-export type { Attachment, AttachmentPermissions, AttachmentSet, UploadArgs } from './api'
+} from './api';
+export type { Attachment, AttachmentPermissions, AttachmentSet, UploadArgs } from './api';
 export {
     useAttachments,
     useAttachmentPermissions,
@@ -56,10 +56,18 @@ export {
     useRenameAttachment,
     useRecordAttachments,
     attachmentKeys,
-} from './hooks'
-export type { UseRecordAttachmentsOptions, UseAttachmentsOptions, AttachmentPermissionOptions, AttachmentPermissionState, UploadItem, UploadStatus, UseUploadOptions } from './hooks'
-export { useFileDrop, usePasteFiles } from './dom'
-export type { UseFileDropOptions } from './dom'
+} from './hooks';
+export type {
+    UseRecordAttachmentsOptions,
+    UseAttachmentsOptions,
+    AttachmentPermissionOptions,
+    AttachmentPermissionState,
+    UploadItem,
+    UploadStatus,
+    UseUploadOptions,
+} from './hooks';
+export { useFileDrop, usePasteFiles } from './dom';
+export type { UseFileDropOptions } from './dom';
 export {
     validateFiles,
     describeRules,
@@ -78,12 +86,18 @@ export {
     attachmentUrl,
     downloadAllUrl,
     isAttachableSysId,
-} from './files'
-export type { FileKind, UploadRules, Rejection, RejectReason } from './files'
-export { setFormAttachmentsEnabled, formAttachmentsEnabled, useFormAttachmentsEnabled, subscribeFormAttachments, rootFormStore } from './form-state'
+} from './files';
+export type { FileKind, UploadRules, Rejection, RejectReason } from './files';
+export {
+    setFormAttachmentsEnabled,
+    formAttachmentsEnabled,
+    useFormAttachmentsEnabled,
+    subscribeFormAttachments,
+    rootFormStore,
+} from './form-state';
 
 /** The extensions Workspace allows for user_image fields. */
-export const USER_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'ico', 'svg']
+export const USER_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'ico', 'svg'];
 
 /** Table prefix for attachments that belong to a field or variable (kept out of the record's list). */
-export const FIELD_ATTACHMENT_PREFIX = 'ZZ_YY'
+export const FIELD_ATTACHMENT_PREFIX = 'ZZ_YY';

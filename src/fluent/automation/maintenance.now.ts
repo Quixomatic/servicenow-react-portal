@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { ScheduledScript } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { ScheduledScript } from '@servicenow/sdk/core';
 
 /** Nightly: expire abandoned builds, trim the execution log, garbage-collect unreferenced builds. */
 ScheduledScript({
@@ -8,4 +8,4 @@ ScheduledScript({
     script: Now.include('./maintenance.server.js'),
     frequency: 'daily',
     executionTime: { hours: 3, minutes: 15, seconds: 0 },
-})
+});

@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -13,7 +13,7 @@ import {
     ChoiceColumn,
     ScriptColumn,
     UserRolesColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /**
  * One entry of a portal menu. Items nest under groups (parent). Page items reference a page of
@@ -32,13 +32,19 @@ export const x_312987_portal_menu_item = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        menu: ReferenceColumn({ label: 'Menu', referenceTable: 'x_312987_portal_menu', mandatory: true, cascadeRule: 'cascade' }),
+        menu: ReferenceColumn({
+            label: 'Menu',
+            referenceTable: 'x_312987_portal_menu',
+            mandatory: true,
+            cascadeRule: 'cascade',
+        }),
         parent: ReferenceColumn({
             label: 'Parent group',
             referenceTable: 'x_312987_portal_menu_item',
             cascadeRule: 'cascade',
             useReferenceQualifier: 'advanced',
-            referenceQual: "javascript:'menu=' + current.getValue('menu') + '^type=group^sys_id!=' + current.getUniqueValue()",
+            referenceQual:
+                "javascript:'menu=' + current.getValue('menu') + '^type=group^sys_id!=' + current.getUniqueValue()",
             hint: 'Empty = top level. Only groups contain items.',
         }),
         order: IntegerColumn({ label: 'Order', default: 100 }),
@@ -71,9 +77,17 @@ export const x_312987_portal_menu_item = Table({
             maxLength: 4000,
             hint: '{"params": {"id": "42"}, "query": {"tab": "open"}}: route params and query for page items',
         }),
-        route: StringColumn({ label: 'Route', maxLength: 255, hint: 'Portal-relative path: orders, orders/42, "" = home' }),
+        route: StringColumn({
+            label: 'Route',
+            maxLength: 255,
+            hint: 'Portal-relative path: orders, orders/42, "" = home',
+        }),
         url: StringColumn({ label: 'URL', maxLength: 1000, hint: 'http(s):// or mailto: only' }),
-        icon: StringColumn({ label: 'Icon', maxLength: 60, hint: 'lucide icon name (kebab-case), e.g. layout-dashboard' }),
+        icon: StringColumn({
+            label: 'Icon',
+            maxLength: 60,
+            hint: 'lucide icon name (kebab-case), e.g. layout-dashboard',
+        }),
         target: ChoiceColumn({
             label: 'Target',
             dropdown: 'dropdown_with_none',
@@ -99,11 +113,17 @@ export const x_312987_portal_menu_item = Table({
             hint: 'Optional server script; return false (or set answer = false) to hide. Variables: $sp, portal, item, user.',
         }),
         badge: StringColumn({ label: 'Badge', maxLength: 40 }),
-        badge_script: ScriptColumn({ label: 'Badge script', hint: 'Phase 2 (not evaluated yet): returns the badge text' }),
-        script: ScriptColumn({ label: 'Script', hint: 'Dynamic items, phase 2 (not evaluated yet): returns child items' }),
+        badge_script: ScriptColumn({
+            label: 'Badge script',
+            hint: 'Phase 2 (not evaluated yet): returns the badge text',
+        }),
+        script: ScriptColumn({
+            label: 'Script',
+            hint: 'Dynamic items, phase 2 (not evaluated yet): returns child items',
+        }),
     },
     index: [{ name: 'rp_menu_item_menu_parent', element: ['menu', 'parent', 'order'], unique: false }],
-})
+});
 
 /** Classic-form icon picker: a searchable grid of lucide icons that sets the icon field. */
 export const menuIconPickerMacro = UiMacro({
@@ -112,7 +132,7 @@ export const menuIconPickerMacro = UiMacro({
     description:
         'React Portal: lucide icon picker for the icon field of menu items (no parameters). Loads the icon sprite from /api/x_312987_portal/rp/icons/lucide.',
     xml: Now.include('../ui-macros/menu-icon-picker.jelly.xml'),
-})
+});
 
 export const menuIconPickerFormatter = Record({
     $id: Now.ID['formatter-menu-icon-picker'],
@@ -124,7 +144,7 @@ export const menuIconPickerFormatter = Record({
         table: 'x_312987_portal_menu_item',
         active: true,
     },
-})
+});
 
 Form({
     table: 'x_312987_portal_menu_item',
@@ -167,7 +187,11 @@ Form({
                     elements: [
                         { field: 'params_json', type: 'table_field' },
                         { field: 'icon', type: 'table_field' },
-                        { type: 'formatter', formatterRef: menuIconPickerFormatter, formatterName: 'x_312987_portal_menu_icon_picker.xml' },
+                        {
+                            type: 'formatter',
+                            formatterRef: menuIconPickerFormatter,
+                            formatterName: 'x_312987_portal_menu_icon_picker.xml',
+                        },
                     ],
                 },
             ],
@@ -186,4 +210,4 @@ Form({
             ],
         },
     ],
-})
+});

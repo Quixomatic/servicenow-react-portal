@@ -1,2 +1,5 @@
 /* Docs sizing of components:app/toc (fumadocs TOC: 14px links, 6px vertical padding → 32px rows). */
-.rp-docs-toc .rp-toc-link { font-size: 0.875rem; line-height: 1.25rem; }
+.rp-docs-toc .rp-toc-link {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}

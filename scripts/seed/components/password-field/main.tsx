@@ -3,18 +3,18 @@
  * show/hide toggle (aria-pressed) and an optional confirmation input that must match. Read-only
  * never reveals the value.
  */
-import { useState } from 'react'
-import { useField, adornmentButtonClass, IconEye, IconEyeOff } from 'components:app/field'
-import { StringInput } from 'components:app/string-field'
-import type { StringFieldProps } from 'components:app/string-field'
+import { useState } from 'react';
+import { useField, adornmentButtonClass, IconEye, IconEyeOff } from 'components:app/field';
+import { StringInput } from 'components:app/string-field';
+import type { StringFieldProps } from 'components:app/string-field';
 
-export type PasswordFieldProps = StringFieldProps & { confirm?: boolean; confirmLabel?: string }
+export type PasswordFieldProps = StringFieldProps & { confirm?: boolean; confirmLabel?: string };
 
 export function PasswordField(props: PasswordFieldProps) {
-    const [visible, setVisible] = useState(false)
-    const [confirmValue, setConfirmValue] = useState('')
-    const field = useField(props)
-    const mismatch = !!props.confirm && confirmValue !== '' && confirmValue !== (field.staged ?? field.value)
+    const [visible, setVisible] = useState(false);
+    const [confirmValue, setConfirmValue] = useState('');
+    const field = useField(props);
+    const mismatch = !!props.confirm && confirmValue !== '' && confirmValue !== (field.staged ?? field.value);
     const toggle = (
         <button
             type="button"
@@ -27,7 +27,7 @@ export function PasswordField(props: PasswordFieldProps) {
         >
             {visible ? <IconEyeOff size={14} /> : <IconEye size={14} />}
         </button>
-    )
+    );
     return (
         <div className="flex flex-col gap-3">
             <StringInput
@@ -50,13 +50,34 @@ export function PasswordField(props: PasswordFieldProps) {
                 />
             ) : null}
         </div>
-    )
+    );
 }
 
-function ConfirmInput(p: { name: string; label: string; visible: boolean; value: string; onChange: (v: string) => void; error?: string }) {
-    const field = useField({ name: p.name, label: p.label, value: p.value, onChange: p.onChange, error: p.error, standalone: true })
+function ConfirmInput(p: {
+    name: string;
+    label: string;
+    visible: boolean;
+    value: string;
+    onChange: (v: string) => void;
+    error?: string;
+}) {
+    const field = useField({
+        name: p.name,
+        label: p.label,
+        value: p.value,
+        onChange: p.onChange,
+        error: p.error,
+        standalone: true,
+    });
     // Staging updates the confirm value immediately so the match check is live.
-    return <StringInput name={p.name} field={{ ...field, stage: (v: string) => p.onChange(v) }} inputType={p.visible ? 'text' : 'password'} autoComplete="new-password" />
+    return (
+        <StringInput
+            name={p.name}
+            field={{ ...field, stage: (v: string) => p.onChange(v) }}
+            inputType={p.visible ? 'text' : 'password'}
+            autoComplete="new-password"
+        />
+    );
 }
 
 export default function PasswordFieldPreview() {
@@ -64,5 +85,5 @@ export default function PasswordFieldPreview() {
         <div className="max-w-md p-4">
             <PasswordField name="secret" label="Password" confirm />
         </div>
-    )
+    );
 }

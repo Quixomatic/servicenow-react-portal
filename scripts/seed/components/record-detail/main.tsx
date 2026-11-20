@@ -1,15 +1,15 @@
-import { usePortal, RegionPortal, Link } from '@portal/runtime'
-import { Card, CardHeader, CardTitle, CardContent } from 'components:card'
-import { Badge } from 'components:badge'
+import { usePortal, RegionPortal, Link } from '@portal/runtime';
+import { Card, CardHeader, CardTitle, CardContent } from 'components:card';
+import { Badge } from 'components:badge';
 
-type Props = { options?: { label?: string; back?: string } }
+type Props = { options?: { label?: string; back?: string } };
 
 /** For routes like orders/:id — shows the params and contributes a breadcrumb to the header. */
 export default function RecordDetail({ options = {} }: Props) {
-    const { page } = usePortal()
-    const params = page?.params || {}
-    const id = params.id || params['*'] || '?'
-    const label = options.label || 'Record'
+    const { page } = usePortal();
+    const params = page?.params || {};
+    const id = params.id || params['*'] || '?';
+    const label = options.label || 'Record';
 
     return (
         <Card>
@@ -31,5 +31,5 @@ export default function RecordDetail({ options = {} }: Props) {
                 </Link>
             </CardContent>
         </Card>
-    )
+    );
 }

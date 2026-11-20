@@ -1,1 +1,13 @@
-{ "name": "Knowledge Articles", "kind": "widget", "tailwind": true, "defaults": { "title": "Knowledge", "limit": 6, "kbPage": "kb", "articlePage": "kb/article", "categoryPage": "kb/category", "showCategories": true } }
+{
+    "name": "Knowledge Articles",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "title": "Knowledge",
+        "limit": 6,
+        "kbPage": "kb",
+        "articlePage": "kb/article",
+        "categoryPage": "kb/category",
+        "showCategories": true
+    }
+}

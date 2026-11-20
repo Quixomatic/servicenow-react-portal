@@ -16,20 +16,20 @@ import { frameworkCssText, frameworkStyles } from '#/runtime/framework-css';
 // event handler on the page. Never add a property named `id`: it collides with the element's
 // HTML id attribute.
 createCustomElement('x-312987-portal-host', {
-	renderer: { type: react },
-	view,
-	...(frameworkCssText ? {} : { styles: frameworkStyles }),
-	properties: {
-		mode: { default: 'portal' },
-		portalSlug: { default: '' },
-		page: { default: '' },
-		recordId: { default: '' },
-		q: { default: '' },
-		// Portal: the record view (site page param `view`). Studio: initial view hint (code | pages | menus).
-		view: { default: '' },
-		// Standard record params (site page optional params table, sys_id, query); also accepted inside q.
-		table: { default: '' },
-		sysId: { default: '' },
-		query: { default: '' }
-	}
+    renderer: { type: react },
+    view,
+    ...(frameworkCssText ? {} : { styles: frameworkStyles }),
+    properties: {
+        mode: { default: 'portal' },
+        portalSlug: { default: '' },
+        page: { default: '' },
+        recordId: { default: '' },
+        q: { default: '' },
+        // Portal: the record view (site page param `view`). Studio: initial view hint (code | pages | menus).
+        view: { default: '' },
+        // Standard record params (site page optional params table, sys_id, query); also accepted inside q.
+        table: { default: '' },
+        sysId: { default: '' },
+        query: { default: '' },
+    },
 });

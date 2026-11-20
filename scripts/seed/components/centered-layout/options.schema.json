@@ -1,11 +1,11 @@
 {
-  "type": "object",
-  "properties": {
-    "canvas": {
-      "type": "string",
-      "title": "Page background",
-      "enum": ["muted", "background"],
-      "enumNames": ["Muted (content column stands out)", "Same as the content"]
+    "type": "object",
+    "properties": {
+        "canvas": {
+            "type": "string",
+            "title": "Page background",
+            "enum": ["muted", "background"],
+            "enumNames": ["Muted (content column stands out)", "Same as the content"]
+        }
     }
-  }
 }

@@ -13,7 +13,7 @@ import { scheduleInvalidate, useRecordWatch } from './record-watch';
 const EMPTY = Object.freeze({});
 
 function usePortalValue() {
-	return useContext(PortalContext);
+    return useContext(PortalContext);
 }
 
 // ---- user -----------------------------------------------------------------------------------
@@ -24,36 +24,36 @@ function usePortalValue() {
  * hasRole is true for admin, like gs.hasRole.
  */
 export function useUser() {
-	const portal = usePortalValue();
-	const user = (portal && portal.user) || null;
-	return useMemo(() => {
-		const roles = (user && user.roles) || [];
-		const hasRole = (name) => roles.includes('admin') || roles.includes(name);
-		const hasAnyRole = (names) => roles.includes('admin') || (names || []).some((n) => roles.includes(n));
-		return { ...(user || {}), roles, signedIn: !!user, hasRole, hasAnyRole };
-	}, [user]);
+    const portal = usePortalValue();
+    const user = (portal && portal.user) || null;
+    return useMemo(() => {
+        const roles = (user && user.roles) || [];
+        const hasRole = (name) => roles.includes('admin') || roles.includes(name);
+        const hasAnyRole = (names) => roles.includes('admin') || (names || []).some((n) => roles.includes(n));
+        return { ...(user || {}), roles, signedIn: !!user, hasRole, hasAnyRole };
+    }, [user]);
 }
 
 // ---- properties -----------------------------------------------------------------------------
 
 /** useProperties(names) → { values: { name: value | null }, isLoading, error }. Cached per portal. */
 export function useProperties(names) {
-	const portal = usePortalValue();
-	const slug = portal ? portal.slug : '';
-	const list = (names || []).slice().sort();
-	const query = useQuery({
-		queryKey: ['rp', 'props', slug, list.join(',')],
-		queryFn: () => getProperties(slug, list),
-		enabled: list.length > 0,
-		staleTime: 5 * 60_000
-	});
-	return { values: query.data || EMPTY, isLoading: list.length > 0 && query.isPending, error: query.error };
+    const portal = usePortalValue();
+    const slug = portal ? portal.slug : '';
+    const list = (names || []).slice().sort();
+    const query = useQuery({
+        queryKey: ['rp', 'props', slug, list.join(',')],
+        queryFn: () => getProperties(slug, list),
+        enabled: list.length > 0,
+        staleTime: 5 * 60_000,
+    });
+    return { values: query.data || EMPTY, isLoading: list.length > 0 && query.isPending, error: query.error };
 }
 
 /** useProperty(name) → { value, isLoading, error }. */
 export function useProperty(name) {
-	const { values, isLoading, error } = useProperties(name ? [name] : []);
-	return { value: name && values[name] !== undefined ? values[name] : null, isLoading, error };
+    const { values, isLoading, error } = useProperties(name ? [name] : []);
+    return { value: name && values[name] !== undefined ? values[name] : null, isLoading, error };
 }
 
 // ---- messages (batched per tick, cached per language) -------------------------------------
@@ -62,75 +62,80 @@ const messageCache = new Map(); // `${lang}|${key}` -> string
 const pendingByLang = new Map(); // lang -> { keys: Set, promise, resolve, reject }
 
 function languageOf(portal) {
-	return (portal && portal.user && portal.user.language) || 'en';
+    return (portal && portal.user && portal.user.language) || 'en';
 }
 
 /** Resolve one message; every key requested in the same tick goes out in one POST /messages. */
 function loadMessage(lang, key) {
-	const cacheKey = `${lang}|${key}`;
-	if (messageCache.has(cacheKey)) return Promise.resolve(messageCache.get(cacheKey));
-	let batch = pendingByLang.get(lang);
-	if (!batch) {
-		batch = { keys: new Set() };
-		batch.promise = new Promise((resolve, reject) => {
-			batch.resolve = resolve;
-			batch.reject = reject;
-		});
-		pendingByLang.set(lang, batch);
-		setTimeout(() => {
-			pendingByLang.delete(lang);
-			const keys = Array.from(batch.keys);
-			getMessages(keys).then(
-				(messages) => {
-					keys.forEach((k) => messageCache.set(`${lang}|${k}`, messages && messages[k] != null ? messages[k] : k));
-					batch.resolve();
-				},
-				(error) => batch.reject(error)
-			);
-		}, 0);
-	}
-	batch.keys.add(key);
-	return batch.promise.then(() => messageCache.get(cacheKey));
+    const cacheKey = `${lang}|${key}`;
+    if (messageCache.has(cacheKey)) return Promise.resolve(messageCache.get(cacheKey));
+    let batch = pendingByLang.get(lang);
+    if (!batch) {
+        batch = { keys: new Set() };
+        batch.promise = new Promise((resolve, reject) => {
+            batch.resolve = resolve;
+            batch.reject = reject;
+        });
+        pendingByLang.set(lang, batch);
+        setTimeout(() => {
+            pendingByLang.delete(lang);
+            const keys = Array.from(batch.keys);
+            getMessages(keys).then(
+                (messages) => {
+                    keys.forEach((k) =>
+                        messageCache.set(`${lang}|${k}`, messages && messages[k] != null ? messages[k] : k)
+                    );
+                    batch.resolve();
+                },
+                (error) => batch.reject(error)
+            );
+        }, 0);
+    }
+    batch.keys.add(key);
+    return batch.promise.then(() => messageCache.get(cacheKey));
 }
 
 /** useMessages(keys) → { messages: { key: translated }, isLoading }. */
 export function useMessages(keys) {
-	const portal = usePortalValue();
-	const lang = languageOf(portal);
-	const list = (keys || []).filter(Boolean);
-	const query = useQuery({
-		queryKey: ['rp', 'messages', lang, list.join('\u0000')],
-		queryFn: () => Promise.all(list.map((k) => loadMessage(lang, k))).then((values) => Object.fromEntries(list.map((k, i) => [k, values[i]]))),
-		enabled: list.length > 0,
-		staleTime: Infinity
-	});
-	return { messages: query.data || EMPTY, isLoading: list.length > 0 && query.isPending, error: query.error };
+    const portal = usePortalValue();
+    const lang = languageOf(portal);
+    const list = (keys || []).filter(Boolean);
+    const query = useQuery({
+        queryKey: ['rp', 'messages', lang, list.join('\u0000')],
+        queryFn: () =>
+            Promise.all(list.map((k) => loadMessage(lang, k))).then((values) =>
+                Object.fromEntries(list.map((k, i) => [k, values[i]]))
+            ),
+        enabled: list.length > 0,
+        staleTime: Infinity,
+    });
+    return { messages: query.data || EMPTY, isLoading: list.length > 0 && query.isPending, error: query.error };
 }
 
 /** useMessage(key, fallback?) → the translated string (fallback, then the key, while loading). */
 export function useMessage(key, fallback) {
-	const { messages } = useMessages(key ? [key] : []);
-	if (key && messages[key] != null) return messages[key];
-	return fallback !== undefined ? fallback : key;
+    const { messages } = useMessages(key ? [key] : []);
+    if (key && messages[key] != null) return messages[key];
+    return fallback !== undefined ? fallback : key;
 }
 
 // ---- spUtils equivalent -------------------------------------------------------------------
 
 /** format('Hello {0}', ['Ada']) / format('Hello {name}', { name: 'Ada' }) / format('{0} {1}', a, b) */
 export function format(template, ...args) {
-	const values = args.length === 1 && args[0] && typeof args[0] === 'object' ? args[0] : args;
-	return String(template == null ? '' : template).replace(/\{(\w+)\}/g, (match, name) => {
-		const v = values[name];
-		return v === undefined || v === null ? match : String(v);
-	});
+    const values = args.length === 1 && args[0] && typeof args[0] === 'object' ? args[0] : args;
+    return String(template == null ? '' : template).replace(/\{(\w+)\}/g, (match, name) => {
+        const v = values[name];
+        return v === undefined || v === null ? match : String(v);
+    });
 }
 
 /** Scroll an element (or the first match of a selector in the portal) into view in main. */
 function scrollToIn(root, target, options) {
-	const el = typeof target === 'string' ? root && root.querySelector(target) : target;
-	if (!el || typeof el.scrollIntoView !== 'function') return false;
-	el.scrollIntoView({ behavior: 'smooth', block: 'start', ...(options || {}) });
-	return true;
+    const el = typeof target === 'string' ? root && root.querySelector(target) : target;
+    if (!el || typeof el.scrollIntoView !== 'function') return false;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start', ...(options || {}) });
+    return true;
 }
 
 /**
@@ -140,25 +145,25 @@ function scrollToIn(root, target, options) {
  *   fetchJson(url, init)  refresh()  getHeaders()
  */
 export function usePortalUtils() {
-	const portal = usePortalValue();
-	const getWidget = useGetWidget();
-	return useMemo(() => {
-		const lang = languageOf(portal);
-		return {
-			addInfoMessage: (msg, opts) => toast.info(String(msg), opts),
-			addErrorMessage: (msg, opts) => toast.error(String(msg), opts),
-			addTrivialMessage: (msg, opts) => toast(String(msg), { duration: 2500, ...(opts || {}) }),
-			toast,
-			format,
-			getMessage: (key) => loadMessage(lang, key),
-			scrollTo: (target, options) => scrollToIn(portal && portal.shadowRoot, target, options),
-			fetchJson,
-			refresh: () => (portal && portal.refresh ? portal.refresh() : Promise.resolve()),
-			getHeaders,
-			// spUtils.get equivalent: (component | 'app/x', options?, { key? }) → Promise<EmbedModel>
-			getWidget
-		};
-	}, [portal, getWidget]);
+    const portal = usePortalValue();
+    const getWidget = useGetWidget();
+    return useMemo(() => {
+        const lang = languageOf(portal);
+        return {
+            addInfoMessage: (msg, opts) => toast.info(String(msg), opts),
+            addErrorMessage: (msg, opts) => toast.error(String(msg), opts),
+            addTrivialMessage: (msg, opts) => toast(String(msg), { duration: 2500, ...(opts || {}) }),
+            toast,
+            format,
+            getMessage: (key) => loadMessage(lang, key),
+            scrollTo: (target, options) => scrollToIn(portal && portal.shadowRoot, target, options),
+            fetchJson,
+            refresh: () => (portal && portal.refresh ? portal.refresh() : Promise.resolve()),
+            getHeaders,
+            // spUtils.get equivalent: (component | 'app/x', options?, { key? }) → Promise<EmbedModel>
+            getWidget,
+        };
+    }, [portal, getWidget]);
 }
 
 /**
@@ -167,7 +172,7 @@ export function usePortalUtils() {
  * with server.get(input, { toast: false }).
  */
 export function useServer(options) {
-	return useComponent(options);
+    return useComponent(options);
 }
 
 // ---- Table API ------------------------------------------------------------------------------
@@ -177,32 +182,35 @@ export function useServer(options) {
  * { data, isLoading, error, refetch, deleted }. live: refetch when the record changes (AMB).
  */
 export function useRecord(table, sysId, options) {
-	const o = options || {};
-	const fields = Array.isArray(o.fields) ? o.fields.join(',') : o.fields || '';
-	const displayValue = o.displayValue === undefined ? '' : String(o.displayValue);
-	const query = useQuery({
-		queryKey: ['rp', 'table', table, 'record', sysId, fields, displayValue],
-		queryFn: () => tableApi(table, sysId, { sysparm_fields: fields, sysparm_display_value: displayValue }),
-		enabled: !!table && !!sysId
-	});
-	// live: true → watch this record (AMB) and refetch it on a change; `deleted` after a delete.
-	const [deletedId, setDeletedId] = useState(null);
-	useRecordWatch(
-		table,
-		sysId ? `sys_id=${sysId}` : null,
-		(event) => {
-			if (event.operation === 'delete') setDeletedId(sysId);
-			scheduleInvalidate(['rp', 'table', table, 'record', sysId], o.liveThrottleMs === undefined ? 250 : o.liveThrottleMs);
-		},
-		{ enabled: !!o.live && !!table && !!sysId, invalidate: false }
-	);
-	return {
-		data: query.data,
-		isLoading: !!table && !!sysId && query.isPending,
-		error: query.error,
-		refetch: query.refetch,
-		deleted: !!sysId && deletedId === sysId
-	};
+    const o = options || {};
+    const fields = Array.isArray(o.fields) ? o.fields.join(',') : o.fields || '';
+    const displayValue = o.displayValue === undefined ? '' : String(o.displayValue);
+    const query = useQuery({
+        queryKey: ['rp', 'table', table, 'record', sysId, fields, displayValue],
+        queryFn: () => tableApi(table, sysId, { sysparm_fields: fields, sysparm_display_value: displayValue }),
+        enabled: !!table && !!sysId,
+    });
+    // live: true → watch this record (AMB) and refetch it on a change; `deleted` after a delete.
+    const [deletedId, setDeletedId] = useState(null);
+    useRecordWatch(
+        table,
+        sysId ? `sys_id=${sysId}` : null,
+        (event) => {
+            if (event.operation === 'delete') setDeletedId(sysId);
+            scheduleInvalidate(
+                ['rp', 'table', table, 'record', sysId],
+                o.liveThrottleMs === undefined ? 250 : o.liveThrottleMs
+            );
+        },
+        { enabled: !!o.live && !!table && !!sysId, invalidate: false }
+    );
+    return {
+        data: query.data,
+        isLoading: !!table && !!sysId && query.isPending,
+        error: query.error,
+        refetch: query.refetch,
+        deleted: !!sysId && deletedId === sysId,
+    };
 }
 
 /**
@@ -210,27 +218,37 @@ export function useRecord(table, sysId, options) {
  * { data: rows, isLoading, error, refetch }. orderBy: 'field' or '-field' (descending), or a list.
  */
 export function useTableQuery(table, options) {
-	const o = options || {};
-	const fields = Array.isArray(o.fields) ? o.fields.join(',') : o.fields || '';
-	const orders = (Array.isArray(o.orderBy) ? o.orderBy : o.orderBy ? [o.orderBy] : []).map((f) =>
-		String(f).charAt(0) === '-' ? `ORDERBYDESC${String(f).slice(1)}` : `ORDERBY${f}`
-	);
-	const encoded = [o.query || ''].concat(orders).filter(Boolean).join('^');
-	const limit = o.limit === undefined ? '' : String(o.limit);
-	const displayValue = o.displayValue === undefined ? '' : String(o.displayValue);
-	const query = useQuery({
-		queryKey: ['rp', 'table', table, 'query', encoded, fields, limit, displayValue],
-		queryFn: () => tableApi(table, null, { sysparm_query: encoded, sysparm_fields: fields, sysparm_limit: limit, sysparm_display_value: displayValue }),
-		enabled: !!table
-	});
-	// live: true → watch the query's filter (AMB) and refetch this list, throttled (liveThrottleMs).
-	useRecordWatch(
-		table,
-		o.query || '',
-		() => scheduleInvalidate(['rp', 'table', table, 'query', encoded], o.liveThrottleMs === undefined ? 1000 : o.liveThrottleMs),
-		{ enabled: !!o.live && !!table, invalidate: false }
-	);
-	return { data: query.data, isLoading: !!table && query.isPending, error: query.error, refetch: query.refetch };
+    const o = options || {};
+    const fields = Array.isArray(o.fields) ? o.fields.join(',') : o.fields || '';
+    const orders = (Array.isArray(o.orderBy) ? o.orderBy : o.orderBy ? [o.orderBy] : []).map((f) =>
+        String(f).charAt(0) === '-' ? `ORDERBYDESC${String(f).slice(1)}` : `ORDERBY${f}`
+    );
+    const encoded = [o.query || ''].concat(orders).filter(Boolean).join('^');
+    const limit = o.limit === undefined ? '' : String(o.limit);
+    const displayValue = o.displayValue === undefined ? '' : String(o.displayValue);
+    const query = useQuery({
+        queryKey: ['rp', 'table', table, 'query', encoded, fields, limit, displayValue],
+        queryFn: () =>
+            tableApi(table, null, {
+                sysparm_query: encoded,
+                sysparm_fields: fields,
+                sysparm_limit: limit,
+                sysparm_display_value: displayValue,
+            }),
+        enabled: !!table,
+    });
+    // live: true → watch the query's filter (AMB) and refetch this list, throttled (liveThrottleMs).
+    useRecordWatch(
+        table,
+        o.query || '',
+        () =>
+            scheduleInvalidate(
+                ['rp', 'table', table, 'query', encoded],
+                o.liveThrottleMs === undefined ? 1000 : o.liveThrottleMs
+            ),
+        { enabled: !!o.live && !!table, invalidate: false }
+    );
+    return { data: query.data, isLoading: !!table && query.isPending, error: query.error, refetch: query.refetch };
 }
 
 export { toast };

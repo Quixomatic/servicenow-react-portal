@@ -1,12 +1,23 @@
 {
-  "type": "object",
-  "properties": {
-    "table": { "type": "string", "title": "Table", "description": "Empty: the page's table param" },
-    "sysId": { "type": "string", "title": "Record sys_id", "description": "Empty: the page's sys_id param" },
-    "title": { "type": "string", "title": "Title", "default": "Attachments" },
-    "layout": { "type": "string", "title": "Layout", "enum": ["list", "grid", "chips"], "enumNames": ["List", "Grid (thumbnails)", "Compact chips"], "default": "list" },
-    "dropzone": { "type": "string", "title": "Adding files", "enum": ["area", "compact", "button", "none"], "enumNames": ["Drop area", "Compact strip", "Header button", "None"] },
-    "downloadAll": { "type": "boolean", "title": "Download all (zip)", "default": true },
-    "emptyText": { "type": "string", "title": "Text when there are no files" }
-  }
+    "type": "object",
+    "properties": {
+        "table": { "type": "string", "title": "Table", "description": "Empty: the page's table param" },
+        "sysId": { "type": "string", "title": "Record sys_id", "description": "Empty: the page's sys_id param" },
+        "title": { "type": "string", "title": "Title", "default": "Attachments" },
+        "layout": {
+            "type": "string",
+            "title": "Layout",
+            "enum": ["list", "grid", "chips"],
+            "enumNames": ["List", "Grid (thumbnails)", "Compact chips"],
+            "default": "list"
+        },
+        "dropzone": {
+            "type": "string",
+            "title": "Adding files",
+            "enum": ["area", "compact", "button", "none"],
+            "enumNames": ["Drop area", "Compact strip", "Header button", "None"]
+        },
+        "downloadAll": { "type": "boolean", "title": "Download all (zip)", "default": true },
+        "emptyText": { "type": "string", "title": "Text when there are no files" }
+    }
 }

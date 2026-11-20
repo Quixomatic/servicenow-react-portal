@@ -2,5 +2,5 @@
    unsaved-change bar, which inside the builder would paint every row control. The label's
    "modified" dot is enough for this field. */
 .rpf-root[data-dirty] .rpf-conditions .rpf-control:not(.rpf-x) {
-	background-image: none;
+    background-image: none;
 }

@@ -10,13 +10,13 @@
 import styles from '../styles/tailwind.generated.css';
 
 function asText(value) {
-	if (typeof value === 'string') return value;
-	if (value && typeof value.toString === 'function') {
-		const text = value.toString();
-		if (text && text !== '[object Object]') return text;
-	}
-	if (value && typeof value.default === 'string') return value.default;
-	return null;
+    if (typeof value === 'string') return value;
+    if (value && typeof value.toString === 'function') {
+        const text = value.toString();
+        if (text && text !== '[object Object]') return text;
+    }
+    if (value && typeof value.default === 'string') return value.default;
+    return null;
 }
 
 /** The CSS text, or null if the build hands us something else (then ui-core adopts it as before). */

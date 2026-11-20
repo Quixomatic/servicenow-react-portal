@@ -1,7 +1,7 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'
-import { LinkList, type LinkItem } from './parts/LinkList'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card';
+import { LinkList, type LinkItem } from './parts/LinkList';
 
-type Props = { options?: { title?: string; body?: string; links?: LinkItem[] } }
+type Props = { options?: { title?: string; body?: string; links?: LinkItem[] } };
 
 /** Page widget: title, body and links from its placement's options. */
 export default function HelloCard({ options = {} }: Props) {
@@ -17,5 +17,5 @@ export default function HelloCard({ options = {} }: Props) {
                 </CardContent>
             ) : null}
         </Card>
-    )
+    );
 }

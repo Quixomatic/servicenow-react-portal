@@ -1,1 +1,12 @@
-{ "name": "Search Results", "kind": "widget", "tailwind": true, "defaults": { "resultsPage": "search", "catalogPage": "catalog", "kbPage": "kb", "recordPage": "form", "pageSize": 10 } }
+{
+    "name": "Search Results",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "resultsPage": "search",
+        "catalogPage": "catalog",
+        "kbPage": "kb",
+        "recordPage": "form",
+        "pageSize": 10
+    }
+}

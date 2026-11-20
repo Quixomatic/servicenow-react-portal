@@ -1,44 +1,47 @@
-import { useState } from 'react'
-import { Link } from '@portal/runtime'
-import { Card } from 'components:card'
-import { Icon } from 'components:icon'
-import { Tabs, TabsList, TabsTrigger } from 'components:tabs'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from 'components:empty'
-import { useKbArticles, useKbCategories, kbLinks } from 'utilities:app/knowledge'
-import type { KbArticleSummary, KbCategoryNode, KbSort } from 'utilities:app/knowledge'
-import { KbArticleList, KbArticleListSkeleton } from 'components:app/kb-article-list'
+import { useState } from 'react';
+import { Link } from '@portal/runtime';
+import { Card } from 'components:card';
+import { Icon } from 'components:icon';
+import { Tabs, TabsList, TabsTrigger } from 'components:tabs';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from 'components:empty';
+import { useKbArticles, useKbCategories, kbLinks } from 'utilities:app/knowledge';
+import type { KbArticleSummary, KbCategoryNode, KbSort } from 'utilities:app/knowledge';
+import { KbArticleList, KbArticleListSkeleton } from 'components:app/kb-article-list';
 
-export type KbMode = 'popular' | 'recent' | 'featured'
+export type KbMode = 'popular' | 'recent' | 'featured';
 
 type Options = {
-    title?: string
+    title?: string;
     /** Tabs, in order: popular, recent, featured (default popular + recent). */
-    modes?: KbMode[]
-    limit?: number
+    modes?: KbMode[];
+    limit?: number;
     /** Restrict to one knowledge base (sys_id). */
-    knowledgeBase?: string
+    knowledgeBase?: string;
     /** Knowledge home ("Browse all"). */
-    kbPage?: string
-    articlePage?: string
-    categoryPage?: string
-    showCategories?: boolean
-    categoriesLimit?: number
+    kbPage?: string;
+    articlePage?: string;
+    categoryPage?: string;
+    showCategories?: boolean;
+    categoriesLimit?: number;
     /** One-line titles (truncated) instead of up to two lines. */
-    compact?: boolean
-}
+    compact?: boolean;
+};
 
-const MODE_LABEL: Record<KbMode, string> = { popular: 'Popular', recent: 'Latest', featured: 'Featured' }
-const MODE_SORT: Record<KbMode, KbSort> = { popular: 'views', recent: 'updated', featured: 'views' }
+const MODE_LABEL: Record<KbMode, string> = { popular: 'Popular', recent: 'Latest', featured: 'Featured' };
+const MODE_SORT: Record<KbMode, KbSort> = { popular: 'views', recent: 'updated', featured: 'views' };
 
 /** The busiest categories (any depth) across the readable KBs, for "Browse by topic". */
-export function topCategories(tree: { byId: Record<string, KbCategoryNode>; countsKnown?: boolean } | undefined, limit = 8): KbCategoryNode[] {
+export function topCategories(
+    tree: { byId: Record<string, KbCategoryNode>; countsKnown?: boolean } | undefined,
+    limit = 8
+): KbCategoryNode[] {
     // Without counts (the Aggregate API refuses some roleless users) there's no "busiest": hide the chips.
-    if (!tree || tree.countsKnown === false) return []
+    if (!tree || tree.countsKnown === false) return [];
     return Object.keys(tree.byId)
         .map((id) => tree.byId[id])
         .filter((c) => c.depth === 0 && c.count > 0)
         .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-        .slice(0, limit)
+        .slice(0, limit);
 }
 
 /**
@@ -47,22 +50,27 @@ export function topCategories(tree: { byId: Record<string, KbCategoryNode>; coun
  * utilities:app/knowledge (readable KBs only, published and unexpired); rows from app/kb-article-list.
  */
 export default function KbArticles({ options = {} }: { options?: Options }) {
-    const modes = (Array.isArray(options.modes) && options.modes.length ? options.modes : (['popular', 'recent'] as KbMode[])).filter((m) => !!MODE_LABEL[m])
-    const [mode, setMode] = useState<KbMode>(modes[0] || 'popular')
-    const limit = Math.max(1, Math.min(12, options.limit || 6))
-    const links = kbLinks({ home: options.kbPage, article: options.articlePage, category: options.categoryPage })
-    const ids = options.knowledgeBase ? [options.knowledgeBase] : undefined
-    const list = useKbArticles({ sort: MODE_SORT[mode], featured: mode === 'featured', limit, knowledgeBases: ids })
-    const cats = useKbCategories({ ids })
-    const top = topCategories(cats.tree, options.categoriesLimit || 8)
-    const articles: KbArticleSummary[] = list.articles
-    const showCats = options.showCategories !== false
+    const modes = (
+        Array.isArray(options.modes) && options.modes.length ? options.modes : (['popular', 'recent'] as KbMode[])
+    ).filter((m) => !!MODE_LABEL[m]);
+    const [mode, setMode] = useState<KbMode>(modes[0] || 'popular');
+    const limit = Math.max(1, Math.min(12, options.limit || 6));
+    const links = kbLinks({ home: options.kbPage, article: options.articlePage, category: options.categoryPage });
+    const ids = options.knowledgeBase ? [options.knowledgeBase] : undefined;
+    const list = useKbArticles({ sort: MODE_SORT[mode], featured: mode === 'featured', limit, knowledgeBases: ids });
+    const cats = useKbCategories({ ids });
+    const top = topCategories(cats.tree, options.categoriesLimit || 8);
+    const articles: KbArticleSummary[] = list.articles;
+    const showCats = options.showCategories !== false;
 
     return (
         <Card className="h-full gap-0 py-0" data-rp-kb-articles="">
             <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-1">
                 <h2 className="m-0 text-base font-semibold tracking-tight">{options.title || 'Knowledge'}</h2>
-                <Link {...links.home()} className="flex items-center gap-1 text-xs font-medium text-primary no-underline hover:underline">
+                <Link
+                    {...links.home()}
+                    className="flex items-center gap-1 text-xs font-medium text-primary no-underline hover:underline"
+                >
                     Browse all
                     <Icon name="arrow-right" className="size-3.5" />
                 </Link>
@@ -86,7 +94,9 @@ export default function KbArticles({ options = {} }: { options?: Options }) {
                 {list.isLoading ? (
                     <KbArticleListSkeleton rows={4} variant="compact" />
                 ) : list.error ? (
-                    <p className="m-0 px-2 py-3 text-sm text-destructive">Couldn't load articles: {String(list.error.message || list.error)}</p>
+                    <p className="m-0 px-2 py-3 text-sm text-destructive">
+                        Couldn't load articles: {String(list.error.message || list.error)}
+                    </p>
                 ) : articles.length ? (
                     <KbArticleList articles={articles} link={(a) => links.article(a.id)} variant="compact" />
                 ) : (
@@ -119,5 +129,5 @@ export default function KbArticles({ options = {} }: { options?: Options }) {
                 </div>
             ) : null}
         </Card>
-    )
+    );
 }

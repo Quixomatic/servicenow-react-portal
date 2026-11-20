@@ -16,67 +16,75 @@
  *   compileScript(script, exports)     the sandbox (window, document, jQuery, $, $j, angular = null)
  *   createGlideAjaxClass / createGlideRecordClass
  */
-import { useEffect, useRef, useState } from 'react'
-import { useUser } from '@portal/runtime'
-import type { ClientScripts } from 'utilities:app/graphql'
-import type { AttachedPolicies, FormStore } from 'components:app/field'
-import { createScriptEnvironment } from './environment'
-import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser, ServiceCatalogOptions } from './environment'
+import { useEffect, useRef, useState } from 'react';
+import { useUser } from '@portal/runtime';
+import type { ClientScripts } from 'utilities:app/graphql';
+import type { AttachedPolicies, FormStore } from 'components:app/field';
+import { createScriptEnvironment } from './environment';
+import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser, ServiceCatalogOptions } from './environment';
 
-export { createScriptEnvironment, compileScript, catalogParent } from './environment'
+export { createScriptEnvironment, compileScript, catalogParent } from './environment';
 // Related-list display flags (g_form.show/hideRelatedList), app/related-list wave.
-export { isRelatedListShown, matchRelatedLists, setRelatedListDisplay, setAllRelatedListsDisplay } from './environment'
-export type { ScriptEnvironment, ScriptEnvironmentOptions, ScriptError, ScriptHost, ScriptUser, CatalogParent, ServiceCatalogOptions } from './environment'
-export { createGlideAjaxClass } from './glide-ajax'
-export { createGlideRecordClass } from './glide-record'
+export { isRelatedListShown, matchRelatedLists, setRelatedListDisplay, setAllRelatedListsDisplay } from './environment';
+export type {
+    ScriptEnvironment,
+    ScriptEnvironmentOptions,
+    ScriptError,
+    ScriptHost,
+    ScriptUser,
+    CatalogParent,
+    ServiceCatalogOptions,
+} from './environment';
+export { createGlideAjaxClass } from './glide-ajax';
+export { createGlideRecordClass } from './glide-record';
 
 export type StartOptions = {
-    host: ScriptHost
-    scripts?: ClientScripts
-    scratchpad?: Record<string, unknown>
-    user: ScriptUser
+    host: ScriptHost;
+    scripts?: ClientScripts;
+    scratchpad?: Record<string, unknown>;
+    user: ScriptUser;
     /** The form's attached UI policies: their run-scripts execute through this environment. */
-    policies?: AttachedPolicies
-    onError?: (e: ScriptError) => void
-    catalog?: boolean
+    policies?: AttachedPolicies;
+    onError?: (e: ScriptError) => void;
+    catalog?: boolean;
     /** g_service_catalog extras (MRVS rows: `parent`). */
-    serviceCatalog?: ServiceCatalogOptions
-}
+    serviceCatalog?: ServiceCatalogOptions;
+};
 
 /** Start the legacy environment on a loaded form store. */
 export function startScriptEnvironment(options: StartOptions): { env: ScriptEnvironment; stop: () => void } {
-    const env = createScriptEnvironment(options)
-    const offChange = env.attachOnChange()
-    env.runOnLoad()
+    const env = createScriptEnvironment(options);
+    const offChange = env.attachOnChange();
+    env.runOnLoad();
     // Classic order: onLoad client scripts, then UI policies (their scripts replay for the current results).
-    if (options.policies) options.policies.setOnResult((p, r) => env.runPolicyScript(p, r), true)
+    if (options.policies) options.policies.setOnResult((p, r) => env.runPolicyScript(p, r), true);
     return {
         env,
         stop: () => {
-            offChange()
-            if (options.policies) options.policies.setOnResult(undefined)
+            offChange();
+            if (options.policies) options.policies.setOnResult(undefined);
         },
-    }
+    };
 }
 
 export type GFormOptions = {
-    table?: string
-    sysId?: string
-    isNew?: boolean
-    view?: string
-    user: ScriptUser
+    table?: string;
+    sysId?: string;
+    isNew?: boolean;
+    view?: string;
+    user: ScriptUser;
     /** Field name / alias → store name. */
-    resolve?: (name: string) => string
+    resolve?: (name: string) => string;
     /** g_form.submit / save handler (default: not available). */
-    submit?: ScriptHost['submit']
-    openRecord?: ScriptHost['openRecord']
-    hasField?: ScriptHost['hasField']
-    sectionNames?: ScriptHost['sectionNames']
-    relatedListNames?: ScriptHost['relatedListNames']
+    submit?: ScriptHost['submit'];
+    openRecord?: ScriptHost['openRecord'];
+    hasField?: ScriptHost['hasField'];
+    sectionNames?: ScriptHost['sectionNames'];
+    relatedListNames?: ScriptHost['relatedListNames'];
     /** Catalog form (names are variable names) and its g_service_catalog extras (MRVS rows: parent). */
-    catalog?: boolean
-    serviceCatalog?: ServiceCatalogOptions
-}
+    catalog?: boolean;
+    serviceCatalog?: ServiceCatalogOptions;
+};
 
 /** A host for any form store (not only RecordForm): table / sys_id / view from the options. */
 export function hostFor(store: FormStore, o: GFormOptions): ScriptHost {
@@ -93,7 +101,7 @@ export function hostFor(store: FormStore, o: GFormOptions): ScriptHost {
         hasField: o.hasField,
         sectionNames: o.sectionNames,
         relatedListNames: o.relatedListNames,
-    }
+    };
 }
 
 /**
@@ -102,14 +110,34 @@ export function hostFor(store: FormStore, o: GFormOptions): ScriptHost {
  *   const env = createGForm(store, { table: 'incident', sysId, user: scriptUserFrom(useUser()) })
  *   env.g_form.setValue('state', '2'); env.runClientAction(action)
  */
-export function createGForm(store: FormStore, options: GFormOptions & { scripts?: ClientScripts; scratchpad?: Record<string, unknown>; onError?: (e: ScriptError) => void }): ScriptEnvironment {
-    return createScriptEnvironment({ host: hostFor(store, options), user: options.user, scripts: options.scripts, scratchpad: options.scratchpad, onError: options.onError, catalog: options.catalog, serviceCatalog: options.serviceCatalog })
+export function createGForm(
+    store: FormStore,
+    options: GFormOptions & {
+        scripts?: ClientScripts;
+        scratchpad?: Record<string, unknown>;
+        onError?: (e: ScriptError) => void;
+    }
+): ScriptEnvironment {
+    return createScriptEnvironment({
+        host: hostFor(store, options),
+        user: options.user,
+        scripts: options.scripts,
+        scratchpad: options.scratchpad,
+        onError: options.onError,
+        catalog: options.catalog,
+        serviceCatalog: options.serviceCatalog,
+    });
 }
 
 /** createGForm + the script lifecycle (onLoad, onChange, policy run-scripts); returns { env, stop }. */
 export function attachGForm(
     store: FormStore,
-    options: GFormOptions & { scripts?: ClientScripts; scratchpad?: Record<string, unknown>; policies?: AttachedPolicies; onError?: (e: ScriptError) => void },
+    options: GFormOptions & {
+        scripts?: ClientScripts;
+        scratchpad?: Record<string, unknown>;
+        policies?: AttachedPolicies;
+        onError?: (e: ScriptError) => void;
+    }
 ): { env: ScriptEnvironment; stop: () => void } {
     return startScriptEnvironment({
         host: hostFor(store, options),
@@ -120,7 +148,7 @@ export function attachGForm(
         onError: options.onError,
         catalog: options.catalog,
         serviceCatalog: options.serviceCatalog,
-    })
+    });
 }
 
 /** Map the runtime user (useUser) to g_user's source. */
@@ -132,7 +160,7 @@ export function scriptUserFrom(u: any): ScriptUser {
         lastName: (u && u.lastName) || '',
         name: (u && u.name) || '',
         roles: (u && Array.isArray(u.roles) ? u.roles : []) as string[],
-    }
+    };
 }
 
 /**
@@ -140,30 +168,33 @@ export function scriptUserFrom(u: any): ScriptUser {
  * environment (for onSubmit and UI actions) and the script errors seen so far.
  */
 export function useClientScripts(options: Omit<StartOptions, 'user'> & { enabled?: boolean; runKey?: unknown }) {
-    const user = useUser() as any
-    const [state, setState] = useState<{ env: ScriptEnvironment | null; errors: ScriptError[] }>({ env: null, errors: [] })
-    const optsRef = useRef(options)
-    optsRef.current = options
-    const ready = options.enabled !== false && !!user && !!(user.sysId || user.userName)
+    const user = useUser() as any;
+    const [state, setState] = useState<{ env: ScriptEnvironment | null; errors: ScriptError[] }>({
+        env: null,
+        errors: [],
+    });
+    const optsRef = useRef(options);
+    optsRef.current = options;
+    const ready = options.enabled !== false && !!user && !!(user.sysId || user.userName);
     useEffect(() => {
-        if (!ready) return
-        const o = optsRef.current
-        const errors: ScriptError[] = []
-        let live = true
+        if (!ready) return;
+        const o = optsRef.current;
+        const errors: ScriptError[] = [];
+        let live = true;
         const started = startScriptEnvironment({
             ...o,
             user: scriptUserFrom(user),
             onError: (e) => {
-                errors.push(e)
-                if (live) setState((s) => ({ env: s.env, errors: errors.slice() }))
-                if (o.onError) o.onError(e)
+                errors.push(e);
+                if (live) setState((s) => ({ env: s.env, errors: errors.slice() }));
+                if (o.onError) o.onError(e);
             },
-        })
-        setState({ env: started.env, errors: errors.slice() })
+        });
+        setState({ env: started.env, errors: errors.slice() });
         return () => {
-            live = false
-            started.stop()
-        }
-    }, [ready, options.runKey])
-    return state
+            live = false;
+            started.stop();
+        };
+    }, [ready, options.runKey]);
+    return state;
 }

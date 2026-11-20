@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { Table, Form, default_view, StringColumn, ReferenceColumn, ChoiceColumn } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { Table, Form, default_view, StringColumn, ReferenceColumn, ChoiceColumn } from '@servicenow/sdk/core';
 
 /**
  * One row per piece of a portal's compiled release (theme, each layout, each placement),
@@ -13,8 +13,18 @@ export const x_312987_portal_release_entry = Table({
     display: 'stable_key',
     allowWebServiceAccess: true,
     schema: {
-        release: ReferenceColumn({ label: 'Release', referenceTable: 'x_312987_portal_release', mandatory: true, cascadeRule: 'cascade' }),
-        stable_key: StringColumn({ label: 'Stable key', maxLength: 100, mandatory: true, hint: 'placement:<id>, layout:<id>, theme:<id>' }),
+        release: ReferenceColumn({
+            label: 'Release',
+            referenceTable: 'x_312987_portal_release',
+            mandatory: true,
+            cascadeRule: 'cascade',
+        }),
+        stable_key: StringColumn({
+            label: 'Stable key',
+            maxLength: 100,
+            mandatory: true,
+            hint: 'placement:<id>, layout:<id>, theme:<id>',
+        }),
         entry_type: ChoiceColumn({
             label: 'Type',
             dropdown: 'dropdown_without_none',
@@ -25,9 +35,17 @@ export const x_312987_portal_release_entry = Table({
                 theme: { label: 'Theme', sequence: 2 },
             },
         }),
-        component: ReferenceColumn({ label: 'Component', referenceTable: 'x_312987_portal_component', cascadeRule: 'delete' }),
+        component: ReferenceColumn({
+            label: 'Component',
+            referenceTable: 'x_312987_portal_component',
+            cascadeRule: 'delete',
+        }),
         theme: ReferenceColumn({ label: 'Theme', referenceTable: 'x_312987_portal_theme', cascadeRule: 'delete' }),
-        placement: ReferenceColumn({ label: 'Placement', referenceTable: 'x_312987_portal_placement', cascadeRule: 'delete' }),
+        placement: ReferenceColumn({
+            label: 'Placement',
+            referenceTable: 'x_312987_portal_placement',
+            cascadeRule: 'delete',
+        }),
         build: ReferenceColumn({ label: 'Build', referenceTable: 'x_312987_portal_build', cascadeRule: 'clear' }),
         server_mode: StringColumn({ label: 'Server mode', maxLength: 20 }),
     },
@@ -35,7 +53,7 @@ export const x_312987_portal_release_entry = Table({
         { name: 'rp_entry_release_key', element: ['release', 'stable_key'], unique: true },
         { name: 'rp_entry_build', element: 'build', unique: false },
     ],
-})
+});
 
 Form({
     table: 'x_312987_portal_release_entry',
@@ -62,4 +80,4 @@ Form({
             ],
         },
     ],
-})
+});

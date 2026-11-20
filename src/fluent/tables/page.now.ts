@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -9,7 +9,7 @@ import {
     JsonColumn,
     IntegerColumn,
     ChoiceColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /** A portal page. Portal A's "/" and portal B's "/" are different rows. */
 export const x_312987_portal_page = Table({
@@ -22,7 +22,12 @@ export const x_312987_portal_page = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        portal: ReferenceColumn({ label: 'Portal', referenceTable: 'x_312987_portal_portal', mandatory: true, cascadeRule: 'cascade' }),
+        portal: ReferenceColumn({
+            label: 'Portal',
+            referenceTable: 'x_312987_portal_portal',
+            mandatory: true,
+            cascadeRule: 'cascade',
+        }),
         name: StringColumn({ label: 'Name', maxLength: 100, mandatory: true }),
         route_pattern: StringColumn({
             label: 'Route',
@@ -36,7 +41,11 @@ export const x_312987_portal_page = Table({
             referenceQual: 'kind=layout^active=true',
             cascadeRule: 'restrict',
         }),
-        access_config_json: JsonColumn({ label: 'Access', maxLength: 4000, hint: '{"roles": ["itil"]}; empty = portal audience' }),
+        access_config_json: JsonColumn({
+            label: 'Access',
+            maxLength: 4000,
+            hint: '{"roles": ["itil"]}; empty = portal audience',
+        }),
         content_width: ChoiceColumn({
             label: 'Content width',
             dropdown: 'dropdown_without_none',
@@ -61,7 +70,7 @@ export const x_312987_portal_page = Table({
         active: BooleanColumn({ label: 'Active', default: true }),
     },
     index: [{ name: 'rp_page_portal_route', element: ['portal', 'route_pattern'], unique: true }],
-})
+});
 
 Form({
     table: 'x_312987_portal_page',
@@ -90,4 +99,4 @@ Form({
             ],
         },
     ],
-})
+});

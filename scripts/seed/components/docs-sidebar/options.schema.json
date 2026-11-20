@@ -45,14 +45,7 @@
                     "tint": {
                         "type": "string",
                         "title": "Tint",
-                        "enum": [
-                            "",
-                            "chart-1",
-                            "chart-2",
-                            "chart-3",
-                            "chart-4",
-                            "chart-5"
-                        ],
+                        "enum": ["", "chart-1", "chart-2", "chart-3", "chart-4", "chart-5"],
                         "description": "Theme chart tint for the icon tile."
                     },
                     "portal": {

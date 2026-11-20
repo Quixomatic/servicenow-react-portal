@@ -1,9 +1,9 @@
-import { Region } from '@portal/runtime'
+import { Region } from '@portal/runtime';
 
-type Options = { layoutWidth?: string; sidebarWidth?: string; tocWidth?: string }
+type Options = { layoutWidth?: string; sidebarWidth?: string; tocWidth?: string };
 
-const LENGTH = /^\d+(\.\d+)?(px|rem|em|ch|%|vw)$/
-const len = (v: unknown, d: string) => (typeof v === 'string' && LENGTH.test(v.trim()) ? v.trim() : d)
+const LENGTH = /^\d+(\.\d+)?(px|rem|em|ch|%|vw)$/;
+const len = (v: unknown, d: string) => (typeof v === 'string' && LENGTH.test(v.trim()) ? v.trim() : d);
 
 /**
  * The docs portal's frame, after fumadocs' DocsLayout: one scroller (data-docs-scroller) with a
@@ -19,7 +19,7 @@ export default function DocsLayout({ options = {} }: { options?: Options }) {
         '--docs-layout-width': len(options.layoutWidth, '97rem'),
         '--docs-sidebar-width': len(options.sidebarWidth, '268px'),
         '--docs-toc-width': len(options.tocWidth, '268px'),
-    } as React.CSSProperties
+    } as React.CSSProperties;
     return (
         <div className="rp-docs" data-docs-scroller="" style={style}>
             <div className="rp-docs__grid">
@@ -33,5 +33,5 @@ export default function DocsLayout({ options = {} }: { options?: Options }) {
                 <Region name="footer" as="footer" className="rp-docs__footer" />
             </div>
         </div>
-    )
+    );
 }

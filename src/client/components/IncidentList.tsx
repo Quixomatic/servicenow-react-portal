@@ -1,55 +1,55 @@
-import React from 'react'
-import './IncidentList.css'
+import React from 'react';
+import './IncidentList.css';
 
 export default function IncidentList({ incidents, onEdit, onRefresh, service }) {
     const handleDelete = async (incident) => {
         if (!confirm(`Are you sure you want to delete ${incident.number.display_value}?`)) {
-            return
+            return;
         }
 
         try {
-            const sysId = typeof incident.sys_id === 'object' ? incident.sys_id.value : incident.sys_id
-            await service.delete(sysId)
-            onRefresh()
+            const sysId = typeof incident.sys_id === 'object' ? incident.sys_id.value : incident.sys_id;
+            await service.delete(sysId);
+            onRefresh();
         } catch (error) {
-            console.error('Failed to delete incident:', error)
-            alert('Failed to delete incident: ' + (error.message || 'Unknown error'))
+            console.error('Failed to delete incident:', error);
+            alert('Failed to delete incident: ' + (error.message || 'Unknown error'));
         }
-    }
+    };
 
     const getStateClass = (state) => {
-        const stateValue = typeof state === 'object' ? state.display_value : state
+        const stateValue = typeof state === 'object' ? state.display_value : state;
 
         switch (stateValue) {
             case 'New':
-                return 'state-new'
+                return 'state-new';
             case 'In Progress':
-                return 'state-in-progress'
+                return 'state-in-progress';
             case 'On Hold':
-                return 'state-on-hold'
+                return 'state-on-hold';
             case 'Resolved':
-                return 'state-resolved'
+                return 'state-resolved';
             case 'Closed':
-                return 'state-closed'
+                return 'state-closed';
             default:
-                return ''
+                return '';
         }
-    }
+    };
 
     const getImpactClass = (impact) => {
-        const impactValue = typeof impact === 'object' ? impact.value : impact
+        const impactValue = typeof impact === 'object' ? impact.value : impact;
 
         switch (impactValue) {
             case '1':
-                return 'impact-high'
+                return 'impact-high';
             case '2':
-                return 'impact-medium'
+                return 'impact-medium';
             case '3':
-                return 'impact-low'
+                return 'impact-low';
             default:
-                return ''
+                return '';
         }
-    }
+    };
 
     return (
         <div className="incident-list">
@@ -71,19 +71,19 @@ export default function IncidentList({ incidents, onEdit, onRefresh, service }) 
                         {incidents.map((incident) => {
                             // Extract primitive values from potential objects
                             const number =
-                                typeof incident.number === 'object' ? incident.number.display_value : incident.number
+                                typeof incident.number === 'object' ? incident.number.display_value : incident.number;
                             const shortDesc =
                                 typeof incident.short_description === 'object'
                                     ? incident.short_description.display_value
-                                    : incident.short_description
+                                    : incident.short_description;
                             const state =
-                                typeof incident.state === 'object' ? incident.state.display_value : incident.state
+                                typeof incident.state === 'object' ? incident.state.display_value : incident.state;
                             const impact =
-                                typeof incident.impact === 'object' ? incident.impact.display_value : incident.impact
+                                typeof incident.impact === 'object' ? incident.impact.display_value : incident.impact;
                             const openedAt =
                                 typeof incident.opened_at === 'object'
                                     ? incident.opened_at.display_value
-                                    : incident.opened_at
+                                    : incident.opened_at;
 
                             return (
                                 <tr key={typeof incident.sys_id === 'object' ? incident.sys_id.value : incident.sys_id}>
@@ -117,11 +117,11 @@ export default function IncidentList({ incidents, onEdit, onRefresh, service }) 
                                         </div>
                                     </td>
                                 </tr>
-                            )
+                            );
                         })}
                     </tbody>
                 </table>
             )}
         </div>
-    )
+    );
 }

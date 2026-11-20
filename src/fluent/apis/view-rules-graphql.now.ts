@@ -1,6 +1,6 @@
-import '@servicenow/sdk/global'
-import { GraphQLApi, Acl } from '@servicenow/sdk/core'
-import { resolveViewResolver, explainViewResolver } from '../../server/views/view-rules-api'
+import '@servicenow/sdk/global';
+import { GraphQLApi, Acl } from '@servicenow/sdk/core';
+import { resolveViewResolver, explainViewResolver } from '../../server/views/view-rules-api';
 
 /**
  * Portal view rules over GraphQL: { x312987Portal { viewRules { resolve(…) { view source … } } } }.
@@ -20,7 +20,7 @@ const viewRulesGate = Acl({
     operation: 'execute',
     securityAttribute: 'user_is_authenticated',
     description: 'React Portal: view rules GraphQL API (any authenticated user)',
-})
+});
 
 GraphQLApi({
     $id: Now.ID['gql-view-rules'],
@@ -85,4 +85,4 @@ type ViewExplanation {
             script: explainViewResolver,
         },
     ],
-})
+});

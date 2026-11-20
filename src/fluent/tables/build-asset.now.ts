@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -8,7 +8,7 @@ import {
     IntegerColumn,
     ChoiceColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /** One compiled output file of a build, delivered by the runtime asset API. */
 export const x_312987_portal_build_asset = Table({
@@ -18,7 +18,12 @@ export const x_312987_portal_build_asset = Table({
     display: 'path',
     allowWebServiceAccess: true,
     schema: {
-        build: ReferenceColumn({ label: 'Build', referenceTable: 'x_312987_portal_build', mandatory: true, cascadeRule: 'cascade' }),
+        build: ReferenceColumn({
+            label: 'Build',
+            referenceTable: 'x_312987_portal_build',
+            mandatory: true,
+            cascadeRule: 'cascade',
+        }),
         path: StringColumn({ label: 'Path', maxLength: 200, mandatory: true }),
         kind: ChoiceColumn({
             label: 'Kind',
@@ -38,7 +43,7 @@ export const x_312987_portal_build_asset = Table({
         content: MultiLineTextColumn({ label: 'Content', maxLength: 5000000 }),
     },
     index: [{ name: 'rp_asset_build_path', element: ['build', 'path'], unique: true }],
-})
+});
 
 Form({
     table: 'x_312987_portal_build_asset',
@@ -64,4 +69,4 @@ Form({
             ],
         },
     ],
-})
+});

@@ -1,18 +1,29 @@
 {
-  "type": "object",
-  "properties": {
-    "knowledgeBases": { "type": "array", "title": "Knowledge bases (sys_ids, empty = all the user can read)", "items": { "type": "string" } },
-    "showSearch": { "type": "boolean", "title": "Search box" },
-    "searchPlaceholder": { "type": "string", "title": "Search placeholder" },
-    "suggestions": { "type": "array", "title": "Popular searches (empty search box)", "items": { "type": "string" } },
-    "showBases": { "type": "boolean", "title": "Knowledge base cards" },
-    "showFeatured": { "type": "boolean", "title": "Featured articles (meta keyword glide.knowman.default_keyword)" },
-    "showPopular": { "type": "boolean", "title": "Most viewed" },
-    "showRecent": { "type": "boolean", "title": "Recently updated" },
-    "showCategories": { "type": "boolean", "title": "Browse by category" },
-    "limit": { "type": "integer", "title": "Articles per list", "minimum": 3, "maximum": 12 },
-    "articlePage": { "type": "string", "title": "Article page route" },
-    "categoryPage": { "type": "string", "title": "Category page route" },
-    "searchPage": { "type": "string", "title": "Knowledge search page route" }
-  }
+    "type": "object",
+    "properties": {
+        "knowledgeBases": {
+            "type": "array",
+            "title": "Knowledge bases (sys_ids, empty = all the user can read)",
+            "items": { "type": "string" }
+        },
+        "showSearch": { "type": "boolean", "title": "Search box" },
+        "searchPlaceholder": { "type": "string", "title": "Search placeholder" },
+        "suggestions": {
+            "type": "array",
+            "title": "Popular searches (empty search box)",
+            "items": { "type": "string" }
+        },
+        "showBases": { "type": "boolean", "title": "Knowledge base cards" },
+        "showFeatured": {
+            "type": "boolean",
+            "title": "Featured articles (meta keyword glide.knowman.default_keyword)"
+        },
+        "showPopular": { "type": "boolean", "title": "Most viewed" },
+        "showRecent": { "type": "boolean", "title": "Recently updated" },
+        "showCategories": { "type": "boolean", "title": "Browse by category" },
+        "limit": { "type": "integer", "title": "Articles per list", "minimum": 3, "maximum": 12 },
+        "articlePage": { "type": "string", "title": "Article page route" },
+        "categoryPage": { "type": "string", "title": "Category page route" },
+        "searchPage": { "type": "string", "title": "Knowledge search page route" }
+    }
 }

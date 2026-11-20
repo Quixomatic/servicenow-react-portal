@@ -27,16 +27,16 @@ export const T = {
     viewRuleUcNo: 'x_312987_portal_vrule_uc_no',
     /** Remote table: one computed answer row per query (the view resolution), for GraphQL chaining. */
     viewAnswer: 'x_312987_portal_view_answer',
-} as const
+} as const;
 
-export const SCOPE = 'x_312987_portal'
+export const SCOPE = 'x_312987_portal';
 
 export const ROLES = {
     developer: 'x_312987_portal.developer',
     designer: 'x_312987_portal.designer',
     publisher: 'x_312987_portal.publisher',
     admin: 'x_312987_portal.admin',
-} as const
+} as const;
 
 /** Base path of the runtime scripted REST API (default version, no version prefix). */
-export const RUNTIME_API_BASE = '/api/x_312987_portal/rp'
+export const RUNTIME_API_BASE = '/api/x_312987_portal/rp';

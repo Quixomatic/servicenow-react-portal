@@ -5,11 +5,16 @@ import { Link2 } from 'lucide-react';
 import { copyStudioLink } from './controller';
 
 export function CopyLinkButton() {
-	return (
-		<button className="rps-tbtn" title="Copy link to this location (Ctrl+Alt+L)" onClick={() => copyStudioLink()} data-rps-copy-link="">
-			<Link2 size={15} />
-		</button>
-	);
+    return (
+        <button
+            className="rps-tbtn"
+            title="Copy link to this location (Ctrl+Alt+L)"
+            onClick={() => copyStudioLink()}
+            data-rps-copy-link=""
+        >
+            <Link2 size={15} />
+        </button>
+    );
 }
 
 export { copyStudioLink };

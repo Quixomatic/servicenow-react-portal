@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { CrossScopePrivilege } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { CrossScopePrivilege } from '@servicenow/sdk/core';
 
 /**
  * Execute access to global.ReactPortalGlobal (the global helper app in packages/global-helpers):
@@ -14,7 +14,7 @@ CrossScopePrivilege({
     targetName: 'ReactPortalGlobal',
     targetScope: 'global',
     targetType: 'sys_script_include',
-})
+});
 
 /**
  * View rules (src/server/views): the GraphQL resolver reads its arguments through the platform's
@@ -28,7 +28,7 @@ CrossScopePrivilege({
     targetName: 'ScriptedDataFetchingEnvironment.getArguments',
     targetScope: 'global',
     targetType: 'scriptable',
-})
+});
 
 CrossScopePrivilege({
     $id: Now.ID['csp-read-sys-ui-section'],
@@ -37,7 +37,7 @@ CrossScopePrivilege({
     targetName: 'sys_ui_section',
     targetScope: 'global',
     targetType: 'sys_db_object',
-})
+});
 
 CrossScopePrivilege({
     $id: Now.ID['csp-read-sys-ui-list'],
@@ -46,7 +46,7 @@ CrossScopePrivilege({
     targetName: 'sys_ui_list',
     targetScope: 'global',
     targetType: 'sys_db_object',
-})
+});
 
 CrossScopePrivilege({
     $id: Now.ID['csp-read-sys-ui-view'],
@@ -55,4 +55,4 @@ CrossScopePrivilege({
     targetName: 'sys_ui_view',
     targetScope: 'global',
     targetType: 'sys_db_object',
-})
+});

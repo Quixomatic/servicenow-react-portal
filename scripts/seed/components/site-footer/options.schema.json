@@ -1,15 +1,15 @@
 {
-  "type": "object",
-  "properties": {
-    "text": {
-      "type": "string",
-      "title": "Footer text"
-    },
-    "menu": {
-      "type": "string",
-      "title": "Menu",
-      "description": "Menu key for the footer links (useNavigation)",
-      "default": "footer"
+    "type": "object",
+    "properties": {
+        "text": {
+            "type": "string",
+            "title": "Footer text"
+        },
+        "menu": {
+            "type": "string",
+            "title": "Menu",
+            "description": "Menu key for the footer links (useNavigation)",
+            "default": "footer"
+        }
     }
-  }
 }

@@ -104,7 +104,8 @@ ReactPortalGlobal.prototype = {
      */
     clearClientData: function (key) {
         var k = key == null ? '' : String(key);
-        if (k.length <= ReactPortalGlobal.SCOPE_PREFIX.length || k.indexOf(ReactPortalGlobal.SCOPE_PREFIX) !== 0) return false;
+        if (k.length <= ReactPortalGlobal.SCOPE_PREFIX.length || k.indexOf(ReactPortalGlobal.SCOPE_PREFIX) !== 0)
+            return false;
         try {
             gs.getSession().clearClientData(k);
             return true;

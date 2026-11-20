@@ -1,6 +1,6 @@
-import '@servicenow/sdk/global'
-import { Acl } from '@servicenow/sdk/core'
-import { developerRole, designerRole, publisherRole, adminRole } from './roles.now'
+import '@servicenow/sdk/global';
+import { Acl } from '@servicenow/sdk/core';
+import { developerRole, designerRole, publisherRole, adminRole } from './roles.now';
 
 /**
  * Table ACLs. Consumers never read React Portal tables directly: the runtime REST API checks
@@ -21,7 +21,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on portal',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-write'],
@@ -31,7 +31,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on portal',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-create'],
@@ -41,7 +41,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on portal',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-delete'],
@@ -51,7 +51,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on portal',
-})
+});
 
 /* ---- x_312987_portal_theme ---- */
 
@@ -63,7 +63,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on theme',
-})
+});
 
 Acl({
     $id: Now.ID['acl-theme-write'],
@@ -73,7 +73,7 @@ Acl({
     roles: [developerRole, designerRole],
     adminOverrides: true,
     description: 'React Portal: write on theme',
-})
+});
 
 Acl({
     $id: Now.ID['acl-theme-create'],
@@ -83,7 +83,7 @@ Acl({
     roles: [developerRole, designerRole],
     adminOverrides: true,
     description: 'React Portal: create on theme',
-})
+});
 
 Acl({
     $id: Now.ID['acl-theme-delete'],
@@ -93,7 +93,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on theme',
-})
+});
 
 /* ---- x_312987_portal_component ---- */
 
@@ -105,7 +105,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on component',
-})
+});
 
 Acl({
     $id: Now.ID['acl-component-write'],
@@ -115,7 +115,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: write on component',
-})
+});
 
 Acl({
     $id: Now.ID['acl-component-create'],
@@ -125,7 +125,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: create on component',
-})
+});
 
 Acl({
     $id: Now.ID['acl-component-delete'],
@@ -135,7 +135,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on component',
-})
+});
 
 /* ---- x_312987_portal_source_file ---- */
 
@@ -147,7 +147,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: read on source_file',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-read-designer'],
@@ -158,7 +158,7 @@ Acl({
     condition: 'themeISNOTEMPTY',
     adminOverrides: true,
     description: 'React Portal: read on source_file (theme source only)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-write-developer'],
@@ -168,7 +168,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: write on source_file',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-write-designer'],
@@ -179,7 +179,7 @@ Acl({
     condition: 'themeISNOTEMPTY',
     adminOverrides: true,
     description: 'React Portal: write on source_file (theme source only)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-create-developer'],
@@ -189,7 +189,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: create on source_file',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-create-designer'],
@@ -200,7 +200,7 @@ Acl({
     condition: 'themeISNOTEMPTY',
     adminOverrides: true,
     description: 'React Portal: create on source_file (theme source only)',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-delete-developer'],
@@ -210,7 +210,7 @@ Acl({
     roles: [developerRole],
     adminOverrides: true,
     description: 'React Portal: delete on source_file',
-})
+});
 
 Acl({
     $id: Now.ID['acl-source-file-delete-designer'],
@@ -221,7 +221,7 @@ Acl({
     condition: 'themeISNOTEMPTY',
     adminOverrides: true,
     description: 'React Portal: delete on source_file (theme source only)',
-})
+});
 
 /* ---- x_312987_portal_page ---- */
 
@@ -233,7 +233,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on page',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-write'],
@@ -243,7 +243,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on page',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-create'],
@@ -253,7 +253,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on page',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-delete'],
@@ -263,7 +263,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on page',
-})
+});
 
 /* ---- x_312987_portal_placement ---- */
 
@@ -275,7 +275,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on placement',
-})
+});
 
 Acl({
     $id: Now.ID['acl-placement-write'],
@@ -285,7 +285,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on placement',
-})
+});
 
 Acl({
     $id: Now.ID['acl-placement-create'],
@@ -295,7 +295,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on placement',
-})
+});
 
 Acl({
     $id: Now.ID['acl-placement-delete'],
@@ -305,7 +305,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on placement',
-})
+});
 
 /* ---- x_312987_portal_build ---- */
 
@@ -317,7 +317,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on build',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-write'],
@@ -327,7 +327,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on build',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-create'],
@@ -337,7 +337,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on build',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-delete'],
@@ -347,7 +347,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on build',
-})
+});
 
 /* ---- x_312987_portal_build_asset ---- */
 
@@ -359,7 +359,7 @@ Acl({
     roles: [developerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on build_asset',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-asset-write'],
@@ -369,7 +369,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on build_asset',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-asset-create'],
@@ -379,7 +379,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on build_asset',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-asset-delete'],
@@ -389,7 +389,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on build_asset',
-})
+});
 
 /* ---- x_312987_portal_build_dep ---- */
 
@@ -401,7 +401,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on build_dep',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-dep-write'],
@@ -411,7 +411,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on build_dep',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-dep-create'],
@@ -421,7 +421,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on build_dep',
-})
+});
 
 Acl({
     $id: Now.ID['acl-build-dep-delete'],
@@ -431,7 +431,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on build_dep',
-})
+});
 
 /* ---- x_312987_portal_release ---- */
 
@@ -443,7 +443,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on release',
-})
+});
 
 Acl({
     $id: Now.ID['acl-release-write'],
@@ -453,7 +453,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on release',
-})
+});
 
 Acl({
     $id: Now.ID['acl-release-create'],
@@ -463,7 +463,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on release',
-})
+});
 
 Acl({
     $id: Now.ID['acl-release-delete'],
@@ -473,7 +473,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on release',
-})
+});
 
 /* ---- x_312987_portal_release_entry ---- */
 
@@ -485,7 +485,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on release_entry',
-})
+});
 
 Acl({
     $id: Now.ID['acl-release-entry-write'],
@@ -495,7 +495,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on release_entry',
-})
+});
 
 Acl({
     $id: Now.ID['acl-release-entry-create'],
@@ -505,7 +505,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on release_entry',
-})
+});
 
 Acl({
     $id: Now.ID['acl-release-entry-delete'],
@@ -515,7 +515,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on release_entry',
-})
+});
 
 /* ---- x_312987_portal_execution_log ---- */
 
@@ -527,7 +527,7 @@ Acl({
     roles: [developerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on execution_log',
-})
+});
 
 Acl({
     $id: Now.ID['acl-execution-log-write'],
@@ -537,7 +537,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: write on execution_log',
-})
+});
 
 Acl({
     $id: Now.ID['acl-execution-log-create'],
@@ -547,7 +547,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: create on execution_log',
-})
+});
 
 Acl({
     $id: Now.ID['acl-execution-log-delete'],
@@ -557,7 +557,7 @@ Acl({
     roles: [adminRole],
     adminOverrides: true,
     description: 'React Portal: delete on execution_log',
-})
+});
 
 /* ---- x_312987_portal_menu ---- */
 
@@ -569,7 +569,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on menu',
-})
+});
 
 Acl({
     $id: Now.ID['acl-menu-write'],
@@ -579,7 +579,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on menu',
-})
+});
 
 Acl({
     $id: Now.ID['acl-menu-create'],
@@ -589,7 +589,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on menu',
-})
+});
 
 Acl({
     $id: Now.ID['acl-menu-delete'],
@@ -599,7 +599,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on menu',
-})
+});
 
 /* ---- x_312987_portal_menu_item ---- */
 
@@ -611,7 +611,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on menu_item',
-})
+});
 
 Acl({
     $id: Now.ID['acl-menu-item-write'],
@@ -621,7 +621,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on menu_item',
-})
+});
 
 Acl({
     $id: Now.ID['acl-menu-item-create'],
@@ -631,7 +631,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on menu_item',
-})
+});
 
 Acl({
     $id: Now.ID['acl-menu-item-delete'],
@@ -641,7 +641,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on menu_item',
-})
+});
 
 /* ---- User criteria m2m tables (Available for / Not available for): edited with their owner ---- */
 
@@ -655,7 +655,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on portal_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-uc-write'],
@@ -665,7 +665,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on portal_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-uc-create'],
@@ -675,7 +675,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on portal_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-uc-delete'],
@@ -685,7 +685,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on portal_uc',
-})
+});
 
 /* ---- x_312987_portal_portal_uc_no ---- */
 
@@ -697,7 +697,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on portal_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-uc-no-write'],
@@ -707,7 +707,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on portal_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-uc-no-create'],
@@ -717,7 +717,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on portal_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-portal-uc-no-delete'],
@@ -727,7 +727,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on portal_uc_no',
-})
+});
 
 /* ---- x_312987_portal_page_uc ---- */
 
@@ -739,7 +739,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on page_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-uc-write'],
@@ -749,7 +749,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on page_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-uc-create'],
@@ -759,7 +759,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on page_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-uc-delete'],
@@ -769,7 +769,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on page_uc',
-})
+});
 
 /* ---- x_312987_portal_page_uc_no ---- */
 
@@ -781,7 +781,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on page_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-uc-no-write'],
@@ -791,7 +791,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on page_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-uc-no-create'],
@@ -801,7 +801,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on page_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-page-uc-no-delete'],
@@ -811,7 +811,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on page_uc_no',
-})
+});
 
 /* ---- x_312987_portal_item_uc ---- */
 
@@ -823,7 +823,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on item_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-item-uc-write'],
@@ -833,7 +833,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on item_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-item-uc-create'],
@@ -843,7 +843,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on item_uc',
-})
+});
 
 Acl({
     $id: Now.ID['acl-item-uc-delete'],
@@ -853,7 +853,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on item_uc',
-})
+});
 
 /* ---- x_312987_portal_item_uc_no ---- */
 
@@ -865,7 +865,7 @@ Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal: read on item_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-item-uc-no-write'],
@@ -875,7 +875,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: write on item_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-item-uc-no-create'],
@@ -885,7 +885,7 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: create on item_uc_no',
-})
+});
 
 Acl({
     $id: Now.ID['acl-item-uc-no-delete'],
@@ -895,4 +895,4 @@ Acl({
     roles: [designerRole],
     adminOverrides: true,
     description: 'React Portal: delete on item_uc_no',
-})
+});

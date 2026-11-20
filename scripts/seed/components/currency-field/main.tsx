@@ -7,80 +7,87 @@
  * app/combobox's select-only Select (inline variant): typeahead on code or currency name, a
  * top-layer popup, names from the layout or Intl.DisplayNames.
  */
-import { useMemo } from 'react'
-import { useUser } from '@portal/runtime'
-import { useField, FieldShell, controlA11y, controlClass, bareInputClass } from 'components:app/field'
-import { Select } from 'components:app/combobox'
-import type { ComboItem } from 'components:app/combobox'
-import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field'
-import { parseNumberInput } from 'components:app/number-field'
+import { useMemo } from 'react';
+import { useUser } from '@portal/runtime';
+import { useField, FieldShell, controlA11y, controlClass, bareInputClass } from 'components:app/field';
+import { Select } from 'components:app/combobox';
+import type { ComboItem } from 'components:app/combobox';
+import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field';
+import { parseNumberInput } from 'components:app/number-field';
 
 export type CurrencyFieldProps = FieldProps & {
-    currencies?: string[]
-    defaultCurrency?: string
-    layout?: FieldLayout
-    size?: FieldSize
-    showOptional?: boolean
-    className?: string
-}
+    currencies?: string[];
+    defaultCurrency?: string;
+    layout?: FieldLayout;
+    size?: FieldSize;
+    showOptional?: boolean;
+    className?: string;
+};
 
 export function splitCurrency(value: string, fallbackCode: string): { code: string; amount: string } {
-    const v = String(value || '')
-    const i = v.indexOf(';')
-    if (i >= 0) return { code: v.slice(0, i) || fallbackCode, amount: v.slice(i + 1) }
-    return { code: fallbackCode, amount: v }
+    const v = String(value || '');
+    const i = v.indexOf(';');
+    if (i >= 0) return { code: v.slice(0, i) || fallbackCode, amount: v.slice(i + 1) };
+    return { code: fallbackCode, amount: v };
 }
 
 export function CurrencyField(props: CurrencyFieldProps) {
-    const user = useUser() as any
-    const locale = (user && user.language) || undefined
-    const field = useField(props)
+    const user = useUser() as any;
+    const locale = (user && user.language) || undefined;
+    const field = useField(props);
     const codes = useMemo(() => {
-        const fromMeta = (field.meta.currencyCodes || []).map((c) => c.code)
-        return fromMeta.length ? fromMeta : props.currencies || ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
-    }, [field.meta.currencyCodes, props.currencies])
-    const fallback = props.defaultCurrency || codes[0] || 'USD'
+        const fromMeta = (field.meta.currencyCodes || []).map((c) => c.code);
+        return fromMeta.length ? fromMeta : props.currencies || ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'];
+    }, [field.meta.currencyCodes, props.currencies]);
+    const fallback = props.defaultCurrency || codes[0] || 'USD';
     const items = useMemo<ComboItem[]>(() => {
-        let names: any = null
+        let names: any = null;
         try {
-            names = new (Intl as any).DisplayNames(locale ? [locale] : undefined, { type: 'currency' })
+            names = new (Intl as any).DisplayNames(locale ? [locale] : undefined, { type: 'currency' });
         } catch (e) {
-            names = null
+            names = null;
         }
-        const meta = field.meta.currencyCodes || []
+        const meta = field.meta.currencyCodes || [];
         return codes.map((c) => {
-            const m = meta.find((x) => x.code === c)
-            let name = (m && m.name) || ''
+            const m = meta.find((x) => x.code === c);
+            let name = (m && m.name) || '';
             if (!name && names) {
                 try {
-                    name = names.of(c) || ''
+                    name = names.of(c) || '';
                 } catch (e) {
-                    name = ''
+                    name = '';
                 }
             }
-            return { value: c, label: c, description: name && name !== c ? name : undefined }
-        })
-    }, [codes, field.meta.currencyCodes, locale])
-    const current = field.staged ?? field.value
-    const { code, amount } = splitCurrency(current, fallback)
-    const committed = splitCurrency(field.value, fallback)
+            return { value: c, label: c, description: name && name !== c ? name : undefined };
+        });
+    }, [codes, field.meta.currencyCodes, locale]);
+    const current = field.staged ?? field.value;
+    const { code, amount } = splitCurrency(current, fallback);
+    const committed = splitCurrency(field.value, fallback);
 
     const format = (c: string, a: string) => {
-        if (a === '') return ''
+        if (a === '') return '';
         try {
-            return new Intl.NumberFormat(locale, { style: 'currency', currency: c }).format(Number(a))
+            return new Intl.NumberFormat(locale, { style: 'currency', currency: c }).format(Number(a));
         } catch (e) {
-            return `${c} ${a}`
+            return `${c} ${a}`;
         }
-    }
+    };
     const commit = (c: string, text: string) => {
-        const parsed = parseNumberInput(text, locale)
-        if (parsed === null) return field.stage(`${c};${text}`)
-        field.setValue(parsed === '' ? '' : `${c};${parsed}`, format(c, parsed || ''))
-    }
+        const parsed = parseNumberInput(text, locale);
+        if (parsed === null) return field.stage(`${c};${text}`);
+        field.setValue(parsed === '' ? '' : `${c};${parsed}`, format(c, parsed || ''));
+    };
 
     return (
-        <FieldShell field={field} layout={props.layout} size={props.size} showOptional={props.showOptional} className={props.className} readOnlyValue={committed.amount ? format(committed.code, committed.amount) : undefined}>
+        <FieldShell
+            field={field}
+            layout={props.layout}
+            size={props.size}
+            showOptional={props.showOptional}
+            className={props.className}
+            readOnlyValue={committed.amount ? format(committed.code, committed.amount) : undefined}
+        >
             <div className={controlClass({ size: props.size, invalid: field.invalid, className: 'gap-2 pl-1' })}>
                 <Select
                     variant="inline"
@@ -93,7 +100,9 @@ export function CurrencyField(props: CurrencyFieldProps) {
                     renderItem={(i) => (
                         <span className="flex min-w-0 items-baseline gap-2">
                             <span className="w-9 shrink-0 font-medium">{i.value}</span>
-                            {i.description ? <span className="truncate text-muted-foreground">{i.description}</span> : null}
+                            {i.description ? (
+                                <span className="truncate text-muted-foreground">{i.description}</span>
+                            ) : null}
                         </span>
                     )}
                     onChange={(i) => commit(i.value, amount)}
@@ -109,14 +118,14 @@ export function CurrencyField(props: CurrencyFieldProps) {
                     className={bareInputClass + ' tabular-nums'}
                     onChange={(e: any) => field.stage(`${code};${e.target.value}`)}
                     onBlur={(e: any) => {
-                        commit(code, e.target.value)
-                        field.blur()
+                        commit(code, e.target.value);
+                        field.blur();
                     }}
                     onKeyDown={(e: any) => e.key === 'Enter' && commit(code, e.currentTarget.value)}
                 />
             </div>
         </FieldShell>
-    )
+    );
 }
 
 export default function CurrencyFieldPreview() {
@@ -124,5 +133,5 @@ export default function CurrencyFieldPreview() {
         <div className="max-w-xs p-4">
             <CurrencyField name="cost" label="Cost" defaultValue="USD;1250.00" />
         </div>
-    )
+    );
 }

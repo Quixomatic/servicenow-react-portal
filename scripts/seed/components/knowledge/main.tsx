@@ -61,69 +61,115 @@ export {
     safeIds,
     KB_SORTS,
     ARTICLE_LIST_FIELDS,
-} from './api'
-export type { KnowledgeBase, KbCategoryNode, KbCategoryTree, KbArticleSummary, KbArticle, KbSort, KbFacets, KbFacetValue, ArticleQuery, ArticlePage } from './api'
-export { useKnowledgeBases, useKbCategories, useKbArticles, useKbSearch, useKbArticle, useRelatedArticles, useKbProperties, recordArticleView, useRecordArticleView, KB_KEY, KB_PROPERTIES } from './hooks'
-export type { KbArticlesOptions } from './hooks'
-export { prepareArticleHtml, useArticleToc, useTocSpy, scrollToHeading, scrollParent, slugify } from './toc'
-export type { TocHeading } from './toc'
-export { useArticleFeedback, useKbFeedbackConfig, createFeedback, updateFeedback, fetchFeedbackStats, KB_FEEDBACK_REASONS } from './feedback'
-export type { KbFeedbackConfig, FeedbackStats } from './feedback'
-export { printArticle, shareArticle, copyText, canShare, articleUrl } from './actions'
+} from './api';
+export type {
+    KnowledgeBase,
+    KbCategoryNode,
+    KbCategoryTree,
+    KbArticleSummary,
+    KbArticle,
+    KbSort,
+    KbFacets,
+    KbFacetValue,
+    ArticleQuery,
+    ArticlePage,
+} from './api';
+export {
+    useKnowledgeBases,
+    useKbCategories,
+    useKbArticles,
+    useKbSearch,
+    useKbArticle,
+    useRelatedArticles,
+    useKbProperties,
+    recordArticleView,
+    useRecordArticleView,
+    KB_KEY,
+    KB_PROPERTIES,
+} from './hooks';
+export type { KbArticlesOptions } from './hooks';
+export { prepareArticleHtml, useArticleToc, useTocSpy, scrollToHeading, scrollParent, slugify } from './toc';
+export type { TocHeading } from './toc';
+export {
+    useArticleFeedback,
+    useKbFeedbackConfig,
+    createFeedback,
+    updateFeedback,
+    fetchFeedbackStats,
+    KB_FEEDBACK_REASONS,
+} from './feedback';
+export type { KbFeedbackConfig, FeedbackStats } from './feedback';
+export { printArticle, shareArticle, copyText, canShare, articleUrl } from './actions';
 
 export type KbPages = {
     /** KB home (default 'kb'). */
-    home?: string
+    home?: string;
     /** Article page, opened with sys_id (default 'kb/article'). */
-    article?: string
+    article?: string;
     /** Category / knowledge base browsing, q kb=…&category=… (default 'kb/category'). */
-    category?: string
+    category?: string;
     /** KB search, q term=…&kb=…&category=…&type=…&sort=…&page=… (default 'kb/search'). */
-    search?: string
-}
+    search?: string;
+};
 
 /** <Link> props for the KB pages (one place that knows the routes and their params). */
 export function kbLinks(p: KbPages = {}) {
-    const pages = { home: p.home || 'kb', article: p.article || 'kb/article', category: p.category || 'kb/category', search: p.search || 'kb/search' }
+    const pages = {
+        home: p.home || 'kb',
+        article: p.article || 'kb/article',
+        category: p.category || 'kb/category',
+        search: p.search || 'kb/search',
+    };
     const clean = (q: Record<string, any>) => {
-        const out: Record<string, string> = {}
+        const out: Record<string, string> = {};
         Object.keys(q).forEach((k) => {
-            const value = q[k]
-            if (value !== undefined && value !== null && value !== '' && !(k === 'page' && String(value) === '1')) out[k] = String(value)
-        })
-        return out
-    }
+            const value = q[k];
+            if (value !== undefined && value !== null && value !== '' && !(k === 'page' && String(value) === '1'))
+                out[k] = String(value);
+        });
+        return out;
+    };
     return {
         pages,
         home: () => ({ to: pages.home }),
         article: (sysId: string) => ({ to: pages.article, sysId }),
         kb: (kb: string) => ({ to: pages.category, q: clean({ kb }) }),
-        category: (kb: string, category?: string, extra: Record<string, any> = {}) => ({ to: pages.category, q: clean({ kb, category, ...extra }) }),
-        search: (q: { term?: string; kb?: string; category?: string; type?: string; sort?: string; page?: number }) => ({ to: pages.search, q: clean(q) }),
-    }
+        category: (kb: string, category?: string, extra: Record<string, any> = {}) => ({
+            to: pages.category,
+            q: clean({ kb, category, ...extra }),
+        }),
+        search: (q: {
+            term?: string;
+            kb?: string;
+            category?: string;
+            type?: string;
+            sort?: string;
+            page?: number;
+        }) => ({ to: pages.search, q: clean(q) }),
+    };
 }
 
 /** A date for article metadata: "12 Mar 2024" (from 'YYYY-MM-DD[ HH:mm:ss]' UTC values), '' when empty. */
 export function formatKbDate(value: string, opts: { relative?: boolean } = {}): string {
-    const s = String(value || '').trim()
-    if (!s) return ''
-    const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s.replace(' ', 'T') + 'Z')
-    if (isNaN(d.getTime())) return s
+    const s = String(value || '').trim();
+    if (!s) return '';
+    const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s.replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return s;
     if (opts.relative) {
-        const days = Math.floor((Date.now() - d.getTime()) / 86400000)
-        if (days < 1) return 'today'
-        if (days < 2) return 'yesterday'
-        if (days < 30) return days + ' days ago'
+        const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+        if (days < 1) return 'today';
+        if (days < 2) return 'yesterday';
+        if (days < 30) return days + ' days ago';
         if (days < 365) {
-            const m = Math.floor(days / 30)
-            return m + (m === 1 ? ' month ago' : ' months ago')
+            const m = Math.floor(days / 30);
+            return m + (m === 1 ? ' month ago' : ' months ago');
         }
-        const y = Math.floor(days / 365)
-        return y + (y === 1 ? ' year ago' : ' years ago')
+        const y = Math.floor(days / 365);
+        return y + (y === 1 ? ' year ago' : ' years ago');
     }
-    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function KnowledgeUtility() {
-    return null
+    return null;
 }

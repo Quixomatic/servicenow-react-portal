@@ -1,31 +1,36 @@
-import { useState } from 'react'
-import { Embed, Link, useEmbeddedWidget, useServer } from '@portal/runtime'
-import ServerClock from 'components:app/server-clock'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'
-import { Badge } from 'components:badge'
-import { Button } from 'components:button'
+import { useState } from 'react';
+import { Embed, Link, useEmbeddedWidget, useServer } from '@portal/runtime';
+import ServerClock from 'components:app/server-clock';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card';
+import { Badge } from 'components:badge';
+import { Button } from 'components:button';
 
 /**
  * Embedded widgets: Server Clock imported as a component and rendered as its OWN instances
  * (own id, options, server script, on-load data), four ways.
  */
 export default function EmbedDemo({ options }: { options: { title?: string } }) {
-    const { data, pending } = useServer()
-    const [refreshes, setRefreshes] = useState(0)
-    const [format, setFormat] = useState<'datetime' | 'date' | 'time'>('date')
+    const { data, pending } = useServer();
+    const [refreshes, setRefreshes] = useState(0);
+    const [format, setFormat] = useState<'datetime' | 'date' | 'time'>('date');
     // spUtils.get equivalent: fetched on demand (and again whenever the options change).
-    const fetched = useEmbeddedWidget(ServerClock, { title: 'Fetched (useEmbeddedWidget)', format }, { key: 'fetched' })
-    const built = (data as any)?.built
+    const fetched = useEmbeddedWidget(
+        ServerClock,
+        { title: 'Fetched (useEmbeddedWidget)', format },
+        { key: 'fetched' }
+    );
+    const built = (data as any)?.built;
     // Section 5: lazy embeds (stable embedKeys from data, like a list).
-    const lazyKeys = ['1', '2', '3']
+    const lazyKeys = ['1', '2', '3'];
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{options?.title || 'Embedded widgets'}</CardTitle>
                 <CardDescription>
-                    Each clock below is Server Clock running as its own instance inside this widget. The client-declared clocks initialize in one
-                    batched request; the server-built clock arrives with this widget's own data. Layouts can embed widgets too:{' '}
+                    Each clock below is Server Clock running as its own instance inside this widget. The client-declared
+                    clocks initialize in one batched request; the server-built clock arrives with this widget's own
+                    data. Layouts can embed widgets too:{' '}
                     <Link to="embeds/layout" className="underline underline-offset-2">
                         layout-rooted embeds
                     </Link>
@@ -34,28 +39,54 @@ export default function EmbedDemo({ options }: { options: { title?: string } }) 
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
                 <section aria-label="Client-declared A" className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">1 · Client-declared (embedKey "client-a")</h3>
-                    <ServerClock embedKey="client-a" options={{ title: 'Client-declared A', format: 'datetime' }} onRefresh={() => setRefreshes((n) => n + 1)}>
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        1 · Client-declared (embedKey "client-a")
+                    </h3>
+                    <ServerClock
+                        embedKey="client-a"
+                        options={{ title: 'Client-declared A', format: 'datetime' }}
+                        onRefresh={() => setRefreshes((n) => n + 1)}
+                    >
                         <p className="text-xs text-muted-foreground">
-                            children and onRefresh are client-only props · refreshed <span aria-live="polite">{refreshes}</span>×
+                            children and onRefresh are client-only props · refreshed{' '}
+                            <span aria-live="polite">{refreshes}</span>×
                         </p>
                     </ServerClock>
                 </section>
                 <section aria-label="Client-declared B" className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">2 · Client-declared, forged badge (dropped)</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        2 · Client-declared, forged badge (dropped)
+                    </h3>
                     {/* badge is "x-embed": "server" in Server Clock's schema: the server ignores it from the client. */}
-                    <ServerClock embedKey="client-b" options={{ title: 'Client-declared B', format: 'time', badge: 'forged' }} />
+                    <ServerClock
+                        embedKey="client-b"
+                        options={{ title: 'Client-declared B', format: 'time', badge: 'forged' }}
+                    />
                 </section>
                 <section aria-label="Server-built" className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">3 · Server-built ($sp.getWidget, signed options)</h3>
-                    {built ? <ServerClock model={built} /> : <div className="h-40 animate-pulse rounded-lg bg-muted/60" aria-busy={pending} />}
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        3 · Server-built ($sp.getWidget, signed options)
+                    </h3>
+                    {built ? (
+                        <ServerClock model={built} />
+                    ) : (
+                        <div className="h-40 animate-pulse rounded-lg bg-muted/60" aria-busy={pending} />
+                    )}
                 </section>
                 <section aria-label="Fetched on demand" className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-sm font-medium text-muted-foreground">4 · Fetched on demand (useEmbeddedWidget)</h3>
+                        <h3 className="text-sm font-medium text-muted-foreground">
+                            4 · Fetched on demand (useEmbeddedWidget)
+                        </h3>
                         <div className="flex gap-1" role="group" aria-label="Fetched clock format">
                             {(['date', 'time', 'datetime'] as const).map((f) => (
-                                <Button key={f} size="sm" variant={format === f ? 'default' : 'outline'} aria-pressed={format === f} onClick={() => setFormat(f)}>
+                                <Button
+                                    key={f}
+                                    size="sm"
+                                    variant={format === f ? 'default' : 'outline'}
+                                    aria-pressed={format === f}
+                                    onClick={() => setFormat(f)}
+                                >
                                     {f}
                                 </Button>
                             ))}
@@ -73,17 +104,25 @@ export default function EmbedDemo({ options }: { options: { title?: string } }) 
                     {fetched.pending && fetched.model ? <Badge variant="secondary">refetching…</Badge> : null}
                 </section>
                 <section aria-label="Lazy" className="space-y-2 md:col-span-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">5 · Lazy (lazy prop: initializes when scrolled into view)</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        5 · Lazy (lazy prop: initializes when scrolled into view)
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                        Placeholders until they reach the viewport; the clocks that come into view together share one batched initialize.
+                        Placeholders until they reach the viewport; the clocks that come into view together share one
+                        batched initialize.
                     </p>
                     <div className="grid gap-4 md:grid-cols-3">
                         {lazyKeys.map((k) => (
-                            <ServerClock key={k} lazy={{ rootMargin: '0px', height: 240 }} embedKey={`lazy-${k}`} options={{ title: `Lazy ${k}`, format: 'time' }} />
+                            <ServerClock
+                                key={k}
+                                lazy={{ rootMargin: '0px', height: 240 }}
+                                embedKey={`lazy-${k}`}
+                                options={{ title: `Lazy ${k}`, format: 'time' }}
+                            />
                         ))}
                     </div>
                 </section>
             </CardContent>
         </Card>
-    )
+    );
 }

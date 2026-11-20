@@ -18,42 +18,51 @@ import StudioPlaceholder from '#/studio/studio-placeholder';
 // editor (spec §12). The deployed chunk is a standalone bundle with its own React, so it mounts
 // its own root into a container here (see src/portal-studio.js) and gets only plain objects.
 function Studio({ locationStore, navigate }) {
-	const containerRef = useRef(null);
-	const [state, setState] = useState({ status: 'loading' });
-	useEffect(() => {
-		let alive = true;
-		let handle = null;
-		import(/* webpackChunkName: "portal-studio" */ '../portal-studio')
-			.then((mod) => {
-				if (!alive || !containerRef.current) return;
-				const mount = mod.mount || mod.default;
-				handle = mount(containerRef.current, { locationStore, navigate, root: containerRef.current.getRootNode() });
-				// Studio renders in its own root (asynchronously): keep the skeleton until its first
-				// element is in the container and painted, so there is no blank frame (cap: 5 s).
-				const started = Date.now();
-				const waitForPaint = () => {
-					if (!alive) return;
-					const el = containerRef.current;
-					if ((el && el.firstElementChild) || Date.now() - started > 5000) requestAnimationFrame(() => alive && setState({ status: 'ready' }));
-					else requestAnimationFrame(waitForPaint);
-				};
-				waitForPaint();
-			})
-			.catch((error) => alive && setState({ status: 'error', error }));
-		return () => {
-			alive = false;
-			// Unmount the other root outside this commit.
-			if (handle) setTimeout(() => handle.unmount(), 0);
-		};
-	}, [locationStore, navigate]);
-	// The skeleton overlays the container (absolute, the same height Studio takes) and fades out
-	// once Studio has painted; the error state replaces it in the flow.
-	return (
-		<div style={STUDIO_FRAME}>
-			<div ref={containerRef} data-rps-container="" />
-			{state.status === 'error' ? <StudioPlaceholder error={state.error} /> : <StudioPlaceholder loading ready={state.status === 'ready'} />}
-		</div>
-	);
+    const containerRef = useRef(null);
+    const [state, setState] = useState({ status: 'loading' });
+    useEffect(() => {
+        let alive = true;
+        let handle = null;
+        import(/* webpackChunkName: "portal-studio" */ '../portal-studio')
+            .then((mod) => {
+                if (!alive || !containerRef.current) return;
+                const mount = mod.mount || mod.default;
+                handle = mount(containerRef.current, {
+                    locationStore,
+                    navigate,
+                    root: containerRef.current.getRootNode(),
+                });
+                // Studio renders in its own root (asynchronously): keep the skeleton until its first
+                // element is in the container and painted, so there is no blank frame (cap: 5 s).
+                const started = Date.now();
+                const waitForPaint = () => {
+                    if (!alive) return;
+                    const el = containerRef.current;
+                    if ((el && el.firstElementChild) || Date.now() - started > 5000)
+                        requestAnimationFrame(() => alive && setState({ status: 'ready' }));
+                    else requestAnimationFrame(waitForPaint);
+                };
+                waitForPaint();
+            })
+            .catch((error) => alive && setState({ status: 'error', error }));
+        return () => {
+            alive = false;
+            // Unmount the other root outside this commit.
+            if (handle) setTimeout(() => handle.unmount(), 0);
+        };
+    }, [locationStore, navigate]);
+    // The skeleton overlays the container (absolute, the same height Studio takes) and fades out
+    // once Studio has painted; the error state replaces it in the flow.
+    return (
+        <div style={STUDIO_FRAME}>
+            <div ref={containerRef} data-rps-container="" />
+            {state.status === 'error' ? (
+                <StudioPlaceholder error={state.error} />
+            ) : (
+                <StudioPlaceholder loading ready={state.status === 'ready'} />
+            )}
+        </div>
+    );
 }
 
 const STUDIO_FRAME = Object.freeze({ position: 'relative' });
@@ -62,68 +71,77 @@ const STUDIO_FRAME = Object.freeze({ position: 'relative' });
 // mode. The view re-renders on every property change; nothing below it does unless it reads
 // the location (usePortalLocation / usePortal().location) or the router moves.
 export default function PortalHostView({ properties, dispatch }) {
-	const location = useNormalizedLocation(properties);
-	const [instanceId] = useState(nextInstanceId);
-	useDiagCounter(`host:${instanceId}`, { location });
+    const location = useNormalizedLocation(properties);
+    const [instanceId] = useState(nextInstanceId);
+    useDiagCounter(`host:${instanceId}`, { location });
 
-	const lastKey = useRef(null);
-	const key = rawKey(properties);
-	if (lastKey.current !== key) {
-		lastKey.current = key;
-		recordProperties(instanceId, location.raw);
-	}
+    const lastKey = useRef(null);
+    const key = rawKey(properties);
+    if (lastKey.current !== key) {
+        lastKey.current = key;
+        recordProperties(instanceId, location.raw);
+    }
 
-	// Stable for the life of the instance: a store for the location, and a navigate() that
-	// reads the current portal and dispatch at call time.
-	const [locationStore] = useState(() => createStore(location));
-	const dispatchRef = useRef(dispatch);
-	dispatchRef.current = dispatch;
-	const [navigate] = useState(() =>
-		createNavigate((type, payload) => dispatchRef.current(type, payload), {
-			get portalSlug() {
-				return locationStore.get().portalSlug;
-			}
-		})
-	);
+    // Stable for the life of the instance: a store for the location, and a navigate() that
+    // reads the current portal and dispatch at call time.
+    const [locationStore] = useState(() => createStore(location));
+    const dispatchRef = useRef(dispatch);
+    dispatchRef.current = dispatch;
+    const [navigate] = useState(() =>
+        createNavigate((type, payload) => dispatchRef.current(type, payload), {
+            get portalSlug() {
+                return locationStore.get().portalSlug;
+            },
+        })
+    );
 
-	// Before paint: subscribers (the router sync, location readers) see the new location.
-	useLayoutEffect(() => {
-		locationStore.set(location);
-	}, [location, locationStore]);
+    // Before paint: subscribers (the router sync, location readers) see the new location.
+    useLayoutEffect(() => {
+        locationStore.set(location);
+    }, [location, locationStore]);
 
-	const rootRef = useRef(null);
+    const rootRef = useRef(null);
 
-	// The host's Tailwind sheet, as the first non-theme <style> (framework slot): before paint.
-	useLayoutEffect(() => {
-		const root = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode();
-		if (frameworkCssText && root && root !== document) ensureStyle(root, 'framework', frameworkCssText, 'framework');
-	}, []);
+    // The host's Tailwind sheet, as the first non-theme <style> (framework slot): before paint.
+    useLayoutEffect(() => {
+        const root = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode();
+        if (frameworkCssText && root && root !== document)
+            ensureStyle(root, 'framework', frameworkCssText, 'framework');
+    }, []);
 
-	// Light/dark: the `dark` class on the host element (mirrored to the overlay layer by the
-	// renderer). A layout effect, so the first paint already has the right mode.
-	const { resolvedTheme } = useTheme();
-	useLayoutEffect(() => {
-		const host = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode().host;
-		if (!host) return;
-		host.classList.toggle('dark', resolvedTheme === 'dark');
-		host.classList.toggle('light', resolvedTheme !== 'dark');
-	}, [resolvedTheme]);
+    // Light/dark: the `dark` class on the host element (mirrored to the overlay layer by the
+    // renderer). A layout effect, so the first paint already has the right mode.
+    const { resolvedTheme } = useTheme();
+    useLayoutEffect(() => {
+        const host = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode().host;
+        if (!host) return;
+        host.classList.toggle('dark', resolvedTheme === 'dark');
+        host.classList.toggle('light', resolvedTheme !== 'dark');
+    }, [resolvedTheme]);
 
-	useEffect(() => {
-		const host = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode().host;
-		recordMount(instanceId, `${location.portalSlug || '(no portal)'}/${location.page || '(home)'}`, host ? host.tagName.toLowerCase() : undefined);
-		return () => recordUnmount(instanceId);
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        const host = rootRef.current && rootRef.current.getRootNode && rootRef.current.getRootNode().host;
+        recordMount(
+            instanceId,
+            `${location.portalSlug || '(no portal)'}/${location.page || '(home)'}`,
+            host ? host.tagName.toLowerCase() : undefined
+        );
+        return () => recordUnmount(instanceId);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	return (
-		<QueryClientProvider client={queryClient}>
-			<LocationStoreContext.Provider value={locationStore}>
-				<NavigationContext.Provider value={navigate}>
-					<div ref={rootRef} className="contents" data-rp-host-root="">
-						{location.mode === 'studio' ? <Studio locationStore={locationStore} navigate={navigate} /> : <PortalApp portalSlug={location.portalSlug} hostId={instanceId} />}
-					</div>
-				</NavigationContext.Provider>
-			</LocationStoreContext.Provider>
-		</QueryClientProvider>
-	);
+    return (
+        <QueryClientProvider client={queryClient}>
+            <LocationStoreContext.Provider value={locationStore}>
+                <NavigationContext.Provider value={navigate}>
+                    <div ref={rootRef} className="contents" data-rp-host-root="">
+                        {location.mode === 'studio' ? (
+                            <Studio locationStore={locationStore} navigate={navigate} />
+                        ) : (
+                            <PortalApp portalSlug={location.portalSlug} hostId={instanceId} />
+                        )}
+                    </div>
+                </NavigationContext.Provider>
+            </LocationStoreContext.Provider>
+        </QueryClientProvider>
+    );
 }

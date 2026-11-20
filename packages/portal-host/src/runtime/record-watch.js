@@ -11,25 +11,27 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { queryClient } from './query-client';
 import {
-	channelError,
-	channelStatus,
-	getAmbClient,
-	getConnection,
-	getStatusVersion,
-	heldChannels,
-	onResume,
-	subscribeChannel,
-	subscribeConnection,
-	subscribeStatus,
-	ambDiagnostics
+    channelError,
+    channelStatus,
+    getAmbClient,
+    getConnection,
+    getStatusVersion,
+    heldChannels,
+    onResume,
+    subscribeChannel,
+    subscribeConnection,
+    subscribeStatus,
+    ambDiagnostics,
 } from './amb';
 
 // ---- channel names ---------------------------------------------------------------------------
 
 /** UTF-8-safe base64 of an encoded query, '=' → '-' (identical to amb-client-js base64EncodeQuery). */
 export function encodeQuery(query) {
-	const bytes = encodeURIComponent(String(query || '')).replace(/%([0-9A-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-	return btoa(bytes).replace(/=/g, '-');
+    const bytes = encodeURIComponent(String(query || '')).replace(/%([0-9A-F]{2})/g, (_, h) =>
+        String.fromCharCode(parseInt(h, 16))
+    );
+    return btoa(bytes).replace(/=/g, '-');
 }
 
 /**
@@ -37,38 +39,38 @@ export function encodeQuery(query) {
  * the channel name, not the filter); '' → 'sys_idISNOTEMPTY' (an empty filter never delivers).
  */
 export function normalizeQuery(query) {
-	const terms = String(query || '')
-		.split('^')
-		.map((t) => t.trim())
-		.filter((t) => t && !/^(ORDERBY|ORDERBYDESC|GROUPBY)/.test(t) && t !== 'EQ');
-	// A dangling OR / NQ prefix left by a removed term would change the meaning; keep it simple.
-	return terms.length ? terms.join('^') : 'sys_idISNOTEMPTY';
+    const terms = String(query || '')
+        .split('^')
+        .map((t) => t.trim())
+        .filter((t) => t && !/^(ORDERBY|ORDERBYDESC|GROUPBY)/.test(t) && t !== 'EQ');
+    // A dangling OR / NQ prefix left by a removed term would change the meaning; keep it simple.
+    return terms.length ? terms.join('^') : 'sys_idISNOTEMPTY';
 }
 
 /** '/rw/default/<table>/<base64 query>' (the client's getRecordWatcherChannel builds the same). */
 export function rwChannel(table, query) {
-	return `/rw/default/${table}/${encodeQuery(query)}`;
+    return `/rw/default/${table}/${encodeQuery(query)}`;
 }
 
 /** AMB record-watch message → RecordWatchEvent. */
 export function toRecordWatchEvent(message) {
-	const data = (message && message.data) || {};
-	const record = data.record || {};
-	const valueOf = (name) => (record[name] && record[name].value !== undefined ? String(record[name].value) : null);
-	const mod = valueOf('sys_mod_count');
-	return {
-		table: data.table_name || '',
-		sysId: data.sys_id || '',
-		action: data.action || 'change',
-		operation: data.operation || 'update',
-		changes: Array.isArray(data.changes) ? data.changes : [],
-		modCount: mod === null || mod === '' || isNaN(Number(mod)) ? null : Number(mod),
-		updatedOn: valueOf('sys_updated_on'),
-		fromUser: (message && message.ext && message.ext.from_user) || null,
-		displayValue: data.display_value || '',
-		record,
-		raw: message
-	};
+    const data = (message && message.data) || {};
+    const record = data.record || {};
+    const valueOf = (name) => (record[name] && record[name].value !== undefined ? String(record[name].value) : null);
+    const mod = valueOf('sys_mod_count');
+    return {
+        table: data.table_name || '',
+        sysId: data.sys_id || '',
+        action: data.action || 'change',
+        operation: data.operation || 'update',
+        changes: Array.isArray(data.changes) ? data.changes : [],
+        modCount: mod === null || mod === '' || isNaN(Number(mod)) ? null : Number(mod),
+        updatedOn: valueOf('sys_updated_on'),
+        fromUser: (message && message.ext && message.ext.from_user) || null,
+        displayValue: data.display_value || '',
+        record,
+        raw: message,
+    };
 }
 
 // ---- cache invalidation (throttled per key) --------------------------------------------------
@@ -80,32 +82,35 @@ const pending = new Map(); // key string → timer
  * Returns nothing; safe to call per message.
  */
 export function scheduleInvalidate(queryKey, ms) {
-	const id = JSON.stringify(queryKey);
-	if (pending.has(id)) return;
-	pending.set(
-		id,
-		setTimeout(() => {
-			pending.delete(id);
-			queryClient.invalidateQueries({ queryKey });
-		}, Math.max(0, ms === undefined ? 250 : ms))
-	);
+    const id = JSON.stringify(queryKey);
+    if (pending.has(id)) return;
+    pending.set(
+        id,
+        setTimeout(
+            () => {
+                pending.delete(id);
+                queryClient.invalidateQueries({ queryKey });
+            },
+            Math.max(0, ms === undefined ? 250 : ms)
+        )
+    );
 }
 
 /** Everything the page caches for a table: Table API hooks, app/list-data lists, app/graphql reads. */
 export function invalidateTable(table, ms) {
-	if (!table) return;
-	scheduleInvalidate(['rp', 'table', table], ms);
-	scheduleInvalidate(['rp-list', 'page', table], ms);
-	scheduleInvalidate(['rp-gql', 'record', table], ms);
+    if (!table) return;
+    scheduleInvalidate(['rp', 'table', table], ms);
+    scheduleInvalidate(['rp-list', 'page', table], ms);
+    scheduleInvalidate(['rp-gql', 'record', table], ms);
 }
 
 // After a reconnect or session renewal, messages may have been lost: refresh every watched table once.
 onResume(() => {
-	const tables = new Set();
-	heldChannels().forEach((c) => {
-		if (c.spec && c.spec.table) tables.add(c.spec.table);
-	});
-	tables.forEach((t) => invalidateTable(t, 500));
+    const tables = new Set();
+    heldChannels().forEach((c) => {
+        if (c.spec && c.spec.table) tables.add(c.spec.table);
+    });
+    tables.forEach((t) => invalidateTable(t, 500));
 });
 
 // ---- live context (Studio's designer canvas turns live data off) ----------------------------
@@ -114,20 +119,20 @@ const LIVE_ON = Object.freeze({ enabled: true });
 export const LIVE_OFF = Object.freeze({ enabled: false });
 export const LiveContext = createContext(LIVE_ON);
 export function useLiveEnabled() {
-	const value = useContext(LiveContext);
-	return !value || value.enabled !== false;
+    const value = useContext(LiveContext);
+    return !value || value.enabled !== false;
 }
 
 // ---- hooks -----------------------------------------------------------------------------------
 
 /** useAmbStatus() → { connection: 'connecting'|'open'|'broken'|'closed'|'unavailable', resumedAt } */
 export function useAmbStatus() {
-	return useSyncExternalStore(subscribeConnection, getConnection, getConnection);
+    return useSyncExternalStore(subscribeConnection, getConnection, getConnection);
 }
 
 function useChannelState(name, active) {
-	useSyncExternalStore(subscribeStatus, getStatusVersion, getStatusVersion);
-	return active ? { status: channelStatus(name), error: channelError(name) } : { status: 'idle', error: undefined };
+    useSyncExternalStore(subscribeStatus, getStatusVersion, getStatusVersion);
+    return active ? { status: channelStatus(name), error: channelError(name) } : { status: 'idle', error: undefined };
 }
 
 /**
@@ -136,19 +141,23 @@ function useChannelState(name, active) {
  * Any AMB channel; `onMessage` may change identity freely. Shares one subscription per channel.
  */
 export function useAmbChannel(channel, onMessage, options) {
-	const o = options || {};
-	const live = useLiveEnabled();
-	const active = !!channel && o.enabled !== false && live;
-	const handler = useRef(onMessage);
-	handler.current = onMessage;
-	const gql = o.graphQLSubscription || '';
-	useEffect(() => {
-		if (!active) return undefined;
-		return subscribeChannel(channel, (message) => handler.current && handler.current(message), gql ? { graphQLSubscription: gql } : {});
-	}, [active, channel, gql]);
-	const state = useChannelState(channel, active);
-	const { connection } = useAmbStatus();
-	return { status: state.status, error: state.error, connection };
+    const o = options || {};
+    const live = useLiveEnabled();
+    const active = !!channel && o.enabled !== false && live;
+    const handler = useRef(onMessage);
+    handler.current = onMessage;
+    const gql = o.graphQLSubscription || '';
+    useEffect(() => {
+        if (!active) return undefined;
+        return subscribeChannel(
+            channel,
+            (message) => handler.current && handler.current(message),
+            gql ? { graphQLSubscription: gql } : {}
+        );
+    }, [active, channel, gql]);
+    const state = useChannelState(channel, active);
+    const { connection } = useAmbStatus();
+    return { status: state.status, error: state.error, connection };
 }
 
 /**
@@ -158,40 +167,40 @@ export function useAmbChannel(channel, onMessage, options) {
  * message with a RecordWatchEvent; with `invalidate` the table's cached reads refresh (throttled).
  */
 export function useRecordWatch(table, query, onChange, options) {
-	const o = options || {};
-	const live = useLiveEnabled();
-	const normalized = normalizeQuery(query);
-	const channel = table ? rwChannel(table, normalized) : null;
-	const active = !!channel && o.enabled !== false && live;
-	const handler = useRef(onChange);
-	handler.current = onChange;
-	const settings = useRef(o);
-	settings.current = o;
-	const [lastEvent, setLastEvent] = useState(null);
-	useEffect(() => {
-		if (!active) return undefined;
-		return subscribeChannel(
-			channel,
-			(message) => {
-				const event = toRecordWatchEvent(message);
-				const s = settings.current;
-				if (s.invalidate !== false) invalidateTable(event.table || table, s.debounceMs);
-				setLastEvent(event);
-				if (handler.current) handler.current(event);
-			},
-			{ table, query: normalized }
-		);
-	}, [active, channel, table, normalized]);
-	const state = useChannelState(channel, active);
-	const { connection } = useAmbStatus();
-	return { status: state.status, error: state.error, connection, channel, lastEvent };
+    const o = options || {};
+    const live = useLiveEnabled();
+    const normalized = normalizeQuery(query);
+    const channel = table ? rwChannel(table, normalized) : null;
+    const active = !!channel && o.enabled !== false && live;
+    const handler = useRef(onChange);
+    handler.current = onChange;
+    const settings = useRef(o);
+    settings.current = o;
+    const [lastEvent, setLastEvent] = useState(null);
+    useEffect(() => {
+        if (!active) return undefined;
+        return subscribeChannel(
+            channel,
+            (message) => {
+                const event = toRecordWatchEvent(message);
+                const s = settings.current;
+                if (s.invalidate !== false) invalidateTable(event.table || table, s.debounceMs);
+                setLastEvent(event);
+                if (handler.current) handler.current(event);
+            },
+            { table, query: normalized }
+        );
+    }, [active, channel, table, normalized]);
+    const state = useChannelState(channel, active);
+    const { connection } = useAmbStatus();
+    return { status: state.status, error: state.error, connection, channel, lastEvent };
 }
 
 /** True when this page has an AMB client (the shell's, or the mock). */
 export function hasAmb() {
-	return !!getAmbClient();
+    return !!getAmbClient();
 }
 
 if (typeof window !== 'undefined') {
-	window.__rpAmb = Object.assign(window.__rpAmb || {}, { diagnostics: ambDiagnostics, encodeQuery, rwChannel });
+    window.__rpAmb = Object.assign(window.__rpAmb || {}, { diagnostics: ambDiagnostics, encodeQuery, rwChannel });
 }

@@ -7,13 +7,13 @@ import { themeStore as localStore } from '#/runtime/theme-mode';
 const NEXT = { light: 'dark', dark: 'system', system: 'light' };
 
 export function hostThemeStore() {
-	const registry = globalThis.__REACT_PORTAL__;
-	return (registry && registry.internals && registry.internals.themeStore) || localStore;
+    const registry = globalThis.__REACT_PORTAL__;
+    return (registry && registry.internals && registry.internals.themeStore) || localStore;
 }
 
 /** { theme, resolvedTheme, systemTheme, setTheme, cycle } */
 export function useStudioTheme() {
-	const store = hostThemeStore();
-	const snap = useSyncExternalStore(store.subscribe, store.get, store.get);
-	return { ...snap, setTheme: store.setTheme, cycle: () => store.setTheme(NEXT[snap.theme] || 'system') };
+    const store = hostThemeStore();
+    const snap = useSyncExternalStore(store.subscribe, store.get, store.get);
+    return { ...snap, setTheme: store.setTheme, cycle: () => store.setTheme(NEXT[snap.theme] || 'system') };
 }

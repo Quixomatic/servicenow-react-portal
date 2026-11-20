@@ -11,10 +11,10 @@
  * Code can also register at runtime: registerCustomVariable('app/<key>', Component) from
  * components:app/variable.
  */
-import { CustomVariable as StarRating } from 'components:app/star-rating-variable'
+import { CustomVariable as StarRating } from 'components:app/star-rating-variable';
 
 export const CUSTOM_VARIABLES: Record<string, any> = {
     'app/star-rating-variable': StarRating,
-}
+};
 
-export default CUSTOM_VARIABLES
+export default CUSTOM_VARIABLES;

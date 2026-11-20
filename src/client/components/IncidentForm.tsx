@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import './IncidentForm.css'
+import React, { useState, useEffect } from 'react';
+import './IncidentForm.css';
 
 export default function IncidentForm({ incident, onSubmit, onCancel }) {
-    const isEditing = !!incident
+    const isEditing = !!incident;
 
     // Initialize form state
     const [formData, setFormData] = useState({
@@ -10,7 +10,7 @@ export default function IncidentForm({ incident, onSubmit, onCancel }) {
         description: '',
         state: '1',
         impact: '2',
-    })
+    });
 
     // Load incident data if editing
     useEffect(() => {
@@ -19,33 +19,33 @@ export default function IncidentForm({ incident, onSubmit, onCancel }) {
             const shortDesc =
                 typeof incident.short_description === 'object'
                     ? incident.short_description.value
-                    : incident.short_description
+                    : incident.short_description;
             const description =
-                typeof incident.description === 'object' ? incident.description.value : incident.description
-            const state = typeof incident.state === 'object' ? incident.state.value : incident.state
-            const impact = typeof incident.impact === 'object' ? incident.impact.value : incident.impact
+                typeof incident.description === 'object' ? incident.description.value : incident.description;
+            const state = typeof incident.state === 'object' ? incident.state.value : incident.state;
+            const impact = typeof incident.impact === 'object' ? incident.impact.value : incident.impact;
 
             setFormData({
                 short_description: shortDesc || '',
                 description: description || '',
                 state: state || '1',
                 impact: impact || '2',
-            })
+            });
         }
-    }, [incident])
+    }, [incident]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target
+        const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
             [name]: value,
-        }))
-    }
+        }));
+    };
 
     const handleSubmit = (e) => {
-        e.preventDefault()
-        onSubmit(formData)
-    }
+        e.preventDefault();
+        onSubmit(formData);
+    };
 
     return (
         <div className="form-overlay">
@@ -115,5 +115,5 @@ export default function IncidentForm({ incident, onSubmit, onCancel }) {
                 </form>
             </div>
         </div>
-    )
+    );
 }

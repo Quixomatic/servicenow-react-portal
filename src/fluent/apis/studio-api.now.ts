@@ -1,6 +1,6 @@
-import '@servicenow/sdk/global'
-import { RestApi, Acl } from '@servicenow/sdk/core'
-import { developerRole, designerRole, publisherRole } from '../security/roles.now'
+import '@servicenow/sdk/global';
+import { RestApi, Acl } from '@servicenow/sdk/core';
+import { developerRole, designerRole, publisherRole } from '../security/roles.now';
 import {
     listComponentsRoute,
     listThemesRoute,
@@ -41,7 +41,7 @@ import {
     createDocRoute,
     updateDocRoute,
     orderDocsRoute,
-} from '../../server/api/studio-api'
+} from '../../server/api/studio-api';
 
 /**
  * Studio API: /api/x_312987_portal/rp_studio/...
@@ -56,7 +56,7 @@ export const studioApiAcl = Acl({
     roles: [developerRole, designerRole, publisherRole],
     adminOverrides: true,
     description: 'React Portal studio API: developer, designer, publisher (admin inherits)',
-})
+});
 
 export const studioApi = RestApi({
     $id: Now.ID['rest-studio'],
@@ -66,11 +66,34 @@ export const studioApi = RestApi({
     consumes: 'application/json',
     produces: 'application/json',
     enforceAcl: [studioApiAcl],
-    versions: [{ $id: Now.ID['rest-studio-v1'], version: 1, isDefault: true, shortDescription: 'React Portal studio v1' }],
+    versions: [
+        { $id: Now.ID['rest-studio-v1'], version: 1, isDefault: true, shortDescription: 'React Portal studio v1' },
+    ],
     routes: [
-        { $id: Now.ID['rest-studio-components'], name: 'list components', method: 'GET', path: '/components', script: listComponentsRoute, version: 1 },
-        { $id: Now.ID['rest-studio-themes'], name: 'list themes', method: 'GET', path: '/themes', script: listThemesRoute, version: 1 },
-        { $id: Now.ID['rest-studio-portals'], name: 'list portals', method: 'GET', path: '/portals', script: listPortalsRoute, version: 1 },
+        {
+            $id: Now.ID['rest-studio-components'],
+            name: 'list components',
+            method: 'GET',
+            path: '/components',
+            script: listComponentsRoute,
+            version: 1,
+        },
+        {
+            $id: Now.ID['rest-studio-themes'],
+            name: 'list themes',
+            method: 'GET',
+            path: '/themes',
+            script: listThemesRoute,
+            version: 1,
+        },
+        {
+            $id: Now.ID['rest-studio-portals'],
+            name: 'list portals',
+            method: 'GET',
+            path: '/portals',
+            script: listPortalsRoute,
+            version: 1,
+        },
         {
             $id: Now.ID['rest-studio-component-project'],
             name: 'component project',
@@ -117,10 +140,25 @@ export const studioApi = RestApi({
             path: '/components/{id}/dependencies',
             script: componentDependenciesRoute,
             version: 1,
-            shortDescription: 'Component records this build imports directly, and the components that import it (build_dep edges)',
+            shortDescription:
+                'Component records this build imports directly, and the components that import it (build_dep edges)',
         },
-        { $id: Now.ID['rest-studio-theme-project'], name: 'theme project', method: 'GET', path: '/themes/{id}/project', script: themeProjectRoute, version: 1 },
-        { $id: Now.ID['rest-studio-theme-save'], name: 'theme save', method: 'POST', path: '/themes/{id}/save', script: themeSaveRoute, version: 1 },
+        {
+            $id: Now.ID['rest-studio-theme-project'],
+            name: 'theme project',
+            method: 'GET',
+            path: '/themes/{id}/project',
+            script: themeProjectRoute,
+            version: 1,
+        },
+        {
+            $id: Now.ID['rest-studio-theme-save'],
+            name: 'theme save',
+            method: 'POST',
+            path: '/themes/{id}/save',
+            script: themeSaveRoute,
+            version: 1,
+        },
         {
             $id: Now.ID['rest-studio-build-complete'],
             name: 'build complete',
@@ -128,10 +166,18 @@ export const studioApi = RestApi({
             path: '/builds/{id}/complete',
             script: buildCompleteRoute,
             version: 1,
-            requestExample: '{"revision":4,"success":true,"compilerVersion":"esbuild-wasm 0.25","assets":[{"path":"index.js","kind":"js","content":"…"}]}',
+            requestExample:
+                '{"revision":4,"success":true,"compilerVersion":"esbuild-wasm 0.25","assets":[{"path":"index.js","kind":"js","content":"…"}]}',
             shortDescription: 'Compiled outputs and diagnostics from the browser compiler',
         },
-        { $id: Now.ID['rest-studio-build-preview'], name: 'build preview', method: 'POST', path: '/builds/{id}/preview', script: buildPreviewRoute, version: 1 },
+        {
+            $id: Now.ID['rest-studio-build-preview'],
+            name: 'build preview',
+            method: 'POST',
+            path: '/builds/{id}/preview',
+            script: buildPreviewRoute,
+            version: 1,
+        },
         {
             $id: Now.ID['rest-studio-process'],
             name: 'process portal',
@@ -330,7 +376,8 @@ export const studioApi = RestApi({
             path: '/portals/{id}/audience',
             script: portalAudienceRoute,
             version: 1,
-            shortDescription: "What the portal's user criteria hide from a user (?user=<sys_id>): portal, pages, menu items",
+            shortDescription:
+                "What the portal's user criteria hide from a user (?user=<sys_id>): portal, pages, menu items",
         },
         {
             $id: Now.ID['rest-studio-docs-list'],
@@ -381,4 +428,4 @@ export const studioApi = RestApi({
             shortDescription: 'Move / reorder doc pages and sections, then renumber',
         },
     ],
-})
+});

@@ -1,4 +1,4 @@
-import { graphql, restGet, safeName, authHeaders } from './client'
+import { graphql, restGet, safeName, authHeaders } from './client';
 import type {
     Choice,
     FieldMeta,
@@ -19,7 +19,7 @@ import type {
     RelatedListInfo,
     ViewRuleInputs,
     ViewResolutionInfo,
-} from './types'
+} from './types';
 
 /**
  * Documents and fetchers. Each fetcher is a plain async function (usable outside React) and the
@@ -37,49 +37,53 @@ import type {
 // ---- helpers --------------------------------------------------------------------------------
 
 export function parseAttributes(input: unknown): Record<string, string> {
-    const out: Record<string, string> = {}
-    if (!input) return out
+    const out: Record<string, string> = {};
+    if (!input) return out;
     if (Array.isArray(input)) {
-        for (const a of input) if (a && a.name) out[String(a.name)] = a.value == null ? '' : String(a.value)
-        return out
+        for (const a of input) if (a && a.name) out[String(a.name)] = a.value == null ? '' : String(a.value);
+        return out;
     }
     for (const part of String(input).split(',')) {
-        const i = part.indexOf('=')
-        const k = (i < 0 ? part : part.slice(0, i)).trim()
-        if (k) out[k] = i < 0 ? 'true' : part.slice(i + 1).trim()
+        const i = part.indexOf('=');
+        const k = (i < 0 ? part : part.slice(0, i)).trim();
+        if (k) out[k] = i < 0 ? 'true' : part.slice(i + 1).trim();
     }
-    return out
+    return out;
 }
 
 function bool(v: unknown): boolean {
-    return v === true || v === 'true'
+    return v === true || v === 'true';
 }
 
 function list(v: unknown): string[] | undefined {
-    if (Array.isArray(v)) return v.map(String).filter(Boolean)
-    if (typeof v === 'string' && v.trim()) return v.split(',').map((s) => s.trim()).filter(Boolean)
-    return undefined
+    if (Array.isArray(v)) return v.map(String).filter(Boolean);
+    if (typeof v === 'string' && v.trim())
+        return v
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+    return undefined;
 }
 
 /** Stable JSON for query keys and serializedChanges (sorted keys). */
 export function stableChanges(changes?: FormChanges | null): string {
-    if (!changes) return '{}'
-    const sorted: FormChanges = {}
+    if (!changes) return '{}';
+    const sorted: FormChanges = {};
     Object.keys(changes)
         .sort()
         .forEach((k) => {
-            sorted[k] = changes[k] == null ? '' : String(changes[k])
-        })
-    return JSON.stringify(sorted)
+            sorted[k] = changes[k] == null ? '' : String(changes[k]);
+        });
+    return JSON.stringify(sorted);
 }
 
 // ---- table metadata (UI meta API) -----------------------------------------------------------
 
 function metaFromUiColumn(table: string, c: any): FieldMeta {
-    const attributes = parseAttributes(c.attributes)
-    const refAttrs = c.reference_attributes || {}
-    const type = String(c.internal_type || c.type || 'string')
-    const uiType = String(c.type || type)
+    const attributes = parseAttributes(c.attributes);
+    const refAttrs = c.reference_attributes || {};
+    const type = String(c.internal_type || c.type || 'string');
+    const uiType = String(c.type || type);
     const meta: FieldMeta = {
         table,
         name: String(c.name),
@@ -94,35 +98,41 @@ function metaFromUiColumn(table: string, c: any): FieldMeta {
         defaultValue: c.default || undefined,
         attributes,
         source: 'meta',
-    }
+    };
     if (Array.isArray(c.choices)) {
         meta.choices = c.choices.map(
             (ch: any): Choice => ({
                 value: String(ch.value ?? ''),
                 label: String(ch.label ?? ch.value ?? ''),
                 sequence: ch.sequence,
-                dependentValues: ch.parameters && Array.isArray(ch.parameters.dependent_values) ? ch.parameters.dependent_values.map(String) : undefined,
-            }),
-        )
-        meta.choiceType = c.choice_type != null ? Number(c.choice_type) : undefined
+                dependentValues:
+                    ch.parameters && Array.isArray(ch.parameters.dependent_values)
+                        ? ch.parameters.dependent_values.map(String)
+                        : undefined,
+            })
+        );
+        meta.choiceType = c.choice_type != null ? Number(c.choice_type) : undefined;
     }
     if (c.reference) {
         meta.reference = {
             table: String(c.reference),
             displayField: c.reference_display_field || refAttrs.display_field || undefined,
             displayColumns: list(refAttrs.ref_ac_columns),
-        }
+        };
     }
-    return meta
+    return meta;
 }
 
 /** Every column of a table (label, type, hint, choices, reference, attributes, max length). */
 export async function fetchTableMeta(table: string, signal?: AbortSignal): Promise<Record<string, FieldMeta>> {
-    const result = await restGet<{ columns: Record<string, any> }>(`/api/now/ui/meta/${encodeURIComponent(safeName(table, 'table'))}`, signal)
-    const out: Record<string, FieldMeta> = {}
-    const cols = (result && result.columns) || {}
-    for (const name of Object.keys(cols)) out[name] = metaFromUiColumn(table, cols[name])
-    return out
+    const result = await restGet<{ columns: Record<string, any> }>(
+        `/api/now/ui/meta/${encodeURIComponent(safeName(table, 'table'))}`,
+        signal
+    );
+    const out: Record<string, FieldMeta> = {};
+    const cols = (result && result.columns) || {};
+    for (const name of Object.keys(cols)) out[name] = metaFromUiColumn(table, cols[name]);
+    return out;
 }
 
 // ---- form bootstrap (GlideLayout_Query.formLayout) ------------------------------------------
@@ -150,11 +160,11 @@ export const FORM_LAYOUT_QUERY = `query rpFormLayout($table: String!, $view: Str
       }
     }
   }
-}`
+}`;
 
 function metaFromElement(table: string, e: any): FieldMeta {
-    const d = e.dictionary || {}
-    const attributes = parseAttributes(d.attributes)
+    const d = e.dictionary || {};
+    const attributes = parseAttributes(d.attributes);
     const meta: FieldMeta = {
         table,
         name: String(e.name),
@@ -169,8 +179,12 @@ function metaFromElement(table: string, e: any): FieldMeta {
         maxLength: e.maxLength ? Number(e.maxLength) : undefined,
         attributes,
         source: 'layout',
-    }
-    if (Array.isArray(e.choices)) meta.choices = e.choices.map((c: any) => ({ value: String(c.value ?? ''), label: String(c.displayValue ?? c.value ?? '') }))
+    };
+    if (Array.isArray(e.choices))
+        meta.choices = e.choices.map((c: any) => ({
+            value: String(c.value ?? ''),
+            label: String(c.displayValue ?? c.value ?? ''),
+        }));
     if (e.reference) {
         meta.reference = {
             table: String(e.reference),
@@ -179,44 +193,52 @@ function metaFromElement(table: string, e: any): FieldMeta {
             displayColumns: list(e.refAcColumns),
             orderBy: e.refAcOrderBy || undefined,
             dependsOn: e.dependentOnField || undefined,
-        }
+        };
     }
-    if (Array.isArray(e.currencyCodes)) meta.currencyCodes = e.currencyCodes
-    if (Array.isArray(e.countryCodes)) meta.countryCodes = e.countryCodes
-    return meta
+    if (Array.isArray(e.currencyCodes)) meta.currencyCodes = e.currencyCodes;
+    if (Array.isArray(e.countryCodes)) meta.countryCodes = e.countryCodes;
+    return meta;
 }
 
 /** UI policy fields (forms and catalog share the shape; catalog adds value / message actions). */
 export const UI_POLICY_FIELDS = `shortDescription sysId reverse onLoad isRunScripts preEvaluated preEvaluatedResult
   scriptTrue { script } scriptFalse { script }
   actions { visible name disabled mandatory cleared: clearValue }
-  conditions { type field: fieldName fieldLabel value oper: operator or: isOrQuery newquery: isNewQuery preEvaluatedTerm preEvaluatedTermResult }`
+  conditions { type field: fieldName fieldLabel value oper: operator or: isOrQuery newquery: isNewQuery preEvaluatedTerm preEvaluatedTermResult }`;
 
 /** Client scripts (forms and catalog share the shape). */
 export const CLIENT_SCRIPT_FIELDS = `onLoad { name sysId script type fieldName tableName }
   onChange { name sysId script type fieldName tableName }
   onSubmit { name sysId script type fieldName tableName }
-  messages { name value }`
+  messages { name value }`;
 
 /** GraphQL client scripts → ClientScripts (unknown shape → empty lists). */
 export function normalizeClientScripts(s: any): ClientScripts {
     const list = (arr: any): ClientScript[] =>
         (Array.isArray(arr) ? arr : [])
             .filter((x: any) => x && x.script)
-            .map((x: any) => ({ name: String(x.name || ''), sysId: String(x.sysId || ''), script: String(x.script), type: String(x.type || ''), fieldName: String(x.fieldName || ''), tableName: String(x.tableName || '') }))
-    const messages: Record<string, string> = {}
-    for (const m of (s && s.messages) || []) if (m && m.name) messages[String(m.name)] = m.value == null ? String(m.name) : String(m.value)
-    return { onLoad: list(s && s.onLoad), onChange: list(s && s.onChange), onSubmit: list(s && s.onSubmit), messages }
+            .map((x: any) => ({
+                name: String(x.name || ''),
+                sysId: String(x.sysId || ''),
+                script: String(x.script),
+                type: String(x.type || ''),
+                fieldName: String(x.fieldName || ''),
+                tableName: String(x.tableName || ''),
+            }));
+    const messages: Record<string, string> = {};
+    for (const m of (s && s.messages) || [])
+        if (m && m.name) messages[String(m.name)] = m.value == null ? String(m.name) : String(m.value);
+    return { onLoad: list(s && s.onLoad), onChange: list(s && s.onChange), onSubmit: list(s && s.onSubmit), messages };
 }
 
 function parseScratchpad(v: unknown): Record<string, unknown> {
-    if (!v) return {}
-    if (typeof v === 'object') return v as Record<string, unknown>
+    if (!v) return {};
+    if (typeof v === 'object') return v as Record<string, unknown>;
     try {
-        const o = JSON.parse(String(v))
-        return o && typeof o === 'object' ? o : {}
+        const o = JSON.parse(String(v));
+        return o && typeof o === 'object' ? o : {};
     } catch (e) {
-        return {}
+        return {};
     }
 }
 
@@ -227,7 +249,7 @@ function parseScratchpad(v: unknown): Record<string, unknown> {
  * server-resolved filter (scripted 'REL:' relationships included), labels and omit-if-empty.
  */
 export const RELATED_LISTS_FIELDS = `relatedListMetadata { hasRelatedLists }
-              relatedLists(includeEmptyOmittedRelatedLists: true) { groupByField sourceTable targetTable count filter displayLabel label value relatedField omitIfEmpty }`
+              relatedLists(includeEmptyOmittedRelatedLists: true) { groupByField sourceTable targetTable count filter displayLabel label value relatedField omitIfEmpty }`;
 
 /** uiView's selection for a record form (shared by FORM_QUERY and FORM_RULES_QUERY). */
 export const UI_VIEW_SELECTION = `{
@@ -271,7 +293,7 @@ export const UI_VIEW_SELECTION = `{
           }
         }
       }
-    }`
+    }`;
 
 /**
  * The record form as Workspace loads it: the view resolver (GlideViewQuery_Query.uiView) wraps
@@ -282,7 +304,7 @@ export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query
   GlideViewQuery_Query {
     uiView(table: $table, views: $views, sysId: $sysId, query: $query, forcedViewName: $forcedViewName, viewRuleConfigId: $viewRuleConfigId) ${UI_VIEW_SELECTION}
   }
-}`
+}`;
 
 /**
  * The record form with portal view rules, in ONE request: the remote table x_312987_portal_view_answer
@@ -307,7 +329,7 @@ export const FORM_RULES_QUERY = `query rpFormRules($table: String!, $sysId: Stri
       }
     }
   }
-}`
+}`;
 
 // ---- related lists (app/related-list wave) ----------------------------------------------------
 
@@ -327,20 +349,27 @@ export function normalizeRelatedLists(list: any): RelatedListInfo[] {
             omitIfEmpty: bool(r.omitIfEmpty),
             groupByField: String(r.groupByField || ''),
             kind: /^REL:/i.test(String(r.value)) ? ('scripted' as const) : ('reference' as const),
-        }))
+        }));
 }
 
 /** Form annotations by sys_id (the id the section rows carry in place of a field name). */
 function annotationsOf(list: any): Record<string, FormAnnotation> {
-    const out: Record<string, FormAnnotation> = {}
+    const out: Record<string, FormAnnotation> = {};
     for (const a of Array.isArray(list) ? list : []) {
-        if (!a || !a.sysId) continue
-        out[String(a.sysId)] = { sysId: String(a.sysId), text: String(a.text || ''), type: String(a.typeDisplayValue || ''), typeId: String(a.annotationType || ''), isPlainText: bool(a.isPlainText) }
+        if (!a || !a.sysId) continue;
+        out[String(a.sysId)] = {
+            sysId: String(a.sysId),
+            text: String(a.text || ''),
+            type: String(a.typeDisplayValue || ''),
+            typeId: String(a.annotationType || ''),
+            isPlainText: bool(a.isPlainText),
+        };
     }
-    return out
+    return out;
 }
 
-const flag = (v: unknown): 'true' | 'false' | 'ignore' => (v === true || v === 'true' ? 'true' : v === false || v === 'false' ? 'false' : 'ignore')
+const flag = (v: unknown): 'true' | 'false' | 'ignore' =>
+    v === true || v === 'true' ? 'true' : v === false || v === 'false' ? 'false' : 'ignore';
 
 /** GraphQL policy → UiPolicy (forms and catalog). */
 export function normalizePolicy(p: any): UiPolicy {
@@ -354,29 +383,33 @@ export function normalizePolicy(p: any): UiPolicy {
         preEvaluatedResult: bool(p.preEvaluatedResult),
         scriptTrue: (p.scriptTrue && p.scriptTrue.script) || undefined,
         scriptFalse: (p.scriptFalse && p.scriptFalse.script) || undefined,
-        actions: (p.actions || []).filter((a: any) => a && a.name).map((a: any) => ({
-            name: String(a.name),
-            visible: flag(a.visible),
-            mandatory: flag(a.mandatory),
-            disabled: flag(a.disabled),
-            cleared: bool(a.cleared),
-            value: a.value == null ? undefined : String(a.value),
-            valueAction: a.valueAction || undefined,
-            fieldMessage: a.fieldMessage || undefined,
-            fieldMessageType: a.fieldMessageType || undefined,
-        })),
-        conditions: (p.conditions || []).filter((c: any) => c && c.field).map((c: any) => ({
-            field: String(c.field),
-            oper: String(c.oper || '='),
-            value: c.value == null ? '' : String(c.value),
-            type: c.type || undefined,
-            label: c.fieldLabel || undefined,
-            or: bool(c.or),
-            newquery: bool(c.newquery),
-            preEvaluatedTerm: bool(c.preEvaluatedTerm),
-            preEvaluatedTermResult: bool(c.preEvaluatedTermResult),
-        })),
-    }
+        actions: (p.actions || [])
+            .filter((a: any) => a && a.name)
+            .map((a: any) => ({
+                name: String(a.name),
+                visible: flag(a.visible),
+                mandatory: flag(a.mandatory),
+                disabled: flag(a.disabled),
+                cleared: bool(a.cleared),
+                value: a.value == null ? undefined : String(a.value),
+                valueAction: a.valueAction || undefined,
+                fieldMessage: a.fieldMessage || undefined,
+                fieldMessageType: a.fieldMessageType || undefined,
+            })),
+        conditions: (p.conditions || [])
+            .filter((c: any) => c && c.field)
+            .map((c: any) => ({
+                field: String(c.field),
+                oper: String(c.oper || '='),
+                value: c.value == null ? '' : String(c.value),
+                type: c.type || undefined,
+                label: c.fieldLabel || undefined,
+                or: bool(c.or),
+                newquery: bool(c.newquery),
+                preEvaluatedTerm: bool(c.preEvaluatedTerm),
+                preEvaluatedTermResult: bool(c.preEvaluatedTermResult),
+            })),
+    };
 }
 
 function normalizeAction(a: any): UiAction {
@@ -390,7 +423,7 @@ function normalizeAction(a: any): UiAction {
         hint: a.hint || undefined,
         hasClientScript: bool(a.hasClientScript),
         clientScript: a.clientScript || undefined,
-    }
+    };
 }
 
 /**
@@ -401,46 +434,78 @@ function normalizeAction(a: any): UiAction {
  * never refetch a new record in the background. `query` (encoded, e.g. 'incident=<id>') presets a
  * new record's values, as Workspace's openRecord(table, '-1', { query }) does.
  */
-export async function fetchFormBootstrap(table: string, sysId: string, view = '', signal?: AbortSignal, query = '', resolution: FormViewResolution = {}): Promise<FormBootstrap> {
-    safeName(table, 'table')
+export async function fetchFormBootstrap(
+    table: string,
+    sysId: string,
+    view = '',
+    signal?: AbortSignal,
+    query = '',
+    resolution: FormViewResolution = {}
+): Promise<FormBootstrap> {
+    safeName(table, 'table');
     // Portal view rules (one request): the answer row resolves the view, uiView builds the form.
-    if (resolution.rules && resolution.rules.portal) return fetchFormWithRules(table, sysId, signal, query, resolution)
+    if (resolution.rules && resolution.rules.portal) return fetchFormWithRules(table, sysId, signal, query, resolution);
     // View resolution (uiView): a forced view beats Workspace view rules (viewRuleConfigId), which beat
     // the candidate list (views). Without a forced view the rules and candidates decide.
-    const forcedView = forcedViewName(view)
-    const views = forcedView ? '' : cleanViewList(resolution.views)
-    const viewRuleConfigId = forcedView ? '' : sysIdOrEmpty(resolution.viewRuleConfigId)
-    const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: forcedView, views, viewRuleConfigId }, { signal, allowPartial: true })
-    return bootstrapFromUiView(data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView, table, sysId, view, { forcedView, views, viewRuleConfigId })
+    const forcedView = forcedViewName(view);
+    const views = forcedView ? '' : cleanViewList(resolution.views);
+    const viewRuleConfigId = forcedView ? '' : sysIdOrEmpty(resolution.viewRuleConfigId);
+    const data = await graphql(
+        FORM_QUERY,
+        { table, sysId: sysId || '-1', query: query || '', forcedViewName: forcedView, views, viewRuleConfigId },
+        { signal, allowPartial: true }
+    );
+    return bootstrapFromUiView(
+        data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView,
+        table,
+        sysId,
+        view,
+        { forcedView, views, viewRuleConfigId }
+    );
 }
 
 /** FormBootstrap from a uiView result (FORM_QUERY or FORM_RULES_QUERY). */
-export function bootstrapFromUiView(U: any, table: string, sysId: string, view: string, requested: { forcedView: string; views: string; viewRuleConfigId: string }, resolution?: ViewResolutionInfo): FormBootstrap {
-    const { forcedView, views, viewRuleConfigId } = requested
-    const Q = (U && U.glideLayoutItem && U.glideLayoutItem._query) || {}
-    const L = Q.GlideLayout_Query && Q.GlideLayout_Query.formLayout
-    if (!L) throw new Error(`No form layout for ${table}`)
-    if (L.isValidRecord === false || L.canReadRecord === false) throw new Error("This record doesn't exist or you don't have access to it.")
-    const values: Record<string, FieldValue> = {}
-    for (const v of L.recordValues || []) values[v.name] = { value: v.value == null ? '' : String(v.value), displayValue: v.displayValue == null ? '' : String(v.displayValue) }
-    const states: FormBootstrap['states'] = {}
-    for (const s of L.fieldStates || []) states[s.name] = { hidden: !!s.hidden, mandatory: !!s.mandatory, readonly: !!s.readonly }
-    const meta: Record<string, FieldMeta> = {}
-    for (const e of L.elementsData || []) if (e && e.name) meta[e.name] = metaFromElement(L.table || table, e)
-    const S = Q.GlideClientScriptingEnvironment_Query
-    const A = Q.GlideUIAction_Query && Q.GlideUIAction_Query.uiActions
-    const warnings: string[] = []
-    if (!S || !S.ClientScriptingEnvironment_Policies) warnings.push('UI policies unavailable')
-    if (!A || !A.formActions) warnings.push('UI actions unavailable')
-    if (!S || !S.ClientScriptingEnvironment_Scripts) warnings.push('Client scripts unavailable')
-    const G = (S && S.ClientScriptingEnvironment_Globals) || {}
+export function bootstrapFromUiView(
+    U: any,
+    table: string,
+    sysId: string,
+    view: string,
+    requested: { forcedView: string; views: string; viewRuleConfigId: string },
+    resolution?: ViewResolutionInfo
+): FormBootstrap {
+    const { forcedView, views, viewRuleConfigId } = requested;
+    const Q = (U && U.glideLayoutItem && U.glideLayoutItem._query) || {};
+    const L = Q.GlideLayout_Query && Q.GlideLayout_Query.formLayout;
+    if (!L) throw new Error(`No form layout for ${table}`);
+    if (L.isValidRecord === false || L.canReadRecord === false)
+        throw new Error("This record doesn't exist or you don't have access to it.");
+    const values: Record<string, FieldValue> = {};
+    for (const v of L.recordValues || [])
+        values[v.name] = {
+            value: v.value == null ? '' : String(v.value),
+            displayValue: v.displayValue == null ? '' : String(v.displayValue),
+        };
+    const states: FormBootstrap['states'] = {};
+    for (const s of L.fieldStates || [])
+        states[s.name] = { hidden: !!s.hidden, mandatory: !!s.mandatory, readonly: !!s.readonly };
+    const meta: Record<string, FieldMeta> = {};
+    for (const e of L.elementsData || []) if (e && e.name) meta[e.name] = metaFromElement(L.table || table, e);
+    const S = Q.GlideClientScriptingEnvironment_Query;
+    const A = Q.GlideUIAction_Query && Q.GlideUIAction_Query.uiActions;
+    const warnings: string[] = [];
+    if (!S || !S.ClientScriptingEnvironment_Policies) warnings.push('UI policies unavailable');
+    if (!A || !A.formActions) warnings.push('UI actions unavailable');
+    if (!S || !S.ClientScriptingEnvironment_Scripts) warnings.push('Client scripts unavailable');
+    const G = (S && S.ClientScriptingEnvironment_Globals) || {};
     const sections = (L.sectionLayout || []).map((s: any) => ({
         id: String(s.sysId || ''),
         caption: s.caption || '',
         label: s.captionDisplay || s.caption || '',
         // rows: [[{ fields: [...] }, { fields: [...] }], …] → rows → columns → fields
-        rows: (s.rows || []).map((row: any) => (Array.isArray(row) ? row : [row]).map((col: any) => ((col && col.fields) || []).map(String))),
-    }))
+        rows: (s.rows || []).map((row: any) =>
+            (Array.isArray(row) ? row : [row]).map((col: any) => ((col && col.fields) || []).map(String))
+        ),
+    }));
     return {
         table: L.table || table,
         sysId: L.sysId || sysId,
@@ -461,7 +526,9 @@ export function bootstrapFromUiView(U: any, table: string, sysId: string, view: 
         hasRelatedLists: !!(L.relatedListMetadata && L.relatedListMetadata.hasRelatedLists),
         annotations: annotationsOf(L.annotations),
         policies: ((S && S.ClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
-        actions: ((A && A.formActions) || []).map(normalizeAction).sort((a: UiAction, b: UiAction) => a.order - b.order),
+        actions: ((A && A.formActions) || [])
+            .map(normalizeAction)
+            .sort((a: UiAction, b: UiAction) => a.order - b.order),
         scripts: normalizeClientScripts(S && S.ClientScriptingEnvironment_Scripts),
         scratchpad: parseScratchpad(G.g_scratchpad),
         globals: {
@@ -472,38 +539,47 @@ export function bootstrapFromUiView(U: any, table: string, sysId: string, view: 
             textDirection: G.g_text_direction || 'ltr',
         },
         warnings,
-    }
+    };
 }
 
 // ---- portal view rules (x312987Portal.viewRules, x_312987_portal_view_answer) -----------------
 
 /** One encoded-query term per input (values URL-encoded: they may hold ^ and =). Empty inputs are left out. */
-export function viewAnswerConditions(kind: 'form' | 'list', table: string, sysId: string, query: string, rules: ViewRuleInputs, fallback: { views?: string; viewRuleConfigId?: string } = {}): string {
-    const terms: string[] = []
+export function viewAnswerConditions(
+    kind: 'form' | 'list',
+    table: string,
+    sysId: string,
+    query: string,
+    rules: ViewRuleInputs,
+    fallback: { views?: string; viewRuleConfigId?: string } = {}
+): string {
+    const terms: string[] = [];
     const add = (field: string, value: unknown) => {
-        const v = value === undefined || value === null ? '' : String(value)
-        if (v !== '') terms.push(`${field}=${encodeURIComponent(v)}`)
-    }
-    add('kind', kind)
-    add('target_table', table)
-    add('record', kind === 'form' ? sysId || '-1' : '')
-    add('preset', kind === 'form' ? query : '')
-    add('portal', rules.portal)
-    add('page', rules.page)
-    add('url_view', rules.urlView)
-    add('option_view', rules.optionView)
-    if (rules.lockView) add('lock_view', 'true')
-    if (rules.remember === false) add('remember', 'false')
+        const v = value === undefined || value === null ? '' : String(value);
+        if (v !== '') terms.push(`${field}=${encodeURIComponent(v)}`);
+    };
+    add('kind', kind);
+    add('target_table', table);
+    add('record', kind === 'form' ? sysId || '-1' : '');
+    add('preset', kind === 'form' ? query : '');
+    add('portal', rules.portal);
+    add('page', rules.page);
+    add('url_view', rules.urlView);
+    add('option_view', rules.optionView);
+    if (rules.lockView) add('lock_view', 'true');
+    if (rules.remember === false) add('remember', 'false');
     // 'v:' + value: the client's remembered view ('' = none known to be set); absent = the server reads the preference.
-    if (rules.remembered !== undefined && rules.remembered !== null) terms.push(`remembered=${encodeURIComponent('v:' + rules.remembered)}`)
+    if (rules.remembered !== undefined && rules.remembered !== null)
+        terms.push(`remembered=${encodeURIComponent('v:' + rules.remembered)}`);
     // The automatic fallback (absent = the portal's settings, read on the server).
-    add('default_views', fallback.views)
-    add('config_in', fallback.viewRuleConfigId)
-    return terms.join('^')
+    add('default_views', fallback.views);
+    add('config_in', fallback.viewRuleConfigId);
+    return terms.join('^');
 }
 
 function resolutionFromRow(row: any, via: 'answer' | 'api'): ViewResolutionInfo {
-    const v = (k: string) => (row && row[k] && row[k].value != null ? String(row[k].value) : row && typeof row[k] === 'string' ? row[k] : '')
+    const v = (k: string) =>
+        row && row[k] && row[k].value != null ? String(row[k].value) : row && typeof row[k] === 'string' ? row[k] : '';
     return {
         view: v('view'),
         source: (v('source') || 'auto') as ViewResolutionInfo['source'],
@@ -512,17 +588,24 @@ function resolutionFromRow(row: any, via: 'answer' | 'api'): ViewResolutionInfo 
         missing: v('missing'),
         reason: v('reason'),
         via,
-    }
+    };
 }
 
 export const VIEW_RESOLVE_QUERY = `query rpViewResolve($kind: String, $table: String!, $sysId: String, $query: String, $portal: String!, $page: String, $urlView: String, $optionView: String, $lockView: Boolean, $remember: Boolean, $remembered: String) {
   x312987Portal { viewRules { resolve(kind: $kind, table: $table, sysId: $sysId, query: $query, portal: $portal, page: $page, urlView: $urlView, optionView: $optionView, lockView: $lockView, remember: $remember, remembered: $remembered) {
     view source ruleId ruleName missing reason } } }
-}`
+}`;
 
 /** The view resolution alone (the two-call fallback, lists, tests): x312987Portal.viewRules.resolve. */
-export async function resolveViewRules(kind: 'form' | 'list', table: string, sysId: string, query: string, rules: ViewRuleInputs, signal?: AbortSignal): Promise<ViewResolutionInfo> {
-    safeName(table, 'table')
+export async function resolveViewRules(
+    kind: 'form' | 'list',
+    table: string,
+    sysId: string,
+    query: string,
+    rules: ViewRuleInputs,
+    signal?: AbortSignal
+): Promise<ViewResolutionInfo> {
+    safeName(table, 'table');
     const data = await graphql(
         VIEW_RESOLVE_QUERY,
         {
@@ -538,11 +621,11 @@ export async function resolveViewRules(kind: 'form' | 'list', table: string, sys
             remember: rules.remember !== false,
             remembered: rules.remembered === undefined ? null : rules.remembered,
         },
-        { signal },
-    )
-    const r = data && data.x312987Portal && data.x312987Portal.viewRules && data.x312987Portal.viewRules.resolve
-    if (!r) throw new Error('View rules: no resolution')
-    return resolutionFromRow(r, 'api')
+        { signal }
+    );
+    const r = data && data.x312987Portal && data.x312987Portal.viewRules && data.x312987Portal.viewRules.resolve;
+    if (!r) throw new Error('View rules: no resolution');
+    return resolutionFromRow(r, 'api');
 }
 
 export const VIEW_EXPLAIN_QUERY = `query rpViewExplain($kind: String, $table: String!, $sysId: String, $query: String, $portal: String!, $page: String, $urlView: String, $optionView: String, $lockView: Boolean, $user: String) {
@@ -550,86 +633,182 @@ export const VIEW_EXPLAIN_QUERY = `query rpViewExplain($kind: String, $table: St
     resolution { view source ruleId ruleName missing reason }
     rulePortalId rulePortalName rulePortalShared subjectUserId subjectViewAs notes
     rules { ruleId name scope order view matched failedOn detail } } } }
-}`
+}`;
 
-export type ViewRuleVerdict = { ruleId: string; name: string; scope: 'page' | 'portal'; order: number; view: string; matched: boolean; failedOn: string; detail: string }
+export type ViewRuleVerdict = {
+    ruleId: string;
+    name: string;
+    scope: 'page' | 'portal';
+    order: number;
+    view: string;
+    matched: boolean;
+    failedOn: string;
+    detail: string;
+};
 export type ViewExplanation = {
-    resolution: ViewResolutionInfo
-    rulePortal: { id: string; name: string; shared: boolean }
-    subject: { userId: string; viewAs: boolean }
-    notes: string[]
-    rules: ViewRuleVerdict[]
-}
+    resolution: ViewResolutionInfo;
+    rulePortal: { id: string; name: string; shared: boolean };
+    subject: { userId: string; viewAs: boolean };
+    notes: string[];
+    rules: ViewRuleVerdict[];
+};
 
 /** Studio: every candidate rule's verdict (null when the caller isn't a studio user). */
 export async function explainViewRules(
-    args: { kind?: 'form' | 'list'; table: string; sysId?: string; query?: string; portal: string; page?: string; urlView?: string; optionView?: string; lockView?: boolean; user?: string },
-    signal?: AbortSignal,
+    args: {
+        kind?: 'form' | 'list';
+        table: string;
+        sysId?: string;
+        query?: string;
+        portal: string;
+        page?: string;
+        urlView?: string;
+        optionView?: string;
+        lockView?: boolean;
+        user?: string;
+    },
+    signal?: AbortSignal
 ): Promise<ViewExplanation | null> {
-    safeName(args.table, 'table')
-    const data = await graphql(VIEW_EXPLAIN_QUERY, { kind: args.kind || 'form', table: args.table, sysId: args.sysId || '', query: args.query || '', portal: args.portal, page: args.page || '', urlView: args.urlView || '', optionView: args.optionView || '', lockView: !!args.lockView, user: args.user || '' }, { signal })
-    const e = data && data.x312987Portal && data.x312987Portal.viewRules && data.x312987Portal.viewRules.explain
-    if (!e) return null
+    safeName(args.table, 'table');
+    const data = await graphql(
+        VIEW_EXPLAIN_QUERY,
+        {
+            kind: args.kind || 'form',
+            table: args.table,
+            sysId: args.sysId || '',
+            query: args.query || '',
+            portal: args.portal,
+            page: args.page || '',
+            urlView: args.urlView || '',
+            optionView: args.optionView || '',
+            lockView: !!args.lockView,
+            user: args.user || '',
+        },
+        { signal }
+    );
+    const e = data && data.x312987Portal && data.x312987Portal.viewRules && data.x312987Portal.viewRules.explain;
+    if (!e) return null;
     return {
         resolution: resolutionFromRow(e.resolution, 'api'),
-        rulePortal: { id: String(e.rulePortalId || ''), name: String(e.rulePortalName || ''), shared: !!e.rulePortalShared },
+        rulePortal: {
+            id: String(e.rulePortalId || ''),
+            name: String(e.rulePortalName || ''),
+            shared: !!e.rulePortalShared,
+        },
         subject: { userId: String(e.subjectUserId || ''), viewAs: !!e.subjectViewAs },
         notes: (e.notes || []).map(String),
-        rules: (e.rules || []).map((r: any) => ({ ruleId: String(r.ruleId), name: String(r.name || ''), scope: r.scope === 'page' ? 'page' : 'portal', order: Number(r.order || 0), view: String(r.view || ''), matched: !!r.matched, failedOn: String(r.failedOn || ''), detail: String(r.detail || '') })),
-    }
+        rules: (e.rules || []).map((r: any) => ({
+            ruleId: String(r.ruleId),
+            name: String(r.name || ''),
+            scope: r.scope === 'page' ? 'page' : 'portal',
+            order: Number(r.order || 0),
+            view: String(r.view || ''),
+            matched: !!r.matched,
+            failedOn: String(r.failedOn || ''),
+            detail: String(r.detail || ''),
+        })),
+    };
 }
 
 /** Set once the one-request path failed on this page load (e.g. the answer table isn't installed): use two calls. */
-let composedUnavailable = false
+let composedUnavailable = false;
 
 /** The record form with portal view rules: one request (answer row → uiView), else resolve + rpForm. */
-async function fetchFormWithRules(table: string, sysId: string, signal: AbortSignal | undefined, query: string, resolution: FormViewResolution): Promise<FormBootstrap> {
-    const rules = resolution.rules as ViewRuleInputs
-    const views = cleanViewList(resolution.views)
-    const viewRuleConfigId = sysIdOrEmpty(resolution.viewRuleConfigId)
+async function fetchFormWithRules(
+    table: string,
+    sysId: string,
+    signal: AbortSignal | undefined,
+    query: string,
+    resolution: FormViewResolution
+): Promise<FormBootstrap> {
+    const rules = resolution.rules as ViewRuleInputs;
+    const views = cleanViewList(resolution.views);
+    const viewRuleConfigId = sysIdOrEmpty(resolution.viewRuleConfigId);
     if (!composedUnavailable) {
-        let row: any = null
-        let U: any = null
+        let row: any = null;
+        let U: any = null;
         try {
-            const answer = viewAnswerConditions('form', table, sysId, query, rules, { views, viewRuleConfigId })
-            const data = await graphql(FORM_RULES_QUERY, { table, sysId: sysId || '-1', query: query || '', answer }, { signal, allowPartial: true })
-            const rows = data && data.GlideRecord_Query && data.GlideRecord_Query.x_312987_portal_view_answer && data.GlideRecord_Query.x_312987_portal_view_answer._results
-            row = rows && rows[0]
-            U = row && row._query && row._query.GlideViewQuery_Query && row._query.GlideViewQuery_Query.uiView
+            const answer = viewAnswerConditions('form', table, sysId, query, rules, { views, viewRuleConfigId });
+            const data = await graphql(
+                FORM_RULES_QUERY,
+                { table, sysId: sysId || '-1', query: query || '', answer },
+                { signal, allowPartial: true }
+            );
+            const rows =
+                data &&
+                data.GlideRecord_Query &&
+                data.GlideRecord_Query.x_312987_portal_view_answer &&
+                data.GlideRecord_Query.x_312987_portal_view_answer._results;
+            row = rows && rows[0];
+            U = row && row._query && row._query.GlideViewQuery_Query && row._query.GlideViewQuery_Query.uiView;
         } catch (e) {
-            if (signal && signal.aborted) throw e
+            if (signal && signal.aborted) throw e;
         }
         if (row && U) {
             // The one-request path worked: record errors (no access, deleted) are the form's own errors.
-            const res = resolutionFromRow(row, 'answer')
-            const sent = { views: String((row.views && row.views.value) || ''), config: String((row.rule_config && row.rule_config.value) || '') }
-            return bootstrapFromUiView(U, table, sysId, res.view, { forcedView: res.view ? forcedViewName(res.view) : '', views: res.view ? '' : sent.views, viewRuleConfigId: res.view ? '' : sent.config }, res)
+            const res = resolutionFromRow(row, 'answer');
+            const sent = {
+                views: String((row.views && row.views.value) || ''),
+                config: String((row.rule_config && row.rule_config.value) || ''),
+            };
+            return bootstrapFromUiView(
+                U,
+                table,
+                sysId,
+                res.view,
+                {
+                    forcedView: res.view ? forcedViewName(res.view) : '',
+                    views: res.view ? '' : sent.views,
+                    viewRuleConfigId: res.view ? '' : sent.config,
+                },
+                res
+            );
         }
         // No row (answer table missing or refused) or a transport error: use two calls from now on.
         // A new record reserved nothing yet (uiView never ran without the row).
-        composedUnavailable = true
+        composedUnavailable = true;
     }
-    let res: ViewResolutionInfo
+    let res: ViewResolutionInfo;
     try {
-        res = await resolveViewRules('form', table, sysId, query, rules, signal)
+        res = await resolveViewRules('form', table, sysId, query, rules, signal);
     } catch (e) {
-        if (signal && signal.aborted) throw e
+        if (signal && signal.aborted) throw e;
         // No resolver at all: the v1.17 behaviour (explicit names are not checked; uiView decides).
-        res = { view: '', source: 'auto', ruleId: '', ruleName: '', missing: '', reason: '', via: 'api' }
-        const named = rules.lockView ? rules.optionView || rules.urlView : rules.urlView || rules.optionView
-        if (named) res = { ...res, view: named, source: rules.lockView ? 'option' : 'url' }
+        res = { view: '', source: 'auto', ruleId: '', ruleName: '', missing: '', reason: '', via: 'api' };
+        const named = rules.lockView ? rules.optionView || rules.urlView : rules.urlView || rules.optionView;
+        if (named) res = { ...res, view: named, source: rules.lockView ? 'option' : 'url' };
     }
-    const forcedView = res.view ? forcedViewName(res.view) : ''
-    const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: forcedView, views: forcedView ? '' : views, viewRuleConfigId: forcedView ? '' : viewRuleConfigId }, { signal, allowPartial: true })
-    return bootstrapFromUiView(data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView, table, sysId, res.view, { forcedView, views, viewRuleConfigId }, res)
+    const forcedView = res.view ? forcedViewName(res.view) : '';
+    const data = await graphql(
+        FORM_QUERY,
+        {
+            table,
+            sysId: sysId || '-1',
+            query: query || '',
+            forcedViewName: forcedView,
+            views: forcedView ? '' : views,
+            viewRuleConfigId: forcedView ? '' : viewRuleConfigId,
+        },
+        { signal, allowPartial: true }
+    );
+    return bootstrapFromUiView(
+        data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView,
+        table,
+        sysId,
+        res.view,
+        { forcedView, views, viewRuleConfigId },
+        res
+    );
 }
 
 // ---- form views (GlideViewQuery_Query.uiView.availableViews) --------------------------------
 
 /** True for the names that mean the Default view ('', 'default', 'Default view'). */
 export function isDefaultViewName(view: string | undefined | null): boolean {
-    const v = String(view || '').trim().toLowerCase()
-    return v === '' || v === 'default' || v === 'default view'
+    const v = String(view || '')
+        .trim()
+        .toLowerCase();
+    return v === '' || v === 'default' || v === 'default view';
 }
 
 /**
@@ -637,9 +816,9 @@ export function isDefaultViewName(view: string | undefined | null): boolean {
  * ('default': an unknown name, which uiView resolves to Default while still skipping rules).
  */
 function forcedViewName(view: string | undefined): string {
-    const v = String(view || '').trim()
-    if (!v) return ''
-    return isDefaultViewName(v) ? 'default' : v
+    const v = String(view || '').trim();
+    if (!v) return '';
+    return isDefaultViewName(v) ? 'default' : v;
 }
 
 /** 'sp, ess' → 'sp,ess' (view names only). */
@@ -648,68 +827,96 @@ function cleanViewList(list: string | undefined): string {
         .split(',')
         .map((v) => v.trim())
         .filter((v) => /^[A-Za-z0-9_.-]+$/.test(v))
-        .join(',')
+        .join(',');
 }
 
-const sysIdOrEmpty = (id: string | undefined) => (/^[0-9a-f]{32}$/i.test(String(id || '').trim()) ? String(id).trim().toLowerCase() : '')
+const sysIdOrEmpty = (id: string | undefined) =>
+    /^[0-9a-f]{32}$/i.test(String(id || '').trim()) ? String(id).trim().toLowerCase() : '';
 
 /**
  * Which of these view names exist for the table (one request, no layout, reserves nothing).
  * Uses uiView's candidate list one name at a time: a name that doesn't exist for the table
  * resolves to 'Default view'. Default spellings always exist. → { [name]: exists }
  */
-export async function checkFormViews(table: string, names: string[], signal?: AbortSignal): Promise<Record<string, boolean>> {
-    safeName(table, 'table')
-    const out: Record<string, boolean> = {}
-    const ask = Array.from(new Set(names.map((n) => String(n || '').trim()).filter(Boolean)))
-    const check: string[] = []
+export async function checkFormViews(
+    table: string,
+    names: string[],
+    signal?: AbortSignal
+): Promise<Record<string, boolean>> {
+    safeName(table, 'table');
+    const out: Record<string, boolean> = {};
+    const ask = Array.from(new Set(names.map((n) => String(n || '').trim()).filter(Boolean)));
+    const check: string[] = [];
     for (const n of ask) {
-        if (isDefaultViewName(n)) out[n] = true
-        else if (!/^[A-Za-z0-9_.-]+$/.test(n)) out[n] = false
-        else check.push(n)
+        if (isDefaultViewName(n)) out[n] = true;
+        else if (!/^[A-Za-z0-9_.-]+$/.test(n)) out[n] = false;
+        else check.push(n);
     }
-    if (!check.length) return out
-    const fields = check.map((n, i) => `v${i}: uiView(table: $table, views: ${JSON.stringify(n)}, sysId: "-1", query: "") { view }`).join(' ')
-    const data = await graphql(`query rpCheckViews($table: String!) { GlideViewQuery_Query { ${fields} } }`, { table }, { signal })
-    const Q = (data && data.GlideViewQuery_Query) || {}
+    if (!check.length) return out;
+    const fields = check
+        .map((n, i) => `v${i}: uiView(table: $table, views: ${JSON.stringify(n)}, sysId: "-1", query: "") { view }`)
+        .join(' ');
+    const data = await graphql(
+        `query rpCheckViews($table: String!) { GlideViewQuery_Query { ${fields} } }`,
+        { table },
+        { signal }
+    );
+    const Q = (data && data.GlideViewQuery_Query) || {};
     check.forEach((n, i) => {
-        const got = Q['v' + i] && Q['v' + i].view
-        out[n] = !!got && String(got).toLowerCase() === n.toLowerCase()
-    })
-    return out
+        const got = Q['v' + i] && Q['v' + i].view;
+        out[n] = !!got && String(got).toLowerCase() === n.toLowerCase();
+    });
+    return out;
 }
 
 export const FORM_VIEWS_QUERY = `query rpFormViews($table: String!, $sysId: String!) {
   GlideViewQuery_Query { uiView(table: $table, views: "", sysId: $sysId, query: "") { view availableViews { name label } } }
-}`
+}`;
 
 /** The form views a table offers (and the one the view rules pick for this record; the list is
  *  empty for a new record, '-1'). No layout is loaded. */
-export async function fetchFormViews(table: string, sysId = '-1', signal?: AbortSignal): Promise<{ current: string; views: FormView[] }> {
-    const data = await graphql(FORM_VIEWS_QUERY, { table: safeName(table, 'table'), sysId: sysId || '-1' }, { signal })
-    const U = (data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView) || {}
-    return { current: U.view || '', views: (U.availableViews || []).map((v: any) => ({ name: String(v.name), label: String(v.label || v.name) })) }
+export async function fetchFormViews(
+    table: string,
+    sysId = '-1',
+    signal?: AbortSignal
+): Promise<{ current: string; views: FormView[] }> {
+    const data = await graphql(FORM_VIEWS_QUERY, { table: safeName(table, 'table'), sysId: sysId || '-1' }, { signal });
+    const U = (data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView) || {};
+    return {
+        current: U.view || '',
+        views: (U.availableViews || []).map((v: any) => ({ name: String(v.name), label: String(v.label || v.name) })),
+    };
 }
 
 // ---- server UI actions (save, insert, …): POST /api/now/ui/ui_action/:sysId -----------------
 
 /** A failed UI action: the platform's message plus field-level messages. */
 export class UiActionError extends Error {
-    status: number
-    fieldMessages: { field: string; type: string; message: string }[]
-    notifications: SessionNotification[]
-    constructor(message: string, status: number, fieldMessages: UiActionError['fieldMessages'] = [], notifications: SessionNotification[] = []) {
-        super(message)
-        this.name = 'UiActionError'
-        this.status = status
-        this.fieldMessages = fieldMessages
-        this.notifications = notifications
+    status: number;
+    fieldMessages: { field: string; type: string; message: string }[];
+    notifications: SessionNotification[];
+    constructor(
+        message: string,
+        status: number,
+        fieldMessages: UiActionError['fieldMessages'] = [],
+        notifications: SessionNotification[] = []
+    ) {
+        super(message);
+        this.name = 'UiActionError';
+        this.status = status;
+        this.fieldMessages = fieldMessages;
+        this.notifications = notifications;
     }
 }
 
 function notificationsOf(json: any): SessionNotification[] {
-    const list = (json && json.session && json.session.notifications) || []
-    return list.map((n: any) => ({ type: String(n.type || n.notificationType || 'info'), text: String(n.text || n.message || '') })).filter((n: SessionNotification) => n.text)
+    const list = (json && json.session && json.session.notifications) || [];
+    return list
+        .map((n: any) => ({
+            type: String(n.type || n.notificationType || 'info'),
+            text: String(n.text || n.message || ''),
+        }))
+        .filter((n: SessionNotification) => n.text);
 }
 
 /**
@@ -720,14 +927,14 @@ function notificationsOf(json: any): SessionNotification[] {
  *   fields: [{ name, value, displayValue?, originalValue? }]
  */
 export async function executeUiAction(args: {
-    actionSysId: string
-    table: string
-    sysId: string
-    encodedRecord?: string
-    fields: { name: string; value: string; displayValue?: string; originalValue?: string }[]
-    signal?: AbortSignal
+    actionSysId: string;
+    table: string;
+    sysId: string;
+    encodedRecord?: string;
+    fields: { name: string; value: string; displayValue?: string; originalValue?: string }[];
+    signal?: AbortSignal;
 }): Promise<UiActionResult> {
-    const url = `/api/now/ui/ui_action/${encodeURIComponent(args.actionSysId)}?sysparm_table=${encodeURIComponent(args.table)}&sysparm_sys_id=${encodeURIComponent(args.sysId || '-1')}`
+    const url = `/api/now/ui/ui_action/${encodeURIComponent(args.actionSysId)}?sysparm_table=${encodeURIComponent(args.table)}&sysparm_sys_id=${encodeURIComponent(args.sysId || '-1')}`;
     const response = await fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
@@ -743,33 +950,56 @@ export async function executeUiAction(args: {
             additionalParams: {},
         }),
         signal: args.signal,
-    })
-    const text = await response.text()
-    let json: any = null
+    });
+    const text = await response.text();
+    let json: any = null;
     try {
-        json = text ? JSON.parse(text) : null
+        json = text ? JSON.parse(text) : null;
     } catch (e) {
         /* not JSON */
     }
-    const notifications = notificationsOf(json)
-    const result = (json && (json.result || json)) || {}
+    const notifications = notificationsOf(json);
+    const result = (json && (json.result || json)) || {};
     if (!response.ok || result.status === 'failure') {
-        const err = result.error || (json && json.error) || {}
-        const fieldMessages: UiActionError['fieldMessages'] = []
-        for (const f of result.fieldMessages || []) for (const m of f.debugMessages || []) fieldMessages.push({ field: String(f.elementId || ''), type: String(m.type || 'error'), message: String(m.message || '') })
-        const message = err.message || err.detail || (notifications.find((n) => n.type === 'error') || ({} as any)).text || `The action failed (HTTP ${response.status})`
-        throw new UiActionError(String(message), response.status, fieldMessages, notifications)
+        const err = result.error || (json && json.error) || {};
+        const fieldMessages: UiActionError['fieldMessages'] = [];
+        for (const f of result.fieldMessages || [])
+            for (const m of f.debugMessages || [])
+                fieldMessages.push({
+                    field: String(f.elementId || ''),
+                    type: String(m.type || 'error'),
+                    message: String(m.message || ''),
+                });
+        const message =
+            err.message ||
+            err.detail ||
+            (notifications.find((n) => n.type === 'error') || ({} as any)).text ||
+            `The action failed (HTTP ${response.status})`;
+        throw new UiActionError(String(message), response.status, fieldMessages, notifications);
     }
-    const record = result.record || {}
-    const r = result.redirect
-    const meta = (r && (r.type_metadata || r.typeMetadata)) || {}
+    const record = result.record || {};
+    const r = result.redirect;
+    const meta = (r && (r.type_metadata || r.typeMetadata)) || {};
     const redirect =
         r && typeof r === 'object'
-            ? { type: String(r.type || ''), table: meta.table || undefined, sysId: meta.sys_id || undefined, query: meta.query || undefined, url: r.url || meta.url || undefined }
+            ? {
+                  type: String(r.type || ''),
+                  table: meta.table || undefined,
+                  sysId: meta.sys_id || undefined,
+                  query: meta.query || undefined,
+                  url: r.url || meta.url || undefined,
+              }
             : typeof r === 'string' && r
               ? { type: 'URL', url: r }
-              : undefined
-    return { operation: String(result.operation || ''), table: String(record.table || args.table), sysId: String(record.sys_id || args.sysId), notifications, redirect, raw: json }
+              : undefined;
+    return {
+        operation: String(result.operation || ''),
+        table: String(record.table || args.table),
+        sysId: String(record.sys_id || args.sysId),
+        notifications,
+        redirect,
+        raw: json,
+    };
 }
 
 // ---- choices (GlideLayout_Query.choiceDataRetriever) ----------------------------------------
@@ -780,20 +1010,29 @@ export const CHOICES_QUERY = `query rpChoices($table: String!, $field: String!, 
       choice { value label }
     }
   }
-}`
+}`;
 
 /** Choices evaluated by the server against unsaved form values (dependent choices). */
 export async function fetchChoices(
     args: { table: string; field: string; sysId?: string; changes?: FormChanges; encodedRecord?: string },
-    signal?: AbortSignal,
+    signal?: AbortSignal
 ): Promise<Choice[]> {
     const data = await graphql(
         CHOICES_QUERY,
-        { table: args.table, field: args.field, sysId: args.sysId || '-1', changes: stableChanges(args.changes), encodedRecord: args.encodedRecord || '' },
-        { signal },
-    )
-    const r = data && data.GlideLayout_Query && data.GlideLayout_Query.choiceDataRetriever
-    return ((r && r.choice) || []).map((c: any) => ({ value: String(c.value ?? ''), label: String(c.label ?? c.value ?? '') }))
+        {
+            table: args.table,
+            field: args.field,
+            sysId: args.sysId || '-1',
+            changes: stableChanges(args.changes),
+            encodedRecord: args.encodedRecord || '',
+        },
+        { signal }
+    );
+    const r = data && data.GlideLayout_Query && data.GlideLayout_Query.choiceDataRetriever;
+    return ((r && r.choice) || []).map((c: any) => ({
+        value: String(c.value ?? ''),
+        label: String(c.label ?? c.value ?? ''),
+    }));
 }
 
 // ---- reference search (GlideLayout_Query.referenceDataRetriever) ----------------------------
@@ -807,11 +1046,19 @@ export const REFERENCE_QUERY = `query rpReference($table: String!, $field: Strin
       referenceDataList { sysId referenceData { key value } }
     }
   }
-}`
+}`;
 
 function toItem(r: any, recent: boolean): ReferenceItem {
-    const columns = (r.referenceData || []).map((d: any) => ({ key: String(d.key), value: d.value == null ? '' : String(d.value) }))
-    return { value: String(r.sysId), displayValue: columns.length ? columns[0].value : String(r.sysId), columns, recent }
+    const columns = (r.referenceData || []).map((d: any) => ({
+        key: String(d.key),
+        value: d.value == null ? '' : String(d.value),
+    }));
+    return {
+        value: String(r.sysId),
+        displayValue: columns.length ? columns[0].value : String(r.sysId),
+        columns,
+        recent,
+    };
 }
 
 /**
@@ -820,8 +1067,18 @@ function toItem(r: any, recent: boolean): ReferenceItem {
  * and `encodedRecord`. term '' returns the user's recent picks only; '*' matches everything.
  */
 export async function searchReference(
-    args: { table: string; field: string; term: string; sysId?: string; changes?: FormChanges; encodedRecord?: string; limit?: number; offset?: number; ignoreQualifier?: boolean },
-    signal?: AbortSignal,
+    args: {
+        table: string;
+        field: string;
+        term: string;
+        sysId?: string;
+        changes?: FormChanges;
+        encodedRecord?: string;
+        limit?: number;
+        offset?: number;
+        ignoreQualifier?: boolean;
+    },
+    signal?: AbortSignal
 ): Promise<ReferenceSearchResult> {
     const data = await graphql(
         REFERENCE_QUERY,
@@ -836,13 +1093,15 @@ export async function searchReference(
             offset: args.offset || 0,
             ignoreRefQual: !!args.ignoreQualifier,
         },
-        { signal },
-    )
-    const r = (data && data.GlideLayout_Query && data.GlideLayout_Query.referenceDataRetriever) || {}
-    const recent = (r.referenceRecentDataList || []).map((x: any) => toItem(x, true))
-    const seen = new Set(recent.map((x: ReferenceItem) => x.value))
-    const matches = (r.referenceDataList || []).map((x: any) => toItem(x, false)).filter((x: ReferenceItem) => !seen.has(x.value))
-    return { recent, matches, total: r.totalCount == null ? null : Number(r.totalCount) }
+        { signal }
+    );
+    const r = (data && data.GlideLayout_Query && data.GlideLayout_Query.referenceDataRetriever) || {};
+    const recent = (r.referenceRecentDataList || []).map((x: any) => toItem(x, true));
+    const seen = new Set(recent.map((x: ReferenceItem) => x.value));
+    const matches = (r.referenceDataList || [])
+        .map((x: any) => toItem(x, false))
+        .filter((x: ReferenceItem) => !seen.has(x.value));
+    return { recent, matches, total: r.totalCount == null ? null : Number(r.totalCount) };
 }
 
 // ---- record values (GlideRecord_Query) ------------------------------------------------------
@@ -852,28 +1111,37 @@ export async function fetchRecordValues(
     table: string,
     target: { sysId?: string; query?: string },
     fields: string[],
-    signal?: AbortSignal,
+    signal?: AbortSignal
 ): Promise<Record<string, FieldValue> | null> {
-    safeName(table, 'table')
-    const names = Array.from(new Set(['sys_id'].concat(fields))).map((f) => safeName(f, 'field'))
+    safeName(table, 'table');
+    const names = Array.from(new Set(['sys_id'].concat(fields))).map((f) => safeName(f, 'field'));
     const doc = `query rpRecord($q: String) { GlideRecord_Query { ${table}(queryConditions: $q, pagination: { limit: 1 }) { _results { ${names
         .map((n) => `${n} { value displayValue }`)
-        .join(' ')} } } } }`
-    const q = target.sysId ? `sys_id=${target.sysId}` : target.query || ''
-    const data = await graphql(doc, { q }, { signal })
-    const rows = data && data.GlideRecord_Query && data.GlideRecord_Query[table] && data.GlideRecord_Query[table]._results
-    if (!rows || !rows.length) return null
-    const out: Record<string, FieldValue> = {}
+        .join(' ')} } } } }`;
+    const q = target.sysId ? `sys_id=${target.sysId}` : target.query || '';
+    const data = await graphql(doc, { q }, { signal });
+    const rows =
+        data && data.GlideRecord_Query && data.GlideRecord_Query[table] && data.GlideRecord_Query[table]._results;
+    if (!rows || !rows.length) return null;
+    const out: Record<string, FieldValue> = {};
     for (const n of names) {
-        const cell = rows[0][n] || {}
-        out[n] = { value: cell.value == null ? '' : String(cell.value), displayValue: cell.displayValue == null ? '' : String(cell.displayValue) }
+        const cell = rows[0][n] || {};
+        out[n] = {
+            value: cell.value == null ? '' : String(cell.value),
+            displayValue: cell.displayValue == null ? '' : String(cell.displayValue),
+        };
     }
-    return out
+    return out;
 }
 
 /** Display value of a referenced record (its display field). */
-export async function fetchDisplayValue(table: string, sysId: string, displayField = 'name', signal?: AbortSignal): Promise<string> {
-    if (!sysId) return ''
-    const v = await fetchRecordValues(table, { sysId }, [displayField], signal)
-    return v ? v[displayField].displayValue || v[displayField].value : ''
+export async function fetchDisplayValue(
+    table: string,
+    sysId: string,
+    displayField = 'name',
+    signal?: AbortSignal
+): Promise<string> {
+    if (!sysId) return '';
+    const v = await fetchRecordValues(table, { sysId }, [displayField], signal);
+    return v ? v[displayField].displayValue || v[displayField].value : '';
 }

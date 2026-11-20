@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, usePortal, useNavigation, useSidebar } from '@portal/runtime'
+import { useState } from 'react';
+import { Link, usePortal, useNavigation, useSidebar } from '@portal/runtime';
 import {
     Sidebar,
     SidebarContent,
@@ -15,27 +15,27 @@ import {
     SidebarMenuSubItem,
     SidebarRail,
     SidebarSeparator,
-} from 'components:sidebar'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from 'components:collapsible'
-import { Icon } from 'components:icon'
-import { TintTile } from './parts/TintTile'
-import { UserMenu } from './parts/UserMenu'
+} from 'components:sidebar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from 'components:collapsible';
+import { Icon } from 'components:icon';
+import { TintTile } from './parts/TintTile';
+import { UserMenu } from './parts/UserMenu';
 
 type Options = {
-    menu?: string
-    collapsible?: 'icon' | 'offcanvas' | 'none'
-    variant?: 'inset' | 'sidebar' | 'floating'
-    userMenu?: 'footer' | 'header' | 'none'
-    brand?: string
+    menu?: string;
+    collapsible?: 'icon' | 'offcanvas' | 'none';
+    variant?: 'inset' | 'sidebar' | 'floating';
+    userMenu?: 'footer' | 'header' | 'none';
+    brand?: string;
     /** Lucide icon in the brand tile (default "layers"); ignored when `logo` is set. */
-    brandIcon?: string
+    brandIcon?: string;
     /** Image URL for the brand tile (replaces the icon). */
-    logo?: string
+    logo?: string;
     /** Tinted icon tiles (chart-1…5); false = neutral tiles. */
-    tints?: boolean
+    tints?: boolean;
     /** Footer note under the user menu: 'release' (brand · rev N, default) or 'none'. */
-    footerNote?: 'release' | 'none'
-}
+    footerNote?: 'release' | 'none';
+};
 
 /**
  * Dashboard sidebar (ChannelGuide's AppSidebar: shadcn variant="inset", collapsible="icon").
@@ -43,26 +43,39 @@ type Options = {
  * header or footer. Owns its width, padding, scrolling and active styling.
  */
 export default function AppSidebar({ options = {} }: { options?: Options }) {
-    const { portal, release } = usePortal()
-    const nav = useNavigation(options.menu || 'primary')
-    const userMenu = options.userMenu || 'footer'
-    const brand = options.brand || portal?.name || 'Portal'
-    const loose = nav.items.filter((i: any) => i.type !== 'group')
-    const groups = nav.items.filter((i: any) => i.type === 'group')
-    const tints = options.tints !== false
-    const brandIcon = options.brandIcon || 'layers'
+    const { portal, release } = usePortal();
+    const nav = useNavigation(options.menu || 'primary');
+    const userMenu = options.userMenu || 'footer';
+    const brand = options.brand || portal?.name || 'Portal';
+    const loose = nav.items.filter((i: any) => i.type !== 'group');
+    const groups = nav.items.filter((i: any) => i.type === 'group');
+    const tints = options.tints !== false;
+    const brandIcon = options.brandIcon || 'layers';
 
     return (
-        <Sidebar collapsible={options.collapsible || 'icon'} variant={options.variant || 'inset'} label={brand + ' navigation'}>
+        <Sidebar
+            collapsible={options.collapsible || 'icon'}
+            variant={options.variant || 'inset'}
+            label={brand + ' navigation'}
+        >
             <SidebarHeader className="h-(--rp-shell-header,3.5rem) shrink-0 flex-row items-center px-2 py-0">
                 {userMenu === 'header' ? (
                     <UserMenu side="bottom" />
                 ) : (
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            <SidebarMenuButton size="lg" tooltip={brand} className="h-10 group-data-rail:justify-center group-data-rail:p-0!" render={<Link to="" />}>
+                            <SidebarMenuButton
+                                size="lg"
+                                tooltip={brand}
+                                className="h-10 group-data-rail:justify-center group-data-rail:p-0!"
+                                render={<Link to="" />}
+                            >
                                 {options.logo ? (
-                                    <img src={options.logo} alt="" className="size-7 shrink-0 rounded-md object-contain" />
+                                    <img
+                                        src={options.logo}
+                                        alt=""
+                                        className="size-7 shrink-0 rounded-md object-contain"
+                                    />
                                 ) : (
                                     <span className="flex aspect-square size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
                                         <Icon name={brandIcon} className="size-4!" />
@@ -102,13 +115,13 @@ export default function AppSidebar({ options = {} }: { options?: Options }) {
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>
-    )
+    );
 }
 
 /** A collapsible section: title button (hidden on the icon rail) over its items. */
 function NavGroup({ group, first, tints }: { group: any; first?: boolean; tints: boolean }) {
-    const [open, setOpen] = useState(group.open !== false)
-    const shown = open || group.active
+    const [open, setOpen] = useState(group.open !== false);
+    const shown = open || group.active;
     return (
         <SidebarGroup className={'group/nav-section' + (first ? ' pt-0' : '')}>
             <Collapsible open={shown} onOpenChange={setOpen}>
@@ -125,7 +138,10 @@ function NavGroup({ group, first, tints }: { group: any; first?: boolean; tints:
                     <span>{group.label}</span>
                     <Icon
                         name="chevron-right"
-                        className={'size-3 opacity-0 transition-all duration-200 group-hover/section-title:opacity-100 group-focus-visible/section-title:opacity-100 ' + (shown ? 'rotate-90' : '')}
+                        className={
+                            'size-3 opacity-0 transition-all duration-200 group-hover/section-title:opacity-100 group-focus-visible/section-title:opacity-100 ' +
+                            (shown ? 'rotate-90' : '')
+                        }
                     />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -137,17 +153,27 @@ function NavGroup({ group, first, tints }: { group: any; first?: boolean; tints:
                 </CollapsibleContent>
             </Collapsible>
         </SidebarGroup>
-    )
+    );
 }
 
 function NavEntry({ item, tints }: { item: any; tints: boolean }) {
-    const { setOpenMobile } = useSidebar()
-    const close = () => setOpenMobile(false)
-    if (item.type === 'separator') return <SidebarSeparator className="my-1" />
-    const render = item.type === 'url' ? <a {...item.attrs} href={item.href} target={item.target} rel="noreferrer" /> : <Link {...item.link} onClick={close} />
+    const { setOpenMobile } = useSidebar();
+    const close = () => setOpenMobile(false);
+    if (item.type === 'separator') return <SidebarSeparator className="my-1" />;
+    const render =
+        item.type === 'url' ? (
+            <a {...item.attrs} href={item.href} target={item.target} rel="noreferrer" />
+        ) : (
+            <Link {...item.link} onClick={close} />
+        );
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton isActive={item.active} tooltip={item.tooltip || item.label} className="group-data-rail:p-1.5!" render={render}>
+            <SidebarMenuButton
+                isActive={item.active}
+                tooltip={item.tooltip || item.label}
+                className="group-data-rail:p-1.5!"
+                render={render}
+            >
                 <TintTile icon={item.icon} tint={tints ? item.tint : undefined} label={item.label} />
                 <span>{item.label}</span>
             </SidebarMenuButton>
@@ -158,7 +184,13 @@ function NavEntry({ item, tints }: { item: any; tints: boolean }) {
                         <SidebarMenuSubItem key={child.id}>
                             <SidebarMenuSubButton
                                 isActive={child.active}
-                                render={child.type === 'url' ? <a {...child.attrs} href={child.href} target={child.target} rel="noreferrer" /> : <Link {...child.link} onClick={close} />}
+                                render={
+                                    child.type === 'url' ? (
+                                        <a {...child.attrs} href={child.href} target={child.target} rel="noreferrer" />
+                                    ) : (
+                                        <Link {...child.link} onClick={close} />
+                                    )
+                                }
                             >
                                 <span>{child.label}</span>
                             </SidebarMenuSubButton>
@@ -167,5 +199,5 @@ function NavEntry({ item, tints }: { item: any; tints: boolean }) {
                 </SidebarMenuSub>
             ) : null}
         </SidebarMenuItem>
-    )
+    );
 }

@@ -1,6 +1,6 @@
-import { Region } from '@portal/runtime'
+import { Region } from '@portal/runtime';
 
-type Options = { canvas?: 'muted' | 'background' }
+type Options = { canvas?: 'muted' | 'background' };
 
 /** Header / main / footer with a centered content column. Structure only: the widgets own their look. */
 export default function CenteredLayout({ options = {} }: { options?: Options }) {
@@ -12,5 +12,5 @@ export default function CenteredLayout({ options = {} }: { options?: Options }) 
             </main>
             <Region name="footer" as="footer" className="rp-ctr__footer rp-ctr__slot" />
         </div>
-    )
+    );
 }

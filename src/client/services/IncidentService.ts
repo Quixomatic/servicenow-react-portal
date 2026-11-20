@@ -1,24 +1,24 @@
 // Extend Window interface to include g_ck property
 declare global {
     interface Window {
-        g_ck: string
+        g_ck: string;
     }
 }
 
 export class IncidentService {
-    private readonly tableName: string
+    private readonly tableName: string;
 
     constructor() {
-        this.tableName = 'incident'
+        this.tableName = 'incident';
     }
 
     // Return all incidents
     async list() {
         try {
-            const searchParams = new URLSearchParams()
-            searchParams.set('sysparm_display_value', 'all')
-            searchParams.set('sysparm_fields', 'sys_id,number,short_description,description,state,impact,opened_at')
-            searchParams.set('sysparm_query', 'ORDERBYDESCopened_at')
+            const searchParams = new URLSearchParams();
+            searchParams.set('sysparm_display_value', 'all');
+            searchParams.set('sysparm_fields', 'sys_id,number,short_description,description,state,impact,opened_at');
+            searchParams.set('sysparm_query', 'ORDERBYDESCopened_at');
 
             const response = await fetch(`/api/now/table/${this.tableName}?${searchParams.toString()}`, {
                 method: 'GET',
@@ -26,26 +26,26 @@ export class IncidentService {
                     Accept: 'application/json',
                     'X-UserToken': window.g_ck,
                 },
-            })
+            });
 
             if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error?.message || `HTTP error ${response.status}`)
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `HTTP error ${response.status}`);
             }
 
-            const { result } = await response.json()
-            return result || []
+            const { result } = await response.json();
+            return result || [];
         } catch (error) {
-            console.error('Error fetching incidents:', error)
-            throw error
+            console.error('Error fetching incidents:', error);
+            throw error;
         }
     }
 
     // Get a single incident by sys_id
     async get(sysId) {
         try {
-            const searchParams = new URLSearchParams()
-            searchParams.set('sysparm_display_value', 'all')
+            const searchParams = new URLSearchParams();
+            searchParams.set('sysparm_display_value', 'all');
 
             const response = await fetch(`/api/now/table/${this.tableName}/${sysId}?${searchParams.toString()}`, {
                 method: 'GET',
@@ -53,18 +53,18 @@ export class IncidentService {
                     Accept: 'application/json',
                     'X-UserToken': window.g_ck,
                 },
-            })
+            });
 
             if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error?.message || `HTTP error ${response.status}`)
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `HTTP error ${response.status}`);
             }
 
-            const { result } = await response.json()
-            return result
+            const { result } = await response.json();
+            return result;
         } catch (error) {
-            console.error(`Error fetching incident ${sysId}:`, error)
-            throw error
+            console.error(`Error fetching incident ${sysId}:`, error);
+            throw error;
         }
     }
 
@@ -82,17 +82,17 @@ export class IncidentService {
                     ...data,
                     caller_id: '6816f79cc0a8016401c5a33be04be441',
                 }),
-            })
+            });
 
             if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error?.message || `HTTP error ${response.status}`)
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `HTTP error ${response.status}`);
             }
 
-            return response.json()
+            return response.json();
         } catch (error) {
-            console.error('Error creating incident:', error)
-            throw error
+            console.error('Error creating incident:', error);
+            throw error;
         }
     }
 
@@ -107,17 +107,17 @@ export class IncidentService {
                     'X-UserToken': window.g_ck,
                 },
                 body: JSON.stringify(data),
-            })
+            });
 
             if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error?.message || `HTTP error ${response.status}`)
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `HTTP error ${response.status}`);
             }
 
-            return response.json()
+            return response.json();
         } catch (error) {
-            console.error(`Error updating incident ${sysId}:`, error)
-            throw error
+            console.error(`Error updating incident ${sysId}:`, error);
+            throw error;
         }
     }
 
@@ -130,17 +130,17 @@ export class IncidentService {
                     Accept: 'application/json',
                     'X-UserToken': window.g_ck,
                 },
-            })
+            });
 
             if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error?.message || `HTTP error ${response.status}`)
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `HTTP error ${response.status}`);
             }
 
-            return response.ok
+            return response.ok;
         } catch (error) {
-            console.error(`Error deleting incident ${sysId}:`, error)
-            throw error
+            console.error(`Error deleting incident ${sysId}:`, error);
+            throw error;
         }
     }
 }

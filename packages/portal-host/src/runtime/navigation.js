@@ -15,31 +15,47 @@ export const PORTAL_NAVIGATE = 'PORTAL_NAVIGATE';
 const settings = { preEncode: false };
 
 export function getNavigationSettings() {
-	return settings;
+    return settings;
 }
 
 export function setPreEncode(value) {
-	settings.preEncode = !!value;
+    settings.preEncode = !!value;
 }
 
 /** Builds the PORTAL_NAVIGATE payload. Every field is a string; '' means "absent". */
 export function buildNavigatePayload(current, target) {
-	const to = target || {};
-	const portalSlug = to.portalSlug !== undefined && to.portalSlug !== null && to.portalSlug !== '' ? String(to.portalSlug) : current.portalSlug || '';
-	const page = to.page ? String(to.page).replace(/^\/+|\/+$/g, '') : '';
-	const recordId = to.recordId !== undefined && to.recordId !== null ? String(to.recordId) : '';
-	const q = toSearchParams(to.q).toString();
-	// Standard record params, each its own payload field so UIB maps them onto the site page's
-	// optional URL params (table, sys_id, view, query). In Studio, `view` is the activity
-	// (code | pages | menus) for the studio page's `view` param.
-	const str = (v) => (v === undefined || v === null ? '' : String(v));
-	const record = { table: str(to.table), sysId: str(to.sysId !== undefined ? to.sysId : to.sys_id), view: str(to.view), query: str(to.query) };
-	// replace: the handler binds Link to destination's `redirect` to it (replaceState, no new entry).
-	const replace = !!to.replace;
-	if (settings.preEncode) {
-		return { portalSlug, page: encodeURIComponent(page), recordId, q: q ? encodeURIComponent(q) : '', ...record, query: record.query ? encodeURIComponent(record.query) : '', replace };
-	}
-	return { portalSlug, page, recordId, q, ...record, replace };
+    const to = target || {};
+    const portalSlug =
+        to.portalSlug !== undefined && to.portalSlug !== null && to.portalSlug !== ''
+            ? String(to.portalSlug)
+            : current.portalSlug || '';
+    const page = to.page ? String(to.page).replace(/^\/+|\/+$/g, '') : '';
+    const recordId = to.recordId !== undefined && to.recordId !== null ? String(to.recordId) : '';
+    const q = toSearchParams(to.q).toString();
+    // Standard record params, each its own payload field so UIB maps them onto the site page's
+    // optional URL params (table, sys_id, view, query). In Studio, `view` is the activity
+    // (code | pages | menus) for the studio page's `view` param.
+    const str = (v) => (v === undefined || v === null ? '' : String(v));
+    const record = {
+        table: str(to.table),
+        sysId: str(to.sysId !== undefined ? to.sysId : to.sys_id),
+        view: str(to.view),
+        query: str(to.query),
+    };
+    // replace: the handler binds Link to destination's `redirect` to it (replaceState, no new entry).
+    const replace = !!to.replace;
+    if (settings.preEncode) {
+        return {
+            portalSlug,
+            page: encodeURIComponent(page),
+            recordId,
+            q: q ? encodeURIComponent(q) : '',
+            ...record,
+            query: record.query ? encodeURIComponent(record.query) : '',
+            replace,
+        };
+    }
+    return { portalSlug, page, recordId, q, ...record, replace };
 }
 
 /**
@@ -49,25 +65,25 @@ export function buildNavigatePayload(current, target) {
  * explicit: pass portalSlug. (An object { page | to, recordId, q, portalSlug } is also accepted.)
  */
 export function createNavigate(dispatch, current) {
-	return function navigate(to, opts) {
-		let target;
-		if (to && typeof to === 'object') target = { ...to, page: to.to !== undefined ? to.to : to.page };
-		else target = { ...(opts || {}), page: to === undefined || to === null ? '' : String(to) };
-		const payload = buildNavigatePayload(current, target);
-		recordDispatch(payload);
-		dispatch(PORTAL_NAVIGATE, payload);
-		// Optional params UIB drops never arrive as property changes: re-read the URL shortly.
-		requestUrlCheck();
-	};
+    return function navigate(to, opts) {
+        let target;
+        if (to && typeof to === 'object') target = { ...to, page: to.to !== undefined ? to.to : to.page };
+        else target = { ...(opts || {}), page: to === undefined || to === null ? '' : String(to) };
+        const payload = buildNavigatePayload(current, target);
+        recordDispatch(payload);
+        dispatch(PORTAL_NAVIGATE, payload);
+        // Optional params UIB drops never arrive as property changes: re-read the URL shortly.
+        requestUrlCheck();
+    };
 }
 
 export const NavigationContext = createContext(() => {
-	throw new Error('navigate() used outside the portal host');
+    throw new Error('navigate() used outside the portal host');
 });
 
 /** useNavigate() -> (to, { recordId?, q?, table?, sysId?, view?, query?, portalSlug? }?) => void */
 export function useNavigate() {
-	return useContext(NavigationContext);
+    return useContext(NavigationContext);
 }
 
 /**
@@ -76,15 +92,30 @@ export function useNavigate() {
  * `portalSlug` for an explicit cross-portal link, `render` to make any element (e.g. a
  * Button) the clickable element, Base UI style. `page` is accepted as an alias of `to`.
  */
-export function Link({ to, page, recordId, q, table, sysId, view, query, portalSlug, render, children, className, onClick, ...rest }) {
-	const navigate = useNavigate();
-	const path = to !== undefined ? to : page || '';
-	const handleClick = (event) => {
-		if (onClick) onClick(event);
-		if (event.defaultPrevented) return;
-		event.preventDefault();
-		navigate(path, { recordId, q, table, sysId, view, query, portalSlug });
-	};
-	const props = { ...rest, className, onClick: handleClick, href: '#', 'data-portal-page': path || '', children };
-	return render ? React.cloneElement(render, props) : <a {...props} />;
+export function Link({
+    to,
+    page,
+    recordId,
+    q,
+    table,
+    sysId,
+    view,
+    query,
+    portalSlug,
+    render,
+    children,
+    className,
+    onClick,
+    ...rest
+}) {
+    const navigate = useNavigate();
+    const path = to !== undefined ? to : page || '';
+    const handleClick = (event) => {
+        if (onClick) onClick(event);
+        if (event.defaultPrevented) return;
+        event.preventDefault();
+        navigate(path, { recordId, q, table, sysId, view, query, portalSlug });
+    };
+    const props = { ...rest, className, onClick: handleClick, href: '#', 'data-portal-page': path || '', children };
+    return render ? React.cloneElement(render, props) : <a {...props} />;
 }

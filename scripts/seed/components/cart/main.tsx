@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useProperty, useUser, toast } from '@portal/runtime'
-import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent } from 'components:card'
-import { Button } from 'components:button'
-import { Icon } from 'components:icon'
+import { useEffect, useRef, useState } from 'react';
+import { Link, useProperty, useUser, toast } from '@portal/runtime';
+import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent } from 'components:card';
+import { Button } from 'components:button';
+import { Icon } from 'components:icon';
 import {
     useCart,
     useUpdateCartItem,
@@ -13,12 +13,12 @@ import {
     useSetCartRequestedFor,
     canRequestForAll,
     cartErrorMessage,
-} from 'utilities:app/catalog'
-import type { CartData, CartLine, CheckoutResult } from 'utilities:app/catalog'
-import { RequestedForField, useRequestedFor } from 'components:app/requested-for-field'
-import { DialogOutlet, useConfirm } from 'components:app/confirm-dialog'
-import { Select } from 'components:app/combobox'
-import { cx, Spinner, IconCheck, controlClass } from 'components:app/field'
+} from 'utilities:app/catalog';
+import type { CartData, CartLine, CheckoutResult } from 'utilities:app/catalog';
+import { RequestedForField, useRequestedFor } from 'components:app/requested-for-field';
+import { DialogOutlet, useConfirm } from 'components:app/confirm-dialog';
+import { Select } from 'components:app/combobox';
+import { cx, Spinner, IconCheck, controlClass } from 'components:app/field';
 
 /**
  * components:app/cart: the user's Service Catalog cart, and checkout.
@@ -41,61 +41,66 @@ import { cx, Spinner, IconCheck, controlClass } from 'components:app/field'
  * Options: { title ('Your cart'), catalogPage ('catalog'), recordPage ('form'), review ('auto' | 'always') }.
  */
 export type CartProps = {
-    title?: string
+    title?: string;
     /** Portal page for item links and "Continue shopping" (default 'catalog'; '' = no links). */
-    catalogPage?: string
+    catalogPage?: string;
     /** Portal page that opens the request (record form with table / sys_id); '' = the platform form. Default 'form'. */
-    recordPage?: string
+    recordPage?: string;
     /** 'auto' (default): review first only with two-step checkout; 'always': always review first. */
-    review?: 'auto' | 'always'
-}
+    review?: 'auto' | 'always';
+};
 
-type Options = CartProps
+type Options = CartProps;
 
 export default function CartWidget({ options = {} }: { options?: Options }) {
-    return <Cart {...options} />
+    return <Cart {...options} />;
 }
 
-const QUANTITIES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+const QUANTITIES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 /** A variable's display value as the cart summary shows it (booleans as Yes / No, row sets as a count). */
 export function formatCartValue(value: string): string {
-    const v = String(value == null ? '' : value).trim()
-    if (v === 'true') return 'Yes'
-    if (v === 'false') return 'No'
+    const v = String(value == null ? '' : value).trim();
+    if (v === 'true') return 'Yes';
+    if (v === 'false') return 'No';
     if (v.charAt(0) === '[') {
         try {
-            const rows = JSON.parse(v)
-            if (Array.isArray(rows)) return `${rows.length} row${rows.length === 1 ? '' : 's'}`
+            const rows = JSON.parse(v);
+            if (Array.isArray(rows)) return `${rows.length} row${rows.length === 1 ? '' : 's'}`;
         } catch (e) {
             /* plain text */
         }
     }
-    return v
+    return v;
 }
 
-type Step = 'cart' | 'review'
+type Step = 'cart' | 'review';
 
 export function Cart(props: CartProps) {
-    const catalogPage = props.catalogPage === undefined ? 'catalog' : props.catalogPage
-    const cart = useCart()
-    const twoStep = useProperty('glide.sc.checkout.twostep')
-    const reviewFirst = props.review === 'always' || twoStep.value === 'true'
-    const { checkout, submit, pending } = useCheckout()
-    const user = useUser() as any
-    const [step, setStep] = useState<Step>('cart')
-    const [done, setDone] = useState<CheckoutResult | null>(null)
-    const [failure, setFailure] = useState('')
+    const catalogPage = props.catalogPage === undefined ? 'catalog' : props.catalogPage;
+    const cart = useCart();
+    const twoStep = useProperty('glide.sc.checkout.twostep');
+    const reviewFirst = props.review === 'always' || twoStep.value === 'true';
+    const { checkout, submit, pending } = useCheckout();
+    const user = useUser() as any;
+    const [step, setStep] = useState<Step>('cart');
+    const [done, setDone] = useState<CheckoutResult | null>(null);
+    const [failure, setFailure] = useState('');
     // The platform answered a checkout with its summary (two-step): the next Place order submits it.
-    const [platformReview, setPlatformReview] = useState(false)
-    const [rfState, setRfState] = useState<{ value: string; displayValue: string; valid: boolean }>({ value: '', displayValue: '', valid: false })
-    const heading = useRef<HTMLDivElement | null>(null)
+    const [platformReview, setPlatformReview] = useState(false);
+    const [rfState, setRfState] = useState<{ value: string; displayValue: string; valid: boolean }>({
+        value: '',
+        displayValue: '',
+        valid: false,
+    });
+    const heading = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        if (step === 'review' && heading.current) heading.current.focus()
-    }, [step])
+        if (step === 'review' && heading.current) heading.current.focus();
+    }, [step]);
 
-    if (done && done.kind === 'ordered') return <CheckoutDone result={done} recordPage={props.recordPage} catalogPage={catalogPage} />
+    if (done && done.kind === 'ordered')
+        return <CheckoutDone result={done} recordPage={props.recordPage} catalogPage={catalogPage} />;
 
     if (cart.isLoading)
         return (
@@ -104,7 +109,7 @@ export function Cart(props: CartProps) {
                     <Spinner label="Loading your cart" /> Loading your cart…
                 </CardContent>
             </Card>
-        )
+        );
     if (cart.error || !cart.data)
         return (
             <Card>
@@ -112,59 +117,63 @@ export function Cart(props: CartProps) {
                     {cartErrorMessage(cart.error) || "Your cart couldn't be loaded."}
                 </CardContent>
             </Card>
-        )
-    const data = cart.data
-    const lines = data.lines
-    if (!lines.length) return <EmptyCart title={props.title} catalogPage={catalogPage} />
+        );
+    const data = cart.data;
+    const lines = data.lines;
+    if (!lines.length) return <EmptyCart title={props.title} catalogPage={catalogPage} />;
 
-    const blocked = lines.filter((l) => !l.canOrder)
+    const blocked = lines.filter((l) => !l.canOrder);
     const placeOrder = async () => {
-        setFailure('')
+        setFailure('');
         if (!rfState.valid) {
-            setFailure('Choose who this order is for.')
-            return
+            setFailure('Choose who this order is for.');
+            return;
         }
         if (blocked.length) {
-            setFailure(`Remove what you can no longer order first: ${blocked.map((l) => l.name).join(', ')}.`)
-            return
+            setFailure(`Remove what you can no longer order first: ${blocked.map((l) => l.name).join(', ')}.`);
+            return;
         }
         try {
             // Delegation for the cart's person against every item (lines may have arrived since the pick).
             if (rfState.value && rfState.value !== String((user && user.sysId) || '')) {
-                const names: Record<string, string> = {}
-                for (const l of lines) names[l.itemId] = l.name
-                const d = await canRequestForAll(lines.map((l) => l.itemId), rfState.value, names)
+                const names: Record<string, string> = {};
+                for (const l of lines) names[l.itemId] = l.name;
+                const d = await canRequestForAll(
+                    lines.map((l) => l.itemId),
+                    rfState.value,
+                    names
+                );
                 if (!d.ok) {
-                    setFailure(d.message)
-                    return
+                    setFailure(d.message);
+                    return;
                 }
             }
-            const r = platformReview ? await submit.mutateAsync() : await checkout.mutateAsync()
+            const r = platformReview ? await submit.mutateAsync() : await checkout.mutateAsync();
             if (r.kind === 'ordered') {
-                setDone(r)
-                return
+                setDone(r);
+                return;
             }
             // Two-step on the platform: review what's in the cart, then submit_order.
-            setPlatformReview(true)
-            setStep('review')
+            setPlatformReview(true);
+            setStep('review');
         } catch (e) {
-            setFailure(cartErrorMessage(e))
+            setFailure(cartErrorMessage(e));
         }
-    }
+    };
     const onCheckout = () => {
         if (reviewFirst && step === 'cart') {
-            setFailure('')
+            setFailure('');
             if (!rfState.valid) {
-                setFailure('Choose who this order is for.')
-                return
+                setFailure('Choose who this order is for.');
+                return;
             }
-            setStep('review')
-            return
+            setStep('review');
+            return;
         }
-        placeOrder()
-    }
+        placeOrder();
+    };
 
-    const reviewing = step === 'review'
+    const reviewing = step === 'review';
     return (
         <Card data-rp-cart={data.cartId} data-step={step}>
             <DialogOutlet />
@@ -206,15 +215,20 @@ export function Cart(props: CartProps) {
                                     variant="outline"
                                     disabled={pending}
                                     onClick={() => {
-                                        setFailure('')
-                                        setStep('cart')
+                                        setFailure('');
+                                        setStep('cart');
                                     }}
                                     data-rp-cart-back=""
                                 >
                                     Back to cart
                                 </Button>
                             ) : null}
-                            <Button type="button" disabled={pending || !rfState.valid} onClick={onCheckout} data-rp-checkout="">
+                            <Button
+                                type="button"
+                                disabled={pending || !rfState.valid}
+                                onClick={onCheckout}
+                                data-rp-checkout=""
+                            >
                                 {pending ? <Spinner label="Placing your order" /> : null}
                                 {reviewing ? 'Place order' : reviewFirst ? 'Review order' : 'Checkout'}
                             </Button>
@@ -223,7 +237,7 @@ export function Cart(props: CartProps) {
                 </div>
             </CardContent>
         </Card>
-    )
+    );
 }
 
 function EmptyCart(props: { title?: string; catalogPage: string }) {
@@ -233,7 +247,10 @@ function EmptyCart(props: { title?: string; catalogPage: string }) {
                 <CardTitle className="text-lg">{props.title || 'Your cart'}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-                <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground" aria-hidden="true">
+                <span
+                    className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"
+                    aria-hidden="true"
+                >
                     <Icon name="shopping-cart" className="size-6" />
                 </span>
                 <p className="m-0 text-sm text-muted-foreground">Your cart is empty.</p>
@@ -244,12 +261,12 @@ function EmptyCart(props: { title?: string; catalogPage: string }) {
                 ) : null}
             </CardContent>
         </Card>
-    )
+    );
 }
 
 function EmptyCartButton({ cart }: { cart: CartData }) {
-    const confirm = useConfirm()
-    const empty = useEmptyCart()
+    const confirm = useConfirm();
+    const empty = useEmptyCart();
     return (
         <Button
             type="button"
@@ -263,37 +280,43 @@ function EmptyCartButton({ cart }: { cart: CartData }) {
                     description: `This removes ${cart.count === 1 ? 'the item' : `all ${cart.count} items`} from your cart.`,
                     confirmLabel: 'Empty cart',
                     destructive: true,
-                })
-                if (!ok) return
+                });
+                if (!ok) return;
                 try {
-                    await empty.mutateAsync(cart.cartId)
-                    toast.success('Your cart has been emptied')
+                    await empty.mutateAsync(cart.cartId);
+                    toast.success('Your cart has been emptied');
                 } catch (e) {
-                    toast.error(cartErrorMessage(e))
+                    toast.error(cartErrorMessage(e));
                 }
             }}
         >
             {empty.isPending ? <Spinner label="Emptying your cart" /> : <Icon name="trash-2" className="size-4" />}
             Empty cart
         </Button>
-    )
+    );
 }
 
 /** One cart line: picture, name, variable summary, quantity, price, remove. */
 export function CartLineItem(props: { line: CartLine; readOnly?: boolean; catalogPage?: string }) {
-    const { line } = props
-    const update = useUpdateCartItem()
-    const remove = useRemoveCartItem()
-    const qtyLabel = `rp-cart-qty-${line.id}`
-    const qtyItems = (QUANTITIES.indexOf(line.quantity) >= 0 ? QUANTITIES : QUANTITIES.concat(line.quantity)).map((q) => ({ value: q, label: q }))
-    const picture = line.picture ? (/^(https?:)?\//.test(line.picture) ? line.picture : `/${line.picture}`) : ''
+    const { line } = props;
+    const update = useUpdateCartItem();
+    const remove = useRemoveCartItem();
+    const qtyLabel = `rp-cart-qty-${line.id}`;
+    const qtyItems = (QUANTITIES.indexOf(line.quantity) >= 0 ? QUANTITIES : QUANTITIES.concat(line.quantity)).map(
+        (q) => ({ value: q, label: q })
+    );
+    const picture = line.picture ? (/^(https?:)?\//.test(line.picture) ? line.picture : `/${line.picture}`) : '';
     const name = props.catalogPage ? (
-        <Link to={props.catalogPage} q={{ item: line.itemId }} className="font-medium text-foreground no-underline underline-offset-4 hover:underline">
+        <Link
+            to={props.catalogPage}
+            q={{ item: line.itemId }}
+            className="font-medium text-foreground no-underline underline-offset-4 hover:underline"
+        >
             {line.name}
         </Link>
     ) : (
         <span className="font-medium">{line.name}</span>
-    )
+    );
     return (
         <li
             className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3 border-b border-border py-4 first:pt-0 last:border-b-0 max-sm:grid-cols-[auto_minmax(0,1fr)]"
@@ -303,13 +326,18 @@ export function CartLineItem(props: { line: CartLine; readOnly?: boolean; catalo
             {picture ? (
                 <img src={picture} alt="" className="size-12 shrink-0 rounded-md border border-border object-contain" />
             ) : (
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50 text-muted-foreground" aria-hidden="true">
+                <span
+                    className="flex size-12 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50 text-muted-foreground"
+                    aria-hidden="true"
+                >
                     <Icon name="package" className="size-5" />
                 </span>
             )}
             <div className="flex min-w-0 flex-col gap-1">
                 <div className="text-sm">{name}</div>
-                {line.shortDescription ? <div className="text-sm text-muted-foreground">{line.shortDescription}</div> : null}
+                {line.shortDescription ? (
+                    <div className="text-sm text-muted-foreground">{line.shortDescription}</div>
+                ) : null}
                 <CartVariables variables={line.variables} />
                 {line.deliveryTime ? (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -342,15 +370,17 @@ export function CartLineItem(props: { line: CartLine; readOnly?: boolean; catalo
                                         disabled={update.isPending || remove.isPending}
                                         renderValue={(i) => <span className="tabular-nums">{i.label}</span>}
                                         onChange={(i) => {
-                                            if (i.value === line.quantity) return
+                                            if (i.value === line.quantity) return;
                                             update.mutate(
                                                 { lineId: line.id, quantity: i.value },
-                                                { onError: (e: unknown) => toast.error(cartErrorMessage(e)) },
-                                            )
+                                                { onError: (e: unknown) => toast.error(cartErrorMessage(e)) }
+                                            );
                                         }}
                                     />
                                 </div>
-                                {update.isPending ? <Spinner label="Updating quantity" className="text-muted-foreground" /> : null}
+                                {update.isPending ? (
+                                    <Spinner label="Updating quantity" className="text-muted-foreground" />
+                                ) : null}
                             </div>
                         )
                     ) : null}
@@ -377,22 +407,28 @@ export function CartLineItem(props: { line: CartLine; readOnly?: boolean; catalo
                 {line.showPrice && (line.subtotal || line.price) ? (
                     <div className="text-right text-sm" aria-live="polite" data-rp-cart-line-price="">
                         <div className="font-semibold tabular-nums">{line.subtotal || line.price}</div>
-                        {line.quantity !== '1' && line.price ? <div className="text-xs text-muted-foreground tabular-nums">{line.price} each</div> : null}
-                        {line.recurringSubtotal ? <div className="text-xs text-muted-foreground tabular-nums">+ {line.recurringSubtotal}</div> : null}
+                        {line.quantity !== '1' && line.price ? (
+                            <div className="text-xs text-muted-foreground tabular-nums">{line.price} each</div>
+                        ) : null}
+                        {line.recurringSubtotal ? (
+                            <div className="text-xs text-muted-foreground tabular-nums">+ {line.recurringSubtotal}</div>
+                        ) : null}
                     </div>
                 ) : null}
             </div>
         </li>
-    )
+    );
 }
 
 /** The platform's variable summary for a line: the first few inline, the rest behind "Show all". */
 export function CartVariables(props: { variables: { label: string; value: string }[]; max?: number }) {
-    const [open, setOpen] = useState(false)
-    const items = props.variables.map((v) => ({ label: v.label, value: formatCartValue(v.value) })).filter((v) => v.value !== '')
-    if (!items.length) return null
-    const max = props.max || 3
-    const shown = open ? items : items.slice(0, max)
+    const [open, setOpen] = useState(false);
+    const items = props.variables
+        .map((v) => ({ label: v.label, value: formatCartValue(v.value) }))
+        .filter((v) => v.value !== '');
+    if (!items.length) return null;
+    const max = props.max || 3;
+    const shown = open ? items : items.slice(0, max);
     return (
         <div className="text-xs text-muted-foreground" data-rp-cart-variables="">
             <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
@@ -416,12 +452,12 @@ export function CartVariables(props: { variables: { label: string; value: string
                 </button>
             ) : null}
         </div>
-    )
+    );
 }
 
 /** Subtotal and recurring subtotals. */
 export function CartTotals({ cart }: { cart: CartData }) {
-    if (!cart.showSubtotal || !cart.subtotal) return null
+    if (!cart.showSubtotal || !cart.subtotal) return null;
     return (
         <div className="flex flex-col gap-1 text-sm" data-rp-cart-totals="">
             <div className="flex items-baseline justify-between gap-4">
@@ -431,61 +467,76 @@ export function CartTotals({ cart }: { cart: CartData }) {
                 </span>
             </div>
             {cart.recurring.map((r) => (
-                <div key={r.frequency} className="flex items-baseline justify-between gap-4 text-xs text-muted-foreground">
+                <div
+                    key={r.frequency}
+                    className="flex items-baseline justify-between gap-4 text-xs text-muted-foreground"
+                >
                     <span>{r.frequency}</span>
                     <span className="tabular-nums">+ {r.subtotal}</span>
                 </div>
             ))}
         </div>
-    )
+    );
 }
 
 /** The cart's "Requested for": loads it from the cart, delegation-checks every item, saves picks on the cart. */
-function CartRequestedFor(props: { cart: CartData; readOnly?: boolean; onState: (s: { value: string; displayValue: string; valid: boolean }) => void }) {
-    const rf = useCartRequestedFor(props.cart.cartId)
+function CartRequestedFor(props: {
+    cart: CartData;
+    readOnly?: boolean;
+    onState: (s: { value: string; displayValue: string; valid: boolean }) => void;
+}) {
+    const rf = useCartRequestedFor(props.cart.cartId);
     if (rf.isLoading)
         return (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Spinner label="Loading who this order is for" /> Requested for…
             </div>
-        )
-    return <CartRequestedForField key={props.cart.cartId} cart={props.cart} initial={rf.data && rf.data.value ? rf.data : undefined} readOnly={props.readOnly} onState={props.onState} />
+        );
+    return (
+        <CartRequestedForField
+            key={props.cart.cartId}
+            cart={props.cart}
+            initial={rf.data && rf.data.value ? rf.data : undefined}
+            readOnly={props.readOnly}
+            onState={props.onState}
+        />
+    );
 }
 
 function CartRequestedForField(props: {
-    cart: CartData
-    initial?: { value: string; displayValue: string }
-    readOnly?: boolean
-    onState: (s: { value: string; displayValue: string; valid: boolean }) => void
+    cart: CartData;
+    initial?: { value: string; displayValue: string };
+    readOnly?: boolean;
+    onState: (s: { value: string; displayValue: string; valid: boolean }) => void;
 }) {
-    const names: Record<string, string> = {}
-    for (const l of props.cart.lines) names[l.itemId] = l.name
-    const itemIds = props.cart.lines.map((l) => l.itemId)
-    const rf = useRequestedFor({ itemId: itemIds, itemNames: names, initial: props.initial })
-    const save = useSetCartRequestedFor()
-    const saved = useRef(props.initial ? props.initial.value : '')
-    const valid = rf.valid && !save.isPending
+    const names: Record<string, string> = {};
+    for (const l of props.cart.lines) names[l.itemId] = l.name;
+    const itemIds = props.cart.lines.map((l) => l.itemId);
+    const rf = useRequestedFor({ itemId: itemIds, itemNames: names, initial: props.initial });
+    const save = useSetCartRequestedFor();
+    const saved = useRef(props.initial ? props.initial.value : '');
+    const valid = rf.valid && !save.isPending;
     useEffect(() => {
-        props.onState({ value: rf.value, displayValue: rf.displayValue, valid })
+        props.onState({ value: rf.value, displayValue: rf.displayValue, valid });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rf.value, rf.displayValue, valid])
+    }, [rf.value, rf.displayValue, valid]);
     // Save an accepted pick on the cart (sc_cart.requested_for): the order is placed for that person.
     useEffect(() => {
-        if (!rf.valid || !rf.value || rf.value === saved.current) return
-        saved.current = rf.value
+        if (!rf.valid || !rf.value || rf.value === saved.current) return;
+        saved.current = rf.value;
         save.mutate(
             { cartId: props.cart.cartId, userId: rf.value, displayValue: rf.displayValue },
-            { onError: (e: unknown) => toast.error(cartErrorMessage(e)) },
-        )
+            { onError: (e: unknown) => toast.error(cartErrorMessage(e)) }
+        );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rf.valid, rf.value])
+    }, [rf.valid, rf.value]);
     if (props.readOnly)
         return (
             <div className="flex flex-col gap-1 text-sm">
                 <span className="font-medium">Requested for</span>
                 <span className="text-muted-foreground">{rf.displayValue || rf.value}</span>
             </div>
-        )
+        );
     return (
         <RequestedForField
             name="requested_for"
@@ -497,40 +548,63 @@ function CartRequestedForField(props: {
             standalone
             {...rf.fieldProps}
         />
-    )
+    );
 }
 
 /** After checkout: the request number with a link, and Continue shopping. */
-export function CheckoutDone(props: { result: Extract<CheckoutResult, { kind: 'ordered' }>; recordPage?: string; catalogPage?: string }) {
-    const { result } = props
-    const recordPage = props.recordPage === undefined ? 'form' : props.recordPage
-    const heading = useRef<HTMLParagraphElement | null>(null)
+export function CheckoutDone(props: {
+    result: Extract<CheckoutResult, { kind: 'ordered' }>;
+    recordPage?: string;
+    catalogPage?: string;
+}) {
+    const { result } = props;
+    const recordPage = props.recordPage === undefined ? 'form' : props.recordPage;
+    const heading = useRef<HTMLParagraphElement | null>(null);
     useEffect(() => {
-        if (heading.current) heading.current.focus()
-    }, [])
-    const label = result.requestNumber || result.requestId
+        if (heading.current) heading.current.focus();
+    }, []);
+    const label = result.requestNumber || result.requestId;
     const link = !result.requestId ? (
         <span className="font-medium text-foreground">{label}</span>
     ) : recordPage ? (
-        <Link to={recordPage} table={result.table || 'sc_request'} sysId={result.requestId} className="font-medium text-primary underline-offset-4 hover:underline" data-rp-cart-request="">
+        <Link
+            to={recordPage}
+            table={result.table || 'sc_request'}
+            sysId={result.requestId}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            data-rp-cart-request=""
+        >
             {label}
         </Link>
     ) : (
-        <a href={`/${result.table || 'sc_request'}.do?sys_id=${encodeURIComponent(result.requestId)}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-4 hover:underline" data-rp-cart-request="">
+        <a
+            href={`/${result.table || 'sc_request'}.do?sys_id=${encodeURIComponent(result.requestId)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            data-rp-cart-request=""
+        >
             {label}
             <span className="sr-only"> (opens in a new tab)</span>
         </a>
-    )
+    );
     return (
         <Card data-rp-cart-done={label}>
             <CardContent className="flex flex-col items-start gap-3">
-                <p ref={heading} tabIndex={-1} className="m-0 flex items-center gap-2 text-base font-semibold outline-none" role="status">
+                <p
+                    ref={heading}
+                    tabIndex={-1}
+                    className="m-0 flex items-center gap-2 text-base font-semibold outline-none"
+                    role="status"
+                >
                     <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
                         <IconCheck size={14} />
                     </span>
                     Thank you, your order has been placed
                 </p>
-                <p className="m-0 text-sm text-muted-foreground">Request {link}. Track its progress from the request.</p>
+                <p className="m-0 text-sm text-muted-foreground">
+                    Request {link}. Track its progress from the request.
+                </p>
                 {props.catalogPage ? (
                     <Button variant="outline" size="sm" render={<Link to={props.catalogPage} />} className={cx('')}>
                         Continue shopping
@@ -538,5 +612,5 @@ export function CheckoutDone(props: { result: Extract<CheckoutResult, { kind: 'o
                 ) : null}
             </CardContent>
         </Card>
-    )
+    );
 }

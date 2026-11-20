@@ -1,1 +1,6 @@
-{ "name": "Field Demo", "kind": "widget", "tailwind": true, "defaults": { "table": "incident", "sysId": "", "query": "" } }
+{
+    "name": "Field Demo",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "table": "incident", "sysId": "", "query": "" }
+}

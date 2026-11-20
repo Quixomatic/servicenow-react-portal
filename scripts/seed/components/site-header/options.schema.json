@@ -1,27 +1,27 @@
 {
-  "type": "object",
-  "properties": {
-    "brand": {
-      "type": "string",
-      "title": "Brand text",
-      "description": "Defaults to the portal name"
-    },
-    "menu": {
-      "type": "string",
-      "title": "Menu",
-      "description": "Menu key (useNavigation)",
-      "default": "primary"
-    },
-    "showNav": {
-      "type": "boolean",
-      "title": "Show the menu in the header",
-      "default": true
-    },
-    "sidebarTrigger": {
-      "type": "boolean",
-      "title": "Sidebar toggle button",
-      "description": "Shown only on pages with a collapsible sidebar",
-      "default": true
+    "type": "object",
+    "properties": {
+        "brand": {
+            "type": "string",
+            "title": "Brand text",
+            "description": "Defaults to the portal name"
+        },
+        "menu": {
+            "type": "string",
+            "title": "Menu",
+            "description": "Menu key (useNavigation)",
+            "default": "primary"
+        },
+        "showNav": {
+            "type": "boolean",
+            "title": "Show the menu in the header",
+            "default": true
+        },
+        "sidebarTrigger": {
+            "type": "boolean",
+            "title": "Sidebar toggle button",
+            "description": "Shown only on pages with a collapsible sidebar",
+            "default": true
+        }
     }
-  }
 }

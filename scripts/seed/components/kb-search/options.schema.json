@@ -1,12 +1,16 @@
 {
-  "type": "object",
-  "properties": {
-    "knowledgeBases": { "type": "array", "title": "Knowledge bases (sys_ids, empty = all the user can read)", "items": { "type": "string" } },
-    "pageSize": { "type": "integer", "title": "Results per page", "minimum": 5, "maximum": 50 },
-    "categoryLimit": { "type": "integer", "title": "Categories before \"Show more\"", "minimum": 3, "maximum": 30 },
-    "suggestions": { "type": "array", "title": "Suggested searches (no results)", "items": { "type": "string" } },
-    "homePage": { "type": "string", "title": "Knowledge home page route" },
-    "articlePage": { "type": "string", "title": "Article page route" },
-    "categoryPage": { "type": "string", "title": "Category page route" }
-  }
+    "type": "object",
+    "properties": {
+        "knowledgeBases": {
+            "type": "array",
+            "title": "Knowledge bases (sys_ids, empty = all the user can read)",
+            "items": { "type": "string" }
+        },
+        "pageSize": { "type": "integer", "title": "Results per page", "minimum": 5, "maximum": 50 },
+        "categoryLimit": { "type": "integer", "title": "Categories before \"Show more\"", "minimum": 3, "maximum": 30 },
+        "suggestions": { "type": "array", "title": "Suggested searches (no results)", "items": { "type": "string" } },
+        "homePage": { "type": "string", "title": "Knowledge home page route" },
+        "articlePage": { "type": "string", "title": "Article page route" },
+        "categoryPage": { "type": "string", "title": "Category page route" }
+    }
 }

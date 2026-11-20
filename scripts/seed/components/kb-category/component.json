@@ -1,1 +1,14 @@
-{ "name": "Knowledge Category", "kind": "widget", "tailwind": true, "defaults": { "pageSize": 15, "sort": "views", "showTree": true, "showSubcategories": true, "homePage": "kb", "articlePage": "kb/article", "searchPage": "kb/search" } }
+{
+    "name": "Knowledge Category",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "pageSize": 15,
+        "sort": "views",
+        "showTree": true,
+        "showSubcategories": true,
+        "homePage": "kb",
+        "articlePage": "kb/article",
+        "searchPage": "kb/search"
+    }
+}

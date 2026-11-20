@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -10,7 +10,7 @@ import {
     ChoiceColumn,
     ScriptColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /** Widgets, layouts and utilities share one table. */
 export const x_312987_portal_component = Table({
@@ -26,7 +26,13 @@ export const x_312987_portal_component = Table({
         name: StringColumn({ label: 'Name', maxLength: 100, mandatory: true }),
         namespace: StringColumn({ label: 'Namespace', maxLength: 40, default: 'app' }),
         key: StringColumn({ label: 'Key', maxLength: 80, hint: 'Derived from the name when empty' }),
-        unique_id: StringColumn({ label: 'Unique ID', maxLength: 121, unique: true, readOnly: true, hint: '<namespace>/<key>' }),
+        unique_id: StringColumn({
+            label: 'Unique ID',
+            maxLength: 121,
+            unique: true,
+            readOnly: true,
+            hint: '<namespace>/<key>',
+        }),
         kind: ChoiceColumn({
             label: 'Kind',
             mandatory: true,
@@ -47,7 +53,11 @@ export const x_312987_portal_component = Table({
             label: 'Client script',
             hint: 'Main React component (compiled as main.tsx). Import extra files with ./path',
         }),
-        css: MultiLineTextColumn({ label: 'CSS', maxLength: 1000000, hint: 'Component stylesheet (compiled as styles.css)' }),
+        css: MultiLineTextColumn({
+            label: 'CSS',
+            maxLength: 1000000,
+            hint: 'Component stylesheet (compiled as styles.css)',
+        }),
         tailwind: BooleanColumn({
             label: 'Tailwind',
             default: true,
@@ -67,11 +77,15 @@ export const x_312987_portal_component = Table({
         exports_json: JsonColumn({ label: 'Exports', maxLength: 65000 }),
         options_schema_json: JsonColumn({ label: 'Options schema', maxLength: 65000 }),
         default_options_json: JsonColumn({ label: 'Default options', maxLength: 65000 }),
-        regions_json: JsonColumn({ label: 'Regions', maxLength: 65000, hint: 'Layouts: [{"name":"header","acceptsContributions":true}, …]' }),
+        regions_json: JsonColumn({
+            label: 'Regions',
+            maxLength: 65000,
+            hint: 'Layouts: [{"name":"header","acceptsContributions":true}, …]',
+        }),
         dependency_spec_json: JsonColumn({ label: 'Dependency spec', maxLength: 65000 }),
         source_revision: IntegerColumn({ label: 'Source revision', readOnly: true, default: 1 }),
     },
-})
+});
 
 Form({
     table: 'x_312987_portal_component',
@@ -115,11 +129,21 @@ Form({
         },
         {
             caption: 'Extra Files',
-            content: [{ layout: 'one-column', elements: [{ type: 'list', listType: '12M', listRef: 'x_312987_portal_source_file.component' }] }],
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [{ type: 'list', listType: '12M', listRef: 'x_312987_portal_source_file.component' }],
+                },
+            ],
         },
         {
             caption: 'Build',
-            content: [{ layout: 'one-column', elements: [{ type: 'list', listType: '12M', listRef: 'x_312987_portal_build.component' }] }],
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [{ type: 'list', listType: '12M', listRef: 'x_312987_portal_build.component' }],
+                },
+            ],
         },
     ],
-})
+});

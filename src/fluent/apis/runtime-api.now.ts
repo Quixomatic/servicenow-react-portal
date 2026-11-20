@@ -1,5 +1,5 @@
-import '@servicenow/sdk/global'
-import { RestApi, Acl } from '@servicenow/sdk/core'
+import '@servicenow/sdk/global';
+import { RestApi, Acl } from '@servicenow/sdk/core';
 import {
     bootstrapRoute,
     resolvePageRoute,
@@ -8,8 +8,8 @@ import {
     assetRoute,
     propertiesRoute,
     messagesRoute,
-} from '../../server/api/runtime-api'
-import { iconSpriteRoute } from '../../server/api/icon-api'
+} from '../../server/api/runtime-api';
+import { iconSpriteRoute } from '../../server/api/icon-api';
 
 /**
  * Runtime API: /api/x_312987_portal/rp/...  (v1 is the default, so no version prefix needed)
@@ -23,7 +23,7 @@ export const runtimeApiAcl = Acl({
     securityAttribute: 'user_is_authenticated',
     roles: [],
     description: 'React Portal runtime API: authenticated users (portal/page access is checked per request)',
-})
+});
 
 export const runtimeApi = RestApi({
     $id: Now.ID['rest-runtime'],
@@ -33,7 +33,9 @@ export const runtimeApi = RestApi({
     consumes: 'application/json',
     produces: 'application/json',
     enforceAcl: [runtimeApiAcl],
-    versions: [{ $id: Now.ID['rest-runtime-v1'], version: 1, isDefault: true, shortDescription: 'React Portal runtime v1' }],
+    versions: [
+        { $id: Now.ID['rest-runtime-v1'], version: 1, isDefault: true, shortDescription: 'React Portal runtime v1' },
+    ],
     routes: [
         {
             $id: Now.ID['rest-runtime-bootstrap'],
@@ -82,10 +84,21 @@ export const runtimeApi = RestApi({
             script: propertiesRoute,
             version: 1,
             parameters: [
-                { $id: Now.ID['rest-runtime-properties-portal'], name: 'portal', required: true, shortDescription: 'Portal slug' },
-                { $id: Now.ID['rest-runtime-properties-names'], name: 'names', required: true, shortDescription: 'Comma-separated property names' },
+                {
+                    $id: Now.ID['rest-runtime-properties-portal'],
+                    name: 'portal',
+                    required: true,
+                    shortDescription: 'Portal slug',
+                },
+                {
+                    $id: Now.ID['rest-runtime-properties-names'],
+                    name: 'names',
+                    required: true,
+                    shortDescription: 'Comma-separated property names',
+                },
             ],
-            shortDescription: 'System properties the portal exposes (settings.exposedProperties or x_312987_portal.public.*)',
+            shortDescription:
+                'System properties the portal exposes (settings.exposedProperties or x_312987_portal.public.*)',
         },
         {
             $id: Now.ID['rest-runtime-messages'],
@@ -117,4 +130,4 @@ export const runtimeApi = RestApi({
             shortDescription: 'Lucide icon sprite (inner SVG markup by name) for the classic-form icon picker',
         },
     ],
-})
+});

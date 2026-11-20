@@ -1,5 +1,10 @@
 /* Narrow cards: tab icons go, so the three tabs and their counts always fit. */
-.rp-mi { container-type: inline-size; container-name: rp-mi; }
+.rp-mi {
+    container-type: inline-size;
+    container-name: rp-mi;
+}
 @container rp-mi (max-width: 430px) {
-    .rp-mi-tabicon { display: none; }
+    .rp-mi-tabicon {
+        display: none;
+    }
 }

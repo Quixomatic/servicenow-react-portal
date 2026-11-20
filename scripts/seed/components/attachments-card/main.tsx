@@ -9,44 +9,52 @@
  * Options: { table, sysId, title, layout: 'list' | 'grid' | 'chips', dropzone: 'area' | 'compact' |
  * 'button' | 'none', downloadAll, emptyText }
  */
-import { usePortal, usePortalLocation } from '@portal/runtime'
-import { AttachmentPanel } from 'components:app/attachment-panel'
-import { isAttachableSysId } from 'utilities:app/attachments'
+import { usePortal, usePortalLocation } from '@portal/runtime';
+import { AttachmentPanel } from 'components:app/attachment-panel';
+import { isAttachableSysId } from 'utilities:app/attachments';
 
 type Options = {
-    table?: string
-    sysId?: string
-    title?: string
-    layout?: 'list' | 'grid' | 'chips'
-    dropzone?: 'area' | 'compact' | 'button' | 'none'
-    downloadAll?: boolean
-    emptyText?: string
-}
+    table?: string;
+    sysId?: string;
+    title?: string;
+    layout?: 'list' | 'grid' | 'chips';
+    dropzone?: 'area' | 'compact' | 'button' | 'none';
+    downloadAll?: boolean;
+    emptyText?: string;
+};
 
-const NAME = /^[a-z0-9_]+$/i
+const NAME = /^[a-z0-9_]+$/i;
 
 function pick(...values: unknown[]): string {
-    for (const v of values) if (v !== undefined && v !== null && String(v) !== '') return String(v)
-    return ''
+    for (const v of values) if (v !== undefined && v !== null && String(v) !== '') return String(v);
+    return '';
 }
 
 export default function AttachmentsCard({ options = {} }: { options?: Options }) {
-    const loc = (usePortalLocation() as any) || {}
-    const portal = usePortal() as any
-    const query = loc.params && typeof loc.params === 'object' ? loc.params : {}
-    const route = (portal && portal.page && portal.page.params) || {}
-    const rawTable = pick(options.table, route.table, loc.table, query.table)
-    const table = NAME.test(rawTable) ? rawTable : ''
-    const sysId = pick(options.sysId, route.sys_id, route.sysId, loc.sysId, query.sys_id)
-    const layout = options.layout === 'grid' || options.layout === 'chips' ? options.layout : 'list'
-    const dropzone = ['area', 'compact', 'button', 'none'].indexOf(String(options.dropzone)) >= 0 ? options.dropzone : layout === 'chips' ? 'button' : 'area'
+    const loc = (usePortalLocation() as any) || {};
+    const portal = usePortal() as any;
+    const query = loc.params && typeof loc.params === 'object' ? loc.params : {};
+    const route = (portal && portal.page && portal.page.params) || {};
+    const rawTable = pick(options.table, route.table, loc.table, query.table);
+    const table = NAME.test(rawTable) ? rawTable : '';
+    const sysId = pick(options.sysId, route.sys_id, route.sysId, loc.sysId, query.sys_id);
+    const layout = options.layout === 'grid' || options.layout === 'chips' ? options.layout : 'list';
+    const dropzone =
+        ['area', 'compact', 'button', 'none'].indexOf(String(options.dropzone)) >= 0
+            ? options.dropzone
+            : layout === 'chips'
+              ? 'button'
+              : 'area';
 
     if (!table || !isAttachableSysId(sysId)) {
         return (
-            <section className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground" data-rp-attachments-card="">
+            <section
+                className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground"
+                data-rp-attachments-card=""
+            >
                 {options.title || 'Attachments'}: open a saved record to see its attachments.
             </section>
-        )
+        );
     }
     return (
         <div data-rp-attachments-card={`${table}:${sysId}`}>
@@ -61,5 +69,5 @@ export default function AttachmentsCard({ options = {} }: { options?: Options })
                 id={`rp-att-${sysId.slice(0, 8)}-${layout}`}
             />
         </div>
-    )
+    );
 }

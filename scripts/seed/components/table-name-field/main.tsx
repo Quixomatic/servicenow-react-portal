@@ -10,61 +10,72 @@
  * The dictionary attribute `base_table` (or `baseTable`) limits the list to that table and the
  * tables extending it. Typing an exact table name and leaving the field also commits it.
  */
-import { useMemo, useState } from 'react'
-import { useQuery } from 'utilities:react-query'
-import { restGet, useDebouncedValue } from 'utilities:app/graphql'
-import { useField, FieldShell, adornmentButtonClass, IconX } from 'components:app/field'
-import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field'
-import { Combobox } from 'components:app/combobox'
-import type { ComboItem } from 'components:app/combobox'
+import { useMemo, useState } from 'react';
+import { useQuery } from 'utilities:react-query';
+import { restGet, useDebouncedValue } from 'utilities:app/graphql';
+import { useField, FieldShell, adornmentButtonClass, IconX } from 'components:app/field';
+import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field';
+import { Combobox } from 'components:app/combobox';
+import type { ComboItem } from 'components:app/combobox';
 
 export type TableNameFieldProps = FieldProps & {
     /** Only this table and the tables extending it. */
-    baseTable?: string
+    baseTable?: string;
     /** Results per search (default 50). */
-    limit?: number
-    layout?: FieldLayout
-    size?: FieldSize
-    showOptional?: boolean
-    className?: string
-}
+    limit?: number;
+    layout?: FieldLayout;
+    size?: FieldSize;
+    showOptional?: boolean;
+    className?: string;
+};
 
-export type TableInfo = { name: string; label: string; superClass?: string }
+export type TableInfo = { name: string; label: string; superClass?: string };
 
-const SAFE = /^[a-z0-9_]+$/i
+const SAFE = /^[a-z0-9_]+$/i;
 
 /** Encoded query: the table and up to 6 levels of tables extending it. */
 export function extendsQuery(base: string): string {
-    if (!SAFE.test(base)) return ''
-    const parts = [`name=${base}`]
-    let path = 'super_class'
+    if (!SAFE.test(base)) return '';
+    const parts = [`name=${base}`];
+    let path = 'super_class';
     for (let i = 0; i < 6; i++) {
-        parts.push(`${path}.name=${base}`)
-        path += '.super_class'
+        parts.push(`${path}.name=${base}`);
+        path += '.super_class';
     }
-    return parts.join('^OR')
+    return parts.join('^OR');
 }
 
 /** Search sys_db_object by label or name (Table API; names starting with the text sort first). */
-export async function searchTables(text: string, opts: { baseTable?: string; limit?: number } = {}, signal?: AbortSignal): Promise<TableInfo[]> {
-    const q = String(text || '').replace(/[^a-z0-9_ ]/gi, '').trim()
-    const where: string[] = []
-    if (q) where.push(`nameLIKE${q}^ORlabelLIKE${q}`)
+export async function searchTables(
+    text: string,
+    opts: { baseTable?: string; limit?: number } = {},
+    signal?: AbortSignal
+): Promise<TableInfo[]> {
+    const q = String(text || '')
+        .replace(/[^a-z0-9_ ]/gi, '')
+        .trim();
+    const where: string[] = [];
+    if (q) where.push(`nameLIKE${q}^ORlabelLIKE${q}`);
     if (opts.baseTable) {
-        const ext = extendsQuery(opts.baseTable)
-        if (ext) where.push(ext)
+        const ext = extendsQuery(opts.baseTable);
+        if (ext) where.push(ext);
     }
-    const query = where.concat(['ORDERBYlabel']).join('^')
+    const query = where.concat(['ORDERBYlabel']).join('^');
     const rows = await restGet<any[]>(
         `/api/now/table/sys_db_object?sysparm_query=${encodeURIComponent(query)}&sysparm_fields=name,label,super_class.name&sysparm_limit=${opts.limit || 50}&sysparm_exclude_reference_link=true`,
-        signal,
-    )
+        signal
+    );
     const out: TableInfo[] = (rows || [])
         .filter((r) => r && r.name)
-        .map((r) => ({ name: String(r.name), label: String(r.label || r.name), superClass: r['super_class.name'] || undefined }))
-    const lq = q.toLowerCase()
-    const rank = (t: TableInfo) => (t.name === lq ? 0 : t.name.startsWith(lq) ? 1 : t.label.toLowerCase().startsWith(lq) ? 2 : 3)
-    return lq ? out.sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label)) : out
+        .map((r) => ({
+            name: String(r.name),
+            label: String(r.label || r.name),
+            superClass: r['super_class.name'] || undefined,
+        }));
+    const lq = q.toLowerCase();
+    const rank = (t: TableInfo) =>
+        t.name === lq ? 0 : t.name.startsWith(lq) ? 1 : t.label.toLowerCase().startsWith(lq) ? 2 : 3;
+    return lq ? out.sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label)) : out;
 }
 
 /** One table's label (cached). */
@@ -72,41 +83,69 @@ export function useTableInfo(name: string | undefined) {
     return useQuery({
         queryKey: ['rp-fields', 'table-info', name || ''],
         queryFn: async ({ signal }: { signal: AbortSignal }) => {
-            const rows = await restGet<any[]>(`/api/now/table/sys_db_object?sysparm_query=${encodeURIComponent('name=' + name)}&sysparm_fields=name,label,super_class.name&sysparm_limit=1`, signal)
-            const r = rows && rows[0]
-            return r ? ({ name: String(r.name), label: String(r.label || r.name), superClass: r['super_class.name'] || undefined } as TableInfo) : null
+            const rows = await restGet<any[]>(
+                `/api/now/table/sys_db_object?sysparm_query=${encodeURIComponent('name=' + name)}&sysparm_fields=name,label,super_class.name&sysparm_limit=1`,
+                signal
+            );
+            const r = rows && rows[0];
+            return r
+                ? ({
+                      name: String(r.name),
+                      label: String(r.label || r.name),
+                      superClass: r['super_class.name'] || undefined,
+                  } as TableInfo)
+                : null;
         },
         enabled: !!name && SAFE.test(name),
         staleTime: 30 * 60_000,
-    })
+    });
 }
 
 /** Debounced table search as a hook (any widget): { data: TableInfo[], isFetching, … }. */
-export function useTableSearch(text: string, opts: { baseTable?: string; limit?: number; enabled?: boolean; debounceMs?: number } = {}) {
-    const term = useDebouncedValue(text || '', opts.debounceMs ?? 200)
+export function useTableSearch(
+    text: string,
+    opts: { baseTable?: string; limit?: number; enabled?: boolean; debounceMs?: number } = {}
+) {
+    const term = useDebouncedValue(text || '', opts.debounceMs ?? 200);
     return useQuery({
         queryKey: ['rp-fields', 'tables', term, opts.baseTable || '', opts.limit || 50],
-        queryFn: ({ signal }: { signal: AbortSignal }) => searchTables(term, { baseTable: opts.baseTable, limit: opts.limit }, signal),
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+            searchTables(term, { baseTable: opts.baseTable, limit: opts.limit }, signal),
         enabled: opts.enabled !== false,
         staleTime: 5 * 60_000,
-    })
+    });
 }
 
 export function TableNameField(props: TableNameFieldProps) {
-    const field = useField(props)
-    const baseTable = props.baseTable || (field.meta.attributes || {}).base_table || undefined
-    const [open, setOpen] = useState(false)
-    const [text, setText] = useState<string | null>(null)
-    const info = useTableInfo(field.value || undefined)
-    const current = field.value ? (info.data ? info.data.label : field.displayValue && field.displayValue !== field.value ? field.displayValue : field.value) : ''
-    const search = useTableSearch(text || '', { baseTable, limit: props.limit, enabled: open })
-    const items = useMemo<ComboItem[]>(() => ((search.data as TableInfo[] | undefined) || []).map((t) => ({ value: t.name, label: t.label, description: t.name, data: t })), [search.data])
+    const field = useField(props);
+    const baseTable = props.baseTable || (field.meta.attributes || {}).base_table || undefined;
+    const [open, setOpen] = useState(false);
+    const [text, setText] = useState<string | null>(null);
+    const info = useTableInfo(field.value || undefined);
+    const current = field.value
+        ? info.data
+            ? info.data.label
+            : field.displayValue && field.displayValue !== field.value
+              ? field.displayValue
+              : field.value
+        : '';
+    const search = useTableSearch(text || '', { baseTable, limit: props.limit, enabled: open });
+    const items = useMemo<ComboItem[]>(
+        () =>
+            ((search.data as TableInfo[] | undefined) || []).map((t) => ({
+                value: t.name,
+                label: t.label,
+                description: t.name,
+                data: t,
+            })),
+        [search.data]
+    );
 
     const commit = (name: string, label: string) => {
-        setText(null)
-        setOpen(false)
-        if (name !== field.value) field.setValue(name, label)
-    }
+        setText(null);
+        setOpen(false);
+        if (name !== field.value) field.setValue(name, label);
+    };
 
     return (
         <FieldShell
@@ -139,11 +178,13 @@ export function TableNameField(props: TableNameFieldProps) {
                 items={items}
                 open={open}
                 onOpenChange={(o) => {
-                    setOpen(o)
-                    if (o && text === null) setText('')
+                    setOpen(o);
+                    if (o && text === null) setText('');
                 }}
                 loading={search.isFetching}
-                emptyText={search.isFetching ? 'Searching tables…' : text ? 'No matching tables' : 'Type to search tables'}
+                emptyText={
+                    search.isFetching ? 'Searching tables…' : text ? 'No matching tables' : 'Type to search tables'
+                }
                 activeValue={field.value || undefined}
                 selectedValues={field.value ? [field.value] : undefined}
                 onSelect={(item) => commit(item.value, item.label)}
@@ -155,22 +196,30 @@ export function TableNameField(props: TableNameFieldProps) {
                 )}
                 endAdornment={
                     field.value && !field.state.disabled ? (
-                        <button type="button" className={adornmentButtonClass} aria-label={`Clear ${field.label}`} onPointerDown={(e: any) => e.preventDefault()} onClick={() => commit('', '')}>
+                        <button
+                            type="button"
+                            className={adornmentButtonClass}
+                            aria-label={`Clear ${field.label}`}
+                            onPointerDown={(e: any) => e.preventDefault()}
+                            onClick={() => commit('', '')}
+                        >
                             <IconX size={14} />
                         </button>
                     ) : null
                 }
                 onBlur={() => {
                     // An exact name typed (or an exact single match) commits; anything else reverts.
-                    const t = (text || '').trim()
-                    const exact = t ? items.find((i) => i.value === t.toLowerCase() || i.label.toLowerCase() === t.toLowerCase()) : undefined
-                    if (exact) commit(exact.value, exact.label)
-                    else setText(null)
-                    field.blur()
+                    const t = (text || '').trim();
+                    const exact = t
+                        ? items.find((i) => i.value === t.toLowerCase() || i.label.toLowerCase() === t.toLowerCase())
+                        : undefined;
+                    if (exact) commit(exact.value, exact.label);
+                    else setText(null);
+                    field.blur();
                 }}
             />
         </FieldShell>
-    )
+    );
 }
 
 export default function TableNameFieldPreview() {
@@ -179,5 +228,5 @@ export default function TableNameFieldPreview() {
             <TableNameField name="table" label="Table" defaultValue="incident" />
             <TableNameField name="task_table" label="Task table" baseTable="task" />
         </div>
-    )
+    );
 }

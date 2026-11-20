@@ -12,12 +12,6 @@
         "allowImportingTsExtensions": true,
         "noEmit": true
     },
-    "include": [
-        "./**/*.ts",
-        "../shared/**/*.ts",
-        "../../@types/**/*.modules.d.ts"
-    ],
-    "exclude": [
-        "**/*.now.ts"
-    ]
+    "include": ["./**/*.ts", "../shared/**/*.ts", "../../@types/**/*.modules.d.ts"],
+    "exclude": ["**/*.now.ts"]
 }

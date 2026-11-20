@@ -1,10 +1,26 @@
 {
     "type": "object",
     "properties": {
-        "direction": { "type": "string", "title": "Direction", "enum": ["column", "row", "column-reverse", "row-reverse"], "enumNames": ["Vertical", "Horizontal", "Vertical (reversed)", "Horizontal (reversed)"], "x-css-var": "--rp-stack-dir" },
+        "direction": {
+            "type": "string",
+            "title": "Direction",
+            "enum": ["column", "row", "column-reverse", "row-reverse"],
+            "enumNames": ["Vertical", "Horizontal", "Vertical (reversed)", "Horizontal (reversed)"],
+            "x-css-var": "--rp-stack-dir"
+        },
         "gap": { "type": "string", "title": "Gap", "x-css-var": "--rp-stack-gap" },
-        "align": { "type": "string", "title": "Align items", "enum": ["stretch", "flex-start", "center", "flex-end", "baseline"], "x-css-var": "--rp-stack-align" },
-        "justify": { "type": "string", "title": "Justify content", "enum": ["flex-start", "center", "flex-end", "space-between", "space-around", "space-evenly"], "x-css-var": "--rp-stack-justify" },
+        "align": {
+            "type": "string",
+            "title": "Align items",
+            "enum": ["stretch", "flex-start", "center", "flex-end", "baseline"],
+            "x-css-var": "--rp-stack-align"
+        },
+        "justify": {
+            "type": "string",
+            "title": "Justify content",
+            "enum": ["flex-start", "center", "flex-end", "space-between", "space-around", "space-evenly"],
+            "x-css-var": "--rp-stack-justify"
+        },
         "wrap": { "type": "string", "title": "Wrap", "enum": ["nowrap", "wrap"], "x-css-var": "--rp-stack-wrap" }
     }
 }

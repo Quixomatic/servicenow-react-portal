@@ -1,1 +1,6 @@
-{ "name": "Navigation Sidebar", "kind": "widget", "tailwind": true, "defaults": { "title": "Pages", "menu": "primary", "collapsible": "offcanvas", "width": "220px" } }
+{
+    "name": "Navigation Sidebar",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "title": "Pages", "menu": "primary", "collapsible": "offcanvas", "width": "220px" }
+}

@@ -1,1 +1,12 @@
-{ "name": "Knowledge Search", "kind": "widget", "tailwind": true, "defaults": { "pageSize": 10, "categoryLimit": 8, "homePage": "kb", "articlePage": "kb/article", "categoryPage": "kb/category" } }
+{
+    "name": "Knowledge Search",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "pageSize": 10,
+        "categoryLimit": 8,
+        "homePage": "kb",
+        "articlePage": "kb/article",
+        "categoryPage": "kb/category"
+    }
+}

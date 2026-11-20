@@ -6,16 +6,16 @@ import { attachQueryClient } from './diagnostics';
 // portalSlug (and later release, user and instance). Writes are mutations: no retries, no
 // refetch-on-focus.
 export const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			staleTime: 30_000,
-			refetchOnWindowFocus: false,
-			retry: 1
-		},
-		mutations: {
-			retry: false
-		}
-	}
+    defaultOptions: {
+        queries: {
+            staleTime: 30_000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+        },
+        mutations: {
+            retry: false,
+        },
+    },
 });
 
 // Per-key fetch counts and cache state for window.__RP_DIAG__.

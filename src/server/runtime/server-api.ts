@@ -1,11 +1,11 @@
-import type { ServerMessage } from '../../shared/contracts'
-import { gs, GlideRecordSecure } from '@servicenow/glide'
-import { currentUser } from '../security/user.ts'
-import { isPlainObject } from '../lib/util.ts'
-import { resolveMenu, resolveMenus, findNavItem } from './menu-service.ts'
-import { createQuickUtils } from '../lib/quick-utils.ts'
-import type { Manifest } from './portal-service.ts'
-import type { EmbedModel, MenuMap, NavItem } from '../../shared/contracts'
+import type { ServerMessage } from '../../shared/contracts';
+import { gs, GlideRecordSecure } from '@servicenow/glide';
+import { currentUser } from '../security/user.ts';
+import { isPlainObject } from '../lib/util.ts';
+import { resolveMenu, resolveMenus, findNavItem } from './menu-service.ts';
+import { createQuickUtils } from '../lib/quick-utils.ts';
+import type { Manifest } from './portal-service.ts';
+import type { EmbedModel, MenuMap, NavItem } from '../../shared/contracts';
 
 /**
  * `$rp` — the server-side helper injected into every component server script, modeled on Service
@@ -22,94 +22,100 @@ import type { EmbedModel, MenuMap, NavItem } from '../../shared/contracts'
 
 export interface ServerApiContext {
     /** Sink for $sp.add*Message (returned to the client as toasts). */
-    messages?: ServerMessage[]
-    input: Record<string, unknown>
-    options: Record<string, unknown>
-    params: Record<string, string>
+    messages?: ServerMessage[];
+    input: Record<string, unknown>;
+    options: Record<string, unknown>;
+    params: Record<string, string>;
     /** The portal URL's params (table, sys_id, view, query, q keys); explicit params already win. */
-    urlParams?: Record<string, string>
-    portal: { id: string; slug: string; name: string; settings: Record<string, unknown> }
-    page: { route: string | null; params: Record<string, string> } | null
+    urlParams?: Record<string, string>;
+    portal: { id: string; slug: string; name: string; settings: Record<string, unknown> };
+    page: { route: string | null; params: Record<string, string> } | null;
     /** Embedded instances add embedded/parentInstanceId/key/path (see component-executor). */
-    component: { id: string; uniqueId: string; instanceId: string; [extra: string]: unknown }
+    component: { id: string; uniqueId: string; instanceId: string; [extra: string]: unknown };
     /** The portal's served manifest (menus come from it). */
-    manifest?: Manifest | null
+    manifest?: Manifest | null;
     /**
      * $sp.getWidget(id, options?, { key? }): run a widget this component imports and return its
      * EmbedModel (component scripts only; absent elsewhere, e.g. menu conditions).
      */
-    getWidget?: (id: unknown, options?: unknown, settings?: unknown) => EmbedModel
+    getWidget?: (id: unknown, options?: unknown, settings?: unknown) => EmbedModel;
 }
 
 export function createServerApi(ctx: ServerApiContext): Record<string, unknown> {
-    const messages = ctx.messages || []
-    const addMessage = (type: ServerMessage['type']) => (msg: unknown): void => {
-        if (msg !== null && msg !== undefined && String(msg) !== '') messages.push({ type, message: String(msg) })
-    }
-    const settings = isPlainObject(ctx.portal.settings) ? ctx.portal.settings : {}
+    const messages = ctx.messages || [];
+    const addMessage =
+        (type: ServerMessage['type']) =>
+        (msg: unknown): void => {
+            if (msg !== null && msg !== undefined && String(msg) !== '') messages.push({ type, message: String(msg) });
+        };
+    const settings = isPlainObject(ctx.portal.settings) ? ctx.portal.settings : {};
 
     /** Option (placement/component default) first, then portal setting — like $sp.getValue. */
     const getValue = (name: string): unknown => {
-        if (ctx.options && ctx.options[name] !== undefined && ctx.options[name] !== '') return ctx.options[name]
-        return settings[name] !== undefined ? settings[name] : null
-    }
+        if (ctx.options && ctx.options[name] !== undefined && ctx.options[name] !== '') return ctx.options[name];
+        return settings[name] !== undefined ? settings[name] : null;
+    };
 
     const getRecord = (table?: string, sysId?: string): any => {
-        const t = table || (getParameter('table') as string) || ''
-        const id = sysId || (getParameter('sys_id') as string) || (getParameter('id') as string) || ''
-        if (!t || !id) return null
-        const gr: any = new GlideRecordSecure(t)
-        return gr.get(id) ? gr : null
-    }
+        const t = table || (getParameter('table') as string) || '';
+        const id = sysId || (getParameter('sys_id') as string) || (getParameter('id') as string) || '';
+        if (!t || !id) return null;
+        const gr: any = new GlideRecordSecure(t);
+        return gr.get(id) ? gr : null;
+    };
 
     /**
      * Like $sp.getParameter's URL lookup: input first, then route params (orders/:id → id), then
      * the URL params (explicit table / sys_id / view / query, then the keys inside q).
      */
     const getParameter = (name: string): unknown => {
-        if (ctx.input && ctx.input[name] !== undefined) return ctx.input[name]
-        if (ctx.params && ctx.params[name] !== undefined) return ctx.params[name]
-        if (ctx.urlParams && ctx.urlParams[name] !== undefined) return ctx.urlParams[name]
-        return null
-    }
+        if (ctx.input && ctx.input[name] !== undefined) return ctx.input[name];
+        if (ctx.params && ctx.params[name] !== undefined) return ctx.params[name];
+        if (ctx.urlParams && ctx.urlParams[name] !== undefined) return ctx.urlParams[name];
+        return null;
+    };
     /** Every parameter getParameter() can see, merged in the same order (later wins). */
-    const getParameters = (): Record<string, unknown> => ({ ...(ctx.urlParams || {}), ...(ctx.params || {}), ...(ctx.input || {}) })
+    const getParameters = (): Record<string, unknown> => ({
+        ...(ctx.urlParams || {}),
+        ...(ctx.params || {}),
+        ...(ctx.input || {}),
+    });
 
     const getField = (gr: any, field: string) => {
-        if (!gr || !gr.isValidRecord || !gr.isValidRecord() || !gr.isValidField(field)) return null
-        const el = gr.getElement(field)
-        const ed = el.getED()
+        if (!gr || !gr.isValidRecord || !gr.isValidRecord() || !gr.isValidField(field)) return null;
+        const el = gr.getElement(field);
+        const ed = el.getED();
         return {
             name: field,
             label: String(ed.getLabel()),
             type: String(ed.getInternalType()),
             value: String(gr.getValue(field) || ''),
             display_value: String(gr.getDisplayValue(field) || ''),
-        }
-    }
+        };
+    };
 
     // Menus resolve lazily, once per helper (one server call), with this helper as the conditions' $sp.
-    let api: Record<string, unknown> = {}
-    let allMenus: MenuMap | null = null
+    let api: Record<string, unknown> = {};
+    let allMenus: MenuMap | null = null;
     const menuCtx = () => ({
         pages: ctx.manifest ? ctx.manifest.pages : [],
         portal: { id: ctx.portal.id, slug: ctx.portal.slug, name: ctx.portal.name },
         api,
-    })
+    });
     const getMenus = (): MenuMap => {
-        if (!allMenus) allMenus = ctx.manifest ? resolveMenus(ctx.manifest.menus, menuCtx()) : {}
-        return allMenus
-    }
+        if (!allMenus) allMenus = ctx.manifest ? resolveMenus(ctx.manifest.menus, menuCtx()) : {};
+        return allMenus;
+    };
     const getMenu = (key?: string): NavItem[] => {
-        if (allMenus) return allMenus[String(key || 'primary')] || []
-        return ctx.manifest ? resolveMenu(ctx.manifest.menus, String(key || 'primary'), menuCtx()) : []
-    }
+        if (allMenus) return allMenus[String(key || 'primary')] || [];
+        return ctx.manifest ? resolveMenu(ctx.manifest.menus, String(key || 'primary'), menuCtx()) : [];
+    };
 
     api = {
         getValue,
         getDisplayValue: (name: string) => {
-            const v = getValue(name)
-            return v === null || v === undefined ? '' : String(v)
+            const v = getValue(name);
+            return v === null || v === undefined ? '' : String(v);
         },
         getParameter,
         getParameters,
@@ -124,14 +130,18 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
                 .filter(Boolean),
         canReadRecord: (grOrTable: any, sysId?: string) => {
             if (typeof grOrTable === 'string') {
-                const gr: any = new GlideRecordSecure(grOrTable)
-                return !!sysId && gr.get(sysId)
+                const gr: any = new GlideRecordSecure(grOrTable);
+                return !!sysId && gr.get(sysId);
             }
-            return !!grOrTable && typeof grOrTable.canRead === 'function' && grOrTable.canRead()
+            return !!grOrTable && typeof grOrTable.canRead === 'function' && grOrTable.canRead();
         },
         // The embed signing secret is never handed to component scripts (they could put it in data).
         getProperty: (name: string, fallback?: string) =>
-            String(name) === 'x_312987_portal.embed_secret' ? (fallback === undefined ? null : fallback) : gs.getProperty(name, fallback === undefined ? null : fallback),
+            String(name) === 'x_312987_portal.embed_secret'
+                ? fallback === undefined
+                    ? null
+                    : fallback
+                : gs.getProperty(name, fallback === undefined ? null : fallback),
         getUser: () => currentUser(),
         hasRole: (role: string) => gs.hasRole(role),
         getPortal: () => ({ id: ctx.portal.id, slug: ctx.portal.slug, name: ctx.portal.name, settings }),
@@ -143,11 +153,15 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
          *   data.clock = $sp.getWidget('app/server-clock', { title: 'UTC' }, { key: 'utc' })
          */
         getWidget: (id: unknown, options?: unknown, settings?: unknown) => {
-            if (!ctx.getWidget) throw new Error("$sp.getWidget isn't available here (component server scripts only)")
-            return ctx.getWidget(id, options, settings)
+            if (!ctx.getWidget) throw new Error("$sp.getWidget isn't available here (component server scripts only)");
+            return ctx.getWidget(id, options, settings);
         },
-        translate: (message: string, args?: unknown) => (args === undefined ? gs.getMessage(message) : gs.getMessage(message, args as any)),
-        log: (message: unknown) => gs.info(`[React Portal ${ctx.component.uniqueId}] ${typeof message === 'string' ? message : JSON.stringify(message)}`),
+        translate: (message: string, args?: unknown) =>
+            args === undefined ? gs.getMessage(message) : gs.getMessage(message, args as any),
+        log: (message: unknown) =>
+            gs.info(
+                `[React Portal ${ctx.component.uniqueId}] ${typeof message === 'string' ? message : JSON.stringify(message)}`
+            ),
         /** One menu (primary, footer, …) as the current user sees it: NavItem[] (same tree as bootstrap.menus). */
         getMenu,
         /** Every menu of the portal for the current user, by key. */
@@ -168,6 +182,6 @@ export function createServerApi(ctx: ServerApiContext): Record<string, unknown> 
          * See docs/guide/server-api/sp-api.md#quick-utilities.
          */
         quick: createQuickUtils({ secure: true, input: ctx.input, options: ctx.options }),
-    }
-    return api
+    };
+    return api;
 }

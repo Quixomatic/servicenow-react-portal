@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -12,7 +12,7 @@ import {
     DateTimeColumn,
     BooleanColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /**
  * The compiled form of one component or theme: exactly one build record per owner,
@@ -28,7 +28,11 @@ export const x_312987_portal_build = Table({
     display: 'owner_key',
     allowWebServiceAccess: true,
     schema: {
-        component: ReferenceColumn({ label: 'Component', referenceTable: 'x_312987_portal_component', cascadeRule: 'cascade' }),
+        component: ReferenceColumn({
+            label: 'Component',
+            referenceTable: 'x_312987_portal_component',
+            cascadeRule: 'cascade',
+        }),
         theme: ReferenceColumn({ label: 'Theme', referenceTable: 'x_312987_portal_theme', cascadeRule: 'cascade' }),
         owner_key: StringColumn({ label: 'Owner', maxLength: 80, readOnly: true, unique: true }),
         state: ChoiceColumn({
@@ -42,9 +46,24 @@ export const x_312987_portal_build = Table({
                 failed: { label: 'Failed (never compiled successfully)', sequence: 2 },
             },
         }),
-        built_revision: IntegerColumn({ label: 'Built revision', readOnly: true, default: 0, hint: 'Source revision of the compiled output being served' }),
-        pending_revision: IntegerColumn({ label: 'Pending revision', readOnly: true, default: 0, hint: 'Revision awaiting a compile (0 = none)' }),
-        needs_rebuild: BooleanColumn({ label: 'Needs rebuild', readOnly: true, default: false, hint: 'A dependency changed since this was compiled' }),
+        built_revision: IntegerColumn({
+            label: 'Built revision',
+            readOnly: true,
+            default: 0,
+            hint: 'Source revision of the compiled output being served',
+        }),
+        pending_revision: IntegerColumn({
+            label: 'Pending revision',
+            readOnly: true,
+            default: 0,
+            hint: 'Revision awaiting a compile (0 = none)',
+        }),
+        needs_rebuild: BooleanColumn({
+            label: 'Needs rebuild',
+            readOnly: true,
+            default: false,
+            hint: 'A dependency changed since this was compiled',
+        }),
         input_hash: StringColumn({ label: 'Input hash', maxLength: 64, readOnly: true }),
         compiler_version: StringColumn({ label: 'Compiler version', maxLength: 100, readOnly: true }),
         runtime_abi_version: StringColumn({ label: 'Runtime ABI', maxLength: 40, readOnly: true }),
@@ -52,12 +71,16 @@ export const x_312987_portal_build = Table({
         options_snapshot: JsonColumn({ label: 'Options snapshot', maxLength: 65000, readOnly: true }),
         exports_snapshot: JsonColumn({ label: 'Exports snapshot', maxLength: 65000, readOnly: true }),
         source_snapshot_json: JsonColumn({ label: 'Source snapshot', maxLength: 65000, readOnly: true }),
-        diagnostics_json: MultiLineTextColumn({ label: 'Diagnostics (last compile)', maxLength: 65000, readOnly: true }),
+        diagnostics_json: MultiLineTextColumn({
+            label: 'Diagnostics (last compile)',
+            maxLength: 65000,
+            readOnly: true,
+        }),
         last_error: MultiLineTextColumn({ label: 'Last error', maxLength: 4000, readOnly: true }),
         requested_at: DateTimeColumn({ label: 'Compile requested', readOnly: true }),
         completed_at: DateTimeColumn({ label: 'Last compiled', readOnly: true }),
     },
-})
+});
 
 Form({
     table: 'x_312987_portal_build',
@@ -108,4 +131,4 @@ Form({
             ],
         },
     ],
-})
+});

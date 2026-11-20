@@ -29,8 +29,8 @@
  *   useRecordValues, useReferenceDisplay, useDebouncedValue, useGraphQLClient, gqlKeys,
  *   useViewRuleResolution(kind, table, rules), useViewRuleExplain(args)
  */
-export { graphql, gql, restGet, authHeaders, safeName, GraphQLError, GRAPHQL_ENDPOINT } from './client'
-export type { GraphQLOptions, GraphQLErrorEntry } from './client'
+export { graphql, gql, restGet, authHeaders, safeName, GraphQLError, GRAPHQL_ENDPOINT } from './client';
+export type { GraphQLOptions, GraphQLErrorEntry } from './client';
 export {
     fetchTableMeta,
     fetchFormBootstrap,
@@ -66,8 +66,8 @@ export {
     resolveViewRules,
     explainViewRules,
     bootstrapFromUiView,
-} from './documents'
-export type { ViewExplanation, ViewRuleVerdict } from './documents'
+} from './documents';
+export type { ViewExplanation, ViewRuleVerdict } from './documents';
 export {
     useGraphQL,
     useTableMeta,
@@ -85,7 +85,7 @@ export {
     useViewRuleResolution,
     useViewRuleExplain,
     useViewRulesContext,
-} from './hooks'
+} from './hooks';
 export type {
     GlideType,
     Choice,
@@ -113,4 +113,4 @@ export type {
     ReferenceItem,
     ReferenceSearchResult,
     FormChanges,
-} from './types'
+} from './types';

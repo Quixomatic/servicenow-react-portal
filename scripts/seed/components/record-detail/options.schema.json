@@ -1,14 +1,14 @@
 {
-  "type": "object",
-  "properties": {
-    "label": {
-      "type": "string",
-      "title": "Record label",
-      "default": "Record"
-    },
-    "back": {
-      "type": "string",
-      "title": "Back link (page route)"
+    "type": "object",
+    "properties": {
+        "label": {
+            "type": "string",
+            "title": "Record label",
+            "default": "Record"
+        },
+        "back": {
+            "type": "string",
+            "title": "Back link (page route)"
+        }
     }
-  }
 }

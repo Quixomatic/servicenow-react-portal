@@ -1,1 +1,19 @@
-{ "name": "Related Lists Card", "kind": "widget", "tailwind": true, "defaults": { "table": "", "sysId": "", "view": "", "layout": "tabs", "name": "", "include": "", "exclude": "", "title": "Related lists", "recordPage": "form", "actions": true, "liveUpdates": false, "pageSize": 10 } }
+{
+    "name": "Related Lists Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "table": "",
+        "sysId": "",
+        "view": "",
+        "layout": "tabs",
+        "name": "",
+        "include": "",
+        "exclude": "",
+        "title": "Related lists",
+        "recordPage": "form",
+        "actions": true,
+        "liveUpdates": false,
+        "pageSize": 10
+    }
+}

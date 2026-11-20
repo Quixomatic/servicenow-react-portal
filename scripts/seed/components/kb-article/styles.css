@@ -1,23 +1,62 @@
 /* The article page follows its own width (container queries), not the viewport: beside a wide
    sidebar or in a narrow column it still picks the right layout.
    ≥ 980px: article + sticky "On this page" rail; below: one column, the contents as a disclosure. */
-.rp-kba { container-type: inline-size; container-name: rp-kba; }
-.rp-kba-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2.5rem; align-items: start; }
-.rp-kba-rail { display: none; }
-.rp-kba-toc-inline { display: block; position: sticky; top: 0.5rem; z-index: 5; }
-@container rp-kba (min-width: 980px) {
-    .rp-kba-grid { grid-template-columns: minmax(0, 1fr) 15.5rem; gap: 3.5rem; }
-    .rp-kba-rail { display: block; position: sticky; top: 1.25rem; }
-    .rp-kba-toc-inline { display: none; }
+.rp-kba {
+    container-type: inline-size;
+    container-name: rp-kba;
 }
-.rp-kba-related { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+.rp-kba-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+}
+.rp-kba-rail {
+    display: none;
+}
+.rp-kba-toc-inline {
+    display: block;
+    position: sticky;
+    top: 0.5rem;
+    z-index: 5;
+}
+@container rp-kba (min-width: 980px) {
+    .rp-kba-grid {
+        grid-template-columns: minmax(0, 1fr) 15.5rem;
+        gap: 3.5rem;
+    }
+    .rp-kba-rail {
+        display: block;
+        position: sticky;
+        top: 1.25rem;
+    }
+    .rp-kba-toc-inline {
+        display: none;
+    }
+}
+.rp-kba-related {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+}
 @container rp-kba (min-width: 760px) {
-    .rp-kba-related { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rp-kba-related {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 @media print {
-    .rp-kba-rail, .rp-kba-toc-inline, [data-rp-kb-feedback], .rp-kba-actions { display: none !important; }
+    .rp-kba-rail,
+    .rp-kba-toc-inline,
+    [data-rp-kb-feedback],
+    .rp-kba-actions {
+        display: none !important;
+    }
 }
 @container rp-kba (min-width: 980px) {
-    .rp-kba[data-toc="0"] .rp-kba-grid { grid-template-columns: minmax(0, 1fr); }
-    .rp-kba[data-toc="0"] .rp-kba-rail { display: none; }
+    .rp-kba[data-toc='0'] .rp-kba-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .rp-kba[data-toc='0'] .rp-kba-rail {
+        display: none;
+    }
 }

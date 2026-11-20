@@ -15,60 +15,61 @@ const hasWindow = typeof window !== 'undefined';
 const media = hasWindow && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 function readStored() {
-	try {
-		const value = hasWindow && window.localStorage ? window.localStorage.getItem(STORAGE_KEY) : null;
-		return THEMES.includes(value) ? value : 'system';
-	} catch (error) {
-		return 'system';
-	}
+    try {
+        const value = hasWindow && window.localStorage ? window.localStorage.getItem(STORAGE_KEY) : null;
+        return THEMES.includes(value) ? value : 'system';
+    } catch (error) {
+        return 'system';
+    }
 }
 
 const systemOf = () => (media && media.matches ? 'dark' : 'light');
 
 function snapshotOf(theme, systemTheme) {
-	return { theme, systemTheme, resolvedTheme: theme === 'system' ? systemTheme : theme };
+    return { theme, systemTheme, resolvedTheme: theme === 'system' ? systemTheme : theme };
 }
 
 let snapshot = snapshotOf(readStored(), systemOf());
 const listeners = new Set();
 
 function update(theme, systemTheme) {
-	if (theme === snapshot.theme && systemTheme === snapshot.systemTheme) return;
-	snapshot = snapshotOf(theme, systemTheme);
-	listeners.forEach((l) => l());
+    if (theme === snapshot.theme && systemTheme === snapshot.systemTheme) return;
+    snapshot = snapshotOf(theme, systemTheme);
+    listeners.forEach((l) => l());
 }
 
 export function setTheme(value) {
-	const next = typeof value === 'function' ? value(snapshot.theme) : value;
-	if (!THEMES.includes(next)) return;
-	try {
-		window.localStorage.setItem(STORAGE_KEY, next);
-	} catch (error) {
-		/* private mode / quota: the choice still applies for this page */
-	}
-	update(next, snapshot.systemTheme);
+    const next = typeof value === 'function' ? value(snapshot.theme) : value;
+    if (!THEMES.includes(next)) return;
+    try {
+        window.localStorage.setItem(STORAGE_KEY, next);
+    } catch (error) {
+        /* private mode / quota: the choice still applies for this page */
+    }
+    update(next, snapshot.systemTheme);
 }
 
 if (hasWindow) {
-	// Follow the OS live.
-	const onMedia = () => update(snapshot.theme, systemOf());
-	if (media && media.addEventListener) media.addEventListener('change', onMedia);
-	else if (media && media.addListener) media.addListener(onMedia);
-	// Other tabs changed the preference.
-	window.addEventListener('storage', (event) => {
-		if (event.key === STORAGE_KEY) update(THEMES.includes(event.newValue) ? event.newValue : 'system', snapshot.systemTheme);
-	});
+    // Follow the OS live.
+    const onMedia = () => update(snapshot.theme, systemOf());
+    if (media && media.addEventListener) media.addEventListener('change', onMedia);
+    else if (media && media.addListener) media.addListener(onMedia);
+    // Other tabs changed the preference.
+    window.addEventListener('storage', (event) => {
+        if (event.key === STORAGE_KEY)
+            update(THEMES.includes(event.newValue) ? event.newValue : 'system', snapshot.systemTheme);
+    });
 }
 
 /** Plain store (get / subscribe / setTheme): shared with Portal Studio through the registry. */
 export const themeStore = {
-	get: () => snapshot,
-	subscribe: (listener) => {
-		listeners.add(listener);
-		return () => listeners.delete(listener);
-	},
-	setTheme,
-	themes: THEMES
+    get: () => snapshot,
+    subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+    },
+    setTheme,
+    themes: THEMES,
 };
 
 /**
@@ -76,7 +77,13 @@ export const themeStore = {
  * `store` lets another React copy (the Studio chunk) bind to the host's store.
  */
 export function useTheme(store) {
-	const s = store || themeStore;
-	const snap = useSyncExternalStore(s.subscribe, s.get, s.get);
-	return { theme: snap.theme, resolvedTheme: snap.resolvedTheme, systemTheme: snap.systemTheme, setTheme: s.setTheme, themes: THEMES };
+    const s = store || themeStore;
+    const snap = useSyncExternalStore(s.subscribe, s.get, s.get);
+    return {
+        theme: snap.theme,
+        resolvedTheme: snap.resolvedTheme,
+        systemTheme: snap.systemTheme,
+        setTheme: s.setTheme,
+        themes: THEMES,
+    };
 }

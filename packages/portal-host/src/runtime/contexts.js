@@ -8,8 +8,12 @@ export const LocationStoreContext = createContext(null);
 
 /** The normalized location; re-renders the caller on every property change. */
 export function usePortalLocation() {
-	const store = useContext(LocationStoreContext);
-	return useSyncExternalStore(store ? store.subscribe : noopSubscribe, () => (store ? store.get() : null), () => null);
+    const store = useContext(LocationStoreContext);
+    return useSyncExternalStore(
+        store ? store.subscribe : noopSubscribe,
+        () => (store ? store.get() : null),
+        () => null
+    );
 }
 
 // Stable portal value (per router): { portal, pages, theme, release, slug, router, navigate,
@@ -23,49 +27,53 @@ export const PortalContext = createContext(null);
  * page are not re-rendered by navigation.
  */
 export function usePortal() {
-	const ctx = useContext(PortalContext);
-	const tracked = useRef({ page: false, location: false });
-	const router = ctx ? ctx.router : null;
-	const locationStore = ctx ? ctx.locationStore : null;
+    const ctx = useContext(PortalContext);
+    const tracked = useRef({ page: false, location: false });
+    const router = ctx ? ctx.router : null;
+    const locationStore = ctx ? ctx.locationStore : null;
 
-	// Subscriptions are always made (hook order), but select null until the getter is read.
-	const subscribeRouter = useCallback((listener) => subscribeRouterState(router, listener), [router]);
-	useSyncExternalStore(subscribeRouter, () => (tracked.current.page && router ? leafData(router.state) : null), () => null);
-	useSyncExternalStore(
-		locationStore ? locationStore.subscribe : noopSubscribe,
-		() => (tracked.current.location && locationStore ? locationStore.get() : null),
-		() => null
-	);
+    // Subscriptions are always made (hook order), but select null until the getter is read.
+    const subscribeRouter = useCallback((listener) => subscribeRouterState(router, listener), [router]);
+    useSyncExternalStore(
+        subscribeRouter,
+        () => (tracked.current.page && router ? leafData(router.state) : null),
+        () => null
+    );
+    useSyncExternalStore(
+        locationStore ? locationStore.subscribe : noopSubscribe,
+        () => (tracked.current.location && locationStore ? locationStore.get() : null),
+        () => null
+    );
 
-	if (!ctx) return null;
-	return {
-		portal: ctx.portal,
-		pages: ctx.pages,
-		theme: ctx.theme,
-		release: ctx.release,
-		navigate: ctx.navigate,
-		get page() {
-			tracked.current.page = true;
-			const data = router ? leafData(router.state) : null;
-			return data ? data.page : null;
-		},
-		get path() {
-			tracked.current.page = true;
-			const data = router ? leafData(router.state) : null;
-			return data ? data.path : '';
-		},
-		get location() {
-			tracked.current.location = true;
-			return locationStore ? locationStore.get() : null;
-		}
-	};
+    if (!ctx) return null;
+    return {
+        portal: ctx.portal,
+        pages: ctx.pages,
+        theme: ctx.theme,
+        release: ctx.release,
+        navigate: ctx.navigate,
+        get page() {
+            tracked.current.page = true;
+            const data = router ? leafData(router.state) : null;
+            return data ? data.page : null;
+        },
+        get path() {
+            tracked.current.page = true;
+            const data = router ? leafData(router.state) : null;
+            return data ? data.path : '';
+        },
+        get location() {
+            tracked.current.location = true;
+            return locationStore ? locationStore.get() : null;
+        },
+    };
 }
 
 // The effective layout and the portal-level placements per region (stable while the layout
 // doesn't change): { layout, regions, outlets, mainRegion }.
 export const LayoutContext = createContext(null);
 export function useLayout() {
-	return useContext(LayoutContext);
+    return useContext(LayoutContext);
 }
 
 // The effective layout options (layout defaults → portal settings.layoutOptions → the page's own),
@@ -74,41 +82,41 @@ export function useLayout() {
 const EMPTY_OPTIONS = Object.freeze({});
 export const LayoutOptionsContext = createContext(EMPTY_OPTIONS);
 export function useLayoutOptions() {
-	return useContext(LayoutOptionsContext);
+    return useContext(LayoutOptionsContext);
 }
 
 /** Public useLayout() (@portal/runtime): { layout, options, mainRegion, regions: RegionDef[] }. */
 export function useLayoutInfo() {
-	const value = useContext(LayoutContext);
-	const options = useContext(LayoutOptionsContext);
-	const layout = value ? value.layout : null;
-	return {
-		layout,
-		options: options || EMPTY_OPTIONS,
-		mainRegion: value ? value.mainRegion : 'main',
-		regions: (layout && layout.regions) || []
-	};
+    const value = useContext(LayoutContext);
+    const options = useContext(LayoutOptionsContext);
+    const layout = value ? value.layout : null;
+    return {
+        layout,
+        options: options || EMPTY_OPTIONS,
+        mainRegion: value ? value.mainRegion : 'main',
+        regions: (layout && layout.regions) || [],
+    };
 }
 
 // The widget instance being rendered: { placement, component, options, scope }.
 export const WidgetInstanceContext = createContext(null);
 export function useWidgetInstance() {
-	return useContext(WidgetInstanceContext);
+    return useContext(WidgetInstanceContext);
 }
 
 // The block instance being rendered (kind = 'block'): { placement, scope, api }. <Region> inside a
 // block renders that instance's children; useBlock() returns `api`. Widgets and layouts reset it.
 export const BlockContext = createContext(null);
 export function useBlockContext() {
-	return useContext(BlockContext);
+    return useContext(BlockContext);
 }
 
 // Per-router store of batch-initialized instance data (instance-init.js).
 export const InstanceInitContext = createContext(null);
 export function useInstanceInit() {
-	return useContext(InstanceInitContext);
+    return useContext(InstanceInitContext);
 }
 
 function noopSubscribe() {
-	return () => {};
+    return () => {};
 }

@@ -1,1 +1,13 @@
-{ "name": "Hero Search", "kind": "widget", "tailwind": true, "defaults": { "placement": "banner", "resultsPage": "search", "catalogPage": "catalog", "kbPage": "kb", "recordPage": "form", "suggestions": [] } }
+{
+    "name": "Hero Search",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "placement": "banner",
+        "resultsPage": "search",
+        "catalogPage": "catalog",
+        "kbPage": "kb",
+        "recordPage": "form",
+        "suggestions": []
+    }
+}

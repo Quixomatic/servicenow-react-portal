@@ -1,6 +1,6 @@
-import type { UiPolicy, UiPolicyCondition } from 'utilities:app/graphql'
-import type { FieldMessageKind, PolicyState } from './types'
-import type { FormStore } from './store'
+import type { UiPolicy, UiPolicyCondition } from 'utilities:app/graphql';
+import type { FieldMessageKind, PolicyState } from './types';
+import type { FormStore } from './store';
 
 /**
  * UI policy engine (record forms and catalog items share it).
@@ -20,105 +20,130 @@ import type { FormStore } from './store'
  */
 
 export type PolicyEvaluation = {
-    layer: Record<string, PolicyState>
+    layer: Record<string, PolicyState>;
     /** Policy id → condition result (undefined = not evaluated yet: onLoad false, untouched). */
-    results: Record<string, boolean | undefined>
-}
+    results: Record<string, boolean | undefined>;
+};
 
-const EMPTY_OPS = new Set(['ISEMPTY', 'EMPTYSTRING'])
+const EMPTY_OPS = new Set(['ISEMPTY', 'EMPTYSTRING']);
 
 function num(v: string): number {
-    const n = Number(String(v).replace(/,/g, ''))
-    return isNaN(n) ? NaN : n
+    const n = Number(String(v).replace(/,/g, ''));
+    return isNaN(n) ? NaN : n;
 }
 
 function isNumeric(type?: string) {
-    return !!type && ['integer', 'longint', 'decimal', 'float', 'numeric', 'currency', 'price', 'percent_complete', 'order_index'].indexOf(type) >= 0
+    return (
+        !!type &&
+        [
+            'integer',
+            'longint',
+            'decimal',
+            'float',
+            'numeric',
+            'currency',
+            'price',
+            'percent_complete',
+            'order_index',
+        ].indexOf(type) >= 0
+    );
 }
 
 /** Normalise a value for comparison by field type (booleans: '' is false). */
 function normalise(v: string, type?: string): string {
-    const s = v == null ? '' : String(v)
-    if (type === 'boolean') return s === 'true' || s === '1' ? 'true' : 'false'
-    return s
+    const s = v == null ? '' : String(v);
+    if (type === 'boolean') return s === 'true' || s === '1' ? 'true' : 'false';
+    return s;
 }
 
 function compare(a: string, b: string, type?: string): number {
     if (isNumeric(type) || (a !== '' && b !== '' && !isNaN(num(a)) && !isNaN(num(b)) && type !== 'string')) {
-        const x = num(a)
-        const y = num(b)
-        if (!isNaN(x) && !isNaN(y)) return x - y
+        const x = num(a);
+        const y = num(b);
+        if (!isNaN(x) && !isNaN(y)) return x - y;
     }
-    return a < b ? -1 : a > b ? 1 : 0
+    return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /** One term against the form. Returns undefined when it can't be evaluated client-side. */
-export function evaluateTerm(c: UiPolicyCondition, getValue: (name: string) => string | undefined): boolean | undefined {
-    if (c.preEvaluatedTerm) return c.preEvaluatedTermResult
-    const raw = getValue(c.field)
-    if (raw === undefined) return undefined
-    const type = c.type
-    const v = normalise(raw, type)
-    const target = normalise(c.value, type)
-    const list = () => String(c.value || '').split(',').map((s) => s.trim())
-    const lower = v.toLowerCase()
-    const t = String(c.value || '').toLowerCase()
+export function evaluateTerm(
+    c: UiPolicyCondition,
+    getValue: (name: string) => string | undefined
+): boolean | undefined {
+    if (c.preEvaluatedTerm) return c.preEvaluatedTermResult;
+    const raw = getValue(c.field);
+    if (raw === undefined) return undefined;
+    const type = c.type;
+    const v = normalise(raw, type);
+    const target = normalise(c.value, type);
+    const list = () =>
+        String(c.value || '')
+            .split(',')
+            .map((s) => s.trim());
+    const lower = v.toLowerCase();
+    const t = String(c.value || '').toLowerCase();
     switch (c.oper) {
         case '=':
-            return type === 'boolean' ? v === target : v === String(c.value || '')
+            return type === 'boolean' ? v === target : v === String(c.value || '');
         case '!=':
-            return type === 'boolean' ? v !== target : v !== String(c.value || '')
+            return type === 'boolean' ? v !== target : v !== String(c.value || '');
         case 'ISEMPTY':
         case 'EMPTYSTRING':
-            return String(raw).trim() === ''
+            return String(raw).trim() === '';
         case 'ISNOTEMPTY':
-            return String(raw).trim() !== ''
+            return String(raw).trim() !== '';
         case 'ANYTHING':
-            return true
+            return true;
         case 'IN':
-            return list().indexOf(v) >= 0
+            return list().indexOf(v) >= 0;
         case 'NOT IN':
-            return list().indexOf(v) < 0
+            return list().indexOf(v) < 0;
         case 'LIKE':
-            return lower.indexOf(t) >= 0
+            return lower.indexOf(t) >= 0;
         case 'NOT LIKE':
-            return lower.indexOf(t) < 0
+            return lower.indexOf(t) < 0;
         case 'STARTSWITH':
-            return lower.indexOf(t) === 0
+            return lower.indexOf(t) === 0;
         case 'ENDSWITH':
-            return t === '' || lower.slice(-t.length) === t
+            return t === '' || lower.slice(-t.length) === t;
         case '<':
-            return v !== '' && compare(v, String(c.value), type) < 0
+            return v !== '' && compare(v, String(c.value), type) < 0;
         case '<=':
-            return v !== '' && compare(v, String(c.value), type) <= 0
+            return v !== '' && compare(v, String(c.value), type) <= 0;
         case '>':
-            return v !== '' && compare(v, String(c.value), type) > 0
+            return v !== '' && compare(v, String(c.value), type) > 0;
         case '>=':
-            return v !== '' && compare(v, String(c.value), type) >= 0
+            return v !== '' && compare(v, String(c.value), type) >= 0;
         case 'BETWEEN': {
-            const [lo, hi] = String(c.value || '').split('@')
-            return v !== '' && compare(v, lo, type) >= 0 && compare(v, hi, type) <= 0
+            const [lo, hi] = String(c.value || '').split('@');
+            return v !== '' && compare(v, lo, type) >= 0 && compare(v, hi, type) <= 0;
         }
         case 'SAMEAS': {
-            const other = getValue(c.value)
-            return other === undefined ? undefined : v === normalise(other, type)
+            const other = getValue(c.value);
+            return other === undefined ? undefined : v === normalise(other, type);
         }
         case 'NSAMEAS': {
-            const other = getValue(c.value)
-            return other === undefined ? undefined : v !== normalise(other, type)
+            const other = getValue(c.value);
+            return other === undefined ? undefined : v !== normalise(other, type);
         }
         case 'GT_FIELD':
         case 'LT_FIELD':
         case 'GT_OR_EQUALS_FIELD':
         case 'LT_OR_EQUALS_FIELD': {
-            const other = getValue(c.value)
-            if (other === undefined || v === '' || other === '') return undefined
-            const d = compare(v, other, type)
-            return c.oper === 'GT_FIELD' ? d > 0 : c.oper === 'LT_FIELD' ? d < 0 : c.oper === 'GT_OR_EQUALS_FIELD' ? d >= 0 : d <= 0
+            const other = getValue(c.value);
+            if (other === undefined || v === '' || other === '') return undefined;
+            const d = compare(v, other, type);
+            return c.oper === 'GT_FIELD'
+                ? d > 0
+                : c.oper === 'LT_FIELD'
+                  ? d < 0
+                  : c.oper === 'GT_OR_EQUALS_FIELD'
+                    ? d >= 0
+                    : d <= 0;
         }
         default:
             // Relative dates (ONToday, RELATIVEGT…), DYNAMIC, CHANGES…: not evaluated client-side.
-            return undefined
+            return undefined;
     }
 }
 
@@ -129,80 +154,92 @@ export function evaluateTerm(c: UiPolicyCondition, getValue: (name: string) => s
  * server pre-evaluated it, else false.
  */
 export function evaluatePolicy(p: UiPolicy, getValue: (name: string) => string | undefined): boolean {
-    if (!p.conditions.length) return true
-    let unknown = false
+    if (!p.conditions.length) return true;
+    let unknown = false;
     const term = (c: UiPolicyCondition) => {
-        const r = evaluateTerm(c, getValue)
-        if (r === undefined) unknown = true
-        return !!r
-    }
-    const groups: UiPolicyCondition[][] = []
+        const r = evaluateTerm(c, getValue);
+        if (r === undefined) unknown = true;
+        return !!r;
+    };
+    const groups: UiPolicyCondition[][] = [];
     for (const c of p.conditions) {
-        if (!groups.length || c.newquery) groups.push([])
-        groups[groups.length - 1].push(c)
+        if (!groups.length || c.newquery) groups.push([]);
+        groups[groups.length - 1].push(c);
     }
-    let result = false
+    let result = false;
     for (const g of groups) {
         // AND of OR-clusters
-        let groupResult = true
-        let cluster: boolean | null = null
+        let groupResult = true;
+        let cluster: boolean | null = null;
         for (const c of g) {
-            const r = term(c)
-            if (c.or && cluster !== null) cluster = cluster || r
+            const r = term(c);
+            if (c.or && cluster !== null) cluster = cluster || r;
             else {
-                if (cluster !== null) groupResult = groupResult && cluster
-                cluster = r
+                if (cluster !== null) groupResult = groupResult && cluster;
+                cluster = r;
             }
         }
-        if (cluster !== null) groupResult = groupResult && cluster
-        if (groupResult) result = true
+        if (cluster !== null) groupResult = groupResult && cluster;
+        if (groupResult) result = true;
     }
-    if (unknown && !result && p.preEvaluated) return p.preEvaluatedResult
-    return result
+    if (unknown && !result && p.preEvaluated) return p.preEvaluatedResult;
+    return result;
 }
 
-const flagOf = (f: string, reverse: boolean): boolean | undefined => (f === 'true' ? !reverse : f === 'false' ? reverse : undefined)
+const flagOf = (f: string, reverse: boolean): boolean | undefined =>
+    f === 'true' ? !reverse : f === 'false' ? reverse : undefined;
 
 /** The whole policy layer for the current values. `armed`: onLoad=false policies that may run. */
-export function computePolicyLayer(policies: UiPolicy[], getValue: (name: string) => string | undefined, armed: Set<string>): PolicyEvaluation {
-    const layer: Record<string, PolicyState> = {}
-    const results: Record<string, boolean | undefined> = {}
+export function computePolicyLayer(
+    policies: UiPolicy[],
+    getValue: (name: string) => string | undefined,
+    armed: Set<string>
+): PolicyEvaluation {
+    const layer: Record<string, PolicyState> = {};
+    const results: Record<string, boolean | undefined> = {};
     for (const p of policies) {
         if (!p.onLoad && !armed.has(p.id)) {
-            results[p.id] = undefined
-            continue
+            results[p.id] = undefined;
+            continue;
         }
-        const ok = evaluatePolicy(p, getValue)
-        results[p.id] = ok
-        if (!ok && !p.reverse) continue
-        const inverted = !ok
+        const ok = evaluatePolicy(p, getValue);
+        results[p.id] = ok;
+        if (!ok && !p.reverse) continue;
+        const inverted = !ok;
         for (const a of p.actions) {
-            const cur: PolicyState = layer[a.name] ? { ...layer[a.name] } : {}
-            const visible = flagOf(a.visible, inverted)
-            const mandatory = flagOf(a.mandatory, inverted)
-            const readOnly = flagOf(a.disabled, inverted)
-            if (visible !== undefined) cur.visible = visible
-            if (mandatory !== undefined) cur.mandatory = mandatory
-            if (readOnly !== undefined) cur.readOnly = readOnly
+            const cur: PolicyState = layer[a.name] ? { ...layer[a.name] } : {};
+            const visible = flagOf(a.visible, inverted);
+            const mandatory = flagOf(a.mandatory, inverted);
+            const readOnly = flagOf(a.disabled, inverted);
+            if (visible !== undefined) cur.visible = visible;
+            if (mandatory !== undefined) cur.mandatory = mandatory;
+            if (readOnly !== undefined) cur.readOnly = readOnly;
             if (ok && a.fieldMessage && a.fieldMessageType && a.fieldMessageType !== 'none') {
-                const kind = (['error', 'warning', 'info', 'success'].indexOf(a.fieldMessageType) >= 0 ? a.fieldMessageType : 'info') as FieldMessageKind
-                cur.message = { kind, text: a.fieldMessage, id: `policy-${p.id}` }
+                const kind = (
+                    ['error', 'warning', 'info', 'success'].indexOf(a.fieldMessageType) >= 0
+                        ? a.fieldMessageType
+                        : 'info'
+                ) as FieldMessageKind;
+                cur.message = { kind, text: a.fieldMessage, id: `policy-${p.id}` };
             }
-            layer[a.name] = cur
+            layer[a.name] = cur;
         }
     }
-    return { layer, results }
+    return { layer, results };
 }
 
 export type AttachedPolicies = {
     /** Latest condition results (policy id → true / false / undefined). */
-    results: () => Record<string, boolean | undefined>
+    results: () => Record<string, boolean | undefined>;
     /** Re-evaluate now (e.g. after loading fresh values). */
-    refresh: () => void
+    refresh: () => void;
     /** Set (or clear) the run-scripts hook; `replay` calls it now for every evaluated policy. */
-    setOnResult: (fn: ((policy: UiPolicy, result: boolean, previous: boolean | undefined) => void) | undefined, replay?: boolean) => void
-    detach: () => void
-}
+    setOnResult: (
+        fn: ((policy: UiPolicy, result: boolean, previous: boolean | undefined) => void) | undefined,
+        replay?: boolean
+    ) => void;
+    detach: () => void;
+};
 
 /**
  * Bind policies to a form store: evaluate now, then whenever a condition field's committed value
@@ -213,104 +250,109 @@ export function attachPolicies(
     store: FormStore,
     policies: UiPolicy[],
     options: {
-        resolve?: (name: string) => string
+        resolve?: (name: string) => string;
         /** Called when a policy's result changes (and on its first evaluation): run-scripts hook. */
-        onResult?: (policy: UiPolicy, result: boolean, previous: boolean | undefined) => void
-    } = {},
+        onResult?: (policy: UiPolicy, result: boolean, previous: boolean | undefined) => void;
+    } = {}
 ): AttachedPolicies {
-    const resolve = options.resolve || ((n: string) => n)
+    const resolve = options.resolve || ((n: string) => n);
     const list: UiPolicy[] = (policies || []).map((p) => ({
         ...p,
         conditions: p.conditions.map((c) => ({ ...c, field: resolve(c.field) })),
         actions: p.actions.map((a) => ({ ...a, name: resolve(a.name) })),
-    }))
-    const condFields = new Set<string>()
-    const byField = new Map<string, string[]>()
+    }));
+    const condFields = new Set<string>();
+    const byField = new Map<string, string[]>();
     for (const p of list)
         for (const c of p.conditions) {
-            condFields.add(c.field)
-            byField.set(c.field, (byField.get(c.field) || []).concat(p.id))
+            condFields.add(c.field);
+            byField.set(c.field, (byField.get(c.field) || []).concat(p.id));
         }
-    let onResult = options.onResult
-    const armed = new Set<string>()
-    let results: Record<string, boolean | undefined> = {}
-    let lastKey: string | null = null
-    let running = false
+    let onResult = options.onResult;
+    const armed = new Set<string>();
+    let results: Record<string, boolean | undefined> = {};
+    let lastKey: string | null = null;
+    let running = false;
 
-    const has = (name: string) => name in store.getState().fields || name in store.getState().meta
-    const getValue = (name: string) => (has(name) ? store.getValue(name) : undefined)
-    const keyOf = () => Array.from(condFields).map((f) => f + '=' + (getValue(f) ?? '\u0000')).join('&') + '|' + Array.from(armed).join(',')
+    const has = (name: string) => name in store.getState().fields || name in store.getState().meta;
+    const getValue = (name: string) => (has(name) ? store.getValue(name) : undefined);
+    const keyOf = () =>
+        Array.from(condFields)
+            .map((f) => f + '=' + (getValue(f) ?? '\u0000'))
+            .join('&') +
+        '|' +
+        Array.from(armed).join(',');
 
     const run = (force = false) => {
-        if (running || !list.length) return
-        const key = keyOf()
-        if (!force && key === lastKey) return
-        lastKey = key
-        running = true
+        if (running || !list.length) return;
+        const key = keyOf();
+        if (!force && key === lastKey) return;
+        lastKey = key;
+        running = true;
         try {
-            const prev = results
-            const next = computePolicyLayer(list, getValue, armed)
-            results = next.results
-            store.setPolicyLayer(next.layer)
+            const prev = results;
+            const next = computePolicyLayer(list, getValue, armed);
+            results = next.results;
+            store.setPolicyLayer(next.layer);
             // Run-scripts hook: every result change (the original policy, names as the platform sent them).
             if (onResult)
                 list.forEach((p, i) => {
-                    const r = next.results[p.id]
-                    if (r === undefined || r === prev[p.id]) return
+                    const r = next.results[p.id];
+                    if (r === undefined || r === prev[p.id]) return;
                     try {
-                        onResult!(policies[i], r, prev[p.id])
+                        onResult!(policies[i], r, prev[p.id]);
                     } catch (e) {
                         // eslint-disable-next-line no-console
-                        console.error('[app/field] policy onResult failed', e)
+                        console.error('[app/field] policy onResult failed', e);
                     }
-                })
+                });
             // Side effects on false → true.
             for (const p of list) {
-                if (!next.results[p.id] || prev[p.id] === true) continue
+                if (!next.results[p.id] || prev[p.id] === true) continue;
                 for (const a of p.actions) {
-                    if (a.cleared) store.clearValue(a.name)
-                    if (a.valueAction === 'setValue' && a.value !== undefined) store.setValue(a.name, a.value)
-                    if (a.valueAction === 'clearValue') store.clearValue(a.name)
+                    if (a.cleared) store.clearValue(a.name);
+                    if (a.valueAction === 'setValue' && a.value !== undefined) store.setValue(a.name, a.value);
+                    if (a.valueAction === 'clearValue') store.clearValue(a.name);
                 }
             }
         } finally {
-            running = false
+            running = false;
         }
         // Side effects may have changed condition fields: settle (bounded by the key check).
-        if (keyOf() !== lastKey) run()
-    }
+        if (keyOf() !== lastKey) run();
+    };
 
     const offChange = store.onChange('*', (name) => {
-        const ids = byField.get(name)
-        if (!ids) return
+        const ids = byField.get(name);
+        if (!ids) return;
         // onChange fires after the value is in the store: arm onLoad=false policies, re-run.
-        const before = armed.size
-        ids.forEach((id) => armed.add(id))
-        if (armed.size !== before) run()
-    })
-    const offState = store.subscribe(() => run())
-    run(true)
+        const before = armed.size;
+        ids.forEach((id) => armed.add(id));
+        if (armed.size !== before) run();
+    });
+    const offState = store.subscribe(() => run());
+    run(true);
     return {
         results: () => results,
         refresh: () => run(true),
         setOnResult: (fn, replay) => {
-            onResult = fn
-            if (!fn || !replay) return
+            onResult = fn;
+            if (!fn || !replay) return;
             list.forEach((p, i) => {
-                const r = results[p.id]
-                if (r === undefined) return
+                const r = results[p.id];
+                if (r === undefined) return;
                 try {
-                    fn(policies[i], r, undefined)
+                    fn(policies[i], r, undefined);
                 } catch (e) {
                     // eslint-disable-next-line no-console
-                    console.error('[app/field] policy onResult failed', e)
+                    console.error('[app/field] policy onResult failed', e);
                 }
-            })
+            });
         },
         detach: () => {
-            offChange()
-            offState()
-            store.setPolicyLayer({})
+            offChange();
+            offState();
+            store.setPolicyLayer({});
         },
-    }
+    };
 }

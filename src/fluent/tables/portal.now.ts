@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Form,
@@ -9,7 +9,7 @@ import {
     JsonColumn,
     UserRolesColumn,
     MultiLineTextColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /** One record per portal (sp, crm, …). */
 export const x_312987_portal_portal = Table({
@@ -51,7 +51,7 @@ export const x_312987_portal_portal = Table({
         settings_json: JsonColumn({ label: 'Settings', maxLength: 65000 }),
         roles: UserRolesColumn({ label: 'Audience roles', hint: 'Empty = every authenticated user' }),
     },
-})
+});
 
 Form({
     table: 'x_312987_portal_portal',
@@ -86,4 +86,4 @@ Form({
             ],
         },
     ],
-})
+});

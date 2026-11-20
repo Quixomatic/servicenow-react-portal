@@ -1,1 +1,14 @@
-{ "name": "Attachments Card", "kind": "widget", "tailwind": true, "defaults": { "table": "", "sysId": "", "title": "Attachments", "layout": "list", "dropzone": "", "downloadAll": true, "emptyText": "" } }
+{
+    "name": "Attachments Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "table": "",
+        "sysId": "",
+        "title": "Attachments",
+        "layout": "list",
+        "dropzone": "",
+        "downloadAll": true,
+        "emptyText": ""
+    }
+}

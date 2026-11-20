@@ -22,16 +22,30 @@
  * AttachmentBody, entryLabel, RecordActivity, activityElementRenderer, ACTIVITY_FORMATTER,
  * registerActivityAttachmentRenderer.
  */
-import { RecordActivity } from './record-activity'
+import { RecordActivity } from './record-activity';
 
-export { ActivityStream, ActivityFilterBar } from './stream'
-export type { ActivityStreamProps } from './stream'
-export { ActivityEntryView, ActivityAvatar, FieldChanges, AttachmentBody, entryLabel, registerActivityAttachmentRenderer } from './entry'
-export type { ActivityEntryProps, AttachmentRenderer } from './entry'
-export { RecordActivity, activityElementRenderer, activityAnchor, ActivityBelowForm, formActivityMode, ACTIVITY_FORMATTER } from './record-activity'
-export type { RecordActivityProps, FormActivityMode } from './record-activity'
-export { ActivityConversation } from './conversation'
-export type { ActivityConversationProps } from './conversation'
+export { ActivityStream, ActivityFilterBar } from './stream';
+export type { ActivityStreamProps } from './stream';
+export {
+    ActivityEntryView,
+    ActivityAvatar,
+    FieldChanges,
+    AttachmentBody,
+    entryLabel,
+    registerActivityAttachmentRenderer,
+} from './entry';
+export type { ActivityEntryProps, AttachmentRenderer } from './entry';
+export {
+    RecordActivity,
+    activityElementRenderer,
+    activityAnchor,
+    ActivityBelowForm,
+    formActivityMode,
+    ACTIVITY_FORMATTER,
+} from './record-activity';
+export type { RecordActivityProps, FormActivityMode } from './record-activity';
+export { ActivityConversation } from './conversation';
+export type { ActivityConversationProps } from './conversation';
 
 /** Preview (Studio): INC0000031 (demo data with journal entries, an image attachment and field changes). */
 export default function ActivityStreamPreview() {
@@ -39,5 +53,5 @@ export default function ActivityStreamPreview() {
         <div className="max-w-2xl p-4">
             <RecordActivity table="incident" sysId="47064b68a9fe19810186793eefffc9b7" composer={false} />
         </div>
-    )
+    );
 }

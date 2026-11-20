@@ -1,4 +1,4 @@
-import '@servicenow/sdk/global'
+import '@servicenow/sdk/global';
 import {
     Table,
     Record,
@@ -11,7 +11,7 @@ import {
     UserRolesColumn,
     ConditionsColumn,
     TableNameColumn,
-} from '@servicenow/sdk/core'
+} from '@servicenow/sdk/core';
 
 /**
  * Portal view rules: which form / list view a portal shows for a table (src/server/views/view-rules.ts).
@@ -37,7 +37,12 @@ export const x_312987_portal_view_rule = Table({
     audit: true,
     schema: {
         name: StringColumn({ label: 'Name', maxLength: 100, mandatory: true }),
-        portal: ReferenceColumn({ label: 'Portal', referenceTable: 'x_312987_portal_portal', mandatory: true, cascadeRule: 'cascade' }),
+        portal: ReferenceColumn({
+            label: 'Portal',
+            referenceTable: 'x_312987_portal_portal',
+            mandatory: true,
+            cascadeRule: 'cascade',
+        }),
         page: ReferenceColumn({
             label: 'Page',
             referenceTable: 'x_312987_portal_page',
@@ -46,7 +51,11 @@ export const x_312987_portal_view_rule = Table({
             referenceQual: "javascript:'portal=' + current.portal",
             hint: 'Empty = the whole portal. Page rules are evaluated before portal rules.',
         }),
-        table: TableNameColumn({ label: 'Table', mandatory: true, hint: 'The exact table (rules do not apply to child tables, as in Workspace)' }),
+        table: TableNameColumn({
+            label: 'Table',
+            mandatory: true,
+            hint: 'The exact table (rules do not apply to child tables, as in Workspace)',
+        }),
         applies_to: ChoiceColumn({
             label: 'Applies to',
             mandatory: true,
@@ -66,8 +75,18 @@ export const x_312987_portal_view_rule = Table({
             maxLength: 4000,
             hint: 'Forms only. Empty = always. "Sys ID is -1" = a new record, as in Workspace view rules.',
         }),
-        view: ReferenceColumn({ label: 'View', referenceTable: 'sys_ui_view', hint: 'Kept in sync with View name; survives a view rename' }),
-        view_name: StringColumn({ label: 'View name', maxLength: 100, mandatory: true, default: 'default', hint: 'What uiView / getListLayout receive. "default" = the Default view.' }),
+        view: ReferenceColumn({
+            label: 'View',
+            referenceTable: 'sys_ui_view',
+            hint: 'Kept in sync with View name; survives a view rename',
+        }),
+        view_name: StringColumn({
+            label: 'View name',
+            maxLength: 100,
+            mandatory: true,
+            default: 'default',
+            hint: 'What uiView / getListLayout receive. "default" = the Default view.',
+        }),
         roles: UserRolesColumn({ label: 'Roles', hint: 'Empty = anyone in the audience; else any of these roles' }),
         advanced: BooleanColumn({ label: 'Advanced', default: false }),
         script: ScriptColumn({
@@ -77,7 +96,7 @@ export const x_312987_portal_view_rule = Table({
         description: StringColumn({ label: 'Description', maxLength: 1000 }),
     },
     index: [{ name: 'rp_view_rule_lookup', element: ['portal', 'table', 'active', 'order'], unique: false }],
-})
+});
 
 /* ---- Audience: user criteria (Available for / Not available for) ---- */
 
@@ -91,7 +110,12 @@ export const x_312987_portal_vrule_uc = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        rule: ReferenceColumn({ label: 'View rule', referenceTable: 'x_312987_portal_view_rule', mandatory: true, cascadeRule: 'delete' }),
+        rule: ReferenceColumn({
+            label: 'View rule',
+            referenceTable: 'x_312987_portal_view_rule',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Available for',
             referenceTable: 'user_criteria',
@@ -101,7 +125,7 @@ export const x_312987_portal_vrule_uc = Table({
         }),
     },
     index: [{ name: 'rp_vrule_uc', element: ['rule', 'user_criteria'], unique: true }],
-})
+});
 
 export const x_312987_portal_vrule_uc_no = Table({
     name: 'x_312987_portal_vrule_uc_no',
@@ -113,7 +137,12 @@ export const x_312987_portal_vrule_uc_no = Table({
     actions: { read: true },
     audit: true,
     schema: {
-        rule: ReferenceColumn({ label: 'View rule', referenceTable: 'x_312987_portal_view_rule', mandatory: true, cascadeRule: 'delete' }),
+        rule: ReferenceColumn({
+            label: 'View rule',
+            referenceTable: 'x_312987_portal_view_rule',
+            mandatory: true,
+            cascadeRule: 'delete',
+        }),
         user_criteria: ReferenceColumn({
             label: 'Not available for',
             referenceTable: 'user_criteria',
@@ -123,7 +152,7 @@ export const x_312987_portal_vrule_uc_no = Table({
         }),
     },
     index: [{ name: 'rp_vrule_uc_no', element: ['rule', 'user_criteria'], unique: true }],
-})
+});
 
 /* ---- The answer: a remote table with one computed row per query ---- */
 
@@ -153,10 +182,26 @@ export const x_312987_portal_view_answer = Table({
         lock_view: StringColumn({ label: 'Lock view', maxLength: 10 }),
         remember: StringColumn({ label: 'Remember', maxLength: 10 }),
         remembered: StringColumn({ label: 'Remembered view', maxLength: 200 }),
-        default_views: StringColumn({ label: 'Default views (input)', maxLength: 400, hint: "The portal's candidate list ('sp,ess'); absent = settings.formViews" }),
-        config_in: StringColumn({ label: 'Workspace rule config (input)', maxLength: 40, hint: 'A sys_ux_view_rules_configuration; absent = settings.viewRuleConfigId' }),
-        views: StringColumn({ label: 'Views (output)', maxLength: 400, hint: "uiView's views: the resolved view, or the default views; never empty" }),
-        rule_config: StringColumn({ label: 'Rule config (output)', maxLength: 40, hint: "uiView's viewRuleConfigId: only when no view was forced" }),
+        default_views: StringColumn({
+            label: 'Default views (input)',
+            maxLength: 400,
+            hint: "The portal's candidate list ('sp,ess'); absent = settings.formViews",
+        }),
+        config_in: StringColumn({
+            label: 'Workspace rule config (input)',
+            maxLength: 40,
+            hint: 'A sys_ux_view_rules_configuration; absent = settings.viewRuleConfigId',
+        }),
+        views: StringColumn({
+            label: 'Views (output)',
+            maxLength: 400,
+            hint: "uiView's views: the resolved view, or the default views; never empty",
+        }),
+        rule_config: StringColumn({
+            label: 'Rule config (output)',
+            maxLength: 40,
+            hint: "uiView's viewRuleConfigId: only when no view was forced",
+        }),
         view: StringColumn({ label: 'View', maxLength: 100 }),
         source: StringColumn({ label: 'Source', maxLength: 20 }),
         rule_id: StringColumn({ label: 'Rule', maxLength: 40 }),
@@ -164,7 +209,7 @@ export const x_312987_portal_view_answer = Table({
         missing: StringColumn({ label: 'Missing view', maxLength: 200 }),
         reason: StringColumn({ label: 'Reason', maxLength: 400 }),
     },
-})
+});
 
 Record({
     $id: Now.ID['vtable-view-answer'],
@@ -176,4 +221,4 @@ Record({
         advanced: false,
         script: '(function executeQuery(v_table, v_query) {\n    new x_312987_portal.ReactPortal().viewAnswer(v_table, v_query);\n})(v_table, v_query);',
     },
-})
+});

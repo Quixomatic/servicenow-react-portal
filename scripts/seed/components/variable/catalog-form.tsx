@@ -1,9 +1,9 @@
-import { createContext, useContext, useMemo, useState } from 'react'
-import { createFormStore, FormProvider, attachPolicies } from 'components:app/field'
-import type { Form, FormStore, AttachedPolicies } from 'components:app/field'
-import type { CatalogItem, CatalogVariable } from 'utilities:app/catalog'
-import { variableSpec } from './meta'
-import type { VariableSpec } from './meta'
+import { createContext, useContext, useMemo, useState } from 'react';
+import { createFormStore, FormProvider, attachPolicies } from 'components:app/field';
+import type { Form, FormStore, AttachedPolicies } from 'components:app/field';
+import type { CatalogItem, CatalogVariable } from 'utilities:app/catalog';
+import { variableSpec } from './meta';
+import type { VariableSpec } from './meta';
 
 /**
  * Catalog form: the same FormStore that record forms use (so useField, FieldControl and every
@@ -18,133 +18,163 @@ import type { VariableSpec } from './meta'
  *   (setMandatory, setReadOnly, setDisplay, showFieldMessage, …) is where client scripts plug in.
  */
 export type CatalogForm = Form & {
-    item: CatalogItem
-    specs: VariableSpec[]
-    specByName: Record<string, VariableSpec>
+    item: CatalogItem;
+    specs: VariableSpec[];
+    specByName: Record<string, VariableSpec>;
     /** Any alias → store name ('variables.<name>'). */
-    resolve: (nameOrAlias: string) => string
-    getVariable: (nameOrAlias: string) => CatalogVariable | undefined
-    serializeVariables: () => Record<string, string>
+    resolve: (nameOrAlias: string) => string;
+    getVariable: (nameOrAlias: string) => CatalogVariable | undefined;
+    serializeVariables: () => Record<string, string>;
     /** Variables whose change affects the price. */
-    priceAffecting: string[]
+    priceAffecting: string[];
     /** The item's catalog UI policies, bound to this form. */
-    policies: AttachedPolicies
-}
+    policies: AttachedPolicies;
+};
 
 const NAME_METHODS = [
-    'getValue', 'getDisplayValue', 'setValue', 'stage', 'touch', 'clearValue', 'setMandatory', 'setReadOnly', 'setVisible',
-    'setDisplay', 'setDisabled', 'setLabel', 'setPlaceholder', 'setHint', 'clearOverrides', 'showFieldMessage', 'hideFieldMessage',
-    'reset', 'isDirty', 'onChange', 'registerField', 'fieldSnapshot',
-]
+    'getValue',
+    'getDisplayValue',
+    'setValue',
+    'stage',
+    'touch',
+    'clearValue',
+    'setMandatory',
+    'setReadOnly',
+    'setVisible',
+    'setDisplay',
+    'setDisabled',
+    'setLabel',
+    'setPlaceholder',
+    'setHint',
+    'clearOverrides',
+    'showFieldMessage',
+    'hideFieldMessage',
+    'reset',
+    'isDirty',
+    'onChange',
+    'registerField',
+    'fieldSnapshot',
+];
 
 /**
  * g_form-style name resolution for a set of variable specs: '<name>', 'IO:<sys_id>', '<sys_id>' and
  * 'variables.<name>' all resolve to the store name ('variables.<name>'). Unknown names pass through.
  */
 export function catalogResolver(specs: VariableSpec[]): (nameOrAlias: string) => string {
-    const alias: Record<string, string> = {}
+    const alias: Record<string, string> = {};
     for (const s of specs) {
-        alias[s.name] = s.name
-        if (s.variable.variableName) alias[s.variable.variableName] = s.name
+        alias[s.name] = s.name;
+        if (s.variable.variableName) alias[s.variable.variableName] = s.name;
         if (s.variable.id) {
-            alias[s.variable.id] = s.name
-            alias[`IO:${s.variable.id}`] = s.name
+            alias[s.variable.id] = s.name;
+            alias[`IO:${s.variable.id}`] = s.name;
         }
     }
-    return (n: string) => alias[n] || (alias[`variables.${n}`] ? `variables.${n}` : n)
+    return (n: string) => alias[n] || (alias[`variables.${n}`] ? `variables.${n}` : n);
 }
 
 /** The catalog item a form belongs to (an item's own id; a variable editor's record: its cat_item). */
 export function catalogItemIdOf(form: { item: CatalogItem } | null | undefined): string {
-    if (!form || !form.item) return ''
-    const item = form.item as CatalogItem & { catItemId?: string; type?: string }
-    if (item.type === 'variable_editor') return item.catItemId || ''
-    return item.sysId || ''
+    if (!form || !form.item) return '';
+    const item = form.item as CatalogItem & { catItemId?: string; type?: string };
+    if (item.type === 'variable_editor') return item.catItemId || '';
+    return item.sysId || '';
 }
 
 export function createCatalogForm(item: CatalogItem, table = 'sc_cat_item'): CatalogForm {
-    const specs = item.variables.map((v) => variableSpec(v, { table }))
-    const specByName: Record<string, VariableSpec> = {}
-    for (const s of specs) specByName[s.name] = s
-    const resolve = catalogResolver(specs)
+    const specs = item.variables.map((v) => variableSpec(v, { table }));
+    const specByName: Record<string, VariableSpec> = {};
+    for (const s of specs) specByName[s.name] = s;
+    const resolve = catalogResolver(specs);
 
-    const store: FormStore = createFormStore({ table, sysId: item.sysId })
-    const values: Record<string, { value: string; displayValue: string }> = {}
+    const store: FormStore = createFormStore({ table, sysId: item.sysId });
+    const values: Record<string, { value: string; displayValue: string }> = {};
     for (const s of specs) {
-        if (s.kind === 'container' || s.kind === 'variable_set' || s.kind === 'label' || s.kind === 'rich_text_label' || s.kind === 'break') continue
-        const v = item.values[s.name]
+        if (
+            s.kind === 'container' ||
+            s.kind === 'variable_set' ||
+            s.kind === 'label' ||
+            s.kind === 'rich_text_label' ||
+            s.kind === 'break'
+        )
+            continue;
+        const v = item.values[s.name];
         if (s.kind === 'mrvs') {
-            values[s.name] = mrvsInitial(s.variable)
-            continue
+            values[s.name] = mrvsInitial(s.variable);
+            continue;
         }
-        values[s.name] = v ? v : { value: s.variable.defaultValue || '', displayValue: s.variable.defaultValue || '' }
+        values[s.name] = v ? v : { value: s.variable.defaultValue || '', displayValue: s.variable.defaultValue || '' };
     }
-    const meta: Record<string, any> = {}
-    for (const s of specs) if (s.meta) meta[s.name] = s.meta
+    const meta: Record<string, any> = {};
+    for (const s of specs) if (s.meta) meta[s.name] = s.meta;
     // Server-evaluated visibility (variables the platform hides up front) is the server layer, so
     // UI policies (the layer above) can still show them.
-    const server: Record<string, { hidden?: boolean }> = {}
-    for (const s of specs) if (s.variable.visible === false) server[s.name] = { hidden: true }
-    store.load({ values, meta, server, table, sysId: item.sysId })
+    const server: Record<string, { hidden?: boolean }> = {};
+    for (const s of specs) if (s.variable.visible === false) server[s.name] = { hidden: true };
+    store.load({ values, meta, server, table, sysId: item.sysId });
 
-    const form = Object.create(store) as CatalogForm
+    const form = Object.create(store) as CatalogForm;
     for (const m of NAME_METHODS) {
-        const base = (store as any)[m]
-        ;(form as any)[m] = (name: string, ...rest: unknown[]) => base(typeof name === 'string' && name !== '*' ? resolve(name) : name, ...rest)
+        const base = (store as any)[m];
+        (form as any)[m] = (name: string, ...rest: unknown[]) =>
+            base(typeof name === 'string' && name !== '*' ? resolve(name) : name, ...rest);
     }
-    form.item = item
-    form.specs = specs
-    form.specByName = specByName
-    form.resolve = resolve
+    form.item = item;
+    form.specs = specs;
+    form.specByName = specByName;
+    form.resolve = resolve;
     form.getVariable = (n) => {
-        const s = specByName[resolve(n)]
-        return s ? s.variable : undefined
-    }
+        const s = specByName[resolve(n)];
+        return s ? s.variable : undefined;
+    };
     // MRVS rows count too: the platform's price call adds each row's variable prices.
-    form.priceAffecting = specs.filter((s) => s.variable.hasPriceImplecations || s.kind === 'mrvs').map((s) => s.name)
+    form.priceAffecting = specs.filter((s) => s.variable.hasPriceImplecations || s.kind === 'mrvs').map((s) => s.name);
     form.serializeVariables = () => {
-        const out: Record<string, string> = {}
+        const out: Record<string, string> = {};
         for (const s of specs) {
-            if (!s.submitName || s.kind === 'container' || s.kind === 'variable_set') continue
-            out[s.submitName] = store.getValue(s.name)
+            if (!s.submitName || s.kind === 'container' || s.kind === 'variable_set') continue;
+            out[s.submitName] = store.getValue(s.name);
         }
-        return out
-    }
+        return out;
+    };
     // Catalog UI policies: evaluated now and on every change (the store lives as long as the form).
-    form.policies = attachPolicies(store, item.policies || [], { resolve })
-    form.status = { isLoading: false, isFetching: false, error: null, loaded: true }
-    form.refetch = () => {}
-    return form
+    form.policies = attachPolicies(store, item.policies || [], { resolve });
+    form.status = { isLoading: false, isFetching: false, error: null, loaded: true };
+    form.refetch = () => {};
+    return form;
 }
 
 /** MRVS initial value: rows as JSON (value and display value per column). */
 function mrvsInitial(v: CatalogVariable): { value: string; displayValue: string } {
-    const cols = (v.fields || []).map((f) => f.name)
+    const cols = (v.fields || []).map((f) => f.name);
     const rows = (v.rowData || []).map((r) => {
-        const value: Record<string, string> = {}
-        const display: Record<string, string> = {}
+        const value: Record<string, string> = {};
+        const display: Record<string, string> = {};
         r.row.forEach((cell, i) => {
-            const col = (v.fields || []).find((f) => f.id === cell.id)
-            const key = col ? col.name : cols[i]
-            value[key] = cell.value
-            display[key] = cell.displayValue
-        })
-        return { value, display }
-    })
-    return { value: JSON.stringify(rows.map((r) => r.value)), displayValue: JSON.stringify(rows.map((r) => r.display)) }
+            const col = (v.fields || []).find((f) => f.id === cell.id);
+            const key = col ? col.name : cols[i];
+            value[key] = cell.value;
+            display[key] = cell.displayValue;
+        });
+        return { value, display };
+    });
+    return {
+        value: JSON.stringify(rows.map((r) => r.value)),
+        displayValue: JSON.stringify(rows.map((r) => r.display)),
+    };
 }
 
-const CatalogContext = createContext<CatalogForm | null>(null)
+const CatalogContext = createContext<CatalogForm | null>(null);
 
 /** A catalog form for a loaded item (created once per item draft). */
 export function useCatalogForm(item: CatalogItem | undefined, table = 'sc_cat_item'): CatalogForm | null {
-    const [cache] = useState(() => new Map<string, CatalogForm>())
+    const [cache] = useState(() => new Map<string, CatalogForm>());
     return useMemo(() => {
-        if (!item) return null
-        const key = `${item.sysId}|${item.targetRecordSysId}`
-        if (!cache.has(key)) cache.set(key, createCatalogForm(item, table))
-        return cache.get(key) as CatalogForm
-    }, [item, table, cache])
+        if (!item) return null;
+        const key = `${item.sysId}|${item.targetRecordSysId}`;
+        if (!cache.has(key)) cache.set(key, createCatalogForm(item, table));
+        return cache.get(key) as CatalogForm;
+    }, [item, table, cache]);
 }
 
 /** Provides the catalog form to variables and to every field primitive (as their form). */
@@ -153,9 +183,9 @@ export function CatalogFormProvider({ form, children }: { form: CatalogForm; chi
         <CatalogContext.Provider value={form}>
             <FormProvider form={form}>{children}</FormProvider>
         </CatalogContext.Provider>
-    )
+    );
 }
 
 export function useCatalogFormContext(): CatalogForm | null {
-    return useContext(CatalogContext)
+    return useContext(CatalogContext);
 }

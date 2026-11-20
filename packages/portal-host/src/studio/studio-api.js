@@ -3,19 +3,21 @@
 import { STUDIO_API_BASE, isMock, requestAt } from '#/runtime/api';
 import * as mock from './studio-mock';
 
-const call = (method, path, body) => (isMock() ? mock.handle(method, path, body) : requestAt(STUDIO_API_BASE, method, path, body));
+const call = (method, path, body) =>
+    isMock() ? mock.handle(method, path, body) : requestAt(STUDIO_API_BASE, method, path, body);
 const id = (value) => encodeURIComponent(value);
 
 export const studioApi = {
-	listComponents: () => call('GET', '/components'),
-	listThemes: () => call('GET', '/themes'),
-	listPortals: () => call('GET', '/portals'),
-	/** owner = { type: 'component' | 'theme', id } */
-	getProject: (owner) => call('GET', `/${owner.type === 'theme' ? 'themes' : 'components'}/${id(owner.id)}/project`),
-	save: (owner, body) => call('POST', `/${owner.type === 'theme' ? 'themes' : 'components'}/${id(owner.id)}/save`, body),
-	check: (owner, files) => call('POST', `/components/${id(owner.id)}/check`, { files }),
-	/** { component, build, imports: [{ id, uniqueId, name, kind, specifier, embeddable }], importedBy: [...] } */
-	dependencies: (componentId) => call('GET', `/components/${id(componentId)}/dependencies`),
-	createComponent: (body) => call('POST', '/components', body),
-	preview: (buildId) => call('POST', `/builds/${id(buildId)}/preview`, {})
+    listComponents: () => call('GET', '/components'),
+    listThemes: () => call('GET', '/themes'),
+    listPortals: () => call('GET', '/portals'),
+    /** owner = { type: 'component' | 'theme', id } */
+    getProject: (owner) => call('GET', `/${owner.type === 'theme' ? 'themes' : 'components'}/${id(owner.id)}/project`),
+    save: (owner, body) =>
+        call('POST', `/${owner.type === 'theme' ? 'themes' : 'components'}/${id(owner.id)}/save`, body),
+    check: (owner, files) => call('POST', `/components/${id(owner.id)}/check`, { files }),
+    /** { component, build, imports: [{ id, uniqueId, name, kind, specifier, embeddable }], importedBy: [...] } */
+    dependencies: (componentId) => call('GET', `/components/${id(componentId)}/dependencies`),
+    createComponent: (body) => call('POST', '/components', body),
+    preview: (buildId) => call('POST', `/builds/${id(buildId)}/preview`, {}),
 };

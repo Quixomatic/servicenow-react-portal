@@ -1,31 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast, useUser, useRecordWatch } from '@portal/runtime'
-import { useQueryClient } from 'utilities:react-query'
-import { useFormBootstrap, executeUiAction, fetchRecordValues, UiActionError, useViewRulesContext } from 'utilities:app/graphql'
-import type { FormBootstrap, UiAction, UiActionResult, SessionNotification, ViewRuleInputs, ViewResolutionInfo } from 'utilities:app/graphql'
-import { useForm, attachPolicies, applyRemoteValues } from 'components:app/field'
-import type { Form, ValidationResult } from 'components:app/field'
-import { startScriptEnvironment, scriptUserFrom } from 'utilities:app/gform'
-import type { ScriptEnvironment, ScriptError } from 'utilities:app/gform'
-import { usePortalViewSettings } from './view-resolution'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast, useUser, useRecordWatch } from '@portal/runtime';
+import { useQueryClient } from 'utilities:react-query';
+import {
+    useFormBootstrap,
+    executeUiAction,
+    fetchRecordValues,
+    UiActionError,
+    useViewRulesContext,
+} from 'utilities:app/graphql';
+import type {
+    FormBootstrap,
+    UiAction,
+    UiActionResult,
+    SessionNotification,
+    ViewRuleInputs,
+    ViewResolutionInfo,
+} from 'utilities:app/graphql';
+import { useForm, attachPolicies, applyRemoteValues } from 'components:app/field';
+import type { Form, ValidationResult } from 'components:app/field';
+import { startScriptEnvironment, scriptUserFrom } from 'utilities:app/gform';
+import type { ScriptEnvironment, ScriptError } from 'utilities:app/gform';
+import { usePortalViewSettings } from './view-resolution';
 
 /** Names of the form's Save action, Workspace first, then the classic verbs. */
-export const SAVE_ACTIONS = ['sysverb_ws_save', 'sysverb_update', 'sysverb_insert', 'sysverb_ws_insert']
+export const SAVE_ACTIONS = ['sysverb_ws_save', 'sysverb_update', 'sysverb_insert', 'sysverb_ws_insert'];
 
 /** The record changed on the server since this form loaded it. */
 export class ConflictError extends Error {
-    serverModCount: number
-    loadedModCount: number
+    serverModCount: number;
+    loadedModCount: number;
     constructor(loaded: number, server: number) {
-        super('This record was changed by someone else since you opened it.')
-        this.name = 'ConflictError'
-        this.loadedModCount = loaded
-        this.serverModCount = server
+        super('This record was changed by someone else since you opened it.');
+        this.name = 'ConflictError';
+        this.loadedModCount = loaded;
+        this.serverModCount = server;
     }
 }
 
 /** Live: the record changed on the server while this form had unsaved edits (or was deleted). */
-export type RemoteChange = { deleted: boolean; modCount: number | null; by: string | null; changes: string[] }
+export type RemoteChange = { deleted: boolean; modCount: number | null; by: string | null; changes: string[] };
 
 export type SaveOutcome =
     | { ok: true; result: UiActionResult; isNew: boolean }
@@ -33,98 +46,98 @@ export type SaveOutcome =
     | { ok: false; reason: 'blocked' }
     | { ok: false; reason: 'nothing' }
     | { ok: false; reason: 'conflict'; error: ConflictError }
-    | { ok: false; reason: 'server'; error: UiActionError | Error }
+    | { ok: false; reason: 'server'; error: UiActionError | Error };
 
-export type SubmitOptions = { force?: boolean; skipValidation?: boolean }
+export type SubmitOptions = { force?: boolean; skipValidation?: boolean };
 
 export type RecordForm = Form & {
     /** The bootstrap (layout, views, policies, actions, scripts); undefined while loading. */
-    bootstrap: FormBootstrap | undefined
+    bootstrap: FormBootstrap | undefined;
     /** Portal view rules: how the view was chosen (source 'rule' = forced by a rule); undefined without rules. */
-    resolution: ViewResolutionInfo | undefined
-    isNew: boolean
+    resolution: ViewResolutionInfo | undefined;
+    isNew: boolean;
     /** The Save UI action (absent: the user can't save this record here → read-only). */
-    saveAction: UiAction | undefined
-    readOnly: boolean
-    saving: boolean
+    saveAction: UiAction | undefined;
+    readOnly: boolean;
+    saving: boolean;
     /** Last server failure (cleared by the next submit). */
-    saveError: UiActionError | Error | null
+    saveError: UiActionError | Error | null;
     /** The last submit that failed validation (any action, incl. g_form.submit from scripts). */
-    validation: ValidationResult | null
-    clearValidation: () => void
+    validation: ValidationResult | null;
+    clearValidation: () => void;
     /** Set when a save found the record changed on the server (Reload / Overwrite). */
-    conflict: ConflictError | null
+    conflict: ConflictError | null;
     /** Client script errors (compile, run, callbacks): reported, never fatal. */
-    scriptErrors: ScriptError[]
+    scriptErrors: ScriptError[];
     /** The legacy g_form environment (client scripts), once started. */
-    scripts: ScriptEnvironment | null
+    scripts: ScriptEnvironment | null;
     /** Validate, then run the platform's own form save (the Save UI action). */
-    save: (options?: SubmitOptions) => Promise<SaveOutcome>
+    save: (options?: SubmitOptions) => Promise<SaveOutcome>;
     /** Validate (mandatory + onSubmit scripts), then run a server UI action by name / sys_id. */
-    submit: (action?: string | UiAction, options?: SubmitOptions) => Promise<SaveOutcome>
+    submit: (action?: string | UiAction, options?: SubmitOptions) => Promise<SaveOutcome>;
     /** A UI action as the action bar runs it: onclick script (client) or straight to the server. */
-    runAction: (action: UiAction) => Promise<unknown>
+    runAction: (action: UiAction) => Promise<unknown>;
     /** Discard local edits and load the record again (after a conflict). */
-    reload: () => void
+    reload: () => void;
     /**
      * Live (AMB record watch): someone else changed (or deleted) the record while this form had
      * unsaved edits. A clean form refreshes silently instead. Cleared by reload() / dismissRemoteChange().
      */
-    remoteChange: RemoteChange | null
+    remoteChange: RemoteChange | null;
     /** "Keep editing": hide the notice (the save-time sys_mod_count check still guards the write). */
-    dismissRemoteChange: () => void
+    dismissRemoteChange: () => void;
     /** Open another record the way this form does (onOpenRecord, else the classic form): related list rows, New. */
-    openRecord: (table: string, sysId: string, params?: Record<string, unknown>) => void
-}
+    openRecord: (table: string, sysId: string, params?: Record<string, unknown>) => void;
+};
 
 export type UseRecordFormOptions = {
-    table: string
+    table: string;
     /** sys_id, or '-1' / '' for a new record (the platform reserves a number on load). */
-    sysId?: string
+    sysId?: string;
     /**
      * The view the caller asks for (the widget option). With portal view rules on (the default inside a
      * portal) a matching rule beats it; with `forceView` (or viewRules: false) it is forced as before.
      * '' = automatic.
      */
-    view?: string
+    view?: string;
     /** Force `view` (no portal view rules). */
-    forceView?: boolean
+    forceView?: boolean;
     /**
      * Portal view rules (x_312987_portal_view_rule), resolved in the same request as the form:
      * page rules → portal rules (they FORCE the view) → urlView → the option (`view`; lockView: option
      * first) → the remembered view → Workspace rules / default views / Default. false = off.
      * Default: on when the form is inside a portal.
      */
-    viewRules?: false | { urlView?: string; lockView?: boolean; remember?: boolean; remembered?: string | null }
+    viewRules?: false | { urlView?: string; lockView?: boolean; remember?: boolean; remembered?: string | null };
     /** Automatic resolution: candidate view list ('sp,ess'). Default: the portal's settings.formViews. */
-    views?: string
+    views?: string;
     /** Automatic resolution: a sys_ux_view_rules_configuration sys_id. Default: the portal's settings.viewRuleConfigId. */
-    viewRuleConfigId?: string
+    viewRuleConfigId?: string;
     /** Encoded query presetting a new record's values (g_aw.openRecord(table, '-1', { query })). */
-    query?: string
+    query?: string;
     /** Show business-rule messages (session notifications) as toasts. Default true. */
-    toastNotifications?: boolean
+    toastNotifications?: boolean;
     /** Run the form's client scripts (onLoad / onChange / onSubmit, policy scripts). Default true. */
-    clientScripts?: boolean
-    onSaved?: (result: UiActionResult, info: { isNew: boolean; action: UiAction }) => void
+    clientScripts?: boolean;
+    onSaved?: (result: UiActionResult, info: { isNew: boolean; action: UiAction }) => void;
     /** g_aw.openRecord and server redirects to a record (default: the classic form in a new tab). */
-    onOpenRecord?: (table: string, sysId: string, params?: Record<string, unknown>) => void
+    onOpenRecord?: (table: string, sysId: string, params?: Record<string, unknown>) => void;
     /** Watch the record for changes by others (AMB). Default true; off in Studio's designer. */
-    live?: boolean
-}
+    live?: boolean;
+};
 
 export function notify(list: SessionNotification[]) {
     for (const n of list) {
-        const t = String(n.type || '').toLowerCase()
-        if (t === 'error') toast.error(n.text)
-        else if (t === 'warning') toast.warning(n.text)
-        else if (t === 'success') toast.success(n.text)
-        else toast.info(n.text)
+        const t = String(n.type || '').toLowerCase();
+        if (t === 'error') toast.error(n.text);
+        else if (t === 'warning') toast.warning(n.text);
+        else if (t === 'success') toast.success(n.text);
+        else toast.info(n.text);
     }
 }
 
 function openClassic(table: string, sysId: string) {
-    window.open(`/${encodeURIComponent(table)}.do?sys_id=${encodeURIComponent(sysId)}`, '_blank', 'noopener')
+    window.open(`/${encodeURIComponent(table)}.do?sys_id=${encodeURIComponent(sysId)}`, '_blank', 'noopener');
 }
 
 /**
@@ -143,17 +156,18 @@ function openClassic(table: string, sysId: string) {
  * - new records ('-1') are never refetched (each load reserves a number).
  */
 export function useRecordForm(options: UseRecordFormOptions): RecordForm {
-    const { table, view } = options
-    const sysId = options.sysId && options.sysId !== '-1' ? options.sysId : '-1'
-    const isNew = sysId === '-1'
-    const query = isNew ? options.query || '' : ''
+    const { table, view } = options;
+    const sysId = options.sysId && options.sysId !== '-1' ? options.sysId : '-1';
+    const isNew = sysId === '-1';
+    const query = isNew ? options.query || '' : '';
     // View resolution without a forced view: the portal's Workspace view rules, then its candidate list.
-    const portalViews = usePortalViewSettings()
-    const views = options.views !== undefined ? options.views : portalViews.formViews
-    const viewRuleConfigId = options.viewRuleConfigId !== undefined ? options.viewRuleConfigId : portalViews.viewRuleConfigId
+    const portalViews = usePortalViewSettings();
+    const views = options.views !== undefined ? options.views : portalViews.formViews;
+    const viewRuleConfigId =
+        options.viewRuleConfigId !== undefined ? options.viewRuleConfigId : portalViews.viewRuleConfigId;
     // Portal view rules: on inside a real portal unless the caller forces the view or turns them off.
-    const rulesCtx = useViewRulesContext()
-    const vr = options.viewRules
+    const rulesCtx = useViewRulesContext();
+    const vr = options.viewRules;
     const rules: ViewRuleInputs | undefined =
         options.forceView || vr === false || !rulesCtx.portal
             ? undefined
@@ -165,43 +179,43 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
                   lockView: !!(vr && vr.lockView),
                   remember: vr ? vr.remember !== false : true,
                   remembered: vr && vr.remembered !== undefined ? vr.remembered : undefined,
-              }
+              };
     // Same options for both: they share one bootstrap query (one request, one reserved number).
-    const boot = useFormBootstrap(table, sysId, { view, query, views, viewRuleConfigId, rules })
-    const base = useForm({ table, sysId, view, query, views, viewRuleConfigId, rules })
-    const qc = useQueryClient()
-    const user = useUser() as any
-    const baseRef = useRef(base)
-    baseRef.current = base
-    const bootRef = useRef<FormBootstrap | undefined>(boot.data)
-    bootRef.current = boot.data
-    const optsRef = useRef(options)
-    optsRef.current = options
-    const [saving, setSaving] = useState(false)
-    const [saveError, setSaveError] = useState<UiActionError | Error | null>(null)
-    const [conflict, setConflict] = useState<ConflictError | null>(null)
-    const [validation, setValidation] = useState<ValidationResult | null>(null)
-    const clearValidation = useCallback(() => setValidation(null), [])
-    const [scriptErrors, setScriptErrors] = useState<ScriptError[]>([])
-    const envRef = useRef<ScriptEnvironment | null>(null)
-    const [envState, setEnvState] = useState<ScriptEnvironment | null>(null)
-    const submitRef = useRef<(a?: string | UiAction, o?: SubmitOptions) => Promise<SaveOutcome> | false>(() => false)
-    const savingRef = useRef(false)
+    const boot = useFormBootstrap(table, sysId, { view, query, views, viewRuleConfigId, rules });
+    const base = useForm({ table, sysId, view, query, views, viewRuleConfigId, rules });
+    const qc = useQueryClient();
+    const user = useUser() as any;
+    const baseRef = useRef(base);
+    baseRef.current = base;
+    const bootRef = useRef<FormBootstrap | undefined>(boot.data);
+    bootRef.current = boot.data;
+    const optsRef = useRef(options);
+    optsRef.current = options;
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<UiActionError | Error | null>(null);
+    const [conflict, setConflict] = useState<ConflictError | null>(null);
+    const [validation, setValidation] = useState<ValidationResult | null>(null);
+    const clearValidation = useCallback(() => setValidation(null), []);
+    const [scriptErrors, setScriptErrors] = useState<ScriptError[]>([]);
+    const envRef = useRef<ScriptEnvironment | null>(null);
+    const [envState, setEnvState] = useState<ScriptEnvironment | null>(null);
+    const submitRef = useRef<(a?: string | UiAction, o?: SubmitOptions) => Promise<SaveOutcome> | false>(() => false);
+    const savingRef = useRef(false);
 
     const openRecord = useCallback((t: string, id: string, params?: Record<string, unknown>) => {
-        if (optsRef.current.onOpenRecord) optsRef.current.onOpenRecord(t, id, params)
-        else openClassic(t, id)
-    }, [])
+        if (optsRef.current.onOpenRecord) optsRef.current.onOpenRecord(t, id, params);
+        else openClassic(t, id);
+    }, []);
 
-    const userReady = !!user && !!(user.sysId || user.userName)
+    const userReady = !!user && !!(user.sysId || user.userName);
     // UI policies + client scripts: started once the store holds the bootstrap's values (useForm's
     // load effect runs first), restarted when a fresh bootstrap arrives (after a save).
     useEffect(() => {
-        const data = boot.data
-        if (!data) return
-        const store = baseRef.current
-        const policies = attachPolicies(store, data.policies)
-        let stop = () => {}
+        const data = boot.data;
+        if (!data) return;
+        const store = baseRef.current;
+        const policies = attachPolicies(store, data.policies);
+        let stop = () => {};
         if (optsRef.current.clientScripts !== false && userReady) {
             const started = startScriptEnvironment({
                 host: {
@@ -225,226 +239,278 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
                 user: scriptUserFrom(user),
                 policies,
                 onError: (e) => setScriptErrors((list) => list.concat(e)),
-            })
-            envRef.current = started.env
-            setEnvState(started.env)
-            stop = started.stop
+            });
+            envRef.current = started.env;
+            setEnvState(started.env);
+            stop = started.stop;
         }
         return () => {
-            stop()
-            policies.detach()
-            envRef.current = null
+            stop();
+            policies.detach();
+            envRef.current = null;
             // A restart re-runs onLoad from scratch: drop what the previous run set.
-            const s = store.getState()
-            for (const n of Object.keys(s.fields)) if (Object.keys(s.fields[n].overrides).length) store.clearOverrides(n)
-            store.clearMessages()
-            store.clearSectionDisplay()
-        }
-    }, [boot.data, userReady])
+            const s = store.getState();
+            for (const n of Object.keys(s.fields))
+                if (Object.keys(s.fields[n].overrides).length) store.clearOverrides(n);
+            store.clearMessages();
+            store.clearSectionDisplay();
+        };
+    }, [boot.data, userReady]);
 
-    const actions = (boot.data && boot.data.actions) || []
+    const actions = (boot.data && boot.data.actions) || [];
     const saveAction = useMemo(() => {
         for (const name of SAVE_ACTIONS) {
-            const hit = actions.find((a) => a.name === name)
-            if (hit) return hit
+            const hit = actions.find((a) => a.name === name);
+            if (hit) return hit;
         }
-        return undefined
-    }, [boot.data])
+        return undefined;
+    }, [boot.data]);
 
     const findAction = (ref?: string | UiAction): UiAction | undefined => {
-        if (ref && typeof ref === 'object') return ref
-        const list = (bootRef.current && bootRef.current.actions) || []
-        if (!ref) return saveAction
-        return list.find((a) => a.name === ref || a.sysId === ref) || (SAVE_ACTIONS.indexOf(String(ref)) >= 0 ? saveAction : undefined)
-    }
+        if (ref && typeof ref === 'object') return ref;
+        const list = (bootRef.current && bootRef.current.actions) || [];
+        if (!ref) return saveAction;
+        return (
+            list.find((a) => a.name === ref || a.sysId === ref) ||
+            (SAVE_ACTIONS.indexOf(String(ref)) >= 0 ? saveAction : undefined)
+        );
+    };
 
     /** Server part of a submit (after validation): conflict check, UI action, refresh / redirect. */
     const serverSubmit = async (action: UiAction, opts: SubmitOptions): Promise<SaveOutcome> => {
-        const form = baseRef.current
-        const data = bootRef.current!
+        const form = baseRef.current;
+        const data = bootRef.current!;
         const fields = Object.keys(form.getState().fields)
             .map((name) => ({ name, entry: form.getState().fields[name] }))
             // New records: every value (defaults included); existing: only what changed.
             .filter(({ entry }) => (isNew ? String(entry.value || '') !== '' : entry.value !== entry.originalValue))
-            .map(({ name, entry }) => ({ name, value: entry.value, displayValue: entry.displayValue, originalValue: entry.originalValue }))
-        const isSave = SAVE_ACTIONS.indexOf(action.name) >= 0
-        if (isSave && !isNew && !fields.length) return { ok: false, reason: 'nothing' }
-        savingRef.current = true
-        setSaving(true)
-        setSaveError(null)
+            .map(({ name, entry }) => ({
+                name,
+                value: entry.value,
+                displayValue: entry.displayValue,
+                originalValue: entry.originalValue,
+            }));
+        const isSave = SAVE_ACTIONS.indexOf(action.name) >= 0;
+        if (isSave && !isNew && !fields.length) return { ok: false, reason: 'nothing' };
+        savingRef.current = true;
+        setSaving(true);
+        setSaveError(null);
         try {
             // Optimistic concurrency: re-read sys_mod_count before writing.
             // Baseline: what we loaded, or the remote change already merged field by field (D8).
-            const baseline = mergedMod.current != null && data.modCount != null && mergedMod.current > data.modCount ? mergedMod.current : data.modCount
+            const baseline =
+                mergedMod.current != null && data.modCount != null && mergedMod.current > data.modCount
+                    ? mergedMod.current
+                    : data.modCount;
             if (!isNew && !opts.force && baseline != null) {
-                const now = await fetchRecordValues(data.table, { sysId }, ['sys_mod_count']).catch(() => null)
-                const server = now && now.sys_mod_count ? Number(now.sys_mod_count.value) : NaN
+                const now = await fetchRecordValues(data.table, { sysId }, ['sys_mod_count']).catch(() => null);
+                const server = now && now.sys_mod_count ? Number(now.sys_mod_count.value) : NaN;
                 if (!isNaN(server) && server !== baseline) {
-                    const error = new ConflictError(baseline, server)
-                    setConflict(error)
-                    return { ok: false, reason: 'conflict', error }
+                    const error = new ConflictError(baseline, server);
+                    setConflict(error);
+                    return { ok: false, reason: 'conflict', error };
                 }
             }
-            setConflict(null)
+            setConflict(null);
             // An insert posts sysparm_sys_id=-1: the server assigns the reserved sys_id and number.
-            const result = await executeUiAction({ actionSysId: action.sysId, table: data.table, sysId, encodedRecord: data.encodedRecord, fields })
-            if (optsRef.current.toastNotifications !== false) notify(result.notifications)
-            if (result.operation) form.commit()
+            const result = await executeUiAction({
+                actionSysId: action.sysId,
+                table: data.table,
+                sysId,
+                encodedRecord: data.encodedRecord,
+                fields,
+            });
+            if (optsRef.current.toastNotifications !== false) notify(result.notifications);
+            if (result.operation) form.commit();
             // A new record's bootstrap is never refetched while mounted (that would reserve another
             // number); it has gcTime 0, so the next "new" loads a fresh one.
-            if (!isNew) qc.invalidateQueries({ queryKey: ['rp-gql', 'form', table, sysId] })
-            if (optsRef.current.onSaved && (result.operation || isSave)) optsRef.current.onSaved(result, { isNew, action })
-            const r = result.redirect
-            if (r && r.table && r.sysId && !(r.table === data.table && r.sysId === (isNew ? result.sysId : sysId))) openRecord(r.table, r.sysId, r.query ? { query: r.query } : undefined)
-            else if (r && r.url && !r.table) window.open(r.url, '_blank', 'noopener')
-            return { ok: true, result, isNew }
+            if (!isNew) qc.invalidateQueries({ queryKey: ['rp-gql', 'form', table, sysId] });
+            if (optsRef.current.onSaved && (result.operation || isSave))
+                optsRef.current.onSaved(result, { isNew, action });
+            const r = result.redirect;
+            if (r && r.table && r.sysId && !(r.table === data.table && r.sysId === (isNew ? result.sysId : sysId)))
+                openRecord(r.table, r.sysId, r.query ? { query: r.query } : undefined);
+            else if (r && r.url && !r.table) window.open(r.url, '_blank', 'noopener');
+            return { ok: true, result, isNew };
         } catch (e) {
-            const error = e as UiActionError | Error
-            setSaveError(error)
+            const error = e as UiActionError | Error;
+            setSaveError(error);
             if (error instanceof UiActionError) {
-                for (const m of error.fieldMessages) if (m.field) form.showFieldMessage(m.field.replace(/^[^.]+\./, ''), m.message, m.type === 'warning' ? 'warning' : 'error')
-                if (optsRef.current.toastNotifications !== false) notify(error.notifications.filter((n) => n.text !== error.message))
+                for (const m of error.fieldMessages)
+                    if (m.field)
+                        form.showFieldMessage(
+                            m.field.replace(/^[^.]+\./, ''),
+                            m.message,
+                            m.type === 'warning' ? 'warning' : 'error'
+                        );
+                if (optsRef.current.toastNotifications !== false)
+                    notify(error.notifications.filter((n) => n.text !== error.message));
             }
-            return { ok: false, reason: 'server', error }
+            return { ok: false, reason: 'server', error };
         } finally {
-            savingRef.current = false
-            setSaving(false)
+            savingRef.current = false;
+            setSaving(false);
         }
-    }
+    };
 
     /**
      * Like g_form.submit: synchronous validation (staged typing committed, mandatory fields,
      * onSubmit scripts) → false when blocked, else the server part's promise.
      */
     const submitSync = (ref?: string | UiAction, opts: SubmitOptions = {}): Promise<SaveOutcome> | false => {
-        const form = baseRef.current
-        if (savingRef.current || !bootRef.current) return false
-        const action = findAction(ref)
+        const form = baseRef.current;
+        if (savingRef.current || !bootRef.current) return false;
+        const action = findAction(ref);
         if (!action) {
-            const error = new Error(ref ? `There is no "${typeof ref === 'string' ? ref : ref.name}" action on this form.` : 'You can’t save this record here.')
-            setSaveError(error)
-            return false
+            const error = new Error(
+                ref
+                    ? `There is no "${typeof ref === 'string' ? ref : ref.name}" action on this form.`
+                    : 'You can’t save this record here.'
+            );
+            setSaveError(error);
+            return false;
         }
         if (!opts.skipValidation) {
-            const state = form.getState()
+            const state = form.getState();
             for (const name of Object.keys(state.fields)) {
-                const staged = state.fields[name].staged
-                if (staged !== undefined) form.setValue(name, staged)
+                const staged = state.fields[name].staged;
+                if (staged !== undefined) form.setValue(name, staged);
             }
-            const validation = form.validate()
+            const validation = form.validate();
             if (!validation.valid) {
-                lastInvalid.current = validation
-                setValidation(validation)
-                return false
+                lastInvalid.current = validation;
+                setValidation(validation);
+                return false;
             }
-            setValidation(null)
+            setValidation(null);
             if (envRef.current && !envRef.current.runOnSubmit(action.name)) {
                 // onSubmit scripts often make fields mandatory and return false: surface them.
-                const again = form.validate()
+                const again = form.validate();
                 if (!again.valid) {
-                    lastInvalid.current = again
-                    setValidation(again)
+                    lastInvalid.current = again;
+                    setValidation(again);
                 }
-                return false
+                return false;
             }
         }
-        return serverSubmit(action, opts)
-    }
-    const lastInvalid = useRef<ValidationResult | null>(null)
-    submitRef.current = submitSync
+        return serverSubmit(action, opts);
+    };
+    const lastInvalid = useRef<ValidationResult | null>(null);
+    submitRef.current = submitSync;
 
     const submit = useCallback(async (ref?: string | UiAction, opts: SubmitOptions = {}): Promise<SaveOutcome> => {
-        lastInvalid.current = null
-        const r = submitRef.current(ref, opts)
-        if (r === false) return lastInvalid.current ? { ok: false, reason: 'invalid', validation: lastInvalid.current } : { ok: false, reason: 'blocked' }
-        return r
-    }, [])
+        lastInvalid.current = null;
+        const r = submitRef.current(ref, opts);
+        if (r === false)
+            return lastInvalid.current
+                ? { ok: false, reason: 'invalid', validation: lastInvalid.current }
+                : { ok: false, reason: 'blocked' };
+        return r;
+    }, []);
 
-    const save = useCallback((opts?: SubmitOptions) => submit(undefined, opts), [submit])
+    const save = useCallback((opts?: SubmitOptions) => submit(undefined, opts), [submit]);
 
     const runAction = useCallback(
         async (action: UiAction) => {
-            baseRef.current.clearMessages()
-            if (action.hasClientScript && action.clientScript && envRef.current) return envRef.current.runClientAction(action)
-            return submit(action)
+            baseRef.current.clearMessages();
+            if (action.hasClientScript && action.clientScript && envRef.current)
+                return envRef.current.runClientAction(action);
+            return submit(action);
         },
-        [submit],
-    )
+        [submit]
+    );
 
     // ---- live: someone else changed this record (AMB record watch; sys_mod_count ordering) ----
-    const [remoteChange, setRemoteChange] = useState<RemoteChange | null>(null)
+    const [remoteChange, setRemoteChange] = useState<RemoteChange | null>(null);
     // Per-field merge of a remote change on a dirty form (D8): clean fields take the new value
     // silently; dirty fields whose server value changed get a marker (Use theirs / Keep mine).
-    const mergedMod = useRef<number | null>(null)
+    const mergedMod = useRef<number | null>(null);
     const mergeRemote = async (changes: string[], modCount: number | null) => {
-        const data = bootRef.current
-        if (!data) return
-        const form = baseRef.current
-        const state = form.getState()
-        const onForm = Object.keys(data.meta).filter((n) => n in state.fields)
-        const names = changes.length ? changes.filter((n) => onForm.indexOf(n) >= 0) : onForm
-        if (!names.length) return
-        const fresh = await fetchRecordValues(data.table, { sysId }, names).catch(() => null)
-        if (!fresh) return
-        applyRemoteValues(form, fresh)
-        if (modCount != null) mergedMod.current = modCount
-    }
-    const seenMod = useRef(-1)
+        const data = bootRef.current;
+        if (!data) return;
+        const form = baseRef.current;
+        const state = form.getState();
+        const onForm = Object.keys(data.meta).filter((n) => n in state.fields);
+        const names = changes.length ? changes.filter((n) => onForm.indexOf(n) >= 0) : onForm;
+        if (!names.length) return;
+        const fresh = await fetchRecordValues(data.table, { sysId }, names).catch(() => null);
+        if (!fresh) return;
+        applyRemoteValues(form, fresh);
+        if (modCount != null) mergedMod.current = modCount;
+    };
+    const seenMod = useRef(-1);
     useRecordWatch(
         table,
         isNew ? null : `sys_id=${sysId}`,
         (e: { operation: string; modCount: number | null; fromUser: string | null; changes: string[] }) => {
             if (e.operation === 'delete') {
-                setRemoteChange({ deleted: true, modCount: e.modCount, by: e.fromUser, changes: [] })
-                return
+                setRemoteChange({ deleted: true, modCount: e.modCount, by: e.fromUser, changes: [] });
+                return;
             }
-            const loaded = bootRef.current ? bootRef.current.modCount : null
+            const loaded = bootRef.current ? bootRef.current.modCount : null;
             // Not newer than what we loaded (our own save's echo, or old news), or already handled.
-            if (e.modCount != null && loaded != null && e.modCount <= loaded) return
-            if (e.modCount != null && e.modCount <= seenMod.current) return
-            if (e.modCount != null) seenMod.current = e.modCount
-            if (savingRef.current) return
+            if (e.modCount != null && loaded != null && e.modCount <= loaded) return;
+            if (e.modCount != null && e.modCount <= seenMod.current) return;
+            if (e.modCount != null) seenMod.current = e.modCount;
+            if (savingRef.current) return;
             if (!baseRef.current.isDirty()) {
                 // Clean form: refresh silently (useForm's load keeps nothing to lose).
-                qc.invalidateQueries({ queryKey: ['rp-gql', 'form', table, sysId] })
-                return
+                qc.invalidateQueries({ queryKey: ['rp-gql', 'form', table, sysId] });
+                return;
             }
-            setRemoteChange({ deleted: false, modCount: e.modCount, by: e.fromUser, changes: e.changes || [] })
-            mergeRemote(e.changes || [], e.modCount)
+            setRemoteChange({ deleted: false, modCount: e.modCount, by: e.fromUser, changes: e.changes || [] });
+            mergeRemote(e.changes || [], e.modCount);
         },
-        { enabled: !isNew && !!table && options.live !== false, invalidate: false },
-    )
-    const dismissRemoteChange = useCallback(() => setRemoteChange(null), [])
+        { enabled: !isNew && !!table && options.live !== false, invalidate: false }
+    );
+    const dismissRemoteChange = useCallback(() => setRemoteChange(null), []);
 
     const reload = useCallback(() => {
-        setRemoteChange(null)
-        setConflict(null)
-        setSaveError(null)
-        baseRef.current.reset()
-        qc.invalidateQueries({ queryKey: ['rp-gql', 'form', table, sysId] })
-    }, [qc, table, sysId])
+        setRemoteChange(null);
+        setConflict(null);
+        setSaveError(null);
+        baseRef.current.reset();
+        qc.invalidateQueries({ queryKey: ['rp-gql', 'form', table, sysId] });
+    }, [qc, table, sysId]);
 
     return useMemo(() => {
-        const form = Object.create(base) as RecordForm
-        form.bootstrap = boot.data
-        form.resolution = boot.data ? boot.data.resolution : undefined
-        form.isNew = isNew
-        form.saveAction = saveAction
-        form.readOnly = !!boot.data && !saveAction
-        form.saving = saving
-        form.saveError = saveError
-        form.conflict = conflict
-        form.validation = validation
-        form.clearValidation = clearValidation
-        form.scriptErrors = scriptErrors
-        form.scripts = envState
-        form.save = save
-        form.submit = submit
-        form.runAction = runAction
-        form.reload = reload
-        form.remoteChange = remoteChange
-        form.dismissRemoteChange = dismissRemoteChange
-        form.openRecord = openRecord
-        return form
-    }, [base, boot.data, isNew, saveAction, saving, saveError, conflict, validation, scriptErrors, envState, save, submit, runAction, reload, remoteChange, dismissRemoteChange])
+        const form = Object.create(base) as RecordForm;
+        form.bootstrap = boot.data;
+        form.resolution = boot.data ? boot.data.resolution : undefined;
+        form.isNew = isNew;
+        form.saveAction = saveAction;
+        form.readOnly = !!boot.data && !saveAction;
+        form.saving = saving;
+        form.saveError = saveError;
+        form.conflict = conflict;
+        form.validation = validation;
+        form.clearValidation = clearValidation;
+        form.scriptErrors = scriptErrors;
+        form.scripts = envState;
+        form.save = save;
+        form.submit = submit;
+        form.runAction = runAction;
+        form.reload = reload;
+        form.remoteChange = remoteChange;
+        form.dismissRemoteChange = dismissRemoteChange;
+        form.openRecord = openRecord;
+        return form;
+    }, [
+        base,
+        boot.data,
+        isNew,
+        saveAction,
+        saving,
+        saveError,
+        conflict,
+        validation,
+        scriptErrors,
+        envState,
+        save,
+        submit,
+        runAction,
+        reload,
+        remoteChange,
+        dismissRemoteChange,
+    ]);
 }

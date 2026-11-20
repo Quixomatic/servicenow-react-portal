@@ -1,24 +1,83 @@
 /* GitHub light / dark token colours (shiki's github-light / github-dark, as fumadocs uses). */
-.rp-hl { color: #1f2328; }
-.rp-hl-comment { color: #6e7781; font-style: italic; }
-.rp-hl-string { color: #0a3069; }
-.rp-hl-number, .rp-hl-literal, .rp-hl-attr, .rp-hl-property { color: #0550ae; }
-.rp-hl-keyword { color: #cf222e; }
-.rp-hl-function { color: #8250df; }
-.rp-hl-type { color: #953800; }
-.rp-hl-tag { color: #116329; }
-.rp-hl-variable { color: #953800; }
-.rp-hl-operator { color: #cf222e; }
-.rp-hl-punct { color: #1f2328; }
+.rp-hl {
+    color: #1f2328;
+}
+.rp-hl-comment {
+    color: #6e7781;
+    font-style: italic;
+}
+.rp-hl-string {
+    color: #0a3069;
+}
+.rp-hl-number,
+.rp-hl-literal,
+.rp-hl-attr,
+.rp-hl-property {
+    color: #0550ae;
+}
+.rp-hl-keyword {
+    color: #cf222e;
+}
+.rp-hl-function {
+    color: #8250df;
+}
+.rp-hl-type {
+    color: #953800;
+}
+.rp-hl-tag {
+    color: #116329;
+}
+.rp-hl-variable {
+    color: #953800;
+}
+.rp-hl-operator {
+    color: #cf222e;
+}
+.rp-hl-punct {
+    color: #1f2328;
+}
 
-:host(.dark) .rp-hl, .dark .rp-hl { color: #e6edf3; }
-:host(.dark) .rp-hl-comment, .dark .rp-hl-comment { color: #8b949e; }
-:host(.dark) .rp-hl-string, .dark .rp-hl-string { color: #a5d6ff; }
-:host(.dark) :is(.rp-hl-number, .rp-hl-literal, .rp-hl-attr, .rp-hl-property), .dark :is(.rp-hl-number, .rp-hl-literal, .rp-hl-attr, .rp-hl-property) { color: #79c0ff; }
-:host(.dark) .rp-hl-keyword, .dark .rp-hl-keyword { color: #ff7b72; }
-:host(.dark) .rp-hl-function, .dark .rp-hl-function { color: #d2a8ff; }
-:host(.dark) .rp-hl-type, .dark .rp-hl-type { color: #ffa657; }
-:host(.dark) .rp-hl-tag, .dark .rp-hl-tag { color: #7ee787; }
-:host(.dark) .rp-hl-variable, .dark .rp-hl-variable { color: #ffa657; }
-:host(.dark) .rp-hl-operator, .dark .rp-hl-operator { color: #ff7b72; }
-:host(.dark) .rp-hl-punct, .dark .rp-hl-punct { color: #e6edf3; }
+:host(.dark) .rp-hl,
+.dark .rp-hl {
+    color: #e6edf3;
+}
+:host(.dark) .rp-hl-comment,
+.dark .rp-hl-comment {
+    color: #8b949e;
+}
+:host(.dark) .rp-hl-string,
+.dark .rp-hl-string {
+    color: #a5d6ff;
+}
+:host(.dark) :is(.rp-hl-number, .rp-hl-literal, .rp-hl-attr, .rp-hl-property),
+.dark :is(.rp-hl-number, .rp-hl-literal, .rp-hl-attr, .rp-hl-property) {
+    color: #79c0ff;
+}
+:host(.dark) .rp-hl-keyword,
+.dark .rp-hl-keyword {
+    color: #ff7b72;
+}
+:host(.dark) .rp-hl-function,
+.dark .rp-hl-function {
+    color: #d2a8ff;
+}
+:host(.dark) .rp-hl-type,
+.dark .rp-hl-type {
+    color: #ffa657;
+}
+:host(.dark) .rp-hl-tag,
+.dark .rp-hl-tag {
+    color: #7ee787;
+}
+:host(.dark) .rp-hl-variable,
+.dark .rp-hl-variable {
+    color: #ffa657;
+}
+:host(.dark) .rp-hl-operator,
+.dark .rp-hl-operator {
+    color: #ff7b72;
+}
+:host(.dark) .rp-hl-punct,
+.dark .rp-hl-punct {
+    color: #e6edf3;
+}

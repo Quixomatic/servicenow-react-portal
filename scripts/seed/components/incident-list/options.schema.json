@@ -1,29 +1,21 @@
 {
-  "type": "object",
-  "properties": {
-    "title": {
-      "type": "string",
-      "title": "Title"
-    },
-    "limit": {
-      "type": "integer",
-      "title": "Rows",
-      "default": 20
-    },
-    "filter": {
-      "type": "string",
-      "title": "Default filter",
-      "enum": [
-        "active",
-        "mine",
-        "opened"
-      ],
-      "enumNames": [
-        "Active",
-        "Assigned to me",
-        "Opened by me"
-      ],
-      "default": "active"
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string",
+            "title": "Title"
+        },
+        "limit": {
+            "type": "integer",
+            "title": "Rows",
+            "default": 20
+        },
+        "filter": {
+            "type": "string",
+            "title": "Default filter",
+            "enum": ["active", "mine", "opened"],
+            "enumNames": ["Active", "Assigned to me", "Opened by me"],
+            "default": "active"
+        }
     }
-  }
 }

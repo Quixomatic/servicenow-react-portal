@@ -8,33 +8,40 @@
  * a dictionary attribute with registerFieldType / registerFieldAttribute. Unknown types fall back
  * to a read-only value labelled "field type not supported" (as Workspace does), never a crash.
  */
-import { useSyncExternalStore } from 'react'
-import { useField, FieldShell, registerFieldType, resolveFieldComponent, fieldRegistry, registeredFieldTypes } from 'components:app/field'
-import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field'
-import { StringField } from 'components:app/string-field'
-import { TextareaField } from 'components:app/textarea-field'
-import { NumberField } from 'components:app/number-field'
-import { BooleanField } from 'components:app/boolean-field'
-import { ChoiceField } from 'components:app/choice-field'
-import { ReferenceField } from 'components:app/reference-field'
-import { DateField } from 'components:app/date-field'
-import { DateTimeField } from 'components:app/datetime-field'
-import { EmailField } from 'components:app/email-field'
-import { UrlField } from 'components:app/url-field'
-import { PhoneField } from 'components:app/phone-field'
-import { PasswordField } from 'components:app/password-field'
-import { CurrencyField } from 'components:app/currency-field'
-import { DurationField } from 'components:app/duration-field'
-import { ListField } from 'components:app/list-field'
-import { TimeField } from 'components:app/time-field'
-import { ConditionsField } from 'components:app/conditions-field'
-import { TableNameField } from 'components:app/table-name-field'
-import { FieldNameField } from 'components:app/field-name-field'
-import { HtmlField } from 'components:app/html-field'
+import { useSyncExternalStore } from 'react';
+import {
+    useField,
+    FieldShell,
+    registerFieldType,
+    resolveFieldComponent,
+    fieldRegistry,
+    registeredFieldTypes,
+} from 'components:app/field';
+import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field';
+import { StringField } from 'components:app/string-field';
+import { TextareaField } from 'components:app/textarea-field';
+import { NumberField } from 'components:app/number-field';
+import { BooleanField } from 'components:app/boolean-field';
+import { ChoiceField } from 'components:app/choice-field';
+import { ReferenceField } from 'components:app/reference-field';
+import { DateField } from 'components:app/date-field';
+import { DateTimeField } from 'components:app/datetime-field';
+import { EmailField } from 'components:app/email-field';
+import { UrlField } from 'components:app/url-field';
+import { PhoneField } from 'components:app/phone-field';
+import { PasswordField } from 'components:app/password-field';
+import { CurrencyField } from 'components:app/currency-field';
+import { DurationField } from 'components:app/duration-field';
+import { ListField } from 'components:app/list-field';
+import { TimeField } from 'components:app/time-field';
+import { ConditionsField } from 'components:app/conditions-field';
+import { TableNameField } from 'components:app/table-name-field';
+import { FieldNameField } from 'components:app/field-name-field';
+import { HtmlField } from 'components:app/html-field';
 // Attachments (A6): single-file fields.
-import { AttachmentField } from 'components:app/attachment-field'
+import { AttachmentField } from 'components:app/attachment-field';
 // Activity (A5): journal fields (work notes, comments) instead of the textarea fallback.
-import { JournalField } from 'components:app/journal-field'
+import { JournalField } from 'components:app/journal-field';
 
 /** Glide types each built-in primitive handles. */
 export const BUILT_IN_TYPES: Record<string, string[]> = {
@@ -63,7 +70,7 @@ export const BUILT_IN_TYPES: Record<string, string[]> = {
     attachment: ['file_attachment', 'user_image'],
     // Activity (A5)
     journal: ['journal', 'journal_input', 'journal_list'],
-}
+};
 
 const COMPONENTS: Record<string, any> = {
     string: StringField,
@@ -88,44 +95,55 @@ const COMPONENTS: Record<string, any> = {
     html: HtmlField,
     attachment: AttachmentField,
     journal: JournalField,
-}
+};
 
-let registered = false
+let registered = false;
 /** Register the built-ins (idempotent; existing overrides for a type are kept). */
 export function registerBuiltInFields() {
-    if (registered) return
-    registered = true
-    const taken = new Set(registeredFieldTypes())
+    if (registered) return;
+    registered = true;
+    const taken = new Set(registeredFieldTypes());
     for (const kind of Object.keys(BUILT_IN_TYPES)) {
-        const types = BUILT_IN_TYPES[kind].filter((t) => !taken.has(t))
-        if (types.length) registerFieldType(types, COMPONENTS[kind])
+        const types = BUILT_IN_TYPES[kind].filter((t) => !taken.has(t));
+        if (types.length) registerFieldType(types, COMPONENTS[kind]);
     }
 }
-registerBuiltInFields()
+registerBuiltInFields();
 
 export type FieldControlProps = FieldProps & {
-    layout?: FieldLayout
-    size?: FieldSize
-    showOptional?: boolean
-    className?: string
+    layout?: FieldLayout;
+    size?: FieldSize;
+    showOptional?: boolean;
+    className?: string;
     /** Passed through to the chosen primitive (variant, choices, rows, …). */
-    [extra: string]: any
-}
+    [extra: string]: any;
+};
 
 /** Which component renders this metadata (exported for previews and tests). */
-export function pickFieldComponent(type: string, meta: { maxLength?: number; choices?: unknown[]; choiceType?: number; attributes?: Record<string, string> }) {
-    const override = resolveFieldComponent(type, meta.attributes)
+export function pickFieldComponent(
+    type: string,
+    meta: { maxLength?: number; choices?: unknown[]; choiceType?: number; attributes?: Record<string, string> }
+) {
+    const override = resolveFieldComponent(type, meta.attributes);
     // Long strings render multi-line, as on platform forms.
-    if (type === 'string' && meta.maxLength && meta.maxLength > 255 && override === StringField) return TextareaField
+    if (type === 'string' && meta.maxLength && meta.maxLength > 255 && override === StringField) return TextareaField;
     // Integer/string columns with a choice list are choice fields.
-    if (meta.choices && meta.choices.length && (meta.choiceType || 0) > 0 && type !== 'choice' && override !== undefined && ['integer', 'string'].indexOf(type) >= 0) return ChoiceField
-    return override
+    if (
+        meta.choices &&
+        meta.choices.length &&
+        (meta.choiceType || 0) > 0 &&
+        type !== 'choice' &&
+        override !== undefined &&
+        ['integer', 'string'].indexOf(type) >= 0
+    )
+        return ChoiceField;
+    return override;
 }
 
 export function FieldControl(props: FieldControlProps) {
-    useSyncExternalStore(fieldRegistry.subscribe, fieldRegistry.getVersion, fieldRegistry.getVersion)
-    const probe = useField(props)
-    const type = props.type || probe.meta.type
+    useSyncExternalStore(fieldRegistry.subscribe, fieldRegistry.getVersion, fieldRegistry.getVersion);
+    const probe = useField(props);
+    const type = props.type || probe.meta.type;
     if (probe.loading && !props.type) {
         return (
             <div className="flex flex-col gap-1.5" aria-busy="true">
@@ -133,16 +151,16 @@ export function FieldControl(props: FieldControlProps) {
                 <span className="h-9 w-full animate-pulse rounded-md bg-muted" />
                 <span className="sr-only">Loading {probe.label}</span>
             </div>
-        )
+        );
     }
-    const Component = pickFieldComponent(type, probe.meta)
-    if (!Component) return <UnsupportedField {...props} type={type} />
-    return <Component {...props} />
+    const Component = pickFieldComponent(type, probe.meta);
+    if (!Component) return <UnsupportedField {...props} type={type} />;
+    return <Component {...props} />;
 }
 
 function UnsupportedField(props: FieldControlProps) {
-    const field = useField({ ...props, readOnly: true, hint: `${props.type}: field type not supported` })
-    return <FieldShell field={field} layout={props.layout} size={props.size} className={props.className} />
+    const field = useField({ ...props, readOnly: true, hint: `${props.type}: field type not supported` });
+    return <FieldShell field={field} layout={props.layout} size={props.size} className={props.className} />;
 }
 
 export default function FieldControlPreview() {
@@ -153,5 +171,5 @@ export default function FieldControlPreview() {
             <FieldControl name="caller_id" table="incident" />
             <FieldControl name="active" table="incident" />
         </div>
-    )
+    );
 }
