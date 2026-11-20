@@ -22,7 +22,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useQueryClient } from 'utilities:react-query'
 import { Button } from 'components:button'
 import { useVariableEditor, saveRecordVariables } from 'utilities:app/catalog'
-import type { VariableEditorData } from 'utilities:app/catalog'
+import type { VariableEditorData, CatalogVariable } from 'utilities:app/catalog'
 import { createCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable'
 import type { CatalogForm, VariableSpec } from 'components:app/variable'
 import { VariableLayout } from 'components:app/variable-container'
@@ -43,12 +43,13 @@ export type VariableEditorProps = {
     className?: string
 }
 
-/** Changed variables as Save UI action fields. */
-export function variableChanges(form: CatalogForm): { name: string; value: string; displayValue: string; originalValue: string }[] {
+/** Changed variables (with their metadata), for saveRecordVariables. */
+export function variableChanges(form: CatalogForm): { name: string; variable: CatalogVariable; value: string; displayValue: string; originalValue: string }[] {
     const s = form.getState()
-    return form.getDirtyFields()
-        .filter((n) => n.indexOf('variables.') === 0 && !!form.specByName[n])
-        .map((n) => ({ name: n, value: s.fields[n].value, displayValue: s.fields[n].displayValue, originalValue: s.fields[n].originalValue }))
+    return form
+        .getDirtyFields()
+        .filter((n) => n.indexOf('variables.') === 0 && !!form.specByName[n] && !!form.specByName[n].submitName)
+        .map((n) => ({ name: n, variable: form.specByName[n].variable, value: s.fields[n].value, displayValue: s.fields[n].displayValue, originalValue: s.fields[n].originalValue }))
 }
 
 /** A catalog form over variable editor data; read-only puts every variable in read-only. */

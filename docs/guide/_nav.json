@@ -183,6 +183,10 @@
                     "path": "primitives/catalog-variables.md"
                 },
                 {
+                    "title": "Cart and checkout",
+                    "path": "primitives/cart.md"
+                },
+                {
                     "title": "Lists",
                     "path": "primitives/lists.md"
                 },

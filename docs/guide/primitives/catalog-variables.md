@@ -110,13 +110,13 @@ import { VariableEditor } from 'components:app/variable-editor'
 ```
 
 - Data comes from the platform the way Workspace's form gets it: `GlideLayout_Query.formLayout`'s `variables` element and variables layout. Rendering reuses `app/variable` and `app/variable-container`, so every variable type, MRVS and custom variables work.
-- **Editable** (the default when the user may write the variables): the record's catalog UI policies and client scripts run, and Save sends only the changed variables through the record's Save UI action.
+- **Editable** (the default when the user may write the variables): the record's catalog UI policies and client scripts run, and Save sends only the changed variables through the record's Save UI action, shaped as Workspace sends them: `variables.<name>` fields flagged `is_variable` with the question `id` and `type`. An MRVS goes as its rows' JSON with `containerType` and its column `fields`. Without the columns the platform deletes every row, so `saveRecordVariables` refuses to send an MRVS that lacks them.
 - Also exported: `useVariableEditorForm(data, { readOnly })` and `variableChanges(form)`.
 - Wiring it into record forms as a formatter comes later. The sp `variable-editor` page demos it (`app/variable-editor-demo`).
 
 ## Widgets
 
-- **`app/catalog-item`**: header (picture, description, price), the requested-for picker, variables, and quantity (our combobox Select). Submitting validates first (an error summary takes focus and links to each field), then orders or submits the producer, shows the resulting number with a link and offers "Start another".
+- **`app/catalog-item`**: header (picture, description, price), the requested-for picker, variables, and quantity (our combobox Select). Submitting validates first (an error summary takes focus and links to each field), then orders or submits the producer, shows the resulting number with a link and offers "Start another". **Add to cart** sits beside Order now (same validation; the item's `no_cart` / `no_order_now` settings apply); see [Cart and checkout](cart.md).
 - **`app/catalog-picker`**: featured items and live search.
 
 The `sp` portal's `catalog` page puts both in a ⅓ + ⅔ Columns block. Its demo item "React Portal demo: Team equipment" has an MRVS with set-level policies and scripts, a Requested For variable and a custom variable.
@@ -127,7 +127,7 @@ Catalog client scripts and catalog UI policies run through the [form runtime](fo
 
 ## Not built yet
 
-Cart, checkout, Add to cart, Save as draft, and order guides. Dependent variable choices inside MRVS rows are untested.
+Save as draft and order guides. Dependent variable choices inside MRVS rows are untested. Cart, Add to cart and checkout: see [Cart and checkout](cart.md).
 
 ## Related
 

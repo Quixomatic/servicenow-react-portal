@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "cartPage": { "type": "string", "title": "Cart page", "description": "Portal page of the full cart", "default": "cart" },
+    "catalogPage": { "type": "string", "title": "Catalog page", "description": "Offered when the cart is empty (empty = none)", "default": "catalog" },
+    "maxLines": { "type": "number", "title": "Lines in the popover", "default": 4 },
+    "live": { "type": "boolean", "title": "Live count", "description": "Watch the cart's items over AMB", "default": true },
+    "placement": { "type": "string", "title": "Placement", "enum": ["slot", "inline"], "description": "slot: in the app header's actions slot; inline: where the widget is placed", "default": "slot" }
+  }
+}

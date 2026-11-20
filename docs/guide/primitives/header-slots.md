@@ -40,6 +40,8 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 - Several contributions to one slot render in mount order.
 - An outlet with contributions gets `data-filled`, so the header can hide its default content with CSS: `[data-rp-hslot=left][data-filled] ~ .default { display: none }`.
 
+`app/app-header` has one outlet too, **`header-actions`**, beside the theme toggle: `app/cart-button` renders there.
+
 ## Header slots versus `RegionPortal`
 
 `RegionPortal` targets a **layout region's** outlet (a whole region such as `header`). Header slots target places **inside a header widget**. The list view (`toolbarPlacement`) and record form (`headerSlots`, `headerPlacement`) use header slots.

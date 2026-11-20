@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "title": "Title", "default": "Your cart" },
+    "catalogPage": { "type": "string", "title": "Catalog page", "description": "Item links and Continue shopping (empty = none)", "default": "catalog" },
+    "recordPage": { "type": "string", "title": "Request page", "description": "Record form page for the placed request (empty = the platform form)", "default": "form" },
+    "review": { "type": "string", "title": "Review step", "enum": ["auto", "always"], "description": "auto: only with two-step checkout (glide.sc.checkout.twostep)", "default": "auto" }
+  }
+}

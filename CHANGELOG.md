@@ -2,6 +2,45 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.15.0] - 2026-11-19
+
+Cart and checkout on the platform's Service Catalog cart, and the variable editor now saves.
+
+### Added
+- **Cart and checkout** on the platform's Service Catalog cart API, the same cart Service Portal and Employee Center use.
+  - Cart hooks in `utilities:app/catalog`: `useCart({ live })`, `useCartCount`, `useAddToCart`, `useUpdateCartItem`, `useRemoveCartItem`, `useEmptyCart`, `useCheckout`, `useCartRequestedFor`, `useItemOrderOptions`, plus the fetchers and `cartErrorMessage`.
+  - One shared query key keeps every cart view in step.
+- **`app/catalog-item`:**
+  - Add to cart beside Order now, with the same validation and onSubmit scripts, and a "View cart" toast;
+  - honours `no_cart` / `no_cart_v2` / `no_order_now` / `no_order`; option `cart: false`.
+- **New `app/cart`:**
+  - lines with the platform's variable summary, delivery time, quantity, remove and prices (recurring subtotals included);
+  - cart-level requested for, delegation-checked per item;
+  - Empty cart with a confirm dialog;
+  - one-step checkout showing the REQ number and a link, plus a review step for two-step instances or `review: 'always'`.
+- **New `app/cart-button`:** a header cart with a count badge and a summary popover, live through record watch, in the new `header-actions` slot of `app/app-header`.
+- **sp and app:** a `cart` page and the header cart button; `glide.sc.checkout.twostep` is exposed to the portal.
+- **`app/requested-for-field`:** `itemId` accepts a list of item ids (a cart), and the message names the items that fail.
+- **Docs:** new guide page `primitives/cart.md`.
+
+### Fixed
+- **The variable editor saves.** It posts the record's Save UI action in Workspace's variable shape: `variables.<name>` flagged as a variable, with the question id and type; multi-row sets also carry `containerType` and their columns.
+  - A hard guard refuses any multi-row save without column data, because the platform would delete every row.
+  - Verified from the editor UI on a test request item (a text variable and a multi-row cell, both restored).
+- **Cart quantity changes** write `sc_cart_item.quantity` through the Table API. The REST `PUT /cart/{id}` replaces a line's variables, so a quantity-only update had wiped them.
+- **After checkout** the old cart's requested-for query is dropped instead of refetched, which had logged a harmless 404.
+
+### Notes
+- **Live test orders (kept):**
+  - REQ0010003, placed from the cart: RITM0010003 Standard Laptop and RITM0010004 Bulk Mobile Devices with one multi-row row;
+  - REQ0010004 / RITM0010005, through Order now with item-level requested for.
+- **Not built:**
+  - Save as draft (the platform has no API to list or resume drafts);
+  - editing a line's variables from the cart;
+  - delivery address and special instructions.
+- **Two-step review:** built, but not verified live (this instance is one-step).
+- **Demo catalog item** (custom variable and set-level row scripts) is still waiting on a decision.
+
 ## [1.14.0] - 2026-11-19
 
 Catalog wave 2 (multi-row rows with real form logic, requested-for and delegation, custom

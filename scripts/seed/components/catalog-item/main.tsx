@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { usePortalLocation } from '@portal/runtime'
+import { usePortalLocation, useNavigate, toast } from '@portal/runtime'
 import { useQueryClient } from 'utilities:react-query'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card'
 import { Button } from 'components:button'
-import { useCatalogItem, useItemPrice, submitCatalogItem } from 'utilities:app/catalog'
+import { useCatalogItem, useItemPrice, submitCatalogItem, useAddToCart, useItemOrderOptions, setCartRequestedFor, fetchCartRequestedFor, cartErrorMessage } from 'utilities:app/catalog'
 import type { CatalogItem as CatalogItemData, SubmitResult } from 'utilities:app/catalog'
 import { useCatalogForm, CatalogFormProvider, sanitizeHtml } from 'components:app/variable'
 import { useClientScripts } from 'utilities:app/gform'
@@ -29,7 +29,14 @@ import type { FieldLayout } from 'components:app/field'
  * with a Requested For variable (type 31) use that variable instead, as the platform does.
  * `requestedFor: 'hidden'` turns the item-level picker off.
  *
- * Widget options: { itemId, table, fieldLayout, requestedFor } (or the page query: ?item=<sys_id>).
+ * Add to cart (items, beside Order now): the same validation, onSubmit scripts and variables, then
+ * the platform's add_to_cart; a toast offers "View cart" (option `cartPage`, default 'cart') and the
+ * form starts over with a fresh draft. The item's own settings hide either button (no_cart /
+ * no_cart_v2 → no Add to cart, no_order_now → no Order now, no_order → neither); option
+ * `cart: false` hides Add to cart everywhere. The first line in an empty cart sets the cart's
+ * requested for to the item-level person.
+ *
+ * Widget options: { itemId, table, fieldLayout, requestedFor, cart, cartPage } (or the page query: ?item=<sys_id>).
  * Also exported as <CatalogItem itemId /> for other widgets.
  */
 export type CatalogItemProps = {
@@ -42,9 +49,13 @@ export type CatalogItemProps = {
     recordHref?: (table: string, sysId: string) => string
     /** Item-level requested-for picker: 'auto' (default: unless the item has a Requested For variable) or 'hidden'. */
     requestedFor?: 'auto' | 'hidden'
+    /** Offer Add to cart (default true; the item's own no_cart settings still apply). */
+    cart?: boolean
+    /** Portal page of the cart, for the "View cart" toast action ('' = no action). Default 'cart'. */
+    cartPage?: string
 }
 
-type Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldLayout; requestedFor?: 'auto' | 'hidden' } }
+type Props = { options?: { itemId?: string; table?: string; fieldLayout?: FieldLayout; requestedFor?: 'auto' | 'hidden'; cart?: boolean; cartPage?: string } }
 
 export default function CatalogItemWidget({ options = {} }: Props) {
     const location = usePortalLocation() as any
@@ -58,7 +69,7 @@ export default function CatalogItemWidget({ options = {} }: Props) {
                 <CardContent className="text-sm text-muted-foreground">Choose a catalog item.</CardContent>
             </Card>
         )
-    return <CatalogItem key={itemId} itemId={itemId} table={table} fieldLayout={options.fieldLayout} requestedFor={options.requestedFor} />
+    return <CatalogItem key={itemId} itemId={itemId} table={table} fieldLayout={options.fieldLayout} requestedFor={options.requestedFor} cart={options.cart} cartPage={options.cartPage} />
 }
 
 export function CatalogItem(props: CatalogItemProps) {
@@ -103,6 +114,9 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
                 fieldLayout={props.fieldLayout}
                 renderCustom={props.renderCustom}
                 requestedFor={props.requestedFor}
+                cart={props.cart}
+                cartPage={props.cartPage}
+                onAdded={restart}
                 onSubmitted={(r) => {
                     setResult(r)
                     if (props.onSubmitted) props.onSubmitted(r)
@@ -134,6 +148,9 @@ function ItemForm(props: {
     fieldLayout?: FieldLayout
     renderCustom?: (s: VariableSpec) => any
     requestedFor?: 'auto' | 'hidden'
+    cart?: boolean
+    cartPage?: string
+    onAdded: () => void
     onSubmitted: (r: SubmitResult) => void
 }) {
     const { item, form } = props
@@ -146,6 +163,13 @@ function ItemForm(props: {
     const [errors, setErrors] = useState<{ name: string; label: string; message: string }[]>([])
     const [submitting, setSubmitting] = useState(false)
     const [failure, setFailure] = useState('')
+    const navigate = useNavigate()
+    const addToCart = useAddToCart()
+    const orderOptions = useItemOrderOptions(isProducer ? undefined : item.sysId)
+    // Add to cart only once the item's settings are known (no button that appears and vanishes).
+    const canAddToCart = !isProducer && props.cart !== false && !!orderOptions.data && orderOptions.data.addToCart
+    const canOrderNow = isProducer || !orderOptions.data || orderOptions.data.orderNow
+    const busy = submitting || addToCart.isPending
     const root = useRef<HTMLDivElement | null>(null)
     const summary = useRef<HTMLDivElement | null>(null)
     const priceVars = usePriceVariables(form)
@@ -183,7 +207,8 @@ function ItemForm(props: {
         const el = root.current && (root.current.querySelector(`[data-rpf-field="${name}"] input, [data-rpf-field="${name}"] textarea, [data-rpf-field="${name}"] [role=combobox], [data-rpf-field="${name}"] button, [data-rpf-field="${name}"] [tabindex]`) as HTMLElement | null)
         if (el) el.focus()
     }
-    const submit = async () => {
+    /** Client validation, the error summary and onSubmit scripts: true when the order may go ahead. */
+    const ready = (action: string) => {
         setFailure('')
         const r = form.validate()
         if (showRequestedFor && !requestedFor.valid)
@@ -191,11 +216,15 @@ function ItemForm(props: {
         if (!r.valid || r.errors.length) {
             setErrors(r.errors)
             setTimeout(() => summary.current && summary.current.focus(), 0)
-            return
+            return false
         }
         // onSubmit catalog client scripts can veto the order (return false).
-        if (scripts.env && !scripts.env.runOnSubmit('order_now')) return
+        if (scripts.env && !scripts.env.runOnSubmit(action)) return false
         setErrors([])
+        return true
+    }
+    const submit = async () => {
+        if (!ready('order_now')) return
         setSubmitting(true)
         try {
             const res = await submitCatalogItem({
@@ -211,6 +240,36 @@ function ItemForm(props: {
             setFailure((e as Error).message)
         } finally {
             setSubmitting(false)
+        }
+    }
+    const add = async () => {
+        if (!ready('add_to_cart')) return
+        const person = showRequestedFor ? requestedFor.value : ''
+        try {
+            const res = await addToCart.mutateAsync({
+                itemId: item.sysId,
+                variables: form.serializeVariables(),
+                quantity,
+                requestedFor: person || undefined,
+                itemGuid: item.targetRecordSysId,
+            })
+            // The cart's requested for: the first line sets it; later lines keep the cart's (it is changed on the cart page).
+            let note = ''
+            if (person && res.cartId) {
+                if (res.items.length <= 1) await setCartRequestedFor(res.cartId, person).catch(() => undefined)
+                else {
+                    const current = await fetchCartRequestedFor(res.cartId).catch(() => null)
+                    if (current && current.value && current.value !== person) note = `Your cart is requested for ${current.displayValue || 'someone else'}. Change it on the cart page.`
+                }
+            }
+            const cartPage = props.cartPage === undefined ? 'cart' : props.cartPage
+            toast.success(`${item.name} added to your cart`, {
+                description: note || (quantity !== '1' ? `Quantity ${quantity}` : undefined),
+                action: cartPage ? { label: 'View cart', onClick: () => navigate(cartPage) } : undefined,
+            })
+            props.onAdded()
+        } catch (e) {
+            setFailure(cartErrorMessage(e))
         }
     }
 
@@ -317,10 +376,19 @@ function ItemForm(props: {
                                 </div>
                             </div>
                         ) : null}
-                        <Button type="button" disabled={submitting} data-rp-submit="" onClick={submit}>
-                            {submitting ? <Spinner label="Submitting" /> : null}
-                            {actionLabel(item)}
-                        </Button>
+                        {canAddToCart ? (
+                            <Button type="button" variant={canOrderNow ? 'outline' : 'default'} disabled={busy} data-rp-add-to-cart="" onClick={add}>
+                                {addToCart.isPending ? <Spinner label="Adding to cart" /> : null}
+                                Add to cart
+                            </Button>
+                        ) : null}
+                        {canOrderNow ? (
+                            <Button type="button" disabled={busy} data-rp-submit="" onClick={submit}>
+                                {submitting ? <Spinner label="Submitting" /> : null}
+                                {actionLabel(item)}
+                            </Button>
+                        ) : null}
+                        {!canOrderNow && !canAddToCart && orderOptions.data ? <p className="text-sm text-muted-foreground">This item can't be ordered here.</p> : null}
                     </div>
                 </form>
             </CardContent>

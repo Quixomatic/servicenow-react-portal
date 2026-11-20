@@ -1,0 +1,1 @@
+{ "name": "Cart Button", "kind": "widget", "tailwind": true, "defaults": { "cartPage": "cart", "catalogPage": "catalog", "maxLines": 4, "live": true, "placement": "slot" } }

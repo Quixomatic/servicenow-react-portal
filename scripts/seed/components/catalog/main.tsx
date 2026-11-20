@@ -12,6 +12,11 @@
  *           useMrvsRowForm(setId, itemId, sourceTable?, enabled?)
  *           useVariableEditor(table, sysId)  a record's variables (Workspace's variable editor data)
  *           useCanRequestFor(itemId, userId)  delegation check, cached per item + user
+ * Cart:     (cart.ts) fetchCart, addToCart, updateCartItem, removeCartItem, emptyCart, checkoutCart,
+ *           submitCartOrder, fetchCartRequestedFor / setCartRequestedFor, canRequestForAll,
+ *           fetchItemOrderOptions, cartErrorMessage; hooks useCart({ live }), useCartCount,
+ *           useAddToCart, useUpdateCartItem, useRemoveCartItem, useEmptyCart, useCheckout,
+ *           useCartRequestedFor, useSetCartRequestedFor, useItemOrderOptions (all share CART_KEY).
  */
 import { useQuery, keepPreviousData } from 'utilities:react-query'
 import { useDebouncedValue, stableChanges } from 'utilities:app/graphql'
@@ -35,6 +40,35 @@ export {
     spClientScripts,
     spPolicy,
 } from './api'
+// Cart and checkout (cart.ts): the platform's Service Catalog cart REST calls and their hooks.
+export {
+    CART_KEY,
+    CartError,
+    cartErrorMessage,
+    parseCart,
+    fetchCart,
+    addToCart,
+    updateCartItem,
+    removeCartItem,
+    emptyCart,
+    checkoutCart,
+    submitCartOrder,
+    fetchCartRequestedFor,
+    setCartRequestedFor,
+    canRequestForAll,
+    fetchItemOrderOptions,
+    useCart,
+    useCartCount,
+    useAddToCart,
+    useUpdateCartItem,
+    useRemoveCartItem,
+    useEmptyCart,
+    useCheckout,
+    useCartRequestedFor,
+    useSetCartRequestedFor,
+    useItemOrderOptions,
+} from './cart'
+export type { CartData, CartLine, CartVariable, CheckoutResult, ItemOrderOptions } from './cart'
 export type {
     CatalogItem,
     CatalogVariable,

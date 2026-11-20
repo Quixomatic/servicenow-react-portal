@@ -409,15 +409,47 @@ export async function fetchVariableEditor(table: string, sysId: string, signal?:
 }
 
 /**
- * Save changed variables on a record through its Save UI action (fields named 'variables.<name>',
- * as Workspace's form save sends them), so business rules, ACLs and data policies run.
+ * Save changed variables on a record through its Save UI action, the way Workspace's form save
+ * sends them (captured from a real Workspace save): each variable is a field named
+ * 'variables.<name>' flagged `is_variable` / `_cat_variable` with its question `id` and `type`
+ * (without them the platform ignores the value or fails with "GlideElement ... ge is null"). An
+ * MRVS goes as its rows' JSON plus `containerType` and its column `fields` (without the columns
+ * the platform deletes every row). Business rules, ACLs and data policies run as on any save.
  */
 export async function saveRecordVariables(args: {
     data: Pick<VariableEditorData, 'table' | 'recordSysId' | 'encodedRecord' | 'saveActionId'>
-    changes: { name: string; value: string; displayValue?: string; originalValue?: string }[]
+    changes: { variable: CatalogVariable; value: string; displayValue?: string; originalValue?: string }[]
 }) {
     if (!args.data.saveActionId) throw new Error('This record has no Save action for you')
-    return executeUiAction({ actionSysId: args.data.saveActionId, table: args.data.table, sysId: args.data.recordSysId, encodedRecord: args.data.encodedRecord, fields: args.changes })
+    const fields = args.changes.map((c) => {
+        const v = c.variable
+        const name = v.variableName || String(v.name || '').replace(/^variables\./, '')
+        const field: Record<string, unknown> = {
+            name: `variables.${name}`,
+            value: c.value,
+            displayValue: c.displayValue === undefined ? c.value : c.displayValue,
+            originalValue: c.originalValue === undefined ? '' : c.originalValue,
+            is_variable: true,
+            _cat_variable: true,
+            variable_name: name,
+            variableName: name,
+            id: v.id,
+            type: v.type,
+        }
+        if (v.containerType) field.containerType = v.containerType
+        // HARD GUARD: an MRVS posted without containerType + its column fields makes the platform
+        // DELETE every row of the set (verified on a test RITM). Refuse rather than risk data loss.
+        const isMrvs = v.containerType === 'one_to_many' || v.__typename === 'AppCatalog_MultiRowVariableSetType' || (v.type === 'container' && !!v.fields)
+        if (isMrvs) {
+            const cols = (v.fields || []).filter((f) => f && f.name && f.id)
+            if (v.containerType !== 'one_to_many' || !cols.length || cols.length !== (v.fields || []).length)
+                throw new Error(`Can't save ${v.label || name}: the multi-row set's column metadata is missing, and saving without it would delete its rows`)
+            field.containerType = 'one_to_many'
+            field.fields = cols
+        }
+        return field
+    })
+    return executeUiAction({ actionSysId: args.data.saveActionId, table: args.data.table, sysId: args.data.recordSysId, encodedRecord: args.data.encodedRecord, fields: fields as any })
 }
 
 /** Upload a file for an attachment variable to the form's draft record; resolves with the attachment sys_id. */

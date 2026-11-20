@@ -6,6 +6,8 @@
  *   <RequestedForField name="requested_for" table="sc_request" itemId value onChange />   standalone
  *   useRequestedFor({ itemId, user })   item-level state: value, set(), error, checking, valid
  *   useDelegationCheck(itemId)          check(userId) → { ok, message } with stale-answer guarding
+ *   itemId may be a list (a cart): every item is checked, and the message names the ones that fail
+ *   (`itemNames` maps item ids to names for it).
  *
  * Every pick the user makes runs the platform's delegation check (GET /api/sn_sc/v1/
  * servicecatalog/items/{item}/delegation/{user}, the call Workspace's requested-for makes). When
@@ -19,22 +21,24 @@ import { useUser } from '@portal/runtime'
 import { ReferenceField } from 'components:app/reference-field'
 import type { ReferenceFieldProps } from 'components:app/reference-field'
 import { useFormContext, Spinner } from 'components:app/field'
-import { canRequestFor, REQUESTED_FOR_NOT_ELIGIBLE } from 'utilities:app/catalog'
+import { canRequestFor, canRequestForAll, REQUESTED_FOR_NOT_ELIGIBLE } from 'utilities:app/catalog'
 import type { DelegationResult } from 'utilities:app/catalog'
 
 export const DELEGATION_FAILED = 'Error occurred while checking who you can request this for.'
 
 /** check(userId) → { ok, message }; answers for a superseded check resolve with `stale: true`. */
-export function useDelegationCheck(itemId: string | undefined) {
+export function useDelegationCheck(itemId: string | string[] | undefined, itemNames?: Record<string, string>) {
+    const ids = Array.isArray(itemId) ? itemId.filter(Boolean) : itemId ? [itemId] : []
+    const idsKey = ids.join(',')
     const latest = useRef(0)
     const [checking, setChecking] = useState(false)
     const check = useCallback(
         async (userId: string): Promise<DelegationResult & { stale?: boolean }> => {
             const n = ++latest.current
-            if (!userId || !itemId) return { ok: true, message: '' }
+            if (!userId || !ids.length) return { ok: true, message: '' }
             setChecking(true)
             try {
-                const r = await canRequestFor(itemId, userId)
+                const r = ids.length === 1 && !Array.isArray(itemId) ? await canRequestFor(ids[0], userId) : await canRequestForAll(ids, userId, itemNames)
                 return n === latest.current ? r : { ...r, stale: true }
             } catch (e) {
                 return n === latest.current ? { ok: false, message: DELEGATION_FAILED } : { ok: false, message: '', stale: true }
@@ -42,14 +46,17 @@ export function useDelegationCheck(itemId: string | undefined) {
                 if (n === latest.current) setChecking(false)
             }
         },
-        [itemId],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [idsKey, itemNames],
     )
     return { check, checking }
 }
 
 export type RequestedForFieldProps = ReferenceFieldProps & {
-    /** The catalog item (delegation is checked per item). */
-    itemId: string
+    /** The catalog item (delegation is checked per item), or several (a cart: all are checked). */
+    itemId: string | string[]
+    /** Item id → name, for the message when several items are checked. */
+    itemNames?: Record<string, string>
     /** On a failed check: clear the value (default, as Workspace's variable) or keep the previous person. */
     onIneligible?: 'clear' | 'revert'
     /** Every check's answer (for submit gating). */
@@ -57,10 +64,10 @@ export type RequestedForFieldProps = ReferenceFieldProps & {
 }
 
 export function RequestedForField(props: RequestedForFieldProps) {
-    const { itemId, onIneligible = 'clear', onEligibility, ...rest } = props
+    const { itemId, itemNames, onIneligible = 'clear', onEligibility, ...rest } = props
     const form = useFormContext()
     const bound = !!form && props.value === undefined && !props.standalone
-    const { check, checking } = useDelegationCheck(itemId)
+    const { check, checking } = useDelegationCheck(itemId, itemNames)
     const [error, setError] = useState('')
     const previous = useRef<{ value: string; displayValue: string } | null>(null)
     if (previous.current === null) previous.current = bound ? { value: form!.getValue(props.name), displayValue: form!.getDisplayValue(props.name) } : { value: props.value || props.defaultValue || '', displayValue: props.displayValue || props.defaultDisplayValue || '' }
@@ -114,7 +121,7 @@ export function RequestedForField(props: RequestedForFieldProps) {
  * Item-level requested-for state (Workspace's "This request would be for …"): defaults to the
  * current user; `set` records a pick, `error` is the last failed check (block submit while set).
  */
-export function useRequestedFor(options: { itemId: string; initial?: { value: string; displayValue: string } }) {
+export function useRequestedFor(options: { itemId: string | string[]; itemNames?: Record<string, string>; initial?: { value: string; displayValue: string } }) {
     const user = useUser() as any
     const me = { value: String((user && user.sysId) || ''), displayValue: String((user && (user.name || user.userName)) || '') }
     // `confirmed`: the last person the check accepted (the current user and the initial value count).
@@ -148,6 +155,7 @@ export function useRequestedFor(options: { itemId: string; initial?: { value: st
             onEligibility,
             onIneligible: 'revert' as const,
             itemId: options.itemId,
+            itemNames: options.itemNames,
         },
     }
 }

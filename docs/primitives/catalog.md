@@ -80,7 +80,7 @@ Instance inventory: 2,104 `sys_ux_lib_component` · 4,190 `sys_ux_macroponent` �
 
 (The category table above counts components only, as in the first pass; `catalog-variable` there excludes the 32 variable-type mappings.)
 
-### Coverage (v1.13.0)
+### Coverage (v1.13.0; unchanged by the cart wave)
 
 All 365 entries, including the 32 variable-type mappings (counted under `catalog-variable`):
 
@@ -111,6 +111,7 @@ All 365 entries, including the 32 variable-type mappings (counted under `catalog
   - design-system primitives that exist only inside a widget: alert, empty state, skeleton, chip, avatar, breadcrumbs, accordion, highlighted value.
 - **Variable types:** 31 of 32 match. The one partial is UI page (15): it renders an `rp_component` when set, but platform UI pages are classic-only.
 - **Low-usefulness:** most are inventory rows that nobody reviewed by hand. A `none` there is expected, not a gap.
+- **Cart wave:** Next Experience has no cart UI (§7.1), so the cart closes no entry. `sn-catalog-action` stays partial: Add to cart is done, but a Cancel button and Save as draft are not.
 
 **Our current library** (details in §13):
 - **Host UI kit** (`packages/portal-host/src/components/ui`, registered as `components:<name>`): `badge`, `button`, `card`, `collapsible`, `dialog`, `dropdown-menu`, `icon` (any Lucide icon), `calendar` (date grid), `rich-text` (sanitised renderer + `sanitizeHtml`), `rich-text-editor` (TipTap, lazily loaded chunk), `popover`, `separator`, `sheet`, `sidebar`, `sonner`, `tabs`, `tooltip`.
@@ -124,7 +125,7 @@ All 365 entries, including the 32 variable-type mappings (counted under `catalog
 - **Utilities:** `app/graphql`, `app/datetime` (zones, user formats, date/time format and parse), `app/list-data`, `app/catalog`, `app/custom-variables` (custom-variable registry), `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
 - **Runtime:** `useRecordWatch`, `useAmbChannel`, `useAmbStatus`, `Link`/`navigate` with table/sysId/view/query params, `usePortalLocation`, embedded widgets (`$sp.getWidget`, `useEmbeddedWidget`, `<Embed>`, the `lazy` prop, embeds under layouts), `useInViewOnce`.
 - **Widgets:**
-  - catalog: `app/catalog-item`, `app/catalog-picker`, `app/variable-editor-demo`;
+  - catalog: `app/catalog-item` (Order now and Add to cart), `app/catalog-picker`, `app/variable-editor-demo`, `app/cart` (cart and checkout), `app/cart-button` (header cart and count);
   - lists and forms: `app/list-view`, `app/list-card`, `app/record-form`;
   - app shell: `app/app-header`, `app/app-sidebar`, `app/app-subheader`;
   - site: site-header, nav-sidebar, site-footer;
@@ -182,7 +183,7 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `sn-record-phone-connected` | field | medium | `app/phone-field` | match: components:app/phone-field |
 | `sn-record-tablename-connected` | field | medium | `app/table-name-field` | match: components:app/table-name-field |
 | `sn-record-url` | field | medium | `app/url-field` | match: components:app/url-field |
-| `sn-catalog-action` | catalog | high | `app/catalog-actions` | partial: components:app/catalog-item — Order now / Submit only: no Add to cart, no Save as draft |
+| `sn-catalog-action` | catalog | high | `app/catalog-actions` | partial: components:app/catalog-item — Order now / Submit plus Add to cart (the item's no_cart / no_order_now settings apply); cart and checkout in `app/cart`, `app/cart-button`. Missing: Cancel, Save as draft |
 | `sn-catalog-form` | catalog | high | `app/catalog-form` | match: components:app/variable-container |
 | `sn-catalog-form-connected` | catalog | high | `app/catalog-item (useCatalogForm)` | match: components:app/catalog-item, components:app/variable, utilities:app/catalog |
 | `sn-catalog-form-variable` | catalog | high | `app/variable` | match: components:app/variable, components:app/field-control |
@@ -735,7 +736,7 @@ Then the form runtime parity phases P1–P5 from §8.
 | Wave | Status | Done | Missing (see `.plans/backlog.md`) |
 |---|---|---|---|
 | **1: fields** | **Done** (1 type partial) | `app/field` (useField, FieldShell, form store, layered overrides, registry), `app/combobox`, `app/field-control` (type factory with "not supported" fallback), string, textarea, number, boolean, choice (select/radio/scale), reference, list, date and datetime (typed in the user's format + calendar popover on host kit `components:calendar`), time (`glide_time`), duration, email, url, phone (E.164 with country codes), password, currency, conditions (condition builder), table name, field name; logic in `utilities:app/datetime` | Journal falls back to a textarea (HTML: `app/html-field` on the host kit's TipTap editor); `file_attachment` dictionary fields have no control; there are no field decorations |
-| **2: catalog variables** | **Done** | `app/variable` (all 32 types), `useCatalogForm`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/catalog-item`, `app/catalog-picker`, `utilities:app/catalog`. Since 1.10 also catalog UI policies and client scripts (onSubmit can veto). Catalog wave 2: MRVS rows as their own g_form scope (set policies and scripts, onSubmit blocks the row, `g_service_catalog.parent`), inline row editing, row prices, Remove all; `app/requested-for-field` (delegation) for type 31 and the item level; custom variables via `rp_component` / `rp_options` (`utilities:app/custom-variables`); quantity on the combobox Select; `app/variable-editor` (a record's variables, read-only or editable) | Cart, checkout, Add to cart, Save as draft and order guides (backlog by decision); dependent choices inside MRVS rows untested; the variable editor isn't a form formatter yet |
+| **2: catalog variables** | **Done** | `app/variable` (all 32 types), `useCatalogForm`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/catalog-item`, `app/catalog-picker`, `utilities:app/catalog`. Since 1.10 also catalog UI policies and client scripts (onSubmit can veto). Catalog wave 2: MRVS rows as their own g_form scope (set policies and scripts, onSubmit blocks the row, `g_service_catalog.parent`), inline row editing, row prices, Remove all; `app/requested-for-field` (delegation) for type 31 and the item level; custom variables via `rp_component` / `rp_options` (`utilities:app/custom-variables`); quantity on the combobox Select; `app/variable-editor` (a record's variables, read-only or editable) | Save as draft and order guides (backlog); dependent choices inside MRVS rows untested; the variable editor isn't a form formatter yet. **Cart wave (G2):** Add to cart, `app/cart` (lines, quantity, remove, requested for, Empty cart, one-step checkout and a review step for two-step), `app/cart-button` (header count and popover), cart hooks in `utilities:app/catalog` |
 | **3: lists** | **Done** | `app/data-table` (RecordList, DataTable, Pagination, ColumnChooser, CellEditor, PointMenu), `app/condition-builder` (+ breadcrumbs, dot-walk picker), `utilities:app/list-data` (getListLayout, inline/bulk writes, personalization), `app/list-view`, `app/list-card`, related-list mode (`fixedQuery` / `relatedListName`), live refresh | Platform list UI actions and declarative list actions; group-by; saved filters / list menu; column header filters; inline edit of dot-walked, journal and glide_list fields (HTML: done, rich-text popover); `onCellEdit` list client scripts |
 | **4: forms** | **Partial** | #24 `app/form` (useRecordForm, RecordForm, FormLayout, save via the Save UI action, conflict check, unsaved guard, cog settings with view / layout, remembered view), `app/form-section` (collapsible), `app/form-tabs` (tabs mode), `app/form-annotation`, 2–4 column splits, per-field remote-change markers; #25 UI action bar; #26 record header (banner / bar / inline); `app/record-form` widget | #24: formatters (placeholders); #26 related-list tabs; #27 activity stream and journal composer; #28 attachments |
 | **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar`, `tabs`, `dialog` in the host kit; `app/confirm-dialog`, `app/field-dialog`; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/accordion`, `ui/alert`, `ui/empty-state`, `ui/skeleton`, `ui/avatar`, `ui/chip`, `app/highlighted-value` (config colours), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
@@ -832,7 +833,8 @@ GraphQL from a CDP tab, admin session:
 | `@portal/runtime` `Link` | runtime | `now-text-link`, `sn-record-link` |
 | Host kit `components:rich-text`, `components:rich-text-editor` | host | `now-rich-text` (RichText + sanitizeHtml); the TipTap editor behind `now-record-html-editor` (lazily loaded `portal-rte` chunk) |
 | Host kit `components:button/card/badge/dropdown-menu/popover/sheet/tooltip/collapsible/icon/sonner/separator/calendar` | host | `now-button*`, `now-card*`, `now-badge`, `now-dropdown`, `now-flyout-menu`, `now-popover`, `now-sheet`, `now-tooltip`, `now-collapse`, `now-icon`, `now-alert-list`, the date grid inside `now-record-date-picker`; partial `now-accordion`, `now-highlighted-value` |
-| Widgets `app/catalog-item`, `app/catalog-picker` | widget | `sn-catalog-form-connected`, `sn-catalog-price`, `sn-catalog-quantity`, `sn-catalog-description`; partial `sn-catalog-action`, `sn-search-combobox` |
+| Widgets `app/catalog-item`, `app/catalog-picker` | widget | `sn-catalog-form-connected`, `sn-catalog-price`, `sn-catalog-quantity`, `sn-catalog-description`; partial `sn-catalog-action` (Order now + Add to cart; no Cancel, no Save as draft), `sn-search-combobox` |
+| Widgets `app/cart`, `app/cart-button`; cart hooks in `utilities:app/catalog` | widget / utility | no Next Experience counterpart (the cart is a portal concern, §7.1): Service Portal's `sc-shopping-cart-v2`, `sc-checkout` and the header cart, on the platform's Service Catalog cart REST API |
 | Widgets `app/list-view`, `app/list-card`, `app/record-form` | widget | page-level `now-record-list-connected`, `now-record-form-connected` / partial `now-record-form-blob` |
 | Widgets `app/app-header`, `app/app-sidebar`, `nav-sidebar`, `site-footer` | widget | partial `now-breadcrumbs`, `now-contextual-sidebar`, `now-avatar`, `now-link-set` |
 | Blocks and layouts | block/layout | `now-uxf-page*`, `now-uxf-viewport`, `now-stackable-side-by-side-panel` |

@@ -3,6 +3,7 @@ import { Link, usePortal, useNavigation, useSidebar } from '@portal/runtime'
 import { SidebarTrigger } from 'components:sidebar'
 import { Button } from 'components:button'
 import { Icon } from 'components:icon'
+import { HeaderSlotOutlet } from 'utilities:app/header-slots'
 import { ModeToggle } from './parts/ModeToggle'
 
 type Action = { label: string; to?: string; href?: string; icon?: string }
@@ -20,7 +21,8 @@ const TINTS: Record<string, string> = {
 /**
  * Dashboard top bar (ChannelGuide's TopHeader): transparent 56px bar on the page background.
  * Left: the sidebar trigger and breadcrumbs (useNavigation().activePath, then the page title);
- * centre: optional text; right: action buttons and the theme toggle. No divider next to the
+ * centre: optional text; right: the "header-actions" header slot (utilities:app/header-slots, e.g.
+ * app/cart-button), action buttons and the theme toggle. No divider next to the
  * trigger: spacing separates it.
  */
 export default function AppHeader({ options = {} }: { options?: Options }) {
@@ -83,6 +85,8 @@ export default function AppHeader({ options = {} }: { options?: Options }) {
             {/* Always rendered (keeps the 3-column grid); the text hides on narrow frames. */}
             <div className="justify-self-center text-sm text-muted-foreground invisible md:visible">{options.center || ''}</div>
             <div className="flex items-center gap-2 justify-self-end">
+                {/* Header slot "header-actions": widgets portal buttons here (e.g. app/cart-button). */}
+                <HeaderSlotOutlet name="header-actions" className="flex items-center gap-2 empty:hidden" />
                 {actions.map((a, i) =>
                     a.href ? (
                         <Button key={i} variant="ghost" size="sm" render={<a href={a.href} target="_blank" rel="noreferrer" />}>

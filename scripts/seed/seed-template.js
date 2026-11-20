@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.14.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.15.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
@@ -445,7 +445,7 @@
         // App shell (like the Dashboard portal) in sp's own look: a plain sidebar-coloured canvas
         // (no texture), the full-height icon-collapsible sidebar with the header band beside it, and
         // an inset main card whose sub-header takes the pages' titles and toolbars (header slots).
-        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' } },
+        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' }, exposedProperties: ['glide.sc.checkout.twostep'] },
         nav: [{ label: 'Home', to: '', icon: 'house' }, { label: 'Incidents', to: 'incidents', icon: 'ticket' }, { label: 'Record list', to: 'list', icon: 'table-2' }, { label: 'Lists', to: 'lists', icon: 'list' }, { label: 'Orders', to: 'orders', icon: 'shopping-cart' }, { label: 'Tests', to: 'tests', icon: 'flask-conical' }, { label: 'Embeds', to: 'embeds', icon: 'layers' }, { label: 'Layouts', to: 'layouts', icon: 'layout-grid' }, { label: 'Fields', to: 'fields', icon: 'text-cursor-input' }, { label: 'Catalog', to: 'catalog', icon: 'store' }, { label: 'Form', to: 'form', icon: 'file-text' }, { label: 'About', to: 'about', icon: 'info' }],
         // Menu records (navigation_json above stays one release as the fallback).
         menus: [
@@ -494,6 +494,8 @@
             { c: 'app-sidebar', region: 'sidebar', options: { collapsible: 'icon', variant: 'inset', userMenu: 'footer', brand: 'Service Portal', brandIcon: 'life-buoy', tints: true } },
             { c: 'app-header', region: 'header', options: { sidebarTrigger: true, brand: 'Service Portal' } },
             { c: 'app-subheader', region: 'subheader', options: { note: 'Service Portal' } },
+            // Cart icon + count badge + popover, portalled into app-header's "header-actions" slot.
+            { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
         ],
         pages: [
             // Banner sub-header (app-shell layout option subheader): a hero band over the home page.
@@ -603,6 +605,11 @@
             { route: 'variable-editor', name: 'Variable editor', widgets: [
                 { c: 'variable-editor-demo', options: {} },
             ] },
+            // Cart and checkout (app/cart): lines, quantity, requested for, Empty cart, Checkout. The
+            // placed request opens on the generic record form page.
+            { route: 'cart', name: 'Cart', widgets: [
+                { c: 'cart', options: { catalogPage: 'catalog', recordPage: 'form' } },
+            ] },
             { route: 'about', name: 'About', layout: 'centered-layout', widgets: [
                 { c: 'hello-card', options: { title: 'About', body: 'This page overrides the portal layout with the Centered Layout (no sidebar).' } },
             ] },
@@ -651,7 +658,7 @@
     // tinted menu items, a transparent top header with breadcrumbs, and an inset card main.
     seedPortal({
         slug: 'app', name: 'Dashboard', theme: 'app-neutral', home: 'overview', layout: 'app-shell',
-        settings: { contentWidth: '6xl' },
+        settings: { contentWidth: '6xl', exposedProperties: ['glide.sc.checkout.twostep'] },
         nav: [
             { label: 'Workspace', children: [
                 { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
@@ -699,6 +706,7 @@
             { c: 'app-sidebar', region: 'sidebar', options: { collapsible: 'icon', variant: 'inset', userMenu: 'footer' } },
             { c: 'app-header', region: 'header', options: { sidebarTrigger: true } },
             { c: 'app-subheader', region: 'subheader', options: { note: 'React Portal · app shell' } },
+            { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
         ],
         pages: [
             { route: 'overview', name: 'Overview', widgets: [
@@ -737,6 +745,9 @@
                         { c: 'catalog-item', options: { itemId: '54c9ead947dec110f53d37d2846d43ea', table: 'sc_cat_item' } },
                     ],
                 } },
+            ] },
+            { route: 'cart', name: 'Cart', widgets: [
+                { c: 'cart', options: { catalogPage: 'catalog', recordPage: 'form' } },
             ] },
             // Blocks page with its own layout options (large content padding).
             { route: 'layouts', name: 'Layouts', layoutOptions: { contentPadding: 'lg' }, widgets: [

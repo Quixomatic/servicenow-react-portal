@@ -26310,12 +26310,14 @@
       "name": "app/catalog-actions",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/catalog-item — Order now / Submit only: no Add to cart, no Save as draft",
+    "ourMatch": "partial: components:app/catalog-item — Order now / Submit plus Add to cart (utilities:app/catalog useAddToCart), with the item settings honoured (no_cart / no_cart_v2 / no_order_now / no_order); the cart and checkout are app/cart and app/cart-button. Missing: a Cancel button, Save as draft",
     "sourceRef": "sys_ux_lib_component:811e49320e904e72b2476fd5a9de7dcb | https://dev189813.service-now.com/uxab/_devsnc_sn-catalog-action.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-catalog-action/index.min.js.map.jsdbx",
     "ourComponent": [
-      "components:app/catalog-item"
+      "components:app/catalog-item",
+      "components:app/cart",
+      "utilities:app/catalog"
     ],
-    "coverageNotes": "Order now / Submit only: no Add to cart, no Save as draft"
+    "coverageNotes": "Order now / Submit plus Add to cart (utilities:app/catalog useAddToCart), with the item settings honoured (no_cart / no_cart_v2 / no_order_now / no_order); the cart and checkout are app/cart and app/cart-button. Missing: a Cancel button, Save as draft"
   },
   {
     "tag": "sn-catalog-price",
