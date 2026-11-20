@@ -237,6 +237,14 @@
                 {
                     "title": "Knowledge base",
                     "path": "primitives/knowledge.md"
+                },
+                {
+                    "title": "Work views",
+                    "path": "primitives/work-views.md"
+                },
+                {
+                    "title": "Charts and dashboards",
+                    "path": "primitives/charts.md"
                 }
             ]
         },

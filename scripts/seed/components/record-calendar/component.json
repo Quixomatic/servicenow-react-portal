@@ -1,0 +1,24 @@
+{
+    "name": "Record Calendar",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "title": "",
+        "description": "",
+        "table": "change_request",
+        "query": "",
+        "startField": "start_date",
+        "endField": "end_date",
+        "titleField": "short_description",
+        "colorField": "type",
+        "view": "month",
+        "views": "",
+        "date": "",
+        "reschedule": false,
+        "recordPage": "form",
+        "limit": 500,
+        "height": 600,
+        "agendaDays": 30,
+        "cardFields": ""
+    }
+}

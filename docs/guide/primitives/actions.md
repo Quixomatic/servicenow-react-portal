@@ -27,9 +27,18 @@ Forms and lists show the platform's actions: UI actions and **declarative action
 
 Workspace lists show **declarative actions only**. Classic list UI actions don't exist there (`GlideUIAction_Query` has no list variant), so React Portal's classic list support is an option, off by default.
 
+### Classic list actions (opt-in)
+
+Turn them on per list widget with `classicActions: true` (the app portal's incident list does). What you get:
+
+- Only **server-side** actions (`client = false`) marked **List context menu** or **List choice**, from the table, its parents and `global`. A child table's action replaces its parent's action of the same name. List banner buttons, list buttons and client-side classic actions are skipped: their conditions use the classic list's `RP` object, and their scripts drive UI16's page.
+- **The platform decides per record.** The page's rows (and the checked ones) go through UI16's own check, `AJAXActionSecurity`, which runs each action's condition and roles as the user. An action shows on a row's context menu only where it's allowed, and in the selection bar's **Actions** menu when it's allowed on at least one checked row. On incidents, for example, *Remove Incident* (related lists only) never shows; *Archive Record*, *Follow on Live Feed* and, for admins, *Add to Update Set* do.
+- Running one posts `/api/now/ui/ui_action/{id}` once per allowed checked record (`current` = that record), as the user. Records it may not run on are skipped with a warning; session messages become toasts (repeated ones once, with a count); with no message, a success toast says how many records it ran on. The list refreshes.
+- A classic action with the same label as a declarative one on the list (*Assign to me*) is dropped: the declarative one wins. Exclude the declarative one (`actionsExclude`) to get the classic one instead.
+
 ### Action configuration
 
-A portal can name a **UX action configuration** (`sys_ux_action_config`) in its settings, `settings_json.actionConfigId`, just as `viewRuleConfigId` names view rules. Widgets can override it with their own `actionConfigId` option.
+A portal can name a **UX action configuration** (`sys_ux_action_config`) in its settings, `settings_json.actionConfigId`, just as `viewRuleConfigId` names view rules. Pick it in Studio ▸ portal settings ▸ **Actions** ("None" clears it). Widgets can override it with their own `actionConfigId` option.
 
 - **Empty** (default): the platform's unrestricted actions. On forms, the bootstrap's UI actions are followed by the declarative form actions.
 - **Set** (e.g. Service Operations Workspace's "SOW Actions"): forms use that configuration's UX form action layout in place of the UI actions, in its order and groups, as Workspace's record page does. Lists pass it to the list query.

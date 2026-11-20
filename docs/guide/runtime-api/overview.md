@@ -35,7 +35,7 @@ Widgets, layouts, blocks, primitives and utilities import the runtime from **`@p
 |---|---|---|
 | `components:button`, `components:card`, `components:dialog`… | shadcn/ui on Base UI | [Host kit](host-kit.md) |
 | `components:icon` | Every Lucide icon by name | [Host kit](host-kit.md#icons) |
-| `utilities:react-query`, `utilities:react-table`, `utilities:react-virtual`, `utilities:cn` | Data libraries and `cn` | [Host kit](host-kit.md#data-libraries) |
+| `utilities:react-query`, `utilities:react-table`, `utilities:react-virtual`, `utilities:dnd-kit`, `utilities:cn` | Data libraries and `cn` | [Host kit](host-kit.md#data-libraries) |
 | `utilities:app/graphql`, `components:app/field`, `components:app/form`… | Record primitives and utilities (seed records) | [Primitives overview](../primitives/overview.md) |
 
 ## Conventions

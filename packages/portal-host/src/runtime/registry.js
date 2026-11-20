@@ -47,6 +47,9 @@ import * as Heading from '#/components/ui/heading';
 import * as ImageModule from '#/components/ui/image';
 import * as DateRangePicker from '#/components/ui/date-range-picker';
 import * as CodeEditor from '#/components/ui/code-editor';
+// Charts (Wave 4a): shadcn chart + building blocks; Recharts itself is the lazily loaded portal-charts chunk.
+import * as Chart from '#/components/ui/chart';
+import * as ChartBlocks from '#/components/ui/chart-blocks';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -58,6 +61,7 @@ import * as ReactQuery from '@tanstack/react-query';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as ReactTable from '@tanstack/react-table';
 import * as ReactVirtual from '@tanstack/react-virtual';
+import * as DndKit from './dnd-kit';
 import { queryClient } from './query-client';
 import { PortalPreview, invalidatePortal } from '#/portal/portal-preview';
 import { designApi as mockDesignApi } from './mock';
@@ -116,6 +120,10 @@ const modules = {
     'components:image': ImageModule,
     'components:date-range-picker': DateRangePicker,
     'components:code-editor': CodeEditor,
+    // shadcn chart (ChartContainer, ChartTooltip(Content), ChartLegend(Content), config → --color-*) + the
+    // blocks (BarChart, LineChart, AreaChart, PieChart, RadialChart, Sparkline, Chart) + a11y (ChartFigure,
+    // ChartDataTable, describeChart); Recharts = the portal-charts chunk (useRecharts()).
+    'components:chart': { ...Chart, ...ChartBlocks },
     'utilities:cn': cnModule,
     // TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
     // build data hooks on it: import { useQuery } from 'utilities:react-query'.
@@ -125,6 +133,9 @@ const modules = {
     // 'utilities:react-table', import { useVirtualizer } from 'utilities:react-virtual'.
     'utilities:react-table': ReactTable,
     'utilities:react-virtual': ReactVirtual,
+    // dnd-kit (core + sortable + CSS) on the host's React, for drag and drop in widgets (app/visual-board,
+    // app/calendar-view; pointer, touch and keyboard sensors): import { DndContext } from 'utilities:dnd-kit'.
+    'utilities:dnd-kit': DndKit,
 };
 
 const registry = (globalThis.__REACT_PORTAL__ = globalThis.__REACT_PORTAL__ || { modules: {} });

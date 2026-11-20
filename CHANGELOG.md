@@ -2,6 +2,54 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.21.0] - 2026-11-20
+
+Record header fields as configuration, charts and dashboards, work views (calendar, board,
+timeline, SLA timers), and the action decisions: a portal action configuration and opt-in classic
+list actions.
+
+### Added: record header fields
+- **New table `x_312987_portal_record_field`** ("Record Header Fields"): table, slot (`title` | `subtitle` | `pill` | `ribbon`), field (ribbon fields can dot-walk), label, order, `portals` (a list; empty = every portal), roles, active. Edit it in React Portal ▸ Record Header Fields or from the portal form's related list.
+- **Precedence, as with view rules:** exact table beats parent (task rows apply to incident), portal-listed rows beat all-portal rows, then `order`. Title and subtitle take the top row; pills and ribbon take every row of the winning group. A slot with no rows keeps the built-in default.
+- **41 shipped rows** (demo data): task's title (number), subtitle (short description) and pills (state, priority), plus pills and ribbons for nine tables. Ribbons no longer repeat what the pills show.
+- **One request:** the configuration and its values arrive in the header's existing GraphQL request (`x312987Portal.recordFields`). A configured ribbon or card makes no values request of its own.
+- `app/record-card` follows the configuration. Workflow pills (e.g. RITM stage) show their label instead of the raw value.
+
+### Added: charts and dashboards
+- **Host kit `components:chart`:** shadcn's chart (ChartContainer, tooltip, legend, config → CSS variables) on Recharts 3.10.1, in a lazily loaded `portal-charts` chunk (~167 KB gzip, only on pages with charts).
+- **Building blocks:** Bar (vertical, horizontal, grouped, stacked; gradient and hatched fills), Line, Area, Pie / donut, Radial and Sparkline. Themed from `--chart-1…5` in light and dark, each with a text summary, "View as table" and reduced-motion support. The look is inspired by EvilCharts (MIT; no code copied).
+- **`utilities:app/analytics`:** `useAggregate`, `useTimeSeries`, `useScore`. They aggregate as the user over the platform's aggregate GraphQL, and a time series takes one request.
+- **New primitives and widgets:** primitives `app/data-chart` and `app/score-tile`; widgets Chart Card and Score Card, whose click-through opens the filtered list.
+- **Demo:** Dashboard portal ▸ Dashboards.
+
+### Added: work views
+- **`app/calendar-view`** (widget `app/record-calendar`): month / week / day / agenda in the user's time zone, record-card popovers, reschedule by drag or keyboard, with Undo.
+- **`app/visual-board`** (widget `app/record-board`): a kanban by a choice or reference field, with lane counts, Show more, search and WIP limits. Moves by drag, keyboard or a Move to menu, live.
+- **`app/record-update`:** changes fields through the record's form save, so UI policies, client scripts, BRs, data policies and ACLs apply. It asks in a dialog when the form needs more (e.g. resolution notes), rolls back on failure and offers Undo.
+- **`app/timeline`** (widget `app/timeline-card`) and **`app/sla-timer`** (widget `app/sla-card`): live `task_sla` timers.
+- **Host `utilities:dnd-kit`.**
+- **Demos:** sp Components ▸ Calendar, Board, Timeline & SLA.
+
+### Added: actions (James's decisions)
+- **Studio portal settings ▸ Actions:** pick the portal's UX action configuration (`sys_ux_action_config`). "None" means the platform's own actions.
+- **Classic list actions, opt-in per list (`classicActions`):**
+  - server-side context-menu and list-choice actions, shown per row only where the platform allows them;
+  - run once per record as the user;
+  - a declarative action with the same name wins;
+  - a success toast appears when the platform says nothing.
+  - Demo on the Dashboard portal's incident list.
+
+### Fixed
+- **Grouped lists for users without aggregate rights** now show a clear message with "Show without grouping" instead of a raw platform error. Grouping needs the platform's aggregate permission on the table.
+- **List context menus** no longer repeat an action's label as its hint.
+
+### Notes
+- **The donut doesn't show its centre total yet:** Recharts 3.10's `<Label>` inside `<Pie>` renders nothing. An HTML overlay will follow.
+- **The old unique DB index on `x_312987_portal_doc.path`** is still on dev189813: the platform neither drops nor alters an existing index on upgrade. Re-declaring it as non-unique only added a second, harmless index. A second docs collection can't reuse a path the guide already has (e.g. `index`) until that index is dropped by hand.
+- Saved filters were verified as a roleless user.
+- **Test data kept:** INC0020990 (SLA timer demo) and CHG0030001 (calendar drag test). INC0020825 and INC0020831 were restored after the board and action tests.
+- Runtime Tests: 33/33.
+
 ## [1.20.0] - 2026-11-20
 
 Docs collections, design-system primitives and a code editor field, a zero-config record header and

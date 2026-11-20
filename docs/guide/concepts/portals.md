@@ -36,6 +36,7 @@ A **portal** is one site: `sp`, `crm`, `app`. It's a record in `x_312987_portal_
 | `viewRulesFrom` | sys_id or slug | Use **another portal's** portal view rules (page rules stay this portal's own). Empty = this portal's rules. Set in Studio ▸ View rules or the portal settings. See [View rules](view-rules.md#sharing-rules-between-portals) |
 | `viewRuleConfigId` | sys_id | Workspace rules fallback: a `sys_ux_view_rules_configuration` whose Workspace view rules (`sysrule_view_workspace`) choose a form's view when no portal view rule, URL, widget option or remembered view applies. See [Form view resolution](../primitives/forms.md#form-view-resolution) |
 | `formViews` | string | Comma-separated candidate views after the rules (`"sp,ess"`): the first one that exists for the table wins, else Default |
+| `actionConfigId` | sys_id | Platform actions: a UX action configuration (`sys_ux_action_config`, e.g. Service Operations Workspace's "SOW Actions"). Empty (default) = the platform's own actions. Set: forms show its UX form action layout instead of their UI actions, and lists pass it to the declarative list action query. Set in Studio ▸ portal settings ▸ Actions; widgets can override it. See [Actions](../primitives/actions.md#action-configuration) |
 
 The whole `settings` object reaches widgets as `usePortal().portal.settings` and server scripts as `$sp.getPortal().settings`. `$sp.getValue(name)` falls back to a portal setting when the widget has no option of that name, as in Service Portal. Custom keys are allowed.
 

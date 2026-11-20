@@ -1,0 +1,46 @@
+{
+    "type": "object",
+    "properties": {
+        "title": { "type": "string", "title": "Title", "description": "Empty = History / Timeline", "default": "" },
+        "mode": {
+            "type": "string",
+            "title": "Mode",
+            "enum": ["history", "records"],
+            "description": "history: a record's activity; records: a table's records by a date field",
+            "default": "history"
+        },
+        "table": { "type": "string", "title": "Table", "description": "history: empty = the URL param", "default": "" },
+        "sysId": {
+            "type": "string",
+            "title": "Record sys_id",
+            "description": "history: empty = the URL param",
+            "default": ""
+        },
+        "kinds": {
+            "type": "string",
+            "title": "Entry kinds",
+            "description": "history: comma list of journal, audit, attachment, email (empty = all)",
+            "default": ""
+        },
+        "query": { "type": "string", "title": "Query", "description": "records: encoded query", "default": "" },
+        "dateField": { "type": "string", "title": "Date field", "description": "records", "default": "" },
+        "titleField": { "type": "string", "title": "Title field", "description": "records", "default": "" },
+        "descriptionField": { "type": "string", "title": "Description field", "description": "records", "default": "" },
+        "toneField": {
+            "type": "string",
+            "title": "Colour by",
+            "description": "records: state / priority…",
+            "default": ""
+        },
+        "icon": {
+            "type": "string",
+            "title": "Icon",
+            "description": "records: a lucide name (default flag)",
+            "default": ""
+        },
+        "order": { "type": "string", "title": "Order", "enum": ["desc", "asc"], "default": "desc" },
+        "limit": { "type": "number", "title": "Items", "default": 30 },
+        "dense": { "type": "boolean", "title": "Dense", "default": false },
+        "recordPage": { "type": "string", "title": "Record page", "default": "form" }
+    }
+}

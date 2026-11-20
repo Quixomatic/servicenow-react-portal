@@ -1321,6 +1321,88 @@ function PortalFormViewSettings({ designer, studio, portal, busy }) {
 }
 
 /**
+ * Platform actions (actions wave), stored in settings_json.actionConfigId: an optional UX action
+ * configuration (sys_ux_action_config, e.g. Service Operations Workspace's "SOW Actions"). Empty = the
+ * platform's own actions: forms show their UI actions plus the declarative form actions, lists the
+ * unrestricted declarative list actions. Set: forms use the configuration's UX form action layout
+ * (as Workspace's record page does) and lists pass it to the list query. Widgets may override it.
+ */
+function PortalActionSettings({ designer, portal, busy }) {
+    const settings = portal.settings || {};
+    const current = typeof settings.actionConfigId === 'string' ? settings.actionConfigId : '';
+    const [configs, setConfigs] = useState(null);
+    const [loadError, setLoadError] = useState('');
+    useEffect(() => {
+        let live = true;
+        tableApi('sys_ux_action_config', null, {
+            sysparm_query: 'ORDERBYname',
+            sysparm_fields: 'sys_id,name,description',
+            sysparm_limit: 200,
+        })
+            .then((rows) => live && setConfigs(Array.isArray(rows) ? rows : []))
+            .catch((e) => {
+                if (!live) return;
+                setConfigs([]);
+                setLoadError((e && e.message) || 'Could not load the action configurations');
+            });
+        return () => {
+            live = false;
+        };
+    }, []);
+    const update = (value) => {
+        const merged = { ...settings };
+        if (value) merged.actionConfigId = value;
+        else delete merged.actionConfigId;
+        designer.updatePortal({ settings: merged });
+    };
+    const list = configs || [];
+    const known = !current || list.some((c) => c.sys_id === current);
+    return (
+        <div className="rpd-section" data-rpd-actions="">
+            <div className="rpd-label">Actions</div>
+            <label className="rpd-field">
+                <span className="rpd-label">Action configuration</span>
+                <select
+                    value={current}
+                    onChange={(e) => update(e.target.value)}
+                    disabled={busy || configs === null}
+                    data-rpd-action-config=""
+                >
+                    <option value="">None (the platform's actions)</option>
+                    {!known ? <option value={current}>Unknown configuration ({current.slice(0, 8)}…)</option> : null}
+                    {list.map((c) => (
+                        <option key={c.sys_id} value={c.sys_id} title={c.description || c.sys_id}>
+                            {c.name} ({c.sys_id.slice(0, 8)}…)
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <div className="rpd-hint">
+                {configs === null
+                    ? 'Loading action configurations…'
+                    : loadError
+                      ? loadError
+                      : 'Optional: a Workspace UX action configuration (sys_ux_action_config). Forms then show its action layout instead of the UI actions, and lists its declarative actions. Widgets can override it.'}
+                {current && SYS_ID.test(current) ? (
+                    <>
+                        {' '}
+                        <a
+                            href={`/sys_ux_action_config.do?sys_id=${current}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ textDecoration: 'underline', textUnderlineOffset: 2, color: 'inherit' }}
+                            data-rpd-action-config-open=""
+                        >
+                            Open the configuration
+                        </a>
+                    </>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+/**
  * Docs collections, stored in settings_json.docsCollections (collection keys): the docs widgets on
  * this portal show these x_312987_portal_doc_collection sets. The first is the default (no `c` in the
  * URL); with more than one, a docs sidebar using the collection switcher lets readers switch. Empty =
@@ -1544,6 +1626,7 @@ function PortalSettings({ designer, studio, state }) {
                 </select>
             </label>
             <PortalFormViewSettings designer={designer} studio={studio} portal={portal} busy={busy} />
+            <PortalActionSettings designer={designer} portal={portal} busy={busy} />
             <PortalDocsSettings designer={designer} studio={studio} portal={portal} busy={busy} />
             <label className="rpd-field rpd-check">
                 <input

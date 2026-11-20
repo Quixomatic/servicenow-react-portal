@@ -1,0 +1,55 @@
+{
+    "type": "object",
+    "properties": {
+        "table": { "type": "string", "title": "Table", "default": "incident" },
+        "query": { "type": "string", "title": "Filter (encoded query)" },
+        "label": { "type": "string", "title": "Label" },
+        "aggregate": {
+            "type": "string",
+            "title": "Aggregate",
+            "enum": ["count", "sum", "avg", "min", "max", "countDistinct"],
+            "enumNames": ["Count", "Sum", "Average", "Minimum", "Maximum", "Count distinct"],
+            "default": "count"
+        },
+        "field": { "type": "string", "title": "Aggregate field" },
+        "dateField": {
+            "type": "string",
+            "title": "Date field (period + sparkline)",
+            "description": "Empty = the whole filter, without a trend"
+        },
+        "period": {
+            "type": "string",
+            "title": "Period",
+            "description": "Rolling days (7, 30) or week / month / quarter / year to date",
+            "default": "7"
+        },
+        "sparkline": { "type": "boolean", "title": "Sparkline", "default": true },
+        "sparklineInterval": {
+            "type": "string",
+            "title": "Sparkline interval",
+            "enum": ["day", "week", "month", "quarter", "year"]
+        },
+        "sparklinePeriods": { "type": "integer", "title": "Sparkline points", "default": 12 },
+        "sparklineType": {
+            "type": "string",
+            "title": "Sparkline style",
+            "enum": ["area", "line", "bar"],
+            "default": "area"
+        },
+        "target": { "type": "number", "title": "Target" },
+        "lowerIsBetter": { "type": "boolean", "title": "Lower is better", "default": false },
+        "format": {
+            "type": "string",
+            "title": "Value format",
+            "enum": ["number", "compact", "duration", "percent"],
+            "enumNames": ["Number", "Compact (1.2K)", "Duration (seconds)", "Percent"],
+            "default": "number"
+        },
+        "unit": { "type": "string", "title": "Unit" },
+        "icon": { "type": "string", "title": "Icon (lucide name)" },
+        "color": { "type": "string", "title": "Colour", "description": "chart-1 … chart-5 or a CSS colour" },
+        "listPage": { "type": "string", "title": "Click-through list page" },
+        "live": { "type": "boolean", "title": "Live updates", "default": false },
+        "refreshInterval": { "type": "integer", "title": "Refresh every (seconds, 0 = off)" }
+    }
+}

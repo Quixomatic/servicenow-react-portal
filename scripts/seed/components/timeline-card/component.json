@@ -1,0 +1,22 @@
+{
+    "name": "Timeline Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "title": "",
+        "mode": "history",
+        "table": "",
+        "sysId": "",
+        "kinds": "",
+        "query": "",
+        "dateField": "",
+        "titleField": "",
+        "descriptionField": "",
+        "toneField": "",
+        "icon": "",
+        "order": "desc",
+        "limit": 30,
+        "dense": false,
+        "recordPage": "form"
+    }
+}

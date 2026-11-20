@@ -1,15 +1,23 @@
 /**
  * components:app/record-header: a record's header, Next Experience's now-record-common-header
- * plus now-record-common-record-presence. No configuration: everything comes from the platform.
+ * plus now-record-common-record-presence.
  *
- *   <RecordTitle form={form} variant="banner" />   table label, title (number / name), highlighted
- *                                                  values, Read only / New badges, presence avatars,
- *                                                  the short description; variants:
+ *   <RecordTitle form={form} variant="banner" />   table label, title, highlighted values (pills),
+ *                                                  Read only / New badges, presence avatars, the
+ *                                                  subtitle; variants:
  *                                                  'banner' (tall sub-header), 'bar' (40px bar), 'inline'
- *   useRecordHeaderData(table, sysId)              the platform header (GlideHeaderQuery_Query.headerItems:
- *                                                  sys_aw_form_header fields + their highlight styles)
+ *   useRecordHeaderData(table, sysId)              one request: the platform header (GlideHeaderQuery_Query
+ *                                                  .headerItems: sys_aw_form_header fields + highlight
+ *                                                  styles) and our record header fields with their values
+ *   configuredSlot(data, slot)                     a slot's configured fields, or null (built-in default)
  *   useHighlightedValueConfig(form)                { field: platform style } (form bootstrap + header)
  *   pickHeaderHighlights({ values, meta, header, highlights })   which values the header highlights
+ *
+ * Which fields: x_312987_portal_record_field rows (title, subtitle, pill, ribbon slots), per table
+ * (child tables inherit a parent's rows) and portal; a slot's winning rows replace its built-in
+ * default, a slot with no rows keeps it (title number → name → short_description, subtitle the short
+ * description under a number, pills STATUS_FIELDS + matched platform highlights). See
+ * docs/guide/primitives/record-header.md.
  *   usePresence({ table, sysId, status })          other users on the record (AMB /sn/rp/<table>/<id>)
  *   <RecordPresence users={users} />               their avatars (+N), a button listing them
  *
@@ -26,7 +34,7 @@ import { Badge } from 'components:badge';
 import { HighlightedValue } from 'components:app/highlighted-value';
 import { useFormMeta, cx } from 'components:app/field';
 import type { FormBootstrap, HighlightStyle } from 'utilities:app/graphql';
-import { useRecordHeaderData, mergeHighlights, pickHeaderHighlights } from './data';
+import { useRecordHeaderData, mergeHighlights, pickHeaderHighlights, configuredSlot } from './data';
 import type { HeaderHighlight, RecordHeaderData } from './data';
 import { usePresence, RecordPresence } from './presence';
 
@@ -35,10 +43,18 @@ export {
     mergeHighlights,
     pickHeaderHighlights,
     parseHeaderItems,
+    configuredSlot,
     STATUS_FIELDS,
     LEVEL_FIELDS,
 } from './data';
-export type { RecordHeaderData, HeaderItem, HeaderHighlight } from './data';
+export type {
+    RecordHeaderData,
+    HeaderItem,
+    HeaderHighlight,
+    RecordFieldSlot,
+    ConfiguredField,
+    RecordFieldConfig,
+} from './data';
 export { usePresence, RecordPresence } from './presence';
 export type { PresenceUser, PresenceStatus, UsePresenceOptions, RecordPresenceProps } from './presence';
 
@@ -86,9 +102,18 @@ export function useRecordHeaderModel(form: HeaderForm) {
     const header = useRecordHeaderData(table, sysId, { enabled: !!boot && !form.isNew });
     const data = header.data || null;
     const values = boot ? boot.values : {};
-    const titleField = TITLE_FIELDS.find((f) => !!boot && f in boot.values) || '';
-    const title = useSavedValue(form, titleField);
-    const shortDesc = useSavedValue(form, titleField === 'number' ? 'short_description' : '');
+    // Title / subtitle: the record header field rows (title, subtitle slots), else the built-in
+    // default (number → name → short_description; the short description under a number).
+    const titleCfg = configuredSlot(data, 'title');
+    const subCfg = configuredSlot(data, 'subtitle');
+    const fallbackTitle = TITLE_FIELDS.find((f) => !!boot && f in boot.values) || '';
+    const titleField = titleCfg ? (titleCfg[0] ? titleCfg[0].field : '') : fallbackTitle;
+    const subField = subCfg ? (subCfg[0] ? subCfg[0].field : '') : titleField === 'number' ? 'short_description' : '';
+    const savedTitle = useSavedValue(form, titleField);
+    const savedSub = useSavedValue(form, subField);
+    // The form's saved value when the view has the field, else the server's (record header fields).
+    const title = savedTitle || (titleCfg && titleCfg[0] ? titleCfg[0].displayValue || titleCfg[0].value : '');
+    const shortDesc = savedSub || (subCfg && subCfg[0] ? subCfg[0].displayValue || subCfg[0].value : '');
     // Saved values for the highlight candidates: re-read the store when it changes.
     const savedKey = useSyncExternalStore(
         form.subscribe,
@@ -118,9 +143,10 @@ export function useRecordHeaderModel(form: HeaderForm) {
         ? pickHeaderHighlights({ values: saved, meta: boot.meta, header: data, highlights })
         : [];
     void savedKey;
-    // Subtitle: the short description, else the platform header's primary item when it isn't the title.
+    // Subtitle: the configured / short description, else (not configured) the platform header's
+    // primary item when it isn't the title.
     let subtitle = shortDesc;
-    if (!subtitle && data && data.primary && data.primary.field !== titleField) {
+    if (!subtitle && !subCfg && data && data.primary && data.primary.field !== titleField) {
         const p = data.primary.displayValue;
         if (p && p !== title) subtitle = p;
     }

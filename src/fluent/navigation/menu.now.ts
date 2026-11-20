@@ -89,6 +89,19 @@ Record({
     },
 });
 Record({
+    $id: Now.ID['module-record-fields'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Record Header Fields',
+        application: reactPortalMenu,
+        link_type: 'LIST',
+        name: 'x_312987_portal_record_field',
+        roles: ['x_312987_portal.developer', 'x_312987_portal.designer', 'x_312987_portal.publisher'],
+        active: true,
+        order: 138,
+    },
+});
+Record({
     $id: Now.ID['module-themes'],
     table: 'sys_app_module',
     data: {

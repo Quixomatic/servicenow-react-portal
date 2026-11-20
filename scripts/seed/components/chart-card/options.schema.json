@@ -1,0 +1,96 @@
+{
+    "type": "object",
+    "properties": {
+        "table": { "type": "string", "title": "Table", "default": "incident" },
+        "query": { "type": "string", "title": "Filter (encoded query)" },
+        "title": { "type": "string", "title": "Title" },
+        "description": { "type": "string", "title": "Description" },
+        "type": {
+            "type": "string",
+            "title": "Chart type",
+            "enum": ["bar", "bar-horizontal", "bar-stacked", "line", "area", "area-stacked", "pie", "donut", "radial"],
+            "enumNames": [
+                "Bar (columns)",
+                "Bar (horizontal)",
+                "Bar (stacked)",
+                "Line",
+                "Area",
+                "Area (stacked)",
+                "Pie",
+                "Donut",
+                "Radial"
+            ],
+            "default": "bar"
+        },
+        "groupBy": { "type": "string", "title": "Group by field" },
+        "stackBy": {
+            "type": "string",
+            "title": "Second group by (series)",
+            "description": "One series per value of this field (stacked / grouped bars)"
+        },
+        "aggregate": {
+            "type": "string",
+            "title": "Aggregate",
+            "enum": ["count", "sum", "avg", "min", "max", "countDistinct"],
+            "enumNames": ["Count", "Sum", "Average", "Minimum", "Maximum", "Count distinct"],
+            "default": "count"
+        },
+        "field": {
+            "type": "string",
+            "title": "Aggregate field",
+            "description": "For sum / average / min / max / count distinct"
+        },
+        "sort": {
+            "type": "string",
+            "title": "Sort groups",
+            "enum": ["value", "value-asc", "label", "group"],
+            "enumNames": ["Largest first", "Smallest first", "By label", "Platform order"],
+            "default": "value"
+        },
+        "limit": { "type": "integer", "title": "Top N groups", "description": "The rest fold into Other" },
+        "dateField": {
+            "type": "string",
+            "title": "Time field (trend)",
+            "description": "Date field for a time series (one point per interval); Group by then splits series"
+        },
+        "interval": {
+            "type": "string",
+            "title": "Interval",
+            "enum": ["day", "week", "month", "quarter", "year"],
+            "default": "week"
+        },
+        "periods": { "type": "integer", "title": "Periods", "default": 12 },
+        "format": {
+            "type": "string",
+            "title": "Value format",
+            "enum": ["number", "compact", "duration", "percent"],
+            "enumNames": ["Number", "Compact (1.2K)", "Duration (seconds)", "Percent"],
+            "default": "number"
+        },
+        "valueLabel": { "type": "string", "title": "Value label" },
+        "height": { "type": "integer", "title": "Height (px)", "default": 260 },
+        "variant": {
+            "type": "string",
+            "title": "Bar style",
+            "enum": ["default", "gradient", "hatched"],
+            "default": "default"
+        },
+        "showLegend": { "type": "boolean", "title": "Legend" },
+        "showLabels": { "type": "boolean", "title": "Value labels", "default": false },
+        "glow": { "type": "boolean", "title": "Glow (line / area)", "default": false },
+        "listPage": {
+            "type": "string",
+            "title": "Click-through list page",
+            "description": "Page opened with the clicked group's filter (table + query page params)"
+        },
+        "tableToggle": { "type": "boolean", "title": "View as table toggle", "default": true },
+        "showSummary": { "type": "boolean", "title": "Visible text summary", "default": false },
+        "live": {
+            "type": "boolean",
+            "title": "Live updates",
+            "description": "Refresh when matching records change (record watch)",
+            "default": false
+        },
+        "refreshInterval": { "type": "integer", "title": "Refresh every (seconds, 0 = off)" }
+    }
+}

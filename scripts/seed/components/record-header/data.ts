@@ -1,13 +1,43 @@
 import { useQuery } from 'utilities:react-query';
-import { graphql, gqlKeys } from 'utilities:app/graphql';
+import { graphql, gqlKeys, useViewRulesContext } from 'utilities:app/graphql';
 import type { HighlightStyle, FieldMeta, FieldValue } from 'utilities:app/graphql';
 
 /**
- * The platform's own record header (GlideHeaderQuery_Query.headerItems), the data Workspace's
- * record header shows: the table's form header config (sys_aw_form_header: primary field and
- * secondary fields) with the platform's highlighted-value styles for those fields, all evaluated
- * on the server as the current user. No configuration of ours.
+ * One request per record, two answers:
+ * - the platform's own record header (GlideHeaderQuery_Query.headerItems), the data Workspace's
+ *   record header shows: the table's form header config (sys_aw_form_header: primary field and
+ *   secondary fields) with the platform's highlighted-value styles for those fields, evaluated on
+ *   the server as the current user;
+ * - our record header fields (x312987Portal.recordFields.resolve over x_312987_portal_record_field),
+ *   resolved for the table, portal and user, with the record's values for those fields read as the
+ *   user. Per slot (title, subtitle, pill, ribbon) the most specific rows win and REPLACE the
+ *   built-in default; a slot with no rows keeps the default (STATUS_FIELDS, TITLE_FIELDS,
+ *   app/record-card SUMMARY_DEFAULTS).
  */
+
+export type RecordFieldSlot = 'title' | 'subtitle' | 'pill' | 'ribbon';
+
+/** One resolved record header field (a winning x_312987_portal_record_field row) with its value. */
+export type ConfiguredField = {
+    slot: RecordFieldSlot;
+    field: string;
+    label: string;
+    type: string;
+    refTable: string;
+    value: string;
+    displayValue: string;
+    /** The table the row names (task for a row incident inherits). */
+    sourceTable: string;
+    /** 'portal' (the row lists this portal) or 'all'. */
+    scope: string;
+    order: number;
+};
+
+export type RecordFieldConfig = {
+    /** Slots with rows (the rest use the built-in defaults). */
+    slots: RecordFieldSlot[];
+    fields: ConfiguredField[];
+};
 
 export type HeaderItem = {
     field: string;
@@ -30,16 +60,59 @@ export type RecordHeaderData = {
     secondary: HeaderItem[];
     /** Highlight styles by field (from the secondary items). */
     highlights: Record<string, HighlightStyle>;
+    /** Our record header fields; null when the API didn't answer (everything uses the defaults). */
+    config: RecordFieldConfig | null;
 };
 
-const HEADER_QUERY = `query rpRecordHeader($table: String!, $sysId: String!) { GlideHeaderQuery_Query {
+/**
+ * A slot's configured fields, or null when the slot isn't configured (use the built-in default).
+ * A configured slot can be empty for this user (none of its fields is readable): show nothing.
+ */
+export function configuredSlot(
+    data: RecordHeaderData | null | undefined,
+    slot: RecordFieldSlot
+): ConfiguredField[] | null {
+    const c = data && data.config;
+    if (!c || c.slots.indexOf(slot) < 0) return null;
+    return c.fields.filter((f) => f.slot === slot);
+}
+
+const HEADER_QUERY = `query rpRecordHeader($table: String!, $sysId: String!, $portal: String) { GlideHeaderQuery_Query {
     headerItems(table: $table, sysId: $sysId, workspaceConfigId: "", headerConfigId: "", highlightedValueConfigId: "") {
         recordDisplayValue tableDisplayValue
         primaryItem { fieldName fieldLabel displayValue }
         subheadingItem { fieldName fieldLabel displayValue }
         secondaryItems { fieldName fieldLabel displayValue
             highlightedValueStyle { field value status colorName showIcon iconName variantName }
-            referenceItem { table sysId } } } } }`;
+            referenceItem { table sysId } } } }
+    x312987Portal { recordFields { resolve(table: $table, portal: $portal, sysId: $sysId) {
+        slots fields { slot field label type refTable value displayValue sourceTable scope order } } } } }`;
+
+const SLOT_NAMES = ['title', 'subtitle', 'pill', 'ribbon'];
+
+function parseConfig(data: any): RecordFieldConfig | null {
+    const x = data && data.x312987Portal;
+    const r = x && x.recordFields && x.recordFields.resolve;
+    if (!r) return null;
+    const s = (v: any) => (v == null ? '' : String(v));
+    return {
+        slots: ((r.slots || []) as any[]).map(s).filter((v) => SLOT_NAMES.indexOf(v) >= 0) as RecordFieldSlot[],
+        fields: ((r.fields || []) as any[])
+            .filter((f) => f && f.field && SLOT_NAMES.indexOf(s(f.slot)) >= 0)
+            .map((f) => ({
+                slot: s(f.slot) as RecordFieldSlot,
+                field: s(f.field),
+                label: s(f.label) || s(f.field),
+                type: s(f.type) || 'string',
+                refTable: s(f.refTable),
+                value: s(f.value),
+                displayValue: s(f.displayValue),
+                sourceTable: s(f.sourceTable),
+                scope: s(f.scope),
+                order: Number(f.order) || 0,
+            })),
+    };
+}
 
 function styleOf(field: string, h: any): HighlightStyle | undefined {
     if (!h || !(h.colorName || h.status)) return undefined;
@@ -71,7 +144,19 @@ function itemOf(i: any): HeaderItem | null {
 
 export function parseHeaderItems(data: any): RecordHeaderData | null {
     const h = data && data.GlideHeaderQuery_Query && data.GlideHeaderQuery_Query.headerItems;
-    if (!h) return null;
+    const config = parseConfig(data);
+    if (!h)
+        return config
+            ? {
+                  displayValue: '',
+                  tableLabel: '',
+                  primary: null,
+                  subheading: null,
+                  secondary: [],
+                  highlights: {},
+                  config,
+              }
+            : null;
     const secondary = ((h.secondaryItems || []) as any[]).map(itemOf).filter(Boolean) as HeaderItem[];
     const highlights: Record<string, HighlightStyle> = {};
     secondary.forEach((s) => {
@@ -84,6 +169,7 @@ export function parseHeaderItems(data: any): RecordHeaderData | null {
         subheading: itemOf(h.subheadingItem),
         secondary,
         highlights,
+        config,
     };
 }
 
@@ -91,20 +177,23 @@ const NAME = /^[a-z0-9_]+$/i;
 const SYS_ID = /^[0-9a-f]{32}$/;
 
 /**
- * useRecordHeaderData(table, sysId) → TanStack result with RecordHeaderData | null. Cached under
- * the record's key, so the record watch (a save, someone else's change) refreshes it. Not for new
+ * useRecordHeaderData(table, sysId) → TanStack result with RecordHeaderData | null: the platform
+ * header and our record header fields for the current portal, in ONE request. Cached under the
+ * record's key, so the record watch (a save, someone else's change) refreshes it. Not for new
  * records ('-1'). A failure (an older release, no access) just means no data: callers fall back.
+ * Partial answers are kept (one half failing doesn't lose the other).
  */
 export function useRecordHeaderData(
     table: string | undefined,
     sysId: string | undefined,
     options: { enabled?: boolean } = {}
 ) {
+    const { portal } = useViewRulesContext();
     const ok = !!table && NAME.test(table) && !!sysId && SYS_ID.test(sysId) && options.enabled !== false;
     return useQuery<RecordHeaderData | null>({
-        queryKey: gqlKeys.record(table || '', sysId || '', '~header'),
+        queryKey: gqlKeys.record(table || '', sysId || '', `~header:${portal}`),
         queryFn: ({ signal }: { signal: AbortSignal }) =>
-            graphql(HEADER_QUERY, { table, sysId }, { signal }).then(parseHeaderItems),
+            graphql(HEADER_QUERY, { table, sysId, portal }, { signal, allowPartial: true }).then(parseHeaderItems),
         enabled: ok,
         staleTime: 30_000,
         retry: false,
@@ -167,12 +256,20 @@ export type HeaderHighlight = {
 };
 
 /**
- * Which highlighted values the header shows, with no configuration (max 3, in this order):
+ * Which highlighted values (pills) the header shows.
+ *
+ * Configured (the header data's `pill` slot has record header field rows): exactly those fields,
+ * in row order, no cap; a field with no value is skipped.
+ *
+ * Not configured, the built-in default (max 3, in this order):
  * 1. the record's status fields that have a value (state, stage, request_state, approval, …);
  * 2. the platform header's secondary items whose highlight rule matched (e.g. Priority);
  * 3. priority-like fields with a matched platform style from the form bootstrap.
- * Values: the record's SAVED values when the form has the field, else the header's display value.
- * Fields the user can't read (dictionary canRead false) never show.
+ *
+ * Values: the record's SAVED values when the form has the field, else the server's value (record
+ * header fields) or the platform header's display value. Fields the user can't read never show.
+ * Text: the platform style's label when it differs from the raw value (a value override), else the
+ * display value.
  */
 export function pickHeaderHighlights(args: {
     values: Record<string, { value: string; displayValue: string } | FieldValue | undefined>;
@@ -182,28 +279,39 @@ export function pickHeaderHighlights(args: {
     max?: number;
 }): HeaderHighlight[] {
     const { values, meta, header, highlights } = args;
-    const max = args.max || 3;
+    const configured = configuredSlot(header, 'pill');
+    const max = configured ? Infinity : args.max || 3;
     const out: HeaderHighlight[] = [];
     const seen = new Set<string>();
     const fromHeader: Record<string, HeaderItem> = {};
     (header ? header.secondary : []).forEach((s) => (fromHeader[s.field] = s));
+    const fromConfig: Record<string, ConfiguredField> = {};
+    (configured || []).forEach((c) => (fromConfig[c.field] = c));
     const add = (field: string) => {
         if (seen.has(field) || out.length >= max) return;
         if (meta && meta[field] && meta[field].canRead === false) return;
-        const v = values[field];
-        const h = fromHeader[field];
+        const c = fromConfig[field];
+        const v = values[field] || (c ? { value: c.value, displayValue: c.displayValue } : undefined);
+        // The server's display value (record header fields) labels workflow values the form ships raw.
+        const h: HeaderItem | undefined =
+            fromHeader[field] || (c ? { field, label: c.label, displayValue: c.displayValue } : undefined);
         const display = displayFor(v, meta && meta[field], h);
         if (!display) return;
         const style = highlights[field] || (h && h.highlight);
+        const raw = v ? v.value : '';
         seen.add(field);
         out.push({
             field,
-            label: (meta && meta[field] && meta[field].label) || (h && h.label) || field,
-            text: (style && style.value) || display,
-            value: v ? v.value : '',
+            label: (c && c.label) || (meta && meta[field] && meta[field].label) || (h && h.label) || field,
+            text: style && style.value && style.value !== raw ? style.value : display,
+            value: raw,
             highlight: style,
         });
     };
+    if (configured) {
+        configured.forEach((c) => add(c.field));
+        return out;
+    }
     STATUS_FIELDS.forEach((f) => {
         if (values[f] || fromHeader[f]) add(f);
     });

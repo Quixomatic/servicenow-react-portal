@@ -27,6 +27,8 @@ export const T = {
     viewRuleUcNo: 'x_312987_portal_vrule_uc_no',
     /** Remote table: one computed answer row per query (the view resolution), for GraphQL chaining. */
     viewAnswer: 'x_312987_portal_view_answer',
+    /** Record header fields: title / subtitle / pill / ribbon fields per table and portal. */
+    recordField: 'x_312987_portal_record_field',
 } as const;
 
 export const SCOPE = 'x_312987_portal';

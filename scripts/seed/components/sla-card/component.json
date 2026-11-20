@@ -1,0 +1,6 @@
+{
+    "name": "SLA Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "title": "SLAs", "sysId": "", "activeOnly": false, "variant": "card" }
+}

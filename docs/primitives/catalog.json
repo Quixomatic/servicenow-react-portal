@@ -19295,7 +19295,7 @@
    "components:app/record-header",
    "components:app/form"
   ],
-  "coverageNotes": "RecordTitle (banner / bar / inline), used by app/form in every header placement: table label, title (number / name / short description, saved values), up to 3 highlighted values (status fields, the platform header's highlighted secondary fields, priority-like fields with a matched platform rule) coloured by the platform's own highlighted-value rules (formLayout.highlightedValueStyle in the bootstrap + GlideHeaderQuery_Query.headerItems, evaluated server-side as the user; heuristic fallback), Read only / New badges, presence avatars, subtitle filled from the platform header's primary item when the view lacks it. Hooks useRecordHeaderData, useHighlightedValueConfig, useRecordHeaderModel, pickHeaderHighlights. No configuration of ours yet (proposal .plans/record-header-config.md)."
+  "coverageNotes": "RecordTitle (banner / bar / inline), used by app/form in every header placement: table label, title (number / name / short description, saved values), up to 3 highlighted values (status fields, the platform header's highlighted secondary fields, priority-like fields with a matched platform rule) coloured by the platform's own highlighted-value rules (formLayout.highlightedValueStyle in the bootstrap + GlideHeaderQuery_Query.headerItems, evaluated server-side as the user; heuristic fallback), Read only / New badges, presence avatars, subtitle filled from the platform header's primary item when the view lacks it. Hooks useRecordHeaderData, useHighlightedValueConfig, useRecordHeaderModel, pickHeaderHighlights. Configured by record header fields (x_312987_portal_record_field: title / subtitle / pill rows per table, inherited by child tables, per portal; the most specific rows replace the slot default) resolved in the same GraphQL request as headerItems (x312987Portal.recordFields); the built-in choices remain the fallback."
  },
  {
   "tag": "sn-record-ribbon",
@@ -19393,13 +19393,13 @@
    "name": "app/record-ribbon",
    "kind": "primitive"
   },
-  "ourMatch": "partial: components:app/record-ribbon — key field values only; no ribbon components (SLA, CMDB cards…), widths or configuration",
+  "ourMatch": "partial: components:app/record-ribbon — configured key field values (record header fields, ribbon slot); no ribbon components (SLA, CMDB cards…) or widths",
   "sourceRef": "sys_ux_macroponent:70384114ef8d8eb4f9f5566feb0064e8 | sys_ux_lib_component:a30913ce22d17241e4d9bf3db127f451 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
   "ourComponent": [
    "components:app/record-ribbon",
    "components:app/form"
   ],
-  "coverageNotes": "RecordRibbon / useRecordRibbon: a strip of key values above app/form (record-form option ribbon, default on, never on new records). Built-in defaults per table (incident, sc_req_item, sc_request, sc_task, problem, change_request, change_task, kb_knowledge, sys_user_group), else the platform header's secondary fields (sys_aw_form_header), else task / generic fallbacks. Values in read modes (references preview, statuses highlighted). Two columns at 390. Deliberately not Workspace's component ribbon (sys_aw_ribbon_setting); config proposal in .plans/record-header-config.md."
+  "coverageNotes": "RecordRibbon / useRecordRibbon: a strip of key values above app/form (record-form option ribbon, default on, never on new records). Fields from record header fields (x_312987_portal_record_field ribbon rows: per table with inheritance, per portal, roles, dot-walk; shipped as demo rows for incident, sc_req_item, sc_request, sc_task, problem, change_request, change_task, kb_knowledge, sys_user_group), else the built-in defaults, else the platform header's secondary fields (sys_aw_form_header), else task / generic fallbacks. Values in read modes (references preview, statuses highlighted). Two columns at 390. Deliberately not Workspace's component ribbon (sys_aw_ribbon_setting); stays partial for that reason."
  },
  {
   "tag": "now-record-common-attachments-connected",
@@ -30065,10 +30065,14 @@
    "name": "ui/stat",
    "kind": "primitive"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:app/score-tile ScoreTile / DataScore (+ widget app/score-card)",
   "sourceRef": "sys_ux_lib_component:42779779f6835587a975fb21eef62b46 | https://dev189813.service-now.com/uxab/_servicenow_now-score.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-score/index.min.js.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:app/score-tile",
+   "utilities:app/analytics",
+   "app/score-card"
+  ],
+  "coverageNotes": "Value, trend arrow, delta % vs previous period (rolling days or interval-to-date), sparkline, target progress, icon, click-through; useScore is one GraphQL request."
  },
  {
   "tag": "now-sla-timer",
@@ -30114,10 +30118,13 @@
    "name": "app/sla-timer",
    "kind": "primitive"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:app/sla-timer — task_sla timers: time left / since breach, elapsed bar, breached / paused / achieved, live ticking, record watch",
   "sourceRef": "sys_ux_macroponent:19c926081d21dd6583ec97876418ddf7 | sys_ux_lib_component:77ab141cb242ea9e4719eacaf792db0d | https://dev189813.service-now.com/uxab/_servicenow_now-sla-timer.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-sla-timer/index.min.js.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:app/sla-timer",
+   "components:app/sla-card"
+  ],
+  "coverageNotes": "SlaTimers / SlaTimer (card / compact / ribbon) / SlaRibbonValue / useTaskSlas / slaClock / formatDuration: task_sla rows read as the user, refreshed by the record watch on task_sla; client-side ticking (once a second, only while running): time left = planned end − now, bar from the server's business percentage to 100 % at planned end (components:progress, amber from 75 %, red when breached); paused shows the stored business time left; role=timer with spoken labels, state change announced once. Widget app/sla-card. The record form's ribbon doesn't place it yet (SlaRibbonValue is ready)."
  },
  {
   "tag": "now-data-row",
@@ -30569,10 +30576,14 @@
    "name": "app/calendar",
    "kind": "widget"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:app/calendar-view — month / week / day / agenda, user zone + formats, event cards (app/record-card), drag / keyboard reschedule through the form save with Undo",
   "sourceRef": "sys_ux_macroponent:1de221250a27afba43b9b3b04594857f | sys_ux_lib_component:465caecb309487918182a46d7e2e9f9e | https://dev189813.service-now.com/uxab/_servicenow_now-calendar.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-calendar/index.min.js.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:app/calendar-view",
+   "components:app/record-calendar",
+   "components:app/record-update"
+  ],
+  "coverageNotes": "CalendarView / useCalendarEvents: any table's records in one range query (start in range, or started before and end in / after it; read as the user, live by record watch); views month, week (30-minute time grid, all-day row, overlap columns, now line), day, agenda (default under 640 px, which offers agenda / day only); user's time zone, time format and locale week start; colour by field (status tones or a categorical palette, legend); popover with the time and app/record-card, double click opens; reschedule by drag (day keeps the time, slot sets it) or dnd-kit keyboard (Space, arrows, Space) through app/record-update (form save: UI policies, client scripts, BRs, ACLs; dialog when the form needs more; Undo toast; rollback on failure); shortcuts t / j / k / m / w / d / a. Widget app/record-calendar. Not done: Workspace timeline views (TIMELINE_DAY / WEEK), resize to change duration, multiple time zones, creating events by dragging on the grid, blocked spans."
  },
  {
   "tag": "now-visual-board",
@@ -30779,10 +30790,14 @@
    "name": "app/kanban",
    "kind": "widget"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:app/visual-board — lanes from a choice / reference field, cards like app/record-card, drag / keyboard / Move to through the form save, WIP limits, live",
   "sourceRef": "sys_ux_macroponent:4e24b0556fdcf0a629b41408a5b98d86 | sys_ux_lib_component:aba91b5317afb9b27a7fb7dc7a2e2829",
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:app/visual-board",
+   "components:app/record-board",
+   "components:app/record-update"
+  ],
+  "coverageNotes": "VisualBoard / useBoardLanes / useLaneCards: lanes from a choice field's choices (empty lanes optional), a reference field's group-by values, or a laneQuery on the referenced table; per-lane server counts and Show more; search across lanes; cards render list cells with app/record-card's SummaryValue and open the full RecordCard; moves by drag, dnd-kit keyboard (Space, arrows, Space) or a Move to menu, written through app/record-update (form save: UI policies, BRs, data policies, ACLs; a dialog asks for fields the form makes mandatory, e.g. Resolved; optimistic, rollback + toast on failure, Undo on success); WIP limits per lane; live by record watch. Widget app/record-board. Not done: swimlanes, card order within a lane (no rank field), lane drag, dependency lines, multi-card selection."
  },
  {
   "tag": "sn-component-timeline",
@@ -30986,11 +31001,14 @@
    "name": "ui/timeline",
    "kind": "primitive"
   },
-  "ourMatch": "none",
+  "ourMatch": "partial: components:app/timeline — a vertical day-grouped timeline (record history, records by a date field); not the pan / zoom horizontal chart",
   "sourceRef": "sys_ux_macroponent:d8e620ed91cdeed8b10d11849bde6f58 | sys_ux_lib_component:ad975bc4756b0ec1cb328410e81a8b73",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:app/timeline",
+   "components:app/timeline-card"
+  ],
+  "coverageNotes": "Timeline (items: date, icon, tone, title, description, meta, actions, onSelect; grouped by the user's day; user time format; dense / relative), useHistoryTimeline (utilities:app/activity: journal, field changes old → new, attachments, emails; live), useRecordsTimeline (any table by a date field, tone by field, live), activityToTimelineItem, groupTimeline. Widget app/timeline-card (history / records). Partial: sn-component-timeline is a horizontal pan / zoom chart with ranges, markers and a legend; ours is the vertical list form."
  },
  {
   "tag": "now-vis-timeseries",
@@ -31185,10 +31203,15 @@
    "name": "ui/chart",
    "kind": "primitive"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart LineChart / AreaChart / BarChart over time; app/data-chart time-series mode",
   "sourceRef": "sys_ux_lib_component:b24d9c9611c699ad4404d38447057afb | https://dev189813.service-now.com/uxab/_servicenow_now-vis-timeseries.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-vis-timeseries/index.min.js.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:chart",
+   "components:app/data-chart",
+   "utilities:app/analytics",
+   "app/chart-card"
+  ],
+  "coverageNotes": "Recharts 3 (lazy portal-charts chunk). Time buckets day/week/month/quarter/year via useTimeSeries (one GraphQL request); series per group; gradient / glow; text summary + data table fallback; click-through query per bucket. No forecast / annotations / navigator."
  },
  {
   "tag": "now-chart-bar",
@@ -31237,10 +31260,14 @@
    "name": "ui/chart",
    "kind": "primitive"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart BarChart (vertical / horizontal, grouped / stacked)",
   "sourceRef": "sys_ux_lib_component:2b8faa88d37b2938ec226013721a8a15 | https://dev189813.service-now.com/uxab/_servicenow_now-chart-bar.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-chart-bar/index.min.js.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:chart",
+   "components:app/data-chart",
+   "app/chart-card"
+  ],
+  "coverageNotes": "orientation, stacked, variants (default / gradient / hatched), value labels, hover highlight, onValueClick; accessibilityTable → ChartDataTable (\"View as table\"); accessibilityLayer."
  },
  {
   "tag": "now-uxf-visualization-connected",
@@ -31337,11 +31364,15 @@
    "name": "app/visualization",
    "kind": "widget"
   },
-  "ourMatch": "none",
+  "ourMatch": "match: components:app/data-chart (+ widget app/chart-card)",
   "sourceRef": "sys_ux_macroponent:67cf18a377c70010cb834a2a6910619a | sys_ux_lib_component:180a1a9e67a0330075e8ebc172415a20",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Nothing built yet."
+  "ourComponent": [
+   "components:app/data-chart",
+   "utilities:app/analytics",
+   "app/chart-card"
+  ],
+  "coverageNotes": "Table + filter + groupBy (two levels) + aggregate (count/sum/avg/min/max/countDistinct) + chart type + time field / interval + top N; live (record watch) and refresh interval; click-through via page params. Indicator (PA) data sources not supported."
  },
  {
   "tag": "sn-contact-card",
@@ -32039,11 +32070,13 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart BarChart",
   "sourceRef": "sys_ux_lib_component:0163070a03cc2eb4c27f44b2b22050d0",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart"
+  ],
+  "coverageNotes": "See now-chart-bar."
  },
  {
   "tag": "now-popover-panel",
@@ -32134,11 +32167,13 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart Sparkline",
   "sourceRef": "sys_ux_lib_component:03848e5578c46dc1b5b9befb4937f2a7",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart"
+  ],
+  "coverageNotes": "line / area / bar, last-point dot, optional tooltip, role=img with a generated text label."
  },
  {
   "tag": "now-record-related-items-tab-content",
@@ -32859,11 +32894,13 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "partial: components:chart RadialChart gauge mode — no bands / needle",
   "sourceRef": "sys_ux_lib_component:1c08c428352fae5df4f36c9e0f174883",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart"
+  ],
+  "coverageNotes": "Single-value radial gauge (value / max, centre label); no threshold bands."
  },
  {
   "tag": "now-comparison-row-field-dot-walk-input",
@@ -36006,11 +36043,14 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart PieChart (donut, centre label)",
   "sourceRef": "sys_ux_lib_component:74e113b70380679cac097e8f537b9bf8",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart",
+   "components:app/data-chart"
+  ],
+  "coverageNotes": "Pie and donut, centre total, hover highlight, legend, slice click-through."
  },
  {
   "tag": "sn-catalog-choice-layout",
@@ -36384,11 +36424,13 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart PieChart",
   "sourceRef": "sys_ux_lib_component:789e5e9c207c391229a6a686945c1fcf",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart"
+  ],
+  "coverageNotes": "See now-chart-donut-pie."
  },
  {
   "tag": "now-dropdown-custom-target",
@@ -37853,10 +37895,12 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart Sparkline",
   "sourceRef": "sys_ux_lib_component:9de9ea9b73e1aa2bb02290d617089b71 | https://dev189813.service-now.com/uxab/_servicenow_now-score.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart"
+  ],
+  "coverageNotes": "See now-chart-sparkline."
  },
  {
   "tag": "now-chart-timeseries",
@@ -37871,13 +37915,16 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:chart LineChart / AreaChart",
   "sourceRef": "sys_ux_lib_component:9e04d8a06dfb5250877a1b43c2604dcd",
   "sharedProps": [],
   "specificProps": [],
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart",
+   "utilities:app/analytics"
+  ],
+  "coverageNotes": "See now-vis-timeseries."
  },
  {
   "tag": "sn-form-internal-iframe-modal",
@@ -40197,10 +40244,13 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "match: components:app/score-tile (sparkline + comparison + target)",
   "sourceRef": "sys_ux_lib_component:d869375f8ecf931a19f1b02e896bd4b3 | https://dev189813.service-now.com/uxab/_servicenow_now-score.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-score/index.min.js.map.jsdbx",
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:app/score-tile",
+   "app/score-card"
+  ],
+  "coverageNotes": "Same tile as now-score-basic with sparkline, change info and target info."
  },
  {
   "tag": "sn-list-reference-value-input",
@@ -40705,11 +40755,13 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "none",
+  "ourMatch": "partial: components:chart RadialChart gauge mode — no dial needle",
   "sourceRef": "sys_ux_lib_component:e1ceeca7ab0e40ffca852318a901b8da",
   "verified": false,
-  "ourComponent": [],
-  "coverageNotes": "Inventory row (not reviewed); nothing built."
+  "ourComponent": [
+   "components:chart"
+  ],
+  "coverageNotes": "Radial gauge stands in for the dial."
  },
  {
   "tag": "now-email-client-mini-composer-connected",

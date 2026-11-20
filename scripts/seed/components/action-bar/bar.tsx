@@ -159,12 +159,21 @@ export function actionMenuItems(
     options: { prefix?: string; label?: (a: RpAction) => string } = {}
 ): any[] {
     const prefix = options.prefix || 'rp-action:';
-    return actions.map((a) => ({
-        id: prefix + a.id,
-        label: options.label ? options.label(a) : a.label,
-        hint: a.hint,
-        disabled: !a.supported,
-        destructive: a.variant === 'destructive',
-        onSelect: () => onRun(a),
-    }));
+    return actions.map((a) => {
+        const label = options.label ? options.label(a) : a.label;
+        return {
+            id: prefix + a.id,
+            label,
+            // A tooltip that only repeats the label (Workspace defaults it to the label) isn't a hint.
+            hint:
+                a.hint &&
+                a.hint.trim().toLowerCase() !== label.trim().toLowerCase() &&
+                a.hint.trim().toLowerCase() !== a.label.trim().toLowerCase()
+                    ? a.hint
+                    : undefined,
+            disabled: !a.supported,
+            destructive: a.variant === 'destructive',
+            onSelect: () => onRun(a),
+        };
+    });
 }

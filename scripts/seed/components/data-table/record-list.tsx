@@ -1181,7 +1181,24 @@ export function RecordList(props: RecordListProps) {
                             : 'overflow-hidden rounded-lg border border-border bg-card'
                     )}
                 >
-                    {effective.error ? (
+                    {effective.error && groupBy ? (
+                        // ^GROUPBY runs an aggregate: users without the table's aggregate permission (roleless
+                        // users on incident, verified) get a server error. Offer the ungrouped list instead.
+                        <div role="alert" className="flex flex-col items-start gap-2 p-6 text-sm">
+                            <span className="font-medium">This list can’t be grouped for you right now.</span>
+                            <span className="text-muted-foreground">
+                                Grouping needs permission to aggregate this table, which your account doesn’t have (the
+                                platform refused the grouped query).
+                            </span>
+                            <button
+                                type="button"
+                                className={tbBtn(false)}
+                                onClick={() => patchState({ groupBy: '', page: 0 })}
+                            >
+                                Show without grouping
+                            </button>
+                        </div>
+                    ) : effective.error ? (
                         <div role="alert" className="p-6 text-sm text-destructive">
                             {(effective.error as Error).message}
                         </div>

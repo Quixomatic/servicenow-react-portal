@@ -1,0 +1,6 @@
+{
+    "name": "Chart Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "table": "incident" }
+}

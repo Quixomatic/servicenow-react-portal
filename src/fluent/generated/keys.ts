@@ -133,6 +133,10 @@ declare global {
                         table: 'sys_security_acl';
                         id: 'f93d47786d3e478b85faf4496af41f56';
                     };
+                    'acl-gql-record-fields': {
+                        table: 'sys_security_acl';
+                        id: '6c70bac4c030416d9b05527ee5f8667c';
+                    };
                     'acl-gql-view-rules': {
                         table: 'sys_security_acl';
                         id: 'a3a9eefac01e4a7c95d926259f282d82';
@@ -312,6 +316,22 @@ declare global {
                     'acl-portal-write': {
                         table: 'sys_security_acl';
                         id: '8f9d5597c87e4136af8004bb92e14dd0';
+                    };
+                    'acl-record-field-create': {
+                        table: 'sys_security_acl';
+                        id: 'b9940744220d46b28c6ecffdf791048b';
+                    };
+                    'acl-record-field-delete': {
+                        table: 'sys_security_acl';
+                        id: '180bed6bcf084d62b48d01893e78ab08';
+                    };
+                    'acl-record-field-read': {
+                        table: 'sys_security_acl';
+                        id: '0222346c090743c8b016218d6a7f2c74';
+                    };
+                    'acl-record-field-write': {
+                        table: 'sys_security_acl';
+                        id: '22b5d1b3a76a4ddbbab908bf5f3aa85d';
                     };
                     'acl-release-create': {
                         table: 'sys_security_acl';
@@ -617,6 +637,14 @@ declare global {
                         table: 'sys_ui_formatter';
                         id: 'f8e1398f05a540fdb8bb39d111d911bb';
                     };
+                    'gql-record-fields': {
+                        table: 'sys_graphql_schema';
+                        id: '023ceb6d6e4146d99e92171cac9e8d25';
+                    };
+                    'gql-record-fields-resolve': {
+                        table: 'sys_graphql_resolver';
+                        id: 'f3cd29e6fbb5483d81cbfbd224320295';
+                    };
                     'gql-view-rules': {
                         table: 'sys_graphql_schema';
                         id: 'd36c95123843458b9f52837c3f10b0f3';
@@ -688,6 +716,10 @@ declare global {
                     'module-properties': {
                         table: 'sys_app_module';
                         id: 'f84744ffface4b58b766db6cff80332c';
+                    };
+                    'module-record-fields': {
+                        table: 'sys_app_module';
+                        id: 'f64da03a7447442b8f0d66c2cf8985cb';
                     };
                     'module-releases': {
                         table: 'sys_app_module';
@@ -780,6 +812,10 @@ declare global {
                     'rel-component-imports': {
                         table: 'sys_relationship';
                         id: 'ef742e520459439c9314fadfd2f827fc';
+                    };
+                    'rel-portal-record-fields': {
+                        table: 'sys_relationship';
+                        id: '627f21eb7a334511a5d0dae5d13e6a50';
                     };
                     'related-list-build-build-asset-build': {
                         table: 'sys_ui_related_list_entry';
@@ -880,6 +916,10 @@ declare global {
                     'related-list-portal-placement-portal': {
                         table: 'sys_ui_related_list_entry';
                         id: '021a1f77836e455b8881b4b20e4692b2';
+                    };
+                    'related-list-portal-record-fields': {
+                        table: 'sys_ui_related_list_entry';
+                        id: '6e206cae04514ca19f8f28823197787e';
                     };
                     'related-list-portal-release-portal': {
                         table: 'sys_ui_related_list_entry';
@@ -1189,6 +1229,170 @@ declare global {
                         table: 'sys_ws_version';
                         id: 'e86a826add0f4d26a4ba76930005fe24';
                     };
+                    'rf-change-request-pill-approval': {
+                        table: 'x_312987_portal_record_field';
+                        id: '153e12fbe8664f32b61778a689217ccc';
+                    };
+                    'rf-change-request-pill-risk': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'a866836b9267472d9c842d3b44f634cf';
+                    };
+                    'rf-change-request-pill-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'f078f0b0941042ec96e4204a1e3b7361';
+                    };
+                    'rf-change-request-ribbon-assigned-to': {
+                        table: 'x_312987_portal_record_field';
+                        id: '55cdeb8f485c47eca531d60b7dcabd6a';
+                    };
+                    'rf-change-request-ribbon-start-date': {
+                        table: 'x_312987_portal_record_field';
+                        id: '93cdc9f238804a0cb7596b386d2ed6eb';
+                    };
+                    'rf-change-request-ribbon-type': {
+                        table: 'x_312987_portal_record_field';
+                        id: '817f4a52a4b7440cbd679a34700b872a';
+                    };
+                    'rf-change-task-pill-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'fb079bc7e81e44d99050c80f5f01c1ef';
+                    };
+                    'rf-change-task-ribbon-assigned-to': {
+                        table: 'x_312987_portal_record_field';
+                        id: '91b7027912ae45378a79b117ed362fbc';
+                    };
+                    'rf-change-task-ribbon-change-request': {
+                        table: 'x_312987_portal_record_field';
+                        id: '0a52e378b69141d08757cd639c8ec77f';
+                    };
+                    'rf-change-task-ribbon-planned-end-date': {
+                        table: 'x_312987_portal_record_field';
+                        id: '6051627c7ea74ce786c1cdade5aa855e';
+                    };
+                    'rf-incident-ribbon-assigned-to': {
+                        table: 'x_312987_portal_record_field';
+                        id: '4f4245aa03a64d64835b3f6a4ecc885e';
+                    };
+                    'rf-incident-ribbon-caller-id': {
+                        table: 'x_312987_portal_record_field';
+                        id: '93aa951b637948a9afd79299414793ca';
+                    };
+                    'rf-incident-ribbon-sys-updated-on': {
+                        table: 'x_312987_portal_record_field';
+                        id: '3cab37fe541a432697af296ce406713a';
+                    };
+                    'rf-kb-knowledge-pill-workflow-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'bbcaec263a1f49e2b87cc79a835b35a6';
+                    };
+                    'rf-kb-knowledge-ribbon-author': {
+                        table: 'x_312987_portal_record_field';
+                        id: '69874afcbbea4c6abf663231d6a3b1ab';
+                    };
+                    'rf-kb-knowledge-ribbon-kb-knowledge-base': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'e3c72d54835f4553a964bdbcb6df2105';
+                    };
+                    'rf-kb-knowledge-ribbon-sys-updated-on': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'b96766ceaf5b4eb39c5d3fd9f9e293c5';
+                    };
+                    'rf-problem-ribbon-assigned-to': {
+                        table: 'x_312987_portal_record_field';
+                        id: '1b645ce9687b441e8d27f28fbb502ad9';
+                    };
+                    'rf-problem-ribbon-sys-updated-on': {
+                        table: 'x_312987_portal_record_field';
+                        id: '7149f24e9b77415ba1b78cc89215974a';
+                    };
+                    'rf-sc-req-item-pill-stage': {
+                        table: 'x_312987_portal_record_field';
+                        id: '57a54b430fe24cb396dd117297a8f419';
+                    };
+                    'rf-sc-req-item-pill-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'fd8448a673db40da9934b4526a228e13';
+                    };
+                    'rf-sc-req-item-ribbon-cat-item': {
+                        table: 'x_312987_portal_record_field';
+                        id: '80ee0d26f1864a408e6ce13e3e15d1e1';
+                    };
+                    'rf-sc-req-item-ribbon-due-date': {
+                        table: 'x_312987_portal_record_field';
+                        id: '101749d13ed347f89ed8fe43dab7dbe9';
+                    };
+                    'rf-sc-req-item-ribbon-requested-for': {
+                        table: 'x_312987_portal_record_field';
+                        id: '6ca551945c4b401b91488dd39b741ffe';
+                    };
+                    'rf-sc-request-pill-approval': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'da55bf1e74dc4fba9ba5adedb969471a';
+                    };
+                    'rf-sc-request-pill-request-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'f7faf70bd07c49dfa9a345fe2012c557';
+                    };
+                    'rf-sc-request-ribbon-due-date': {
+                        table: 'x_312987_portal_record_field';
+                        id: '8a13e49a7ed6487792e93365d6837d53';
+                    };
+                    'rf-sc-request-ribbon-price': {
+                        table: 'x_312987_portal_record_field';
+                        id: '45bdd91421d445f9ae1003342edb8606';
+                    };
+                    'rf-sc-request-ribbon-requested-for': {
+                        table: 'x_312987_portal_record_field';
+                        id: '16abb0129cf84e7c90dfddad6732d4a2';
+                    };
+                    'rf-sc-task-pill-approval': {
+                        table: 'x_312987_portal_record_field';
+                        id: '3c7de2771cdb4cc7830c6ab59fa3e3d4';
+                    };
+                    'rf-sc-task-pill-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: '3038e141ea0347f3820ba063d75f58ae';
+                    };
+                    'rf-sc-task-ribbon-assigned-to': {
+                        table: 'x_312987_portal_record_field';
+                        id: '89657200b15d432dbe6a9050cc32b650';
+                    };
+                    'rf-sc-task-ribbon-due-date': {
+                        table: 'x_312987_portal_record_field';
+                        id: '6769a856af2e492d89f133de3ade5d14';
+                    };
+                    'rf-sc-task-ribbon-request-item': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'f16c0b55a0724f02bb3ce003249d2698';
+                    };
+                    'rf-sys-user-group-ribbon-email': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'ed130c2b28ad4be29f52fabd251e19a1';
+                    };
+                    'rf-sys-user-group-ribbon-manager': {
+                        table: 'x_312987_portal_record_field';
+                        id: '5a6cf591b2df46db96ab09baef28f6c6';
+                    };
+                    'rf-sys-user-group-ribbon-type': {
+                        table: 'x_312987_portal_record_field';
+                        id: '23f5edd204f84321aeec5fb8ebf41325';
+                    };
+                    'rf-task-pill-priority': {
+                        table: 'x_312987_portal_record_field';
+                        id: '19f79b92999645d7b66dfefbd91b5f3d';
+                    };
+                    'rf-task-pill-state': {
+                        table: 'x_312987_portal_record_field';
+                        id: '45a6cf73e02d44aba580ed109bd6141f';
+                    };
+                    'rf-task-subtitle-short-description': {
+                        table: 'x_312987_portal_record_field';
+                        id: '57b2b3e785a1447e806629c83e4e79d2';
+                    };
+                    'rf-task-title-number': {
+                        table: 'x_312987_portal_record_field';
+                        id: 'e185c3b6bb1f4497a26e59de0a3e9a55';
+                    };
                     'script-include-quick-utils': {
                         table: 'sys_script_include';
                         id: '37641b67e6a24135aceeebe2dde5300d';
@@ -1448,6 +1652,10 @@ declare global {
                     'src_server_source_source-service_ts': {
                         table: 'sys_module';
                         id: 'a385f5d5659b4d56bcf422f85e93bc4b';
+                    };
+                    'src_server_views_record-fields_ts': {
+                        table: 'sys_module';
+                        id: '7680e1b8e69e4d3292421338683de12c';
                     };
                     'src_server_views_view-rules_ts': {
                         table: 'sys_module';
@@ -2066,6 +2274,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: '0852ce87752a4004a6dcf8bc72d7399f';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'label';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: '08715d75a3f34f02b747624eab816607';
                         key: {
                             name: 'x_312987_portal_menu';
@@ -2132,6 +2349,21 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_section';
+                        id: '09b02d9faa1c40f29521bc88b9a72365';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            caption: 'Record header field';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '09fedb3ce7234da8b5928656bea1f645';
                         key: {
@@ -2165,6 +2397,14 @@ declare global {
                             };
                             element: '.end_split';
                             position: '10';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '0a3e2908c4304bd19852779578798dbb';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'table';
                         };
                     },
                     {
@@ -2383,6 +2623,36 @@ declare global {
                         key: {
                             name: 'x_312987_portal_build_dep';
                             element: 'package_version';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '0cfa07f46e6f49fbaeb5846163586e0d';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'active';
+                            position: '7';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '0d2a9028ec6749c6849cc9221b8328e9';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'order';
                         };
                     },
                     {
@@ -2661,6 +2931,15 @@ declare global {
                             };
                             element: '.split';
                             position: '16';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '11c3bc2933e746d190998df4e7a5a358';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'portals';
+                            language: 'en';
                         };
                     },
                     {
@@ -2989,6 +3268,28 @@ declare global {
                                 };
                             };
                             element: '12M.x_312987_portal_build.x_312987_portal_build_asset.build';
+                            position: '0';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '1642ab97200d4a07bdfe495ff689d4cf';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.begin_split';
                             position: '0';
                         };
                     },
@@ -3532,6 +3833,29 @@ declare global {
                     },
                     {
                         table: 'sys_ui_list_element';
+                        id: '1c933d775da448e0832a40f370535b7d';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'field';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
                         id: '1d0338ad893b439cb8ca2cc49ef58151';
                         key: {
                             list_id: {
@@ -3857,6 +4181,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '214226c80e2246f29e7fda262dcb7b08';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'field';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '21484ac3f53948e2a4dca3a6e91ef553';
                         key: {
@@ -4065,6 +4397,29 @@ declare global {
                                 };
                             };
                             element: 'order';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '24a56d61de7146bbb36af6c55e9fd8ca';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'label';
                         };
                     },
                     {
@@ -4424,7 +4779,7 @@ declare global {
                     {
                         table: 'sys_index';
                         id: '2a8496033b8447fab09ac079c1b0c1fc';
-                        deleted: true;
+                        deleted: false;
                         key: {
                             logical_table_name: 'x_312987_portal_doc';
                             col_name_string: 'path';
@@ -5552,6 +5907,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '38b49fb9320b4447965e9ecff73d4783';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'active';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '38b63ed47ab34ab7bb3c37f570038c32';
                         key: {
@@ -5702,6 +6065,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '3952ed656d744038b67c940337a2de17';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'order';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '3960f26797fe4b18ba182fdd74bc4462';
                         key: {
@@ -5838,6 +6210,14 @@ declare global {
                         key: {
                             name: 'x_312987_portal_component';
                             element: 'server_mode';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '3a77b86c56e744fb989d96a6ff1bb488';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'label';
                         };
                     },
                     {
@@ -6171,6 +6551,28 @@ declare global {
                             };
                             element: 'manifest_json';
                             position: '11';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '3e181b774fb046b281692f22e84d9cdd';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'slot';
+                            position: '2';
                         };
                     },
                     {
@@ -6596,6 +6998,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '43339d0eacf64ec9b77c8140d2980032';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'roles';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_ui_list_element';
                         id: '43602826561c48e39738381a587458fb';
                         key: {
@@ -6665,6 +7076,29 @@ declare global {
                             name: 'x_312987_portal_theme';
                             element: 'description';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '44890ed5aa454cbda4e7163c801ce7c6';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'roles';
                         };
                     },
                     {
@@ -6951,6 +7385,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '48741e4236894795b49a5b35e4b5d952';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'slot';
+                        };
+                    },
+                    {
                         table: 'sys_ui_form';
                         id: '488dfa51294049e5ab9c2df9561a2395';
                         key: {
@@ -7218,6 +7675,23 @@ declare global {
                         key: {
                             name: 'x_312987_portal_source_file';
                             element: 'target';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list';
+                        id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                            element: 'NULL';
+                            relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                            parent: 'x_312987_portal_portal';
                         };
                     },
                     {
@@ -8185,6 +8659,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '55aeceeccadd4429a22323a4f388beaf';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'field';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'ua_table_licensing_config';
                         id: '55ed3fea59f84978889bdcfacc83c41b';
                         key: {
@@ -8733,6 +9216,22 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_choice_set';
+                        id: '5cce78ce63d14051bd192e714bf89f19';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                        };
+                    },
+                    {
+                        table: 'sys_index';
+                        id: '5cfcc8e9d7e9425e8085d1c104c90964';
+                        key: {
+                            logical_table_name: 'x_312987_portal_record_field';
+                            col_name_string: 'table,active,slot,order';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '5d4c826b58aa4da9b5a6ae1527283bdc';
                         key: {
@@ -9220,6 +9719,29 @@ declare global {
                             element: 'NULL';
                             relationship: '1e73a4e3eb2840caad1479758113a74c';
                             parent: 'x_312987_portal_build';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '635fefef12244d5bbd6c8415a670978f';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'order';
                         };
                     },
                     {
@@ -9878,6 +10400,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: '6a930423bcf24770af200fb9db18bbb4';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'active';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: '6ab6853317444744926973c6041f4374';
                         key: {
                             name: 'x_312987_portal_execution_log';
@@ -10084,6 +10615,19 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_security_acl_role';
+                        id: '6d772d44df0147b38f06a2af03e29827';
+                        key: {
+                            sys_security_acl: '180bed6bcf084d62b48d01893e78ab08';
+                            sys_user_role: {
+                                id: 'aaff259f0aa54d43b45dbce14a6012d1';
+                                key: {
+                                    name: 'x_312987_portal.designer';
+                                };
+                            };
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '6d8b0486b4084764b8ed320e6390e021';
                         key: {
@@ -10126,6 +10670,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '6eb884c1f7684c7c8b6bcf94745a4930';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'order';
+                            position: '6';
+                        };
+                    },
+                    {
                         table: 'ua_table_licensing_config';
                         id: '6efbaa44462e45b5a7d328827954d544';
                         key: {
@@ -10138,6 +10704,28 @@ declare global {
                         key: {
                             name: 'x_312987_portal_view_rule';
                             element: 'page';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '6f786dfcf2ef48c182f8f2a7ab3413c2';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.end_split';
+                            position: '10';
                         };
                     },
                     {
@@ -10317,6 +10905,15 @@ declare global {
                                     name: 'x_312987_portal.admin';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '7347bad3fa9d458096544e450991c534';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'table';
+                            language: 'en';
                         };
                     },
                     {
@@ -10926,6 +11523,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '7a7691fc45434e0eba3673969ff3fc4f';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'label';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '7ab0cdc083b549a1bea91a63a8cf09af';
                         key: {
@@ -11037,6 +11657,29 @@ declare global {
                                     name: 'x_312987_portal.admin';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '7c1c11a3550c4013af40e96f06236ad5';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'slot';
                         };
                     },
                     {
@@ -11320,6 +11963,13 @@ declare global {
                             name: 'x_312987_portal_portal';
                             element: 'home_page';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_db_object';
+                        id: '7ee42712a2604bc58e28359b10dc3005';
+                        key: {
+                            name: 'x_312987_portal_record_field';
                         };
                     },
                     {
@@ -11996,6 +12646,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '8530a1a7fa214f2d93ee97e0850b50df';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'order';
+                        };
+                    },
+                    {
                         table: 'sys_db_object';
                         id: '854e48eb2cef4c50afb4a8c97225e7b7';
                         key: {
@@ -12040,6 +12713,14 @@ declare global {
                             name: 'x_312987_portal_build';
                             element: 'diagnostics_json';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '86075cb3fe644758912015c2790db0b4';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'roles';
                         };
                     },
                     {
@@ -12127,11 +12808,44 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '86ee526cd66849b38444cea89cb808f5';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'roles';
+                            position: '9';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '871bd31b72d94eeb866b5402bcd05ef9';
                         key: {
                             name: 'x_312987_portal_vrule_uc_no';
                             element: 'NULL';
+                        };
+                    },
+                    {
+                        table: 'sys_choice';
+                        id: '8751348b37e944e4b8dc77b05022dff9';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                            value: 'ribbon';
+                            language: 'en';
+                            dependent_value: 'NULL';
                         };
                     },
                     {
@@ -12910,6 +13624,19 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_security_acl_role';
+                        id: '917ee6ca845c4f1cb5561ed9f84323a4';
+                        key: {
+                            sys_security_acl: 'b9940744220d46b28c6ecffdf791048b';
+                            sys_user_role: {
+                                id: 'aaff259f0aa54d43b45dbce14a6012d1';
+                                key: {
+                                    name: 'x_312987_portal.designer';
+                                };
+                            };
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '918187f735bd453cb780cfb6a8da717d';
                         key: {
@@ -13104,6 +13831,28 @@ declare global {
                         id: '9400f464a61d46e2a89a4083bad2cdd3';
                         key: {
                             name: 'x_312987_portal_build';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '9437078eeaca4e2d8147796b175f073b';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'portals';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_form';
+                        id: '94456fe34bc04a8ba2515721fd55c951';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
                         };
                     },
                     {
@@ -13564,6 +14313,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '9a74ce29205d476ea139921beca24d16';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_ui_list';
                         id: '9b4bd5e57e844c89a2bc3aad3aaa1a65';
                         key: {
@@ -13578,6 +14336,14 @@ declare global {
                             element: 'NULL';
                             relationship: 'NULL';
                             parent: 'x_312987_portal_release';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '9b7a1e3962664ee4a99f2543865b0d64';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'NULL';
                         };
                     },
                     {
@@ -13651,6 +14417,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_graphql_resolver_mapping';
+                        id: '9c2de6b8611e47d98700caf9ee357ccd';
+                        key: {
+                            schema: '023ceb6d6e4146d99e92171cac9e8d25';
+                            path: 'Query:resolve';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '9c589ec7721f4bc3b8d1534315f9ac7f';
                         key: {
@@ -13669,6 +14443,29 @@ declare global {
                         key: {
                             name: 'x_312987_portal_view_rule';
                             element: 'advanced';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '9ca87243916b4c5e846f4f370902f5d3';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'table';
                         };
                     },
                     {
@@ -14408,6 +15205,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: 'a843728eccc8420ea773fb55adc7622d';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'active';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'a855f1667aaa4e8bac5dc68f02f760f5';
                         key: {
@@ -14968,6 +15788,39 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_form_section';
+                        id: 'af648accaf2141139e3c887aae887e96';
+                        key: {
+                            sys_ui_form: {
+                                id: '94456fe34bc04a8ba2515721fd55c951';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'af8b88d120b24a60919ea06e98246f40';
                         key: {
@@ -15308,6 +16161,29 @@ declare global {
                         key: {
                             logical_table_name: 'x_312987_portal_execution_log';
                             col_name_string: 'correlation_id';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'b532b56ae46c40d687c23705047274f0';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'portals';
                         };
                     },
                     {
@@ -15806,6 +16682,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: 'bc8a233425b0427a88a48ed15d126bc4';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'active';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'bcc41f4e5ae24cfeb53e34714ab6c63b';
                         key: {
@@ -15896,6 +16795,23 @@ declare global {
                                 };
                             };
                             element: 'kind';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list';
+                        id: 'be68f11509c645908fb1921e5136a9a4';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                            element: 'NULL';
+                            relationship: 'NULL';
+                            parent: 'NULL';
                         };
                     },
                     {
@@ -16198,6 +17114,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: 'c10e26bc914240efbc02686ec610d70d';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'NULL';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'ua_table_licensing_config';
                         id: 'c175d4930e6e417db162230344a98191';
                         key: {
@@ -16492,6 +17417,28 @@ declare global {
                             name: 'x_312987_portal_placement';
                             element: 'layout_json';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: 'c69a492a8b124035a6a39b4f91d1de32';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'label';
+                            position: '4';
                         };
                     },
                     {
@@ -17058,6 +18005,17 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_choice';
+                        id: 'cbb2c9c9760d4c0ea7db5e75fb23ab9a';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                            value: 'title';
+                            language: 'en';
+                            dependent_value: 'NULL';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: 'cc1a5802a0d144a7849840217d1f9faf';
                         key: {
@@ -17076,6 +18034,17 @@ declare global {
                                     name: 'x_312987_portal.designer';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_choice';
+                        id: 'cc9fe63eae1e4a0188d06d959cfa2a4a';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                            value: 'pill';
+                            language: 'en';
+                            dependent_value: 'NULL';
                         };
                     },
                     {
@@ -17350,6 +18319,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: 'cfc7ed53c09849dcb58df0f9c66f7fd5';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                        };
+                    },
+                    {
                         table: 'sys_ui_section';
                         id: 'cfde6ccc55e249938a8122a8285015bf';
                         key: {
@@ -17385,6 +18362,13 @@ declare global {
                                 };
                             };
                             sys_domain: 'global';
+                        };
+                    },
+                    {
+                        table: 'ua_table_licensing_config';
+                        id: 'd08518eb9a3c4b08bf70f2f305be3760';
+                        key: {
+                            name: 'x_312987_portal_record_field';
                         };
                     },
                     {
@@ -17703,6 +18687,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'd40f55696daf42a6b136402d31c15bf1';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'field';
+                            position: '3';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: 'd4239df82fb24c87b959c63dfcbe20b2';
                         key: {
@@ -17940,6 +18946,29 @@ declare global {
                             name: 'x_312987_portal_doc';
                             element: 'icon';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'd7bac966c36943798a53161b12bde0b7';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'field';
                         };
                     },
                     {
@@ -19120,6 +20149,19 @@ declare global {
                     },
                     {
                         table: 'sys_security_acl_role';
+                        id: 'e81829f5b04b464bb81233858164ba4f';
+                        key: {
+                            sys_security_acl: '22b5d1b3a76a4ddbbab908bf5f3aa85d';
+                            sys_user_role: {
+                                id: 'aaff259f0aa54d43b45dbce14a6012d1';
+                                key: {
+                                    name: 'x_312987_portal.designer';
+                                };
+                            };
+                        };
+                    },
+                    {
+                        table: 'sys_security_acl_role';
                         id: 'e81d9b1c8bfd492c89cd6c66b7e97a8e';
                         key: {
                             sys_security_acl: 'a7e9b3ad4bac4b538030eadf2f862d25';
@@ -19245,6 +20287,29 @@ declare global {
                                 };
                             };
                             sys_domain: 'global';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'e94f5b38e5a14a25b7f645f7efd4c5bf';
+                        key: {
+                            list_id: {
+                                id: 'be68f11509c645908fb1921e5136a9a4';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'NULL';
+                                };
+                            };
+                            element: 'table';
                         };
                     },
                     {
@@ -19651,6 +20716,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'ee32ca9420734249a3c0b2871389d722';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'portals';
+                            position: '8';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: 'ee34b219436443d3bd3a4611e02cb6a0';
                         key: {
@@ -19686,6 +20773,17 @@ declare global {
                             name: 'x_312987_portal_build';
                             element: 'exports_snapshot';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_choice';
+                        id: 'ee6688dbb45c4dd1ad59eb8e6c22b569';
+                        key: {
+                            name: 'x_312987_portal_record_field';
+                            element: 'slot';
+                            value: 'subtitle';
+                            language: 'en';
+                            dependent_value: 'NULL';
                         };
                     },
                     {
@@ -19989,6 +21087,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'f22f17762add44cb9f900c1c0006a6ec';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.split';
+                            position: '5';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: 'f27f33cb32844dc6a19beb7773a3906d';
                         key: {
@@ -20267,6 +21387,29 @@ declare global {
                             };
                             element: '.end_split';
                             position: '11';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'f5f255d38fc649719b0b9f1b33034f4e';
+                        key: {
+                            list_id: {
+                                id: '4aaf56667bbf4f1fb135193d2d81ef91';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: '627f21eb7a334511a5d0dae5d13e6a50';
+                                    parent: 'x_312987_portal_portal';
+                                };
+                            };
+                            element: 'portals';
                         };
                     },
                     {
@@ -20776,6 +21919,28 @@ declare global {
                                 };
                             };
                             element: 'order';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: 'fe92053e184d41af91579e7f642fcd23';
+                        key: {
+                            sys_ui_section: {
+                                id: '09b02d9faa1c40f29521bc88b9a72365';
+                                key: {
+                                    name: 'x_312987_portal_record_field';
+                                    caption: 'Record header field';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'table';
+                            position: '1';
                         };
                     },
                     {

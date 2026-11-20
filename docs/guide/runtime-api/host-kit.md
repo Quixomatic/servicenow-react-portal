@@ -52,6 +52,7 @@ The host bundle ships a set of generic UI building blocks and libraries, importa
 | `components:image` | `Image` (`src`, `alt`, `aspectRatio`, `fit`, `fallback`, `fallbackSrc`, `placeholder`, `loading`, `onStatusChange`), `useImageStatus(src)` |
 | `components:date-range-picker` | `DateRangePicker` (`value` / `onChange` as `{ start, end }`, `presets`, `placeholder`, `clearable`, `min`, `max`, `isDisabled`, `locale`), `DateRangeCalendar`, `defaultRangePresets(today?)`, `formatRange`, `normalizeRange`, `rangeLength` (below) |
 | `components:code-editor` | `CodeEditor` (`value`, `onChange`, `onBlur(text, { changed })`, `onSubmit`, `language`, `readOnly`, `disabled`, `invalid`, `placeholder`, `lineNumbers`, `tabSize`, `minLines`, `maxHeight`), `useCodeEditor`, `loadCodeEngine`, `isCodeEngineLoaded`, `codeLanguageForType` (below) |
+| `components:chart` | shadcn chart: `ChartContainer` (`config`, children or `(R) => …` with the Recharts module), `ChartTooltip`, `ChartTooltipContent` (+ `valueFormatter`), `ChartLegend`, `ChartLegendContent`, `ChartStyle`, `useChart`; blocks `BarChart`, `LineChart`, `AreaChart`, `PieChart`, `RadialChart`, `Sparkline`, `Chart` (`type`); accessibility `ChartFigure`, `ChartDataTable`, `ChartViewToggle`, `describeChart`; engine `useRecharts`, `useChartEngine`, `loadChartEngine`, `isChartEngineLoaded`; `formatNumber`, `formatDuration`, `chartColor`. Recharts 3 is the lazily loaded portal-charts chunk ([Charts and dashboards](../primitives/charts.md)) |
 
 `components:tabs` gets roving focus with arrow keys, Home / End, `aria-selected`, `aria-controls` / `aria-labelledby` and `data-active` on the selected tab from Base UI.
 
@@ -286,6 +287,7 @@ import { RichText, sanitizeHtml } from 'components:rich-text'
 | `utilities:react-query` | TanStack Query v5, the host's copy: hooks share the page's `QueryClient` |
 | `utilities:react-table` | TanStack Table v8: headless table state (`useReactTable`, `getCoreRowModel`, `flexRender`, `createColumnHelper`, sorting, selection, visibility, ordering, sizing, pinning). Use `manualSorting` / `manualPagination` / `manualFiltering` for server-side lists |
 | `utilities:react-virtual` | TanStack Virtual v3 (`useVirtualizer`, `useWindowVirtualizer`) |
+| `utilities:dnd-kit` | dnd-kit: `@dnd-kit/core`, `@dnd-kit/sortable` and `CSS` in one module (see [Work views](../primitives/work-views.md#drag-and-drop-utilitiesdnd-kit)) |
 | `utilities:cn` | The `cn` class-name helper |
 
 `components:app/data-table` (a record primitive) builds the record list on these. See [Lists](../primitives/lists.md).

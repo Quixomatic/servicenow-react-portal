@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.20.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.21.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     var T = 'x_312987_portal_';
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
@@ -1019,6 +1019,10 @@
                                 { page: 'attachments', label: 'Attachments', icon: 'paperclip' },
                                 // Design-system primitives demo (app/primitives-demo).
                                 { page: 'primitives', label: 'Primitives', icon: 'component' },
+                                // Work views (wave 4b): app/record-calendar, app/record-board, app/sla-card + app/timeline-card.
+                                { page: 'calendar', label: 'Calendar', icon: 'calendar-days' },
+                                { page: 'board', label: 'Board', icon: 'square-kanban' },
+                                { page: 'work-record', label: 'Timeline & SLA', icon: 'timer' },
                             ],
                         },
                         {
@@ -1607,6 +1611,135 @@
                 },
                 // Design-system primitives (host kit accordion, alert, avatar, pill, … + app/code-field, app/date-range-field).
                 { route: 'primitives', name: 'Primitives', widgets: [{ c: 'primitives-demo', options: {} }] },
+                // Work views (wave 4b). Calendar: the change schedule (drag to reschedule; the demo data is from
+                // May 2024, so it opens there) and this week's incidents by opened date (read-only).
+                {
+                    route: 'calendar',
+                    name: 'Calendar',
+                    widgets: [
+                        {
+                            c: 'record-calendar',
+                            options: {
+                                title: 'Change schedule',
+                                description:
+                                    'app/calendar-view on change_request (start / end date, coloured by type). Drag a change to another day or time slot, or focus it and press Space, then the arrow keys and Space. The move saves through the form (UI policies, business rules, ACLs) with Undo.',
+                                table: 'change_request',
+                                startField: 'start_date',
+                                endField: 'end_date',
+                                titleField: 'short_description',
+                                colorField: 'type',
+                                view: 'month',
+                                date: '2024-05-01',
+                                reschedule: true,
+                                recordPage: 'form',
+                            },
+                        },
+                        {
+                            c: 'record-calendar',
+                            options: {
+                                title: 'Incidents opened',
+                                description:
+                                    'Active P1 to P3 incidents by opened date, coloured by priority (read-only).',
+                                table: 'incident',
+                                query: 'active=true^priorityIN1,2,3',
+                                startField: 'opened_at',
+                                endField: '',
+                                titleField: 'short_description',
+                                colorField: 'priority',
+                                view: 'week',
+                                reschedule: false,
+                                recordPage: 'form',
+                            },
+                        },
+                    ],
+                },
+                // Board: active incidents by state (app/record-board). In Progress has a WIP limit of 25; moving a
+                // card to Resolved asks for the resolution fields (the form's UI policies make them mandatory).
+                {
+                    route: 'board',
+                    name: 'Board',
+                    contentWidth: 'full',
+                    widgets: [
+                        {
+                            c: 'record-board',
+                            options: {
+                                title: 'Incident board',
+                                description:
+                                    'app/visual-board: active incidents by state. Drag a card, use its Move to menu, or focus its title and press Space, the arrow keys, Space. Moves save through the form with Undo.',
+                                table: 'incident',
+                                field: 'state',
+                                query: 'active=true',
+                                lanes: '1,2,3,6',
+                                wip: '2:25',
+                                orderBy: '-sys_updated_on',
+                                perLane: 15,
+                                recordPage: 'form',
+                            },
+                        },
+                    ],
+                },
+                // Timeline & SLA: a test incident (INC0020990, "safe to delete", with a running P3 SLA) as a form,
+                // its SLAs ticking live (app/sla-card) and its history (app/timeline-card); then the change
+                // schedule as a records timeline.
+                {
+                    route: 'work-record',
+                    name: 'Timeline & SLA',
+                    widgets: [
+                        {
+                            c: 'columns',
+                            options: {
+                                tracks: [{ size: 'minmax(0, 1.6fr)' }, { size: 'minmax(0, 1fr)' }],
+                                mobile: { tracks: [{ size: 'minmax(0, 1fr)' }] },
+                            },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'record-form',
+                                        options: {
+                                            table: 'incident',
+                                            sysId: 'a0dea36f832cd310e8fbc9a6feaad3e9',
+                                            picker: false,
+                                            showViews: false,
+                                            headerPlacement: 'inline',
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'sla-card',
+                                        options: { title: 'SLAs', sysId: 'a0dea36f832cd310e8fbc9a6feaad3e9' },
+                                    },
+                                    {
+                                        c: 'timeline-card',
+                                        options: {
+                                            title: 'History',
+                                            mode: 'history',
+                                            table: 'incident',
+                                            sysId: 'a0dea36f832cd310e8fbc9a6feaad3e9',
+                                            limit: 30,
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            c: 'timeline-card',
+                            options: {
+                                title: 'Change milestones',
+                                mode: 'records',
+                                table: 'change_request',
+                                query: 'start_dateISNOTEMPTY',
+                                dateField: 'start_date',
+                                titleField: 'short_description',
+                                toneField: 'state',
+                                icon: 'flag',
+                                order: 'desc',
+                                limit: 12,
+                                recordPage: 'form',
+                            },
+                        },
+                    ],
+                },
                 // Generic record list (app/list-view) for any table, full bleed: explicit URL params table /
                 // query / view (no table → incident); search / sort / page ride in q. The toolbar goes into
                 // the sub-header slots and the table is the only scroller. Rows open the form page.
@@ -1996,6 +2129,7 @@
                     label: 'Workspace',
                     children: [
                         { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
+                        { label: 'Dashboards', to: 'dashboards', icon: 'chart-column', tint: 'chart-5' },
                         { label: 'Incidents', to: 'incidents', icon: 'ticket', tint: 'chart-2' },
                         { label: 'Incident list', to: 'incidents-list', icon: 'list', tint: 'chart-3' },
                         { label: 'Record form', to: 'form', icon: 'file-text', tint: 'chart-4' },
@@ -2024,6 +2158,7 @@
                             label: 'Workspace',
                             children: [
                                 { page: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+                                { page: 'dashboards', label: 'Dashboards', icon: 'chart-column' },
                                 { page: 'incidents', label: 'Incidents', icon: 'ticket' },
                                 { page: 'incidents-list', label: 'Incident list', icon: 'list' },
                                 { page: 'form', label: 'Record form', icon: 'file-text' },
@@ -2072,6 +2207,169 @@
                 { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
             ],
             pages: [
+                // Dashboards (Wave 4a): KPI tiles (app/score-card) and data-bound charts (app/chart-card) on
+                // utilities:app/analytics; every bar / slice / point / tile opens the incident list filtered to it.
+                // The P1–P4 filters leave out the instance's thousands of generated P5 "Inquiry" records.
+                {
+                    route: 'dashboards',
+                    name: 'Dashboards',
+                    widgets: [
+                        {
+                            c: 'grid',
+                            options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1rem', itemSpan: 3 },
+                            children: {
+                                items: [
+                                    {
+                                        c: 'score-card',
+                                        layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            label: 'Opened · last 7 days',
+                                            table: 'incident',
+                                            dateField: 'opened_at',
+                                            period: '7',
+                                            sparklineInterval: 'day',
+                                            sparklinePeriods: 14,
+                                            icon: 'ticket',
+                                            color: 'chart-1',
+                                            lowerIsBetter: true,
+                                            listPage: 'incidents-list',
+                                            live: true,
+                                        },
+                                    },
+                                    {
+                                        c: 'score-card',
+                                        layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            label: 'Open P1 incidents',
+                                            table: 'incident',
+                                            query: 'active=true^priority=1',
+                                            target: 10,
+                                            lowerIsBetter: true,
+                                            icon: 'bell',
+                                            listPage: 'incidents-list',
+                                            live: true,
+                                        },
+                                    },
+                                    {
+                                        c: 'score-card',
+                                        layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            label: 'Mean resolve time',
+                                            table: 'incident',
+                                            query: 'resolved_atISNOTEMPTY',
+                                            aggregate: 'avg',
+                                            field: 'calendar_stc',
+                                            format: 'duration',
+                                            lowerIsBetter: true,
+                                            icon: 'clock',
+                                            listPage: 'incidents-list',
+                                        },
+                                    },
+                                    {
+                                        c: 'score-card',
+                                        layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            label: 'Opened this month',
+                                            table: 'incident',
+                                            dateField: 'opened_at',
+                                            period: 'month',
+                                            sparklineInterval: 'week',
+                                            sparklinePeriods: 12,
+                                            sparklineType: 'bar',
+                                            target: 200,
+                                            icon: 'activity',
+                                            color: 'chart-3',
+                                            listPage: 'incidents-list',
+                                        },
+                                    },
+                                    {
+                                        c: 'chart-card',
+                                        layout: { colSpan: 8, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'Incidents opened per week',
+                                            description: 'Last 12 weeks, all priorities',
+                                            table: 'incident',
+                                            type: 'area',
+                                            dateField: 'opened_at',
+                                            interval: 'week',
+                                            periods: 12,
+                                            valueLabel: 'Opened',
+                                            glow: true,
+                                            listPage: 'incidents-list',
+                                            live: true,
+                                        },
+                                    },
+                                    {
+                                        c: 'chart-card',
+                                        layout: { colSpan: 4, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'Open by state',
+                                            description: 'P1–P4',
+                                            table: 'incident',
+                                            query: 'active=true^priority!=5',
+                                            type: 'donut',
+                                            groupBy: 'state',
+                                            listPage: 'incidents-list',
+                                            live: true,
+                                        },
+                                    },
+                                    {
+                                        c: 'chart-card',
+                                        layout: { colSpan: 6, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'Open by priority',
+                                            description: 'P1–P4, split by state',
+                                            table: 'incident',
+                                            query: 'active=true^priority!=5',
+                                            type: 'bar-stacked',
+                                            groupBy: 'priority',
+                                            stackBy: 'state',
+                                            sort: 'label',
+                                            listPage: 'incidents-list',
+                                            live: true,
+                                        },
+                                    },
+                                    {
+                                        c: 'chart-card',
+                                        layout: { colSpan: 6, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'Mean resolve time by priority',
+                                            description: 'Resolved incidents (calendar time)',
+                                            table: 'incident',
+                                            query: 'resolved_atISNOTEMPTY',
+                                            type: 'bar-horizontal',
+                                            groupBy: 'priority',
+                                            aggregate: 'avg',
+                                            field: 'calendar_stc',
+                                            format: 'duration',
+                                            valueLabel: 'Mean resolve time',
+                                            sort: 'label',
+                                            variant: 'gradient',
+                                            showLabels: true,
+                                            listPage: 'incidents-list',
+                                        },
+                                    },
+                                    {
+                                        c: 'chart-card',
+                                        layout: { colSpan: 12, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
+                                        options: {
+                                            title: 'Open incidents by assignment group',
+                                            description: 'Top 5, the rest as Other',
+                                            table: 'incident',
+                                            query: 'active=true^assignment_groupISNOTEMPTY',
+                                            type: 'bar',
+                                            groupBy: 'assignment_group',
+                                            limit: 5,
+                                            variant: 'hatched',
+                                            height: 220,
+                                            listPage: 'incidents-list',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
                 {
                     route: 'overview',
                     name: 'Overview',
@@ -2129,6 +2427,8 @@
                                 orderBy: '-number',
                                 pageSize: 50,
                                 liveUpdates: true,
+                                // Classic server-side list UI actions (context menu / list choice), checked per row by the platform.
+                                classicActions: true,
                             },
                         },
                     ],

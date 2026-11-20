@@ -32,6 +32,12 @@ Hooks (page cache): `useList`, `useInfiniteList`, `useCrumbs`, `useFilterFields`
 
 Paging is the platform's own (verified 2026-11-20): **`offset` counts groups** and the server returns up to 20 groups per request; **`limit` is the number of rows per group**. Dot-walked columns group too (`GROUPBYcaller_id.department`).
 
+> **Warning:** A grouped query is an aggregate. Users without permission to aggregate the table can't group it.
+>
+> - Tested 2026-11-20 with a roleless user on `incident`: every `^GROUPBY` failed, whatever the columns, field or filter. `getListLayout` returned "Method invocation failure for: …ListLayout::getLayoutQuery". The Aggregate API answered "No permission to read and aggregate table 'incident'". Plain lists and counts worked.
+> - RecordList then shows "This list can't be grouped for you right now" with a **Show without grouping** button.
+> - To let such users group, grant the aggregate permission on the table in the platform's ACLs. The portal never works around it.
+
 ### Saved filters (`sys_filter`)
 
 Saved filters use the classic list's table, read and written as the user, so the baseline ACLs decide (checked on dev189813):

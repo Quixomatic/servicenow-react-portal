@@ -180,6 +180,10 @@ async function runClassicListAction(action: RpAction, ctx: ActionRunContext): Pr
                 count > 1 ? { type: n.type, text: `${n.text} (×${count})` } : n
             )
         );
+        const done = perRecord.filter((r) => r.ok).length;
+        // Classic list actions often answer nothing (UI16 just reloads the list): confirm what ran.
+        if (done && !notifications.length)
+            toast.success(`“${action.label}” ran on ${done} record${done > 1 ? 's' : ''}.`);
         const skipped = perRecord.filter((r) => r.message === 'Not allowed on this record').length;
         if (skipped)
             toast.warning(

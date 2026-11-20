@@ -1,0 +1,14 @@
+{
+    "type": "object",
+    "properties": {
+        "title": { "type": "string", "title": "Title", "default": "SLAs" },
+        "sysId": {
+            "type": "string",
+            "title": "Task sys_id",
+            "description": "Empty = the route / URL param (sys_id)",
+            "default": ""
+        },
+        "activeOnly": { "type": "boolean", "title": "Active SLAs only", "default": false },
+        "variant": { "type": "string", "title": "Presentation", "enum": ["card", "compact"], "default": "card" }
+    }
+}

@@ -1,0 +1,6 @@
+{
+    "name": "Score Card",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "table": "incident", "label": "Open incidents", "query": "active=true", "aggregate": "count" }
+}

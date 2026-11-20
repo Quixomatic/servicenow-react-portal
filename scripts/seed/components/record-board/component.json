@@ -1,0 +1,23 @@
+{
+    "name": "Record Board",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "title": "",
+        "description": "",
+        "table": "incident",
+        "field": "state",
+        "query": "active=true",
+        "lanes": "",
+        "laneQuery": "",
+        "hideEmpty": false,
+        "emptyLabel": "",
+        "wip": "",
+        "cardFields": "",
+        "orderBy": "-sys_updated_on",
+        "perLane": 20,
+        "movable": true,
+        "search": true,
+        "recordPage": "form"
+    }
+}

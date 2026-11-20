@@ -53,7 +53,7 @@ export default function Greeting({ options = {} }: { options?: { greeting?: stri
 | `components:<ns>/<key>`, `utilities:<ns>/<key>` | Other component records ([record imports](../concepts/record-imports.md)) |
 | `./path` | Extra files of this component |
 
-npm packages can't be imported. The data libraries the platform needs are in the host kit: TanStack Query (`utilities:react-query`), Table (`utilities:react-table`) and Virtual (`utilities:react-virtual`), Lucide icons (`components:icon`) and `cn` (`utilities:cn`).
+npm packages can't be imported. The data libraries the platform needs are in the host kit: TanStack Query (`utilities:react-query`), Table (`utilities:react-table`) and Virtual (`utilities:react-virtual`), dnd-kit drag and drop (`utilities:dnd-kit`), Lucide icons (`components:icon`) and `cn` (`utilities:cn`).
 
 > **Note:** JSX compiles to the classic runtime (`React.createElement`). The compiler injects `React` into every module, so you don't need `import React from 'react'`.
 

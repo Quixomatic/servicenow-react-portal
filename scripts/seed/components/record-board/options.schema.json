@@ -1,0 +1,61 @@
+{
+    "type": "object",
+    "properties": {
+        "title": { "type": "string", "title": "Title", "default": "" },
+        "description": { "type": "string", "title": "Description", "default": "" },
+        "table": { "type": "string", "title": "Table", "default": "incident" },
+        "field": {
+            "type": "string",
+            "title": "Group by",
+            "description": "Choice or reference field: one lane per value",
+            "default": "state"
+        },
+        "query": { "type": "string", "title": "Query", "description": "Encoded query", "default": "active=true" },
+        "lanes": {
+            "type": "string",
+            "title": "Lanes",
+            "description": "Comma list of values to show, in order; (empty) = the empty lane. Empty = all",
+            "default": ""
+        },
+        "laneQuery": {
+            "type": "string",
+            "title": "Lane query",
+            "description": "Reference fields: lanes are the referenced records matching this query",
+            "default": ""
+        },
+        "hideEmpty": { "type": "boolean", "title": "Hide empty choice lanes", "default": false },
+        "emptyLabel": { "type": "string", "title": "Empty lane label", "description": "Default: None", "default": "" },
+        "wip": {
+            "type": "string",
+            "title": "WIP limits",
+            "description": "value:limit, comma separated (2:10,3:5)",
+            "default": ""
+        },
+        "cardFields": {
+            "type": "string",
+            "title": "Card fields",
+            "description": "Comma list (empty = app/record-card defaults)",
+            "default": ""
+        },
+        "orderBy": {
+            "type": "string",
+            "title": "Card order",
+            "description": "Field; - prefix = descending",
+            "default": "-sys_updated_on"
+        },
+        "perLane": { "type": "number", "title": "Cards per page", "default": 20 },
+        "movable": {
+            "type": "boolean",
+            "title": "Drag between lanes",
+            "description": "Writes the field as the user (form save, Undo toast)",
+            "default": true
+        },
+        "search": { "type": "boolean", "title": "Search box", "default": true },
+        "recordPage": {
+            "type": "string",
+            "title": "Record page",
+            "description": "Portal page cards open on (table / sys-id); empty = the classic form",
+            "default": "form"
+        }
+    }
+}

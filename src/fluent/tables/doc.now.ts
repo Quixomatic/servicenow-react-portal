@@ -101,7 +101,13 @@ export const x_312987_portal_doc = Table({
         }),
     },
     // Paths are unique per collection (replaces the old table-wide rp_doc_path).
-    index: [{ name: 'rp_doc_collection_path', element: ['collection', 'path'], unique: true }],
+    // rp_doc_path stays declared, now NON-unique: the platform never drops an index on upgrade, so
+    // removing the declaration left v1.19's unique DB index on `path` in place (it blocked a second
+    // collection from reusing a path such as `index`). Declaring it non-unique lets the install alter it.
+    index: [
+        { name: 'rp_doc_collection_path', element: ['collection', 'path'], unique: true },
+        { name: 'rp_doc_path', element: 'path', unique: false },
+    ],
 });
 
 Form({

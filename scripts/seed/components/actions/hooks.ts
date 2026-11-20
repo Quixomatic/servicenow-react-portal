@@ -175,7 +175,7 @@ export function useActions(context: ActionsContext, filter: ActionFilterOptions 
 
     const all = useMemo(() => transformActions(raw, model), [raw, model]);
     const actions = useMemo(
-        () => filterActions(all, filter),
+        () => dedupeClassic(filterActions(all, filter)),
         [all, filter.actions, String(filter.include || ''), String(filter.exclude || ''), filter.showUnsupported]
     );
     const q = isForm ? formQuery : listQuery;
@@ -187,6 +187,19 @@ export function useActions(context: ActionsContext, filter: ActionFilterOptions 
         isLoading: enabled && (q.isLoading || (classicOn && classicQuery.isLoading)),
         error: (q.error as Error) || null,
     };
+}
+
+/**
+ * A classic list action with the same label as a shown declarative one (Assign to me) is the same
+ * action twice: the declarative one wins, as in Workspace.
+ */
+function dedupeClassic(actions: RpAction[]): RpAction[] {
+    const labels = new Set(
+        actions
+            .filter((a) => a.source === 'declarative')
+            .map((a) => a.label.replace(/\s*\(\d*\)\s*$/, '').toLowerCase())
+    );
+    return actions.filter((a) => a.group !== 'classic' || !labels.has(a.label.toLowerCase()));
 }
 
 /**

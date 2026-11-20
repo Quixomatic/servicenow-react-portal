@@ -13,7 +13,9 @@
  *                                         statuses / levels as highlighted values, booleans, dates
  *   titleFieldFor(meta)                   number → name → short_description → title → user_name
  *
- * Defaults (no configuration), by table: incident caller, priority, state, assigned to, updated;
+ * Configured: the record header fields (x_312987_portal_record_field, see app/record-header) give
+ * the title, subtitle and key fields (the pill rows, then the ribbon rows) when those slots have rows.
+ * Built-in defaults otherwise (SUMMARY_DEFAULTS), by table: incident caller, priority, state, assigned to, updated;
  * RITM requested for, item, stage, due date; request, catalog task, problem, change and knowledge
  * have their own; any other table with a number gets assigned to, priority, state, updated, else
  * updated by / updated. Read as the user (GlideRecord_Query, field ACLs): fields the dictionary
@@ -23,7 +25,8 @@ import { useMemo } from 'react';
 import { useGraphQL, useTableMeta, useRecordValues } from 'utilities:app/graphql';
 import type { FieldMeta, HighlightStyle } from 'utilities:app/graphql';
 import { HighlightedValue } from 'components:app/highlighted-value';
-import { useRecordHeaderData } from 'components:app/record-header';
+import { useRecordHeaderData, configuredSlot } from 'components:app/record-header';
+import type { ConfiguredField } from 'components:app/record-header';
 import { ContactCard } from 'components:app/contact-card';
 import { Popover, PopoverTrigger, PopoverContent } from 'components:popover';
 import { Button } from 'components:button';
@@ -97,46 +100,90 @@ export type SummaryItem = {
     highlight?: HighlightStyle;
 };
 
-/** One record's title, subtitle and key fields, read as the user. */
+/**
+ * One record's title, subtitle and key fields, read as the user.
+ *
+ * Which fields: `options.fields`, else the record header field rows (app/record-header: title and
+ * subtitle slots; key fields = the pill rows then the ribbon rows, when the ribbon slot is
+ * configured), else the built-in defaults (titleFieldFor, the short description under a number,
+ * summaryFieldsFor). Configured fields arrive with their values in the header's one request; only
+ * the unconfigured parts read table metadata and values.
+ */
 export function useRecordSummary(
     table: string | undefined,
     sysId: string | undefined,
     options: { fields?: string[]; enabled?: boolean; highlights?: Record<string, HighlightStyle> } = {}
 ) {
-    const meta = useTableMeta(table, { enabled: options.enabled !== false });
+    const enabled = options.enabled !== false;
+    const header = useRecordHeaderData(table, sysId, { enabled });
+    const ready = header.isFetched || header.isError || !enabled;
+    const data = header.data || null;
+    const cTitle = configuredSlot(data, 'title');
+    const cSub = configuredSlot(data, 'subtitle');
+    const cRibbon = options.fields ? null : configuredSlot(data, 'ribbon');
+    const cItems: ConfiguredField[] | null = cRibbon
+        ? (configuredSlot(data, 'pill') || [])
+              .concat(cRibbon)
+              .filter((c, i, all) => all.findIndex((o) => o.field === c.field) === i)
+        : null;
+    const needMeta = enabled && ready && (!cTitle || !cSub || !cItems);
+    const meta = useTableMeta(table, { enabled: needMeta });
     const m = meta.data || undefined;
     const fields = useMemo(
-        () => (options.fields ? options.fields.filter((f) => readable(m, f)) : summaryFieldsFor(table || '', m)),
-        [m, table, (options.fields || []).join(',')]
+        () =>
+            cItems
+                ? []
+                : options.fields
+                  ? options.fields.filter((f) => readable(m, f))
+                  : summaryFieldsFor(table || '', m),
+        [m, table, !!cItems, (options.fields || []).join(',')]
     );
-    const titleField = titleFieldFor(m);
-    const subField = titleField === 'number' && readable(m, 'short_description') ? 'short_description' : '';
+    const titleField = cTitle ? '' : titleFieldFor(m);
+    const effectiveTitle = cTitle ? (cTitle[0] ? cTitle[0].field : '') : titleField;
+    const subField = cSub
+        ? ''
+        : effectiveTitle === 'number' && readable(m, 'short_description')
+          ? 'short_description'
+          : '';
     const all = Array.from(new Set([titleField, subField].concat(fields).filter(Boolean)));
-    const values = useRecordValues(table, sysId, all, { enabled: !!m && options.enabled !== false && all.length > 0 });
+    const values = useRecordValues(table, sysId, all, { enabled: !!m && needMeta && all.length > 0 });
     const v = values.data || null;
     // Platform highlight colours for the header's fields (headerItems), then the caller's styles.
-    const header = useRecordHeaderData(table, sysId, { enabled: options.enabled !== false });
-    const hl = Object.assign({}, header.data ? header.data.highlights : {}, options.highlights || {});
-    const items: SummaryItem[] = v
-        ? fields.map((f) => ({
-              field: f,
-              label: (m && m[f] && m[f].label) || f,
-              type: (m && m[f] && (m[f].type || m[f].internalType)) || 'string',
-              value: v[f] ? v[f].value : '',
-              displayValue: v[f] ? v[f].displayValue : '',
-              refTable: m && m[f] && m[f].reference ? m[f].reference!.table : undefined,
-              highlight: hl[f],
+    const hl = Object.assign({}, data ? data.highlights : {}, options.highlights || {});
+    const items: SummaryItem[] = cItems
+        ? cItems.map((c) => ({
+              field: c.field,
+              label: c.label,
+              type: c.type,
+              value: c.value,
+              displayValue: c.displayValue,
+              refTable: c.refTable || undefined,
+              highlight: hl[c.field],
           }))
-        : [];
+        : v
+          ? fields.map((f) => ({
+                field: f,
+                label: (m && m[f] && m[f].label) || f,
+                type: (m && m[f] && (m[f].type || m[f].internalType)) || 'string',
+                value: v[f] ? v[f].value : '',
+                displayValue: v[f] ? v[f].displayValue : '',
+                refTable: m && m[f] && m[f].reference ? m[f].reference!.table : undefined,
+                highlight: hl[f],
+            }))
+          : [];
     const dv = (f: string) => (v && f && v[f] ? v[f].displayValue || v[f].value : '');
+    const cv = (c: ConfiguredField[] | null) => (c && c[0] ? c[0].displayValue || c[0].value : '');
+    const usesValues = needMeta && all.length > 0;
     return {
-        title: dv(titleField),
-        subtitle: dv(subField),
+        title: cTitle ? cv(cTitle) : dv(titleField),
+        subtitle: cSub ? cv(cSub) : dv(subField),
         tableLabel: '',
         items,
-        isLoading: meta.isLoading || values.isLoading,
+        isLoading: !ready || (needMeta && (meta.isLoading || (usesValues && values.isLoading))),
         error: (meta.error as Error | null) || (values.error as Error | null) || null,
-        notFound: !!m && !values.isLoading && !values.error && values.isFetched && !v,
+        notFound: usesValues
+            ? !!m && !values.isLoading && !values.error && values.isFetched && !v
+            : ready && !!data && !!data.config && !cv(cTitle) && !data.displayValue && !items.some((i) => i.value),
     };
 }
 

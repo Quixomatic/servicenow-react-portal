@@ -1,0 +1,72 @@
+{
+    "type": "object",
+    "properties": {
+        "title": { "type": "string", "title": "Title", "default": "" },
+        "description": { "type": "string", "title": "Description", "default": "" },
+        "table": { "type": "string", "title": "Table", "default": "change_request" },
+        "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "Encoded query ANDed into every range (no ^NQ), e.g. active=true",
+            "default": ""
+        },
+        "startField": {
+            "type": "string",
+            "title": "Start field",
+            "description": "Date or date-time field that places the event",
+            "default": "start_date"
+        },
+        "endField": {
+            "type": "string",
+            "title": "End field",
+            "description": "Optional; empty = one-hour events (one day for dates)",
+            "default": "end_date"
+        },
+        "titleField": { "type": "string", "title": "Title field", "default": "short_description" },
+        "colorField": {
+            "type": "string",
+            "title": "Colour by",
+            "description": "Field whose value colours the events (state / priority use status colours)",
+            "default": "type"
+        },
+        "view": {
+            "type": "string",
+            "title": "Starting view",
+            "enum": ["month", "week", "day", "agenda"],
+            "default": "month"
+        },
+        "views": {
+            "type": "string",
+            "title": "Views offered",
+            "description": "Comma list (empty = month, week, day, agenda)",
+            "default": ""
+        },
+        "date": {
+            "type": "string",
+            "title": "Starting date",
+            "description": "YYYY-MM-DD; empty = today",
+            "default": ""
+        },
+        "reschedule": {
+            "type": "boolean",
+            "title": "Drag to reschedule",
+            "description": "Writes the start / end fields as the user (form save, Undo toast)",
+            "default": false
+        },
+        "recordPage": {
+            "type": "string",
+            "title": "Record page",
+            "description": "Portal page events open on (table / sys-id); empty = the classic form",
+            "default": "form"
+        },
+        "limit": { "type": "number", "title": "Most records per range", "default": 500 },
+        "height": { "type": "number", "title": "Week / day grid height (px)", "default": 600 },
+        "agendaDays": { "type": "number", "title": "Agenda days", "default": 30 },
+        "cardFields": {
+            "type": "string",
+            "title": "Card fields",
+            "description": "Comma list for the event cards (empty = app/record-card defaults)",
+            "default": ""
+        }
+    }
+}

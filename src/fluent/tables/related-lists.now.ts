@@ -152,6 +152,36 @@ List({
     columns: ['user_criteria'],
 });
 
+// Record header fields that apply to the portal: rows listing it, and all-portal rows (portals is a list).
+export const portalRecordFieldsRel = Record({
+    $id: Now.ID['rel-portal-record-fields'],
+    table: 'sys_relationship',
+    data: {
+        name: 'Record Header Fields',
+        advanced: false,
+        simple_reference: false,
+        basic_apply_to: 'x_312987_portal_portal',
+        basic_query_from: 'x_312987_portal_record_field',
+        query_with: `(function refineQuery(current, parent) {
+    current.addQuery('portals', 'CONTAINS', parent.getUniqueValue()).addOrCondition('portals', 'ISEMPTY', '');
+})(current, parent);`,
+    },
+});
+
+Record({
+    $id: Now.ID['related-list-portal-record-fields'],
+    table: 'sys_ui_related_list_entry',
+    data: { list_id: portalRelatedLists, position: 6, related_list: `REL:${portalRecordFieldsRel.$id}` },
+});
+
+List({
+    table: 'x_312987_portal_record_field',
+    view: default_view,
+    parent: 'x_312987_portal_portal',
+    relationship: portalRecordFieldsRel,
+    columns: ['table', 'slot', 'field', 'label', 'order', 'portals', 'active'],
+});
+
 /* ---- x_312987_portal_page ---- */
 
 export const pageRelatedLists = Record({
