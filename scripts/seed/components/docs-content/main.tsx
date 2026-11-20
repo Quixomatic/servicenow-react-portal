@@ -25,7 +25,15 @@ import { cn } from 'utilities:cn';
 import { Markdown, parseMarkdown, tokensToText, renderInline } from 'utilities:app/markdown';
 import type { ParsedMarkdown, Token } from 'utilities:app/markdown';
 import { Highlight, normalizeLang } from 'utilities:app/code-highlight';
-import { resolveDocHref, docRoute, docUrl, scrollToHeading, usePrefetchDoc, requestHeading } from 'utilities:app/docs';
+import {
+    resolveDocHref,
+    docRoute,
+    docUrl,
+    scrollToHeading,
+    usePrefetchDoc,
+    requestHeading,
+    useDocsCollection,
+} from 'utilities:app/docs';
 import ServerClock from 'components:app/server-clock';
 
 /** rp-embed allow-list: widget unique id → imported widget (an embed wrapper). */
@@ -256,6 +264,7 @@ function Heading({ id, depth, children }: { id: string; depth: number; children:
     const Tag = ('h' + depth) as any;
     if (depth < 2 || depth > 4 || !id) return <Tag id={id}>{children}</Tag>;
     const path = loc && loc.page ? loc.page : 'index';
+    const coll = useDocsCollection();
     return (
         <Tag id={id} className="rp-docs-heading group/heading">
             <a
@@ -271,7 +280,7 @@ function Heading({ id, depth, children }: { id: string; depth: number; children:
             <button
                 type="button"
                 aria-label={done ? 'Copied anchor link' : 'Copy anchor link'}
-                onClick={() => copy(docUrl(path, id))}
+                onClick={() => copy(docUrl(path, id, coll.q))}
                 className="not-prose inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/heading:opacity-100 hover:bg-accent focus-visible:opacity-100"
             >
                 <Icon name={done ? 'copy-check' : 'link'} className="size-3.5" />
@@ -292,12 +301,16 @@ function DocLink({
     path: string;
 }) {
     const prefetch = usePrefetchDoc();
+    const coll = useDocsCollection();
     const target = resolveDocHref(href, path);
     if (target.kind === 'doc') {
+        // Relative .md links stay in the current collection.
+        const q: Record<string, string> = { ...coll.q };
+        if (target.hash) q.h = target.hash;
         return (
             <Link
                 to={docRoute(target.path)}
-                q={target.hash ? { h: target.hash } : undefined}
+                q={Object.keys(q).length ? q : undefined}
                 title={title}
                 onMouseEnter={() => prefetch(target.path)}
                 onFocus={() => prefetch(target.path)}

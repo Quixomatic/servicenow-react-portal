@@ -35,6 +35,23 @@ The host bundle ships a set of generic UI building blocks and libraries, importa
 | `components:skeleton` | `Skeleton`: a pulsing placeholder block, sized with classes (`h-4 w-32`, `size-9 rounded-lg`) |
 | `components:empty` | `Empty`, `EmptyHeader`, `EmptyMedia` (`variant`: default, icon), `EmptyTitle`, `EmptyDescription`, `EmptyContent`, `emptyMediaVariants`: shadcn's empty state (no data, no results, no access). Sizes with its container, not the viewport |
 | `components:kbd` | `Kbd`, `KbdGroup`: keyboard key hints (`<Kbd>/</Kbd>`, `<KbdGroup><Kbd>Ctrl</Kbd><Kbd>K</Kbd></KbdGroup>`) |
+| `components:avatar` | `Avatar` (`size`: xs, sm, default, lg, xl), `AvatarImage`, `AvatarFallback`, `AvatarBadge` (`status`: online, away, busy, offline; or an icon child), `AvatarGroup` (`max`, `size`, `renderCount`), `AvatarGroupCount`, `UserAvatar` (`name`, `src`, `initials`, `status`, `size`, `labelled`), `initialsOf`, `splitOverflow`, `avatarVariants` (below) |
+| `components:pill` | `Pill` (`variant`: default, secondary, outline, primary, destructive; `size`: sm, default, lg; `icon`, `onRemove`, `removeLabel`, `disabled`), `PillList` (`max`, `overflow`: expand, popover, count; `expanded` / `defaultExpanded` / `onExpandedChange`, `moreLabel`, `lessLabel`, `wrap`), `pillVariants` (below) |
+| `components:alert` | `Alert` (`variant`: default, info, success, warning, destructive (aliases error, danger), tip; `title`, `description`, `icon`, `action`, `onDismiss`, `dismissLabel`, `live`), `AlertTitle`, `AlertDescription`, `AlertAction`, `alertVariants`, `alertVariantOf` (below) |
+| `components:accordion` | `Accordion` (`value` / `defaultValue` / `onValueChange` as arrays, `multiple`, `variant`: default, card), `AccordionItem` (`value`, `disabled`), `AccordionTrigger` (`headingLevel`, `hideChevron`), `AccordionContent` / `AccordionPanel` |
+| `components:breadcrumb` | `Breadcrumb`, `BreadcrumbList`, `BreadcrumbItem`, `BreadcrumbLink` (`render`), `BreadcrumbPage`, `BreadcrumbSeparator`, `BreadcrumbEllipsis`, `Breadcrumbs` (`items`, `maxItems`, `itemsBefore`, `separator`, `lastIsPage`), `collapseBreadcrumbs` (below) |
+| `components:checkbox` | `Checkbox` (`checked` / `defaultChecked` / `onCheckedChange`, `indeterminate`, `disabled`, `size`: sm, default, lg), `CheckboxLabel` (`label`, `description`), `useCheckboxGroupState(ids, selected, onChange)` |
+| `components:label-value` | `LabelValue` (`label`, `value` or children, `layout`, `emptyText`, `hint`, `wrap`, `span`), `LabelValueList` (`layout`: stacked, inline, grid; `items`, `columns`, `minColumnWidth`, `labelWidth`, `divided`), `isEmptyValue` (below) |
+| `components:stepper` | `Stepper` (`steps`, `current`, `orientation`, `onStepClick`, `allowSkipAhead`, `compact`), `StepMarker`, `stepStatus`, `useStepper(count, initial)` |
+| `components:progress` | `Progress` (`value`, `null` = indeterminate; `min`, `max`, `label`, `showValue`, `format`, `variant`: default, success, warning, destructive; `size`: sm, default, lg), `ProgressCircle` (`value`, `size`, `strokeWidth`, `label`), `progressIndicatorVariants` |
+| `components:split-button` | `SplitButton` (children, `onClick`, `variant`, `size`, `items` or `menu`, `menuLabel`, `align`, `disabled`, `menuDisabled`, `buttonProps`), `ButtonGroup` (`orientation`), `ButtonGroupSeparator` |
+| `components:toggle-group` | `ToggleGroup` (`value` / `defaultValue` / `onValueChange` as arrays, `multiple`, `variant`: segmented, outline, default; `size`, `fullWidth`, `orientation`), `ToggleGroupItem` (`value`), `Toggle` (`pressed` / `onPressedChange`), `toggleVariants`, `useSingleToggle(value, onChange, { required })` |
+| `components:resizable` | `ResizablePanelGroup` (`direction`, `autoSaveId`, `onLayout`, `keyboardStep`), `ResizablePanel` (`defaultSize`, `minSize`, `maxSize`, `collapsible`, `collapsedSize`), `ResizableHandle` (`withHandle`, `disabled`, `aria-label`), `useResizableLayout(panels, options)` (below) |
+| `components:tree` | `Tree` (`items`, `expanded` / `defaultExpanded` / `onExpandedChange`, `selected` / `defaultSelected` / `onSelect`, `renderLabel`, `size`), `flattenTree`, `useTreeState` (below) |
+| `components:heading` | `Heading` (`level` 1–6, `size`: display, xl, lg, md, sm, xs; `variant`: default, muted, primary; `description`, `action`), `headingVariants` |
+| `components:image` | `Image` (`src`, `alt`, `aspectRatio`, `fit`, `fallback`, `fallbackSrc`, `placeholder`, `loading`, `onStatusChange`), `useImageStatus(src)` |
+| `components:date-range-picker` | `DateRangePicker` (`value` / `onChange` as `{ start, end }`, `presets`, `placeholder`, `clearable`, `min`, `max`, `isDisabled`, `locale`), `DateRangeCalendar`, `defaultRangePresets(today?)`, `formatRange`, `normalizeRange`, `rangeLength` (below) |
+| `components:code-editor` | `CodeEditor` (`value`, `onChange`, `onBlur(text, { changed })`, `onSubmit`, `language`, `readOnly`, `disabled`, `invalid`, `placeholder`, `lineNumbers`, `tabSize`, `minLines`, `maxHeight`), `useCodeEditor`, `loadCodeEngine`, `isCodeEngineLoaded`, `codeLanguageForType` (below) |
 
 `components:tabs` gets roving focus with arrow keys, Home / End, `aria-selected`, `aria-controls` / `aria-labelledby` and `data-active` on the selected tab from Base UI.
 
@@ -79,6 +96,135 @@ Host-kit triggers follow Base UI: pass `render` to make another element the trig
 - It fills the layout's sidebar slot (in flow, not fixed) and becomes a Sheet in the overlay layer on mobile.
 - `SidebarMenuButton`'s `tooltip` shows on the icon rail only.
 - Style rail states with the `group-data-rail:` variant (`data-rail` is set while icon-collapsed).
+
+## Design-system pieces
+
+These generic pieces cover Next Experience's design-system components (`now-avatar`, `now-pill`, `now-alert`, `now-accordion`, `now-breadcrumbs`, `now-checkbox`, `now-label-value-*`, `now-stepper`, `now-progress-bar`, `now-split-button`, `now-grouped-button`, `now-resizable-panes`, `now-content-tree`, `now-heading`, `now-image`, `now-date-range-picker`, `now-code-editor`). Each one uses theme tokens, works in light and dark, and follows the WAI-ARIA pattern for its role. The sp portal's **Components ▸ Primitives** page shows all of them.
+
+### Avatar and pill
+
+```tsx
+import { UserAvatar, AvatarGroup } from 'components:avatar'
+import { Pill, PillList } from 'components:pill'
+
+<UserAvatar name="Beth Anglin" src={photoUrl} status="online" size="sm" />
+<AvatarGroup max={4}>{people.map((p) => <UserAvatar key={p.id} name={p.name} />)}</AvatarGroup>
+
+<PillList max={3} overflow="popover" aria-label="Watch list">
+    {watchers.map((w) => <Pill key={w.id} onRemove={() => remove(w.id)}>{w.name}</Pill>)}
+</PillList>
+```
+
+- **Avatar:** the image shows once it has loaded; until then, or if it fails, the initials show.
+  - `UserAvatar` is decorative by default, because the name is usually printed next to it. Use `labelled` to give it `role="img"` with the name and presence as its accessible name.
+  - `AvatarBadge status` adds an sr-only label ("Online").
+  - `AvatarGroup max` keeps the count chip inside the limit: `max={3}` of 5 shows 2 avatars and "+3".
+- **Pill:** the remove button is a real button. Enter, Space, Backspace and Delete all work on it. After a removal, focus moves to the next pill's button.
+- **PillList:** renders `role="list"`, and Left, Right, Home and End move between the pills' buttons. Its `overflow` setting picks what the "+N" control does:
+  - `expand` (default): shows the rest inline, followed by "Show less";
+  - `popover`: shows the rest in a popover;
+  - `count`: a static count.
+- `splitOverflow(items, max)` is the shared helper: `{ visible, hidden, overflow }`.
+
+### Alert
+
+```tsx
+<Alert variant="warning" title="This record changed" onDismiss={close}
+       action={<Button size="sm" variant="outline">Reload</Button>}>
+    Abel Tuter updated it a minute ago.
+</Alert>
+```
+
+- **Roles:** `warning` and `destructive` alerts are `role="alert"` (assertive); the others are `role="status"` (polite). Pass `live={false}` for a notice that's there on load and shouldn't be announced.
+- **Icons:** with `title` / `description` the status icon is added for you. Pass `icon={false}` to hide it, or compose the parts yourself (an svg first, then `AlertTitle`, `AlertDescription`, `AlertAction`).
+- Toasts stay with `toast()` from the runtime (Sonner); use an alert for inline, in-context messages.
+
+### Breadcrumb
+
+`Breadcrumbs` takes `items` (`{ label, href?, render?, icon?, onClick? }`); the last item is the current page (`aria-current="page"`).
+- `maxItems` collapses the middle into an ellipsis button with a menu of the hidden items. `itemsBefore` (default 1) sets how many leading items stay.
+- For portal links, pass the runtime's Link as `render`: `{ label: 'Knowledge', render: <Link to="kb" /> }`.
+- `collapseBreadcrumbs(count, maxItems, itemsBefore)` returns the index split for custom trails.
+
+### Label and value
+
+```tsx
+<LabelValueList layout="grid" minColumnWidth="12rem">
+    <LabelValue label="Number">INC0010001</LabelValue>
+    <LabelValue label="Assigned to" />            {/* — and "Empty" for screen readers */}
+    <LabelValue label="Description" span="full">…</LabelValue>
+</LabelValueList>
+```
+
+- The list renders a `<dl>` with `<dt>` / `<dd>` pairs; a standalone `LabelValue` is a labelled group.
+- **Layouts:**
+  - `stacked`: the label sits above the value;
+  - `inline`: a label column and a value column (falls back to stacked in containers under about 28rem; `labelWidth`, `divided`);
+  - `grid`: stacked pairs in as many columns as fit (`minColumnWidth`), or a fixed number of `columns`.
+- For field-bound read-only values, keep using `app/field`'s read-only shell.
+
+### Resizable panes and tree
+
+```tsx
+<ResizablePanelGroup direction="horizontal" autoSaveId="kb-split" className="h-96 rounded-lg border">
+    <ResizablePanel defaultSize={30} minSize={15} collapsible>…</ResizablePanel>
+    <ResizableHandle withHandle />
+    <ResizablePanel defaultSize={70}>…</ResizablePanel>
+</ResizablePanelGroup>
+```
+
+- **Sizes** are percentages. There's no extra dependency: this is shadcn's API on our own splitter.
+- **Handle:** each handle is a WAI-ARIA window splitter (`role="separator"`, `aria-valuenow` / `-min` / `-max`, `aria-controls`). It has one Tab stop.
+  - Arrows move it by `keyboardStep` (5%); hold Shift for 20%.
+  - Home / End go to the limits.
+  - Enter collapses a `collapsible` panel and restores it.
+  - Pointer drag works with mouse, pen and touch; a double-click toggles the collapse.
+- **`autoSaveId`** keeps the layout in `localStorage` (`x_312987_portal.resizable.<id>`).
+- `useResizableLayout(panels)` is the same state machine for custom splitters.
+
+`Tree` items are `{ id, label, icon?, children?, hasChildren?, loading?, disabled?, badge?, title? }`.
+- **Lazy loading:** to load children on demand, set `hasChildren` and fill `children` from `onExpandedChange(ids, { id, expanded })`. Set `loading` while you fetch.
+- **Keyboard:**
+  - Up / Down move between visible items.
+  - Right opens an item or moves to its first child; Left closes it or moves to the parent.
+  - Home / End jump to the first / last item.
+  - Enter / Space select.
+  - `*` opens every sibling.
+  - Typing jumps to the next item that starts with the typed text.
+- One Tab stop (roving tabindex), with `aria-level`, `aria-setsize`, `aria-posinset`, `aria-expanded` and `aria-selected`.
+- `flattenTree(items, expandedSet)` and `useTreeState(options)` are exported for custom trees.
+
+### Date range picker
+
+```tsx
+const [range, setRange] = useState({ start: '', end: '' });
+<DateRangePicker value={range} onChange={setRange} presets={defaultRangePresets()} aria-label="Period" />
+```
+
+- **Picking:** the first click sets the start and the second the end (an earlier day swaps them). Hovering or focusing previews the range. Presets are buttons beside the calendar.
+- **Values:** `'YYYY-MM-DD'` strings with no time zones, like `components:calendar`.
+- **Calendar props:** the calendar gained `rangeStart`, `rangeEnd` and `onDayHover`, so a custom range UI can use it directly.
+- **Record fields:** [`app/date-range-field`](../primitives/fields.md#date-range-and-code-fields) binds the picker to two fields of a record.
+
+### Code editor
+
+```tsx
+import { CodeEditor } from 'components:code-editor'
+<CodeEditor value={code} onChange={setCode} language="javascript" aria-label="Script" />
+<CodeEditor value={json} language="json" readOnly />
+```
+
+- **Engine:** CodeMirror 6, with line numbers, folding, search (Ctrl/⌘+F), bracket matching and closing, word autocomplete, history and soft-wrapped lines.
+- **Languages:** `javascript`, `typescript`, `jsx`, `tsx`, `json`, `css`, `html` and `xml` (read by the HTML parser), plus `text`. `codeLanguageForType(glideType)` maps script, xml, css, json and html_script fields.
+- **Theme:** the chrome uses the portal's tokens, and the syntax colours use `light-dark()`, so they follow the host's light or dark mode without reconfiguring.
+- **Keyboard:**
+  - Tab indents. Escape then Tab moves focus on, as CodeMirror documents.
+  - Ctrl/⌘+Enter calls `onSubmit`.
+  - Read-only code stays a Tab stop, so it can be selected and copied.
+- **Lazy engine:** CodeMirror is not in the host bundle. It ships as a separate chunk (`portal-code.jsdbx`) loaded with `import()` the first time an editor mounts, then cached for the page.
+  - Until it arrives, the value shows in a same-sized monospace block.
+  - If the chunk fails, a plain textarea takes over, with Retry.
+- **Headless:** `useCodeEditor(options)` returns `{ mountRef, status, error, retry, focus, getValue, changed }`.
 
 ## Icons
 

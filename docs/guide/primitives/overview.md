@@ -26,13 +26,16 @@ primitives   form ─ form-section ─ form-tabs ─ form-annotation      relate
              variable ─ mrvs ─ variable-container ─ requested-for-field ─ variable-editor
              search-box  highlighted-value
                   │
-             field-control → string-field, reference-field, date-field … (22 field primitives) → combobox
+             field-control → string-field, reference-field, date-field, code-field … (24 field primitives) → combobox
+             date-range-field
                   │
              field  (useField, FieldShell, FormProvider, form store, field registry, UI policy engine)
                   │
 utilities    graphql  list-data  catalog  gform  attachments  activity  search  datetime  header-slots
                   │
 host kit     components:dialog, tabs, collapsible, popover, calendar, rich-text(-editor) …
+             avatar, pill, alert, accordion, breadcrumb, checkbox, label-value, stepper, progress, split-button,
+             toggle-group, resizable, tree, heading, image, date-range-picker, code-editor (lazy chunk)
              utilities:react-query, react-table, react-virtual …
 ```
 

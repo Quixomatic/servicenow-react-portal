@@ -1,13 +1,36 @@
 {
     "type": "object",
     "properties": {
-        "table": { "type": "string", "title": "Table", "default": "incident" },
-        "title": { "type": "string", "title": "Title" },
-        "query": { "type": "string", "title": "Default filter (encoded query)" },
-        "columns": { "type": "string", "title": "Columns" },
-        "orderBy": { "type": "string", "title": "Default sort (field or -field)" },
-        "pageSize": { "type": "integer", "title": "Rows per page", "default": 10 },
-        "height": { "type": "integer", "title": "Scroll height (px, empty = auto)" },
+        "table": {
+            "type": "string",
+            "title": "Table",
+            "default": "incident"
+        },
+        "title": {
+            "type": "string",
+            "title": "Title"
+        },
+        "query": {
+            "type": "string",
+            "title": "Default filter (encoded query)"
+        },
+        "columns": {
+            "type": "string",
+            "title": "Columns"
+        },
+        "orderBy": {
+            "type": "string",
+            "title": "Default sort (field or -field)"
+        },
+        "pageSize": {
+            "type": "integer",
+            "title": "Rows per page",
+            "default": 10
+        },
+        "height": {
+            "type": "integer",
+            "title": "Scroll height (px, empty = auto)"
+        },
         "pagination": {
             "type": "string",
             "title": "Paging",
@@ -20,13 +43,76 @@
             "enum": ["compact", "normal", "comfortable"],
             "default": "compact"
         },
-        "parentField": { "type": "string", "title": "Related list: parent field" },
-        "parentSysId": { "type": "string", "title": "Related list: parent sys_id" },
-        "recordPage": { "type": "string", "title": "Record page", "default": "form" },
+        "parentField": {
+            "type": "string",
+            "title": "Related list: parent field"
+        },
+        "parentSysId": {
+            "type": "string",
+            "title": "Related list: parent sys_id"
+        },
+        "recordPage": {
+            "type": "string",
+            "title": "Record page",
+            "default": "form"
+        },
         "liveUpdates": {
             "type": "boolean",
             "title": "Live updates",
             "description": "Refresh the current page when matching records change (record watch)",
+            "default": false
+        },
+        "display": {
+            "type": "string",
+            "title": "Display",
+            "enum": ["table", "grid"],
+            "enumNames": ["Table", "Cards"],
+            "default": "table"
+        },
+        "displayToggle": {
+            "type": "boolean",
+            "title": "Table / cards toggle",
+            "default": false
+        },
+        "gridFields": {
+            "type": "integer",
+            "title": "Fields per card",
+            "default": 5
+        },
+        "groupBy": {
+            "type": "string",
+            "title": "Group by",
+            "description": "A groupable column (^GROUPBY); the user can change it"
+        },
+        "groupRowLimit": {
+            "type": "integer",
+            "title": "Rows per group",
+            "default": 10
+        },
+        "quickFilters": {
+            "type": "array",
+            "title": "Quick filters",
+            "description": "Chips ANDed into the query: active, mine, myGroups, unassigned, createdByMe, updatedToday, or Label=encoded query",
+            "items": {
+                "type": "string"
+            }
+        },
+        "defaultQuickFilters": {
+            "type": "array",
+            "title": "Quick filters on at first",
+            "description": "Ids of quick filters that start on",
+            "items": {
+                "type": "string"
+            }
+        },
+        "journalEdit": {
+            "type": "boolean",
+            "title": "Inline journal entries",
+            "default": false
+        },
+        "listCollector": {
+            "type": "boolean",
+            "title": "List fields edit in a list collector",
             "default": false
         },
         "hide": {
@@ -46,7 +132,11 @@
                     "selection",
                     "actions",
                     "refresh",
-                    "export"
+                    "export",
+                    "groupBy",
+                    "savedFilters",
+                    "columnFilters",
+                    "quickFilters"
                 ]
             }
         }

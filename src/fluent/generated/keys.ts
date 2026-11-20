@@ -69,6 +69,22 @@ declare global {
                         table: 'sys_security_acl';
                         id: '081452fbbc5b4e06902085d8db092ef4';
                     };
+                    'acl-doc-collection-create': {
+                        table: 'sys_security_acl';
+                        id: '431b64c5716f457bbcd93a1f87d16d53';
+                    };
+                    'acl-doc-collection-delete': {
+                        table: 'sys_security_acl';
+                        id: '101358b57c33406691128e90d677953f';
+                    };
+                    'acl-doc-collection-read': {
+                        table: 'sys_security_acl';
+                        id: 'ea27ba84722b46308e8d6416b8e280a2';
+                    };
+                    'acl-doc-collection-write': {
+                        table: 'sys_security_acl';
+                        id: '1f6ad0afaacd4940a37dced18690164e';
+                    };
                     'acl-doc-create': {
                         table: 'sys_security_acl';
                         id: 'f4775c8d06954c84897a98b6e86c37ee';
@@ -80,6 +96,22 @@ declare global {
                     'acl-doc-read': {
                         table: 'sys_security_acl';
                         id: 'e102b9603e484fda8fb263825246c3c8';
+                    };
+                    'acl-doc-section-create': {
+                        table: 'sys_security_acl';
+                        id: '0ae0f46bee4642d89169874bc3eac62e';
+                    };
+                    'acl-doc-section-delete': {
+                        table: 'sys_security_acl';
+                        id: 'a1526f5aee0d433aaabef12b7c40e7f9';
+                    };
+                    'acl-doc-section-read': {
+                        table: 'sys_security_acl';
+                        id: 'a3f237cf461b4761b23d8917a20d080f';
+                    };
+                    'acl-doc-section-write': {
+                        table: 'sys_security_acl';
+                        id: 'f0dd537bb0e2425499e8300d3e3a1bf2';
                     };
                     'acl-doc-write': {
                         table: 'sys_security_acl';
@@ -473,6 +505,10 @@ declare global {
                         table: 'sys_script';
                         id: 'c62d4129b42246efaff66ab5275d874c';
                     };
+                    'br-doc-collection-from-section': {
+                        table: 'sys_script';
+                        id: '04eacb64553f4f1a8df05168814cd4f3';
+                    };
                     'br-menu-item-scripts': {
                         table: 'sys_script';
                         id: 'a71074a5cf4a46109c6f0622609f8571';
@@ -785,6 +821,18 @@ declare global {
                         table: 'sys_ui_related_list_entry';
                         id: '895addd9ff494b64a2399c94892e4dfd';
                     };
+                    'related-list-doc-collection-doc': {
+                        table: 'sys_ui_related_list_entry';
+                        id: 'e404321f7a994559bcd59e272117e9be';
+                    };
+                    'related-list-doc-collection-section': {
+                        table: 'sys_ui_related_list_entry';
+                        id: '7c37b304c10842e6bc4ae85a4b029563';
+                    };
+                    'related-list-doc-section-doc': {
+                        table: 'sys_ui_related_list_entry';
+                        id: '42245a0532f14ae7a9a2c399bda4081a';
+                    };
                     'related-list-item-uc': {
                         table: 'sys_ui_related_list_entry';
                         id: '792e65c9f2cd4b3e895998197e6cb6d4';
@@ -868,6 +916,14 @@ declare global {
                     'related-lists-component': {
                         table: 'sys_ui_related_list';
                         id: 'e7c8f558a57f4fdf83861dac6a2bd01b';
+                    };
+                    'related-lists-doc-collection': {
+                        table: 'sys_ui_related_list';
+                        id: 'da17536079de48a9a7dce964960f9ed9';
+                    };
+                    'related-lists-doc-section': {
+                        table: 'sys_ui_related_list';
+                        id: '66d7d82d153048f4afe721a66c19b635';
                     };
                     'related-lists-menu': {
                         table: 'sys_ui_related_list';
@@ -988,6 +1044,30 @@ declare global {
                     'rest-studio-design-target': {
                         table: 'sys_ws_operation';
                         id: 'e7acd31cea8e4f16a5f50708cd62b2ca';
+                    };
+                    'rest-studio-doc-collections-create': {
+                        table: 'sys_ws_operation';
+                        id: 'f0a6bb5e41a942feb7c1d1086f5998e0';
+                    };
+                    'rest-studio-doc-collections-list': {
+                        table: 'sys_ws_operation';
+                        id: '7edb76e1974d4880943ae58cbf45e440';
+                    };
+                    'rest-studio-doc-collections-update': {
+                        table: 'sys_ws_operation';
+                        id: '1ca05b7def654eeeae851645a1eb007a';
+                    };
+                    'rest-studio-doc-sections-create': {
+                        table: 'sys_ws_operation';
+                        id: 'a285d0c030654cf38555237390e39aa8';
+                    };
+                    'rest-studio-doc-sections-list': {
+                        table: 'sys_ws_operation';
+                        id: '10dcb392b1fc4893b50db5b6fd0f19ba';
+                    };
+                    'rest-studio-doc-sections-update': {
+                        table: 'sys_ws_operation';
+                        id: '665acef8e6fe4edc9e641112d182bdc2';
                     };
                     'rest-studio-docs-create': {
                         table: 'sys_ws_operation';
@@ -1220,6 +1300,14 @@ declare global {
                     'src_server_design_menu-design-service_ts': {
                         table: 'sys_module';
                         id: '5ceed3e8985e461c8241a05d08c8bb91';
+                    };
+                    'src_server_docs_doc-rules_ts': {
+                        table: 'sys_module';
+                        id: '81f7ff434e5d4667be25358e8c96acf2';
+                    };
+                    'src_server_docs_docs-legacy_ts': {
+                        table: 'sys_module';
+                        id: 'b25afd91984248d2ae3019e8916e6a94';
                     };
                     'src_server_docs_docs-service_ts': {
                         table: 'sys_module';
@@ -1627,12 +1715,42 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '03a183c48ae74771bfcf8270ba705bb3';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'icon';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '045be9a25e4542778eddbebbfa8f29e5';
                         key: {
                             name: 'x_312987_portal_view_answer';
                             element: 'preset';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '04bbab8717604096be5a96c119c2119a';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'description';
+                            position: '7';
                         };
                     },
                     {
@@ -1671,6 +1789,29 @@ declare global {
                                     name: 'x_312987_portal.developer';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '050b45a3fbec46c1a276a3d9fe6c9a90';
+                        key: {
+                            list_id: {
+                                id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'origin';
                         };
                     },
                     {
@@ -1765,6 +1906,23 @@ declare global {
                             name: 'x_312987_portal_menu_item';
                             element: 'label';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list';
+                        id: '0686580e8f214d568d733dec58c45f8d';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                            element: 'NULL';
+                            relationship: 'NULL';
+                            parent: 'x_312987_portal_doc_section';
                         };
                     },
                     {
@@ -1912,6 +2070,15 @@ declare global {
                         key: {
                             name: 'x_312987_portal_menu';
                             element: 'active';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '08fa4b56a52d4e6299b97dc2911d9d2f';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'slug';
                             language: 'en';
                         };
                     },
@@ -2340,6 +2507,17 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_choice';
+                        id: '0f0c36485b154dd08821712423427751';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'origin';
+                            value: 'repo';
+                            language: 'en';
+                            dependent_value: 'NULL';
+                        };
+                    },
+                    {
                         table: 'sys_ui_list_element';
                         id: '0f439a4d4cb944c1b4b73598c168cc3f';
                         key: {
@@ -2367,6 +2545,14 @@ declare global {
                         id: '0f67cd719af94a5e85428753d011149b';
                         key: {
                             name: 'x_312987_portal_page_uc_no';
+                            element: 'NULL';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '0ffb7752a5d94079a90642e5980ecf89';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
                             element: 'NULL';
                         };
                     },
@@ -2513,6 +2699,23 @@ declare global {
                         key: {
                             name: 'x_312987_portal_portal_uc_no';
                             element: 'user_criteria';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list';
+                        id: '121df09f189d40c9b0803087edeb0b2c';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                            element: 'NULL';
+                            relationship: 'NULL';
+                            parent: 'x_312987_portal_doc_collection';
                         };
                     },
                     {
@@ -2713,6 +2916,50 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '1608fc9d957c4f54b6f0e72222b581f9';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'key';
+                            position: '2';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '1626e70e13964f10a84ab2052f50de77';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'seed_hash';
+                            position: '10';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: '16285f382a2349c58bcea36eaf1f9dc9';
                         key: {
@@ -2848,6 +3095,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '18d4efb6d74f41799fc058c6c3910c37';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'origin';
+                            position: '8';
+                        };
+                    },
+                    {
                         table: 'sys_ui_form_section';
                         id: '18f8d840ddd2441db35df96b6ae4ecaf';
                         key: {
@@ -2900,6 +3169,15 @@ declare global {
                             };
                             element: '.begin_split';
                             position: '0';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '1946ed649e014f7498abef3bd78fc919';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'title';
+                            language: 'en';
                         };
                     },
                     {
@@ -3031,10 +3309,54 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '1a68e9dde1dc4a02ae2e5cfdee5c2e9b';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'collection';
+                            position: '1';
+                        };
+                    },
+                    {
                         table: 'sys_db_object';
                         id: '1a8534742bb141f69f4cf46fa7e67184';
                         key: {
                             name: 'x_312987_portal_execution_log';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '1aa0756984ae416bbebdd71e8c13aeb9';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'active';
+                            position: '7';
                         };
                     },
                     {
@@ -3348,6 +3670,14 @@ declare global {
                         key: {
                             name: 'x_312987_portal_portal';
                             element: 'home_page';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '1f387402cf9c46b187322595e4ac07f4';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'icon';
                         };
                     },
                     {
@@ -3667,6 +3997,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_index';
+                        id: '23897e57aeea45e79295a1ef966bfba7';
+                        key: {
+                            logical_table_name: 'x_312987_portal_doc_collection';
+                            col_name_string: 'key';
+                        };
+                    },
+                    {
                         table: 'sys_user_role_contains';
                         id: '244c12f542b44ff98803a0b1e4b8f01f';
                         key: {
@@ -3752,6 +4090,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_choice_set';
+                        id: '25077b5df71a4598bcf6dae36d92cc28';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'origin';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '2547c119aeca4fa1bfaf8275a6b694d4';
                         key: {
@@ -3771,6 +4117,14 @@ declare global {
                             };
                             element: 'layout_override';
                             position: '6';
+                        };
+                    },
+                    {
+                        table: 'sys_index';
+                        id: '256e654b9a4849eb81b97df58ee80863';
+                        key: {
+                            logical_table_name: 'x_312987_portal_doc_section';
+                            col_name_string: 'collection,slug';
                         };
                     },
                     {
@@ -3974,6 +4328,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '28e646fbdc824c69b25b434d214f5a9c';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'active';
+                            position: '5';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '297f1082a8b445928b79b63439d74795';
                         key: {
@@ -4048,6 +4424,7 @@ declare global {
                     {
                         table: 'sys_index';
                         id: '2a8496033b8447fab09ac079c1b0c1fc';
+                        deleted: true;
                         key: {
                             logical_table_name: 'x_312987_portal_doc';
                             col_name_string: 'path';
@@ -4127,6 +4504,13 @@ declare global {
                             };
                             element: 'processed_at';
                             position: '5';
+                        };
+                    },
+                    {
+                        table: 'ua_table_licensing_config';
+                        id: '2b946ffaa4294522b029b0d7a385ea2d';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
                         };
                     },
                     {
@@ -4554,6 +4938,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: '30636f3530eb494088002748c74cc917';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'seed_hash';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: '307782c21eb84d38a8d660e2dde395b9';
                         key: {
                             name: 'x_312987_portal_view_answer';
@@ -4739,6 +5132,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '33599e8b9ac941d0b08dc1f4e36ec7ca';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'description';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '335bba7389c14bcc8b8d757cda34c8bf';
                         key: {
@@ -4757,6 +5159,29 @@ declare global {
                                     name: 'x_312987_portal.admin';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '33b77be1b81649e9ac76b6456bf7839f';
+                        key: {
+                            list_id: {
+                                id: '0686580e8f214d568d733dec58c45f8d';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_section';
+                                };
+                            };
+                            element: 'active';
                         };
                     },
                     {
@@ -4882,6 +5307,29 @@ declare global {
                     },
                     {
                         table: 'sys_ui_list_element';
+                        id: '34d12a170e66405faf4c64453e88c20d';
+                        key: {
+                            list_id: {
+                                id: '121df09f189d40c9b0803087edeb0b2c';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'origin';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
                         id: '34d5e6686d3140b0bb36feea989cf594';
                         key: {
                             list_id: {
@@ -4901,6 +5349,29 @@ declare global {
                                 };
                             };
                             element: 'build';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '34d9dffff39b43deab3b623874d778c5';
+                        key: {
+                            list_id: {
+                                id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'order';
                         };
                     },
                     {
@@ -5545,6 +6016,19 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_security_acl_role';
+                        id: '3cb749a8db7345fe93feb5d464f110eb';
+                        key: {
+                            sys_security_acl: '101358b57c33406691128e90d677953f';
+                            sys_user_role: {
+                                id: '27cc37ae2ddd42c0832e3c4cd39dfe8b';
+                                key: {
+                                    name: 'x_312987_portal.admin';
+                                };
+                            };
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '3cd29d3774634fdfa3ced2bf57568c98';
                         key: {
@@ -5713,6 +6197,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '3e8fd510ddff487fae4b5d4219bed4d0';
+                        key: {
+                            list_id: {
+                                id: '0686580e8f214d568d733dec58c45f8d';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_section';
+                                };
+                            };
+                            element: 'title';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '3efab3cc9b8b4cb6980461ce067ccf95';
                         key: {
@@ -5775,6 +6282,19 @@ declare global {
                             name: 'x_312987_portal_menu_item';
                             element: 'badge_script';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_security_acl_role';
+                        id: '3f4d5d57c4be470cbb0ebc894514812f';
+                        key: {
+                            sys_security_acl: 'a1526f5aee0d433aaabef12b7c40e7f9';
+                            sys_user_role: {
+                                id: '27cc37ae2ddd42c0832e3c4cd39dfe8b';
+                                key: {
+                                    name: 'x_312987_portal.admin';
+                                };
+                            };
                         };
                     },
                     {
@@ -5921,11 +6441,35 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_section';
+                        id: '415b852b985746d9aa51e1e335bc3e71';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            caption: 'Doc collection';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '415c060cc816492db4f5a2d95515d5d2';
                         key: {
                             name: 'x_312987_portal_portal_uc';
                             element: 'NULL';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '4164cd55ce374ab1bde3c4f793e403e6';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'NULL';
+                            language: 'en';
                         };
                     },
                     {
@@ -6007,6 +6551,13 @@ declare global {
                             name: 'x_312987_portal_view_rule';
                             element: 'view_name';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'ua_table_licensing_config';
+                        id: '42f2f1cc9d5b46679cb190b5ac9ad5a9';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
                         };
                     },
                     {
@@ -6268,6 +6819,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '4710deef2aa444afbe11d25701b14047';
+                        key: {
+                            list_id: {
+                                id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'title';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '4747ef2bd96b4d2eb0b4143ed216e3e1';
                         key: {
@@ -6287,6 +6861,28 @@ declare global {
                             };
                             element: '.end_split';
                             position: '10';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '4774ecd951fc451b8af59fdb09b9721f';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'content_hash';
+                            position: '9';
                         };
                     },
                     {
@@ -6578,6 +7174,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: '4a13ef628b2745cb872504bf76eedc6b';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            element: 'doc_section';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: '4a188dc5468141d19996273f25b47cb6';
                         key: {
                             name: 'x_312987_portal_component';
@@ -6631,6 +7236,28 @@ declare global {
                             name: 'x_312987_portal_doc';
                             element: 'source_path';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '4afd9048a64f4f60bd3f8eb36ea31806';
+                        key: {
+                            sys_ui_section: {
+                                id: 'fabfd4ed419b41d48f6e1aca498703f5';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    caption: 'Collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'collection';
+                            position: '1';
                         };
                     },
                     {
@@ -6791,6 +7418,37 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '4cd116043ee74b7cb74d1257a746888e';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            element: 'collection';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '4cd17e8711bd4ea1a65cf95113b3c0ac';
+                        key: {
+                            list_id: {
+                                id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'active';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '4cf99cad240b473a9e83d3d024a05df5';
                         key: {
@@ -6823,6 +7481,15 @@ declare global {
                             };
                             element: 'build';
                             position: '1';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '4d2685a15b3442659b5d29d7f41a7ff7';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'NULL';
+                            language: 'en';
                         };
                     },
                     {
@@ -7079,6 +7746,39 @@ declare global {
                             value: 'other';
                             language: 'en';
                             dependent_value: 'NULL';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_form_section';
+                        id: '4ffffc2493df4f628399b91776d2f8a1';
+                        key: {
+                            sys_ui_form: {
+                                id: '793a41b0e6c04bcea1417f32b75c5636';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
                         };
                     },
                     {
@@ -7389,6 +8089,19 @@ declare global {
                                 id: 'aaff259f0aa54d43b45dbce14a6012d1';
                                 key: {
                                     name: 'x_312987_portal.designer';
+                                };
+                            };
+                        };
+                    },
+                    {
+                        table: 'sys_security_acl_role';
+                        id: '54a4dce615914862a2495b2bca0fef38';
+                        key: {
+                            sys_security_acl: '431b64c5716f457bbcd93a1f87d16d53';
+                            sys_user_role: {
+                                id: '27cc37ae2ddd42c0832e3c4cd39dfe8b';
+                                key: {
+                                    name: 'x_312987_portal.admin';
                                 };
                             };
                         };
@@ -7796,6 +8509,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '598bd3748f2c4257bfda9d847587f1ce';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'active';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: '598bf657e89c4ce5a0b49f3cefb35272';
                         key: {
@@ -7886,6 +8607,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: '5ad02f4d7a2541aeae9e4cb7af22c82e';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'collection';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: '5b89d5894dc14f5aa6374eb25bb6bf94';
                         key: {
                             name: 'x_312987_portal_placement';
@@ -7963,6 +8693,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '5c627b69a29f44a5969880786bc49e29';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.end_split';
+                            position: '6';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: '5c6db2ad18ff4785bf996c93afd86e71';
                         key: {
@@ -7978,6 +8730,15 @@ declare global {
                         id: '5c8fe9c9c8d74c0ebe8ed39bd021ce39';
                         key: {
                             name: 'x_312987_portal_portal_uc';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '5d4c826b58aa4da9b5a6ae1527283bdc';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'title';
+                            language: 'en';
                         };
                     },
                     {
@@ -8249,6 +9010,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '610a4ac950f6461f8b0811325cc7da63';
+                        key: {
+                            list_id: {
+                                id: '121df09f189d40c9b0803087edeb0b2c';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'icon';
+                        };
+                    },
+                    {
                         table: 'sys_ui_list';
                         id: '6155f958c13d448a917f27136d365293';
                         key: {
@@ -8335,6 +9119,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '625ff197aff347c78bbed2a1c7693cfb';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'content_hash';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '62674d0c61cc49278a27f0280346fd11';
                         deleted: true;
@@ -8355,6 +9147,29 @@ declare global {
                             };
                             element: 'order';
                             position: '8';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '62a270c082274fd48077bca1d85c009f';
+                        key: {
+                            list_id: {
+                                id: '121df09f189d40c9b0803087edeb0b2c';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'title';
                         };
                     },
                     {
@@ -8629,6 +9444,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '6593e3b634d24bac9085f1e0305c269f';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'order';
+                            position: '6';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '65986f727c284bc5a48904b813be985e';
                         key: {
@@ -8728,6 +9565,19 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_security_acl_role';
+                        id: '666a0c1987794e55bcc420599d425be2';
+                        key: {
+                            sys_security_acl: 'f0dd537bb0e2425499e8300d3e3a1bf2';
+                            sys_user_role: {
+                                id: '27cc37ae2ddd42c0832e3c4cd39dfe8b';
+                                key: {
+                                    name: 'x_312987_portal.admin';
+                                };
+                            };
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '669664ff244a47a8a79f17772f3cae89';
                         key: {
@@ -8805,6 +9655,14 @@ declare global {
                         key: {
                             name: 'x_312987_portal_placement';
                             element: 'layout_json';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '67d680f47e1c434daa498410435fdc71';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'title';
                         };
                     },
                     {
@@ -9085,6 +9943,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '6b9fab91ca394919b3edfb89d96658a1';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'order';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '6bf63ade0373445aa02549ec7db9a49f';
                         key: {
@@ -9242,6 +10109,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '6dd1823e6cd44e319a939e1cf1458d22';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'seed_hash';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '6ddf1eee7d454a738713144341b663a8';
                         key: {
@@ -9387,6 +10262,39 @@ declare global {
                                 };
                             };
                             element: 'compiler_version';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_form_section';
+                        id: '72ee5f6a351a4577a198b4ea5f321734';
+                        key: {
+                            sys_ui_form: {
+                                id: '06cf3c04e51c48e1bc3992d3b9543082';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            sys_ui_section: {
+                                id: 'fabfd4ed419b41d48f6e1aca498703f5';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    caption: 'Collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
                         };
                     },
                     {
@@ -9659,6 +10567,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '75d5498077eb4f18ba34d3f3eff26ba9';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            element: 'collection';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '762b9182146f4f9e991ea9764e93a96f';
                         key: {
@@ -9685,6 +10602,15 @@ declare global {
                         key: {
                             name: 'x_312987_portal_component';
                             element: 'kind';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '76bea92475a6467a8e0a391b064cf8b4';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'key';
+                            language: 'en';
                         };
                     },
                     {
@@ -9934,6 +10860,20 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_form';
+                        id: '793a41b0e6c04bcea1417f32b75c5636';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '7982d9998e7e42c4b15b00e3176fe273';
                         key: {
@@ -10060,6 +11000,30 @@ declare global {
                             };
                             element: 'portal';
                             position: '0';
+                        };
+                    },
+                    {
+                        table: 'sys_security_acl_role';
+                        id: '7b6d410e63404e50b52e787fda309f7d';
+                        key: {
+                            sys_security_acl: '1f6ad0afaacd4940a37dced18690164e';
+                            sys_user_role: {
+                                id: '27cc37ae2ddd42c0832e3c4cd39dfe8b';
+                                key: {
+                                    name: 'x_312987_portal.admin';
+                                };
+                            };
+                        };
+                    },
+                    {
+                        table: 'sys_choice';
+                        id: '7b9e1c5c74a3472c811495a395ad0b60';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'origin';
+                            value: 'studio';
+                            language: 'en';
+                            dependent_value: 'NULL';
                         };
                     },
                     {
@@ -10303,6 +11267,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '7e2020a1299b4f8c8e49bc2c0c19eb08';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'title';
+                            position: '1';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '7e202f2ba3f44dedaaedd49949035580';
                         key: {
@@ -10406,6 +11392,51 @@ declare global {
                             value: 'inherit';
                             language: 'en';
                             dependent_value: 'NULL';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '7fcc200910b64b39a767ea82e464374d';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.split';
+                            position: '5';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: '7fd2c9a6576b4b5c89c9244a8fc5224c';
+                        key: {
+                            list_id: {
+                                id: '0686580e8f214d568d733dec58c45f8d';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_section';
+                                };
+                            };
+                            element: 'origin';
                         };
                     },
                     {
@@ -10965,6 +11996,13 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_db_object';
+                        id: '854e48eb2cef4c50afb4a8c97225e7b7';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '8593cd9149c441289cf91e4d5bd3d265';
                         key: {
@@ -11050,6 +12088,28 @@ declare global {
                                 };
                             };
                             sys_domain: 'global';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '86c698745bfb47748c8eaf7d3ebe334b';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.begin_split';
+                            position: '0';
                         };
                     },
                     {
@@ -11278,6 +12338,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '8a4ad5d4f170491584d2209af696091f';
+                        key: {
+                            list_id: {
+                                id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'path';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '8ac5682baf844bdabd46a9d8e47bb0f0';
                         key: {
@@ -11356,6 +12439,14 @@ declare global {
                                 };
                             };
                             element: 'active';
+                        };
+                    },
+                    {
+                        table: 'sys_index';
+                        id: '8c13225afd3344568ac6f09d003a0aa1';
+                        key: {
+                            logical_table_name: 'x_312987_portal_doc';
+                            col_name_string: 'collection,path';
                         };
                     },
                     {
@@ -11608,6 +12699,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '8eeabf95546d40b68fe00387edc700fb';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            element: 'doc_section';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: '8efc9fa1e6044778a72ea39fc40bffd1';
                         key: {
@@ -11677,6 +12776,39 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_form_section';
+                        id: '9079e79cd3794fd5ad24da5f3bccb831';
+                        key: {
+                            sys_ui_form: {
+                                id: 'b7ac7abeaedc4c749d1c7a13e47cd9fe';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: '907fc8f5312144b5bb0184c0e2ed2b45';
                         key: {
@@ -11699,6 +12831,14 @@ declare global {
                                 };
                             };
                             sys_domain: 'global';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '90ba16282da8469a9d96aa4ce2805bd2';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'slug';
                         };
                     },
                     {
@@ -11831,6 +12971,29 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: '922d8058c39d49709f08609fe14517fd';
+                        key: {
+                            list_id: {
+                                id: '0686580e8f214d568d733dec58c45f8d';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_section';
+                                };
+                            };
+                            element: 'order';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '924a99b0bdff4c17a0af36e1c2f08edf';
                         key: {
@@ -11920,6 +13083,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: '938d35eb52a241b2b22964409753b8a7';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'active';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '93bd4f465c174c84a9ea3be202b43877';
                         key: {
@@ -11954,6 +13126,15 @@ declare global {
                                 };
                             };
                             sys_domain: 'global';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '94a7298e0ec242bb870e3a14c9e9acae';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'active';
+                            language: 'en';
                         };
                     },
                     {
@@ -12586,6 +13767,28 @@ declare global {
                     },
                     {
                         table: 'sys_ui_element';
+                        id: '9df422122efa4397bae962d12a77418c';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'icon';
+                            position: '3';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
                         id: '9e47449a3d67424b94682c2c34c2d2b4';
                         key: {
                             sys_ui_section: {
@@ -12720,6 +13923,28 @@ declare global {
                             name: 'x_312987_portal_placement';
                             element: 'classes';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: 'a0ab9605b4744dff99f2db7183bc626c';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'icon';
+                            position: '4';
                         };
                     },
                     {
@@ -13267,6 +14492,28 @@ declare global {
                     },
                     {
                         table: 'sys_ui_element';
+                        id: 'a9392706a25f4dd3993e5868e55dce3c';
+                        key: {
+                            sys_ui_section: {
+                                id: 'fabfd4ed419b41d48f6e1aca498703f5';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    caption: 'Collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'doc_section';
+                            position: '0';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
                         id: 'a94db737025742eea2e75459e04e144d';
                         key: {
                             sys_ui_section: {
@@ -13293,6 +14540,14 @@ declare global {
                         key: {
                             name: 'x_312987_portal_release';
                             element: 'host_abi';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: 'a9691c3d8dc64e3498525264c9de0dbc';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'collection';
                         };
                     },
                     {
@@ -14210,6 +15465,20 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_form';
+                        id: 'b7ac7abeaedc4c749d1c7a13e47cd9fe';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'b7bc0b3700b4445cb6be69969d30ae64';
                         key: {
@@ -14722,6 +15991,13 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_db_object';
+                        id: 'bf4361345ae640d296f80525bbd0c0ea';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: 'bf4bcef8178f486394c24fad4fd40be3';
                         key: {
@@ -14975,6 +16251,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: 'c2322cd0db92474b84dca1b2d9f433bc';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'key';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'c255da48c61041ec958fd8376109e762';
                         key: {
@@ -14989,6 +16273,28 @@ declare global {
                         key: {
                             name: 'x_312987_portal_view_rule';
                             element: 'view_name';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: 'c2701a902e7b48b1868c5474a23424fd';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.split';
+                            position: '4';
                         };
                     },
                     {
@@ -15538,6 +16844,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'c9d2bf10565349efb4e53c3bfb5fe1de';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'title';
+                            position: '2';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: 'c9f445b1acfe4ff6bfeb46b350739756';
                         key: {
@@ -15748,6 +17076,29 @@ declare global {
                                     name: 'x_312987_portal.designer';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'ccc7664422a64b349fbcd15ce2106a67';
+                        key: {
+                            list_id: {
+                                id: '121df09f189d40c9b0803087edeb0b2c';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'active';
                         };
                     },
                     {
@@ -16442,6 +17793,15 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_documentation';
+                        id: 'd4fed6fabdb14989b2a15300bb40df80';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'icon';
+                            language: 'en';
+                        };
+                    },
+                    {
                         table: 'sys_index';
                         id: 'd5433443864d4880882ec8ad432af9f6';
                         key: {
@@ -16548,6 +17908,29 @@ declare global {
                             };
                             element: 'active';
                             position: '3';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'd6d10d8512464da29136ec14e8eca14d';
+                        key: {
+                            list_id: {
+                                id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'doc_section';
                         };
                     },
                     {
@@ -17143,6 +18526,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: 'dfb690c4e87b4c77a94258d4646dcc05';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'description';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: 'dfd51494ff40410cb7f1f13fde861261';
                         key: {
@@ -17153,6 +18544,14 @@ declare global {
                                     name: 'x_312987_portal.developer';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: 'e030721e0cf744daae6b12d227e8f996';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'order';
                         };
                     },
                     {
@@ -17468,6 +18867,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'e3e1bdbf0d84497c996a32660fbcf6cf';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'slug';
+                            position: '3';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: 'e4206d779fae4782a2f048bc6f316dc7';
                         key: {
@@ -17656,6 +19077,37 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_list_element';
+                        id: 'e7b346a2110846e5a676304e1ae06ec0';
+                        key: {
+                            list_id: {
+                                id: '121df09f189d40c9b0803087edeb0b2c';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'slug';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: 'e7d05959a3474980950b28691109281c';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'active';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: 'e80205f944b549b890ebe3ca00bdfac1';
                         key: {
@@ -17781,6 +19233,21 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_section';
+                        id: 'e93b2fce80834051bc93cef49671cec7';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            caption: 'Doc section';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: 'e973639aef374715a6c111cd4638a429';
                         key: {
@@ -17821,6 +19288,29 @@ declare global {
                         key: {
                             name: 'x_312987_portal_view_answer';
                             element: 'rule_id';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'e9a469c782bb49f5bc21547243521740';
+                        key: {
+                            list_id: {
+                                id: '0686580e8f214d568d733dec58c45f8d';
+                                key: {
+                                    name: 'x_312987_portal_doc';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_section';
+                                };
+                            };
+                            element: 'path';
                         };
                     },
                     {
@@ -17908,6 +19398,31 @@ declare global {
                             };
                             element: 'content_hash';
                             position: '10';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: 'ea862fdbfee64a6a8376df6bf1ea989a';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'origin';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list';
+                        id: 'ea9fbca1fa6448fb8d5967c000cec5f7';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                            element: 'NULL';
+                            relationship: 'NULL';
+                            parent: 'x_312987_portal_doc_collection';
                         };
                     },
                     {
@@ -18174,6 +19689,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: 'ee70dbef702c4e3f94e02326bf40bb31';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'title';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: 'ee7c520733d0432db3374a6ddc48753d';
                         key: {
@@ -18249,6 +19772,15 @@ declare global {
                                 };
                             };
                             element: 'parent';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: 'efe89738ccf943b2aaf488cdc1235e1f';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'content_hash';
+                            language: 'en';
                         };
                     },
                     {
@@ -18372,6 +19904,19 @@ declare global {
                                 id: 'aaff259f0aa54d43b45dbce14a6012d1';
                                 key: {
                                     name: 'x_312987_portal.designer';
+                                };
+                            };
+                        };
+                    },
+                    {
+                        table: 'sys_security_acl_role';
+                        id: 'f1dadb4e208f46fab084885476a2226f';
+                        key: {
+                            sys_security_acl: '0ae0f46bee4642d89169874bc3eac62e';
+                            sys_user_role: {
+                                id: '27cc37ae2ddd42c0832e3c4cd39dfe8b';
+                                key: {
+                                    name: 'x_312987_portal.admin';
                                 };
                             };
                         };
@@ -18703,6 +20248,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'f5e0f9129a94469790108b0ff874be17';
+                        key: {
+                            sys_ui_section: {
+                                id: 'e93b2fce80834051bc93cef49671cec7';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    caption: 'Doc section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.end_split';
+                            position: '11';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: 'f5f460816eee44f981093136169fd324';
                         key: {
@@ -18977,6 +20544,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: 'fa55f8614c5a4b618beadea25d48dd63';
+                        key: {
+                            name: 'x_312987_portal_doc_collection';
+                            element: 'icon';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: 'fa73c590f6f44759837babec7e0f8be2';
                         key: {
                             name: 'x_312987_portal_release';
@@ -18998,12 +20574,35 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_section';
+                        id: 'fabfd4ed419b41d48f6e1aca498703f5';
+                        key: {
+                            name: 'x_312987_portal_doc';
+                            caption: 'Collection';
+                            view: {
+                                id: 'Default view';
+                                key: {
+                                    name: 'NULL';
+                                };
+                            };
+                            sys_domain: 'global';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'fae6b86bc01144498833e159503d7b67';
                         key: {
                             name: 'x_312987_portal_release_entry';
                             element: 'component';
                             language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: 'fb38fe205b2d45088b177dbf0e56152d';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'NULL';
                         };
                     },
                     {
@@ -19030,6 +20629,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'fb69b657e2784ec697a55a63389e82f7';
+                        key: {
+                            sys_ui_section: {
+                                id: '415b852b985746d9aa51e1e335bc3e71';
+                                key: {
+                                    name: 'x_312987_portal_doc_collection';
+                                    caption: 'Doc collection';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: '.begin_split';
+                            position: '0';
+                        };
+                    },
+                    {
                         table: 'sys_ui_form';
                         id: 'fb8126e9697044d1a21fc888b731fe83';
                         key: {
@@ -19041,6 +20662,15 @@ declare global {
                                 };
                             };
                             sys_domain: 'global';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: 'fb8da58465b94eec9106b4ce829d6262';
+                        key: {
+                            name: 'x_312987_portal_doc_section';
+                            element: 'origin';
+                            language: 'en';
                         };
                     },
                     {
@@ -19123,6 +20753,29 @@ declare global {
                         key: {
                             name: 'x_312987_portal_view_rule';
                             element: 'script';
+                        };
+                    },
+                    {
+                        table: 'sys_ui_list_element';
+                        id: 'fdf75a6cb55c475594df5d0a3d0d94da';
+                        key: {
+                            list_id: {
+                                id: '121df09f189d40c9b0803087edeb0b2c';
+                                key: {
+                                    name: 'x_312987_portal_doc_section';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                    element: 'NULL';
+                                    relationship: 'NULL';
+                                    parent: 'x_312987_portal_doc_collection';
+                                };
+                            };
+                            element: 'order';
                         };
                     },
                     {

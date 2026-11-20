@@ -133,9 +133,17 @@ Builds in state `failed` are reported, not reseeded automatically (a broken comp
 
 ### Docs pages
 
-The docs step loads `docs/guide/` (Markdown with frontmatter, `_nav.json`, and the sidebar icons in `scripts/seed/docs-icons.json`) into `x_312987_portal_doc`. The repository is canonical, but pages can also be edited in Portal Studio's Docs activity. So that the seed never clobbers that work, every row tracks what the seed last wrote:
+The docs step loads `docs/guide/` (Markdown with frontmatter, `_nav.json`, and the sidebar icons in `scripts/seed/docs-icons.json`) into the docs collection **`react-portal`** (see [Docs and collections](../studio/docs.md)):
 
-- `content_hash`: a hash of the row's content. Studio saves and the seed compute it with the same code (`src/server/docs/docs-text.ts`; the seed imports it directly through Node's type stripping).
+- the collection row (`x_312987_portal_doc_collection`): created when it's missing, never updated, because its title, description and icon belong to the instance;
+- one section row per `_nav.json` section (`x_312987_portal_doc_section`: title, slug, position × 100, and the section icon from `docs-icons.json`);
+- one page row per listed file (`x_312987_portal_doc`), linked to its section.
+
+The step reads and writes only this collection. Other collections are instance-only, and the seed never touches or deactivates them. (A repository folder per collection, such as `docs/<key>/` with its own `_nav.json`, could map to more collections later.)
+
+The repository is canonical, but pages and sections can also be edited in Portal Studio's Docs activity. So that the seed never clobbers that work, every page and section row tracks what the seed last wrote:
+
+- `content_hash`: a hash of the row's content. Studio saves and the seed compute it with the same code (`src/server/docs/docs-text.ts`; the seed imports it directly through Node's type stripping): `docHash` for pages, `sectionHash` for sections (slug, title, order, icon, active).
 - `seed_hash`: the `content_hash` the seed last wrote or adopted.
 - `origin`: `repo`, or `studio` for a page created in Studio that hasn't been pulled yet.
 
@@ -149,15 +157,19 @@ A page is **edited in Studio** when `origin = studio` or `content_hash ≠ seed_
 | Edited in Studio, L ≠ `seed_hash` | **Conflict**: keep, and report. `--docs-force` overwrites it |
 | No row | Insert |
 
-Rows that aren't in the repo are deactivated, never deleted, unless they were edited in Studio. Those are kept and reported.
+Sections follow the same table, by slug. Rows that aren't in the repo are deactivated, never deleted, unless they were edited in Studio. Those are kept and reported.
+
+A section rename or reorder in Studio edits only the section row. The page rows keep their legacy section strings ("as of the page's last content write"), so their hashes don't move. Pages already edited in Studio are refreshed with the section, so their pending edit still hashes like the repo after the pull. After the pull and commit, the next seed rewrites the other pages of that section, because their repo hash now carries the new title or position.
+
+**Migration.** Rows from before doc collections have no section reference. The docs step links them to the section of their legacy `section_slug`, which also sets their collection, without touching content or hashes. A slug that no section has becomes a Studio section. The step is idempotent.
 
 **`npm run docs:pull`** (`scripts/seed/docs-pull.mjs`) writes pages edited in Studio back into the repo:
 
 - the `.md` file: the frontmatter (title, description, section, order and tags, other keys kept) and the stored Markdown byte for byte;
-- the sections of `_nav.json` the pages are in or left;
-- `docs-icons.json`.
+- the sections of `_nav.json` the pages are in or left, plus every section edited in Studio (title and position from the section rows);
+- `docs-icons.json`, including an edited section's icon. That section's pages without their own entry keep the icon they show.
 
-Pages deactivated in Studio leave `_nav.json`, but their file stays. The pull then checks that the repo hashes exactly like the instance. Commit, and the next seed adopts the pages.
+Pages deactivated in Studio leave `_nav.json`, and so do the pages of a section deactivated in Studio, but their files stay. The pull then checks that the repo hashes exactly like the instance. Commit, and the next seed adopts the pages.
 
 ```bash
 npm run docs:pull -- --dry-run         # what would be written
@@ -166,7 +178,7 @@ npm run docs:pull -- --only concepts/layouts
 npm run seed -- --only hello-card --docs --dry-run   # the docs plan alone
 ```
 
-> **Note:** Studio renumbers whole sections on every move (`order` and `section_order` = position × 100, the numbers the seed derives from `_nav.json`). A move therefore marks every page of the sections involved as edited, and the pull rewrites those sections.
+> **Note:** Studio normalises positions (page `order` and section `order` = position × 100, the numbers the seed derives from `_nav.json`), writing only the rows whose number changes. Moving a page marks the pages that shift in its sections as edited. Moving a section marks only the section rows.
 
 ### `build-seed.mjs`
 

@@ -8,6 +8,7 @@ import { IconPlus, IconSearch, useFormMeta } from 'components:app/field';
 import { Combobox } from 'components:app/combobox';
 import type { ComboItem } from 'components:app/combobox';
 import { RecordForm, useRecordForm, useRememberedView } from 'components:app/form';
+import type { FormActionOptions } from 'components:app/form';
 import { confirmDialog, DialogOutlet } from 'components:app/confirm-dialog';
 import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots';
 
@@ -24,7 +25,12 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots';
  * slot, the UI actions, view switcher and New to the right (the picker shows only with no record open)
  * (headerPlacement: 'auto' | 'header' | 'inline'). `listPage` adds a back button to a list page.
  *
- * Options: { table, sysId, view, lockView, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity }
+ * Options: { table, sysId, view, lockView, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity, ribbon, presence }
+ *
+ * Header (app/record-header) and ribbon (app/record-ribbon), no configuration: highlighted values
+ * coloured by the platform's highlighted-value rules, Read only / New badges, avatars of other users
+ * on the record (AMB presence; `presence: false` hides them), and a strip of the record's key values
+ * above the form (built-in defaults per table; `ribbon: false` turns it off).
  *
  * The form's view, resolved on the server in the form's own request (one GraphQL call): page rules,
  * then portal rules (x_312987_portal_view_rule; they FORCE the view and lock the switcher), then the
@@ -55,6 +61,18 @@ type Options = {
     relatedLists?: 'auto' | 'tabs' | 'stacked' | 'off';
     /** Activity (A5), opt-in: 'off' (default), 'notes' (in the Notes section) or 'below' the form. */
     activity?: 'off' | 'notes' | 'below';
+    /** Platform actions (UI actions + declarative actions) on the action bar; false hides them. Default true. */
+    actions?: boolean;
+    /** Only these action names (comma-separated). */
+    actionsInclude?: string;
+    /** Never these action names (comma-separated). */
+    actionsExclude?: string;
+    /** sys_ux_action_config sys_id for declarative form actions; default: the portal's settings.actionConfigId. */
+    actionConfigId?: string;
+    /** Record ribbon: the record's key values above the form (default true). */
+    ribbon?: boolean;
+    /** Presence avatars of other users on the record in the header (default true). */
+    presence?: boolean;
 };
 
 /** Resolves true when there's nothing to lose or the user agrees to discard (app/confirm-dialog). */
@@ -246,6 +264,14 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     activity={
                         options.activity === 'notes' || options.activity === 'below' ? options.activity : undefined
                     }
+                    actionOptions={{
+                        actions: options.actions !== false,
+                        include: options.actionsInclude || undefined,
+                        exclude: options.actionsExclude || undefined,
+                        actionConfigId: options.actionConfigId || undefined,
+                    }}
+                    ribbon={options.ribbon !== false}
+                    presence={options.presence !== false}
                     onDirty={setDirty}
                     onViewChange={(v) => {
                         confirmDiscard(dirty).then((ok) => {
@@ -296,6 +322,9 @@ function FormFor(props: {
     attachments?: 'off' | 'below' | 'header';
     relatedLists?: 'auto' | 'tabs' | 'stacked' | 'off';
     activity?: 'off' | 'notes' | 'below';
+    actionOptions?: FormActionOptions;
+    ribbon?: boolean;
+    presence?: boolean;
     onDirty: (d: boolean) => void;
     onViewChange: (v: string) => void;
     onCreated: (id: string) => void;
@@ -328,6 +357,9 @@ function FormFor(props: {
             attachments={props.attachments}
             relatedLists={props.relatedLists}
             activity={props.activity}
+            actionOptions={props.actionOptions}
+            ribbon={props.ribbon}
+            presence={props.presence}
         />
     );
 }

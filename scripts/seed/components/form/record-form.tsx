@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useLayout } from '@portal/runtime';
+import { useLayout, useUser } from '@portal/runtime';
 import { DialogOutlet } from 'components:app/confirm-dialog';
 import { Card, CardHeader, CardContent } from 'components:card';
 import { Button } from 'components:button';
-import { Badge } from 'components:badge';
-import { useFormViews, useGraphQL, isDefaultViewName } from 'utilities:app/graphql';
+import { useFormViews, useGraphQL, useGraphQLClient, isDefaultViewName } from 'utilities:app/graphql';
 import { FormProvider, useFormMeta, cx, Spinner, IconAlert, IconChevronDown } from 'components:app/field';
 import type { FieldLayout, ValidationResult } from 'components:app/field';
 import { sanitizeHtml } from 'components:app/variable';
@@ -32,10 +31,23 @@ import { Icon } from 'components:icon';
 import { AttachmentPanel, AttachmentsToggle } from 'components:app/attachment-panel';
 // Related lists (A4): below the form, or extra tabs after the sections in tabs presentation.
 import { RelatedLists, useRelatedListTabs } from 'components:app/related-lists';
-import { isRelatedListShown } from 'utilities:app/gform';
+import { isRelatedListShown, createGForm, scriptUserFrom } from 'utilities:app/gform';
+// Actions (wave 3b): declarative form actions next to the UI actions, one bar.
+import { useActions, runAction, filterActions } from 'utilities:app/actions';
+import type { RpAction, ActionFilterOptions } from 'utilities:app/actions';
+import { ActionBar, mergeFormActions, toUiAction } from 'components:app/action-bar';
 import type { FormExtraTab } from 'components:app/form-tabs';
+// Record header (wave 2): title block with platform-coloured highlighted values, badges, presence; the ribbon.
+import { RecordTitle } from 'components:app/record-header';
+import { RecordRibbon } from 'components:app/record-ribbon';
 // Activity (A5): opt-in journal composer + activity stream (activity="notes" | "below"; default off).
 import { activityElementRenderer, ActivityBelowForm } from 'components:app/activity-stream';
+
+/** Widget options for the form's platform actions. */
+export type FormActionOptions = Pick<ActionFilterOptions, 'actions' | 'include' | 'exclude'> & {
+    /** sys_ux_action_config sys_id (default: the portal's settings.actionConfigId). */
+    actionConfigId?: string;
+};
 
 export type RecordFormProps = {
     /** A form from useRecordForm (else table / sysId / view build one). */
@@ -55,6 +67,8 @@ export type RecordFormProps = {
     renderElement?: (name: string, ctx: any) => any;
     /** Hide the UI action bar. */
     hideActions?: boolean;
+    /** Platform actions on the bar (actions wave): actions: false, include / exclude by name, actionConfigId. */
+    actionOptions?: FormActionOptions;
     className?: string;
     /**
      * Render the header into a page header's slots instead of the card header (e.g. app/app-subheader
@@ -96,6 +110,13 @@ export type RecordFormProps = {
     viewPinned?: boolean;
     /** A requested view that doesn't exist for the table: a small "View `x` not found" notice. */
     missingView?: string;
+    /**
+     * Record ribbon (app/record-ribbon): the record's key values above the form. true (default) =
+     * the built-in defaults for the table, a field list = those fields, false = off. Never on new records.
+     */
+    ribbon?: boolean | string[];
+    /** Presence avatars of other users on the record in the header (default true). */
+    presence?: boolean;
     /** Forwarded to useRecordForm when the form builds its own model (no `form`). */
     viewRules?: UseRecordFormOptions['viewRules'];
     forceView?: boolean;
@@ -120,115 +141,28 @@ function OwnRecordForm(props: RecordFormProps) {
     return <RecordFormView {...props} form={form} />;
 }
 
-const HEADER_FIELDS = ['number', 'name', 'short_description'];
-
-/** The SAVED display value (the header describes the record, not unsaved edits). */
-function useValue(form: RecordFormModel, name: string) {
-    return useSyncExternalStore(
-        form.subscribe,
-        () => {
-            const e = name ? form.getState().fields[name] : undefined;
-            return e ? e.originalDisplayValue || e.originalValue : '';
-        },
-        () => ''
-    );
-}
-
-function RecordHeader({ form, actions, actionBar }: { form: RecordFormModel; actions?: any; actionBar?: any }) {
-    const boot = form.bootstrap!;
-    const titleField = HEADER_FIELDS.find((f) => f in boot.values) || '';
-    const title = useValue(form, titleField);
-    const subtitle = useValue(form, titleField === 'number' ? 'short_description' : '');
-    const state = useValue(form, 'state');
+/**
+ * The card's own header row (inline placement): the record's title block (app/record-header:
+ * highlighted values, badges, presence) and the controls.
+ */
+function RecordHeader({
+    form,
+    actions,
+    actionBar,
+    presence,
+}: {
+    form: RecordFormModel;
+    actions?: any;
+    actionBar?: any;
+    presence?: boolean;
+}) {
     return (
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-            <div className="min-w-0 flex-1 basis-56">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {form.isNew ? `New ${boot.tableLabel}` : boot.tableLabel}
-                </p>
-                <h2
-                    className="flex flex-wrap items-center gap-2 text-lg leading-tight font-semibold"
-                    data-rp-record-title=""
-                >
-                    <span className="truncate">{title || (form.isNew ? 'New record' : boot.sysId)}</span>
-                    {state ? (
-                        <Badge variant="secondary" data-rp-record-state="">
-                            {state}
-                        </Badge>
-                    ) : null}
-                    {form.readOnly ? <Badge variant="outline">Read only</Badge> : null}
-                </h2>
-                {subtitle ? <p className="mt-1 truncate text-sm text-muted-foreground">{subtitle}</p> : null}
-            </div>
+            <RecordTitle form={form} variant="inline" presence={presence} className="flex-1 basis-56" />
             <div className="flex flex-wrap items-center gap-2">
                 {actionBar}
                 {actions}
             </div>
-        </div>
-    );
-}
-
-/**
- * The record's title block for a tall page header (app-subheader banner): table label, a large
- * title (number / name), state and read-only badges, the short description as a subtitle.
- */
-function BannerTitle({ form }: { form: RecordFormModel }) {
-    const boot = form.bootstrap!;
-    const titleField = HEADER_FIELDS.find((f) => f in boot.values) || '';
-    const title = useValue(form, titleField);
-    const subtitle = useValue(form, titleField === 'number' ? 'short_description' : '');
-    const state = useValue(form, 'state');
-    return (
-        <div className="min-w-0" data-rp-record-title="" data-rp-banner-title="">
-            <p className="m-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {form.isNew ? `New ${boot.tableLabel}` : boot.tableLabel}
-            </p>
-            <h1 className="m-0 mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-2xl leading-tight font-semibold tracking-tight max-sm:text-xl">
-                <span className="min-w-0 truncate">{title || (form.isNew ? 'New record' : boot.sysId)}</span>
-                {state ? (
-                    <Badge variant="secondary" className="shrink-0" data-rp-record-state="">
-                        {state}
-                    </Badge>
-                ) : null}
-                {form.readOnly ? (
-                    <Badge variant="outline" className="shrink-0">
-                        Read only
-                    </Badge>
-                ) : null}
-            </h1>
-            {subtitle ? <p className="m-0 mt-1 truncate text-sm text-muted-foreground">{subtitle}</p> : null}
-        </div>
-    );
-}
-
-/** The compact header for a page header bar: table label, title, state and read-only badges. */
-function SlotTitle({ form }: { form: RecordFormModel }) {
-    const boot = form.bootstrap!;
-    const titleField = HEADER_FIELDS.find((f) => f in boot.values) || '';
-    const title = useValue(form, titleField);
-    const subtitle = useValue(form, titleField === 'number' ? 'short_description' : '');
-    const state = useValue(form, 'state');
-    return (
-        <div className="flex min-w-0 items-center gap-2" data-rp-record-title="">
-            <span className="shrink-0 text-xs font-medium tracking-wide text-muted-foreground uppercase max-sm:hidden">
-                {form.isNew ? `New ${boot.tableLabel}` : boot.tableLabel}
-            </span>
-            <h1 className="m-0 min-w-0 truncate text-sm font-semibold">
-                {title || (form.isNew ? 'New record' : boot.sysId)}
-            </h1>
-            {state ? (
-                <Badge variant="secondary" className="shrink-0" data-rp-record-state="">
-                    {state}
-                </Badge>
-            ) : null}
-            {form.readOnly ? (
-                <Badge variant="outline" className="shrink-0">
-                    Read only
-                </Badge>
-            ) : null}
-            {subtitle ? (
-                <span className="min-w-0 truncate text-sm text-muted-foreground max-lg:hidden">{subtitle}</span>
-            ) : null}
         </div>
     );
 }
@@ -562,9 +496,18 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     const slots = props.headerSlots;
     // Tall sub-header (app-subheader `subheader: 'banner'`): the full record header goes into its slots.
     const banner = !!slots && !!layout && !!layout.options && layout.options.subheader === 'banner';
+    // Record header (app/record-header) and ribbon (app/record-ribbon): on by default, never for new records.
+    const presenceOn = props.presence !== false;
+    const ribbonOn = props.ribbon !== false && !form.isNew;
+    const ribbonFields = Array.isArray(props.ribbon) ? props.ribbon : undefined;
     // Header bar on a phone: every UI action goes into More, so Save always fits.
     const actionBar = props.hideActions ? null : (
-        <UiActionBar form={form} onRun={run} maxButtons={narrow ? 0 : slots && !banner ? 2 : 3} />
+        <UiActionBar
+            form={form}
+            onRun={run}
+            maxButtons={narrow ? 0 : slots && !banner ? 2 : 3}
+            actionOptions={props.actionOptions}
+        />
     );
     const tabsPossible = canUseTabs(boot.sections);
     const discard = () => {
@@ -709,7 +652,11 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             <DialogOutlet />
             {slots ? (
                 <>
-                    {slots.left ? slots.left(banner ? <BannerTitle form={form} /> : <SlotTitle form={form} />) : null}
+                    {slots.left
+                        ? slots.left(
+                              <RecordTitle form={form} variant={banner ? 'banner' : 'bar'} presence={presenceOn} />
+                          )
+                        : null}
                     {slots.right
                         ? slots.right(
                               <>
@@ -728,6 +675,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                 <CardHeader className="border-b border-border">
                     <RecordHeader
                         form={form}
+                        presence={presenceOn}
                         actions={
                             <>
                                 {attachmentsToggle}
@@ -747,6 +695,18 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             )}
             <CardContent>
                 <FormProvider form={form}>
+                    {/* Record ribbon (app/record-ribbon): the record's key values above the form. */}
+                    {ribbonOn ? (
+                        <div className="mb-6 empty:hidden" data-rp-form-ribbon="">
+                            <RecordRibbon
+                                table={boot.table}
+                                sysId={boot.sysId}
+                                fields={ribbonFields}
+                                highlights={boot.highlights}
+                                onOpen={(t: string, id: string) => form.openRecord(t, id)}
+                            />
+                        </div>
+                    ) : null}
                     {/* Attachments (A6), header mode: above the sections (outside <form>: rename's Enter must not submit). */}
                     {attachmentsMode === 'header' ? attachmentsPanel : null}
                     <form
@@ -1037,81 +997,108 @@ function FormBody(
 }
 
 /**
- * UI action bar: the form's UI actions as the server evaluated them (conditions already applied).
- * Form buttons render as buttons; context-menu actions go into a "More" menu. Save lives in the
- * save bar. Client actions run their onclick script through the g_form layer; others go
- * straight to the server (POST /api/now/ui/ui_action/:id).
+ * UI action bar: the form's actions as the platform evaluated them (conditions and roles applied):
+ * the bootstrap's UI actions plus the form's declarative actions (utilities:app/actions; with an
+ * action config, its UX form action layout replaces them, as in Workspace). Form buttons render as
+ * buttons; context-menu actions go into a "More" menu. Save lives in the save bar. UI actions run
+ * through the form (onclick script via g_form, or the server: POST /api/now/ui/ui_action/:id);
+ * declarative actions through runAction (client script via g_form, server script, mapped UXF).
  */
 export function UiActionBar({
     form,
     onRun,
     maxButtons,
+    actionOptions,
 }: {
     form: RecordFormModel;
     onRun: (a: UiAction) => Promise<unknown>;
     maxButtons?: number;
+    /** Widget options: actions: false, include / exclude by name, actionConfigId. */
+    actionOptions?: FormActionOptions;
 }) {
     const [running, setRunning] = useState('');
-    const all = ((form.bootstrap && form.bootstrap.actions) || []).filter(
-        (a) => a.label && SAVE_ACTIONS.indexOf(a.name) < 0
+    const user = useUser() as any;
+    const gql = useGraphQLClient();
+    const boot = form.bootstrap;
+    const opts = actionOptions || {};
+    const sysId = boot && !form.isNew ? boot.sysId : '-1';
+    const valueModel = useMemo(() => {
+        const out: Record<string, string> = {};
+        const values = (boot && boot.values) || {};
+        Object.keys(values).forEach((k) => (out[k] = values[k].value));
+        return out;
+    }, [boot]);
+    const declarative = useActions(
+        {
+            kind: 'form',
+            table: (boot && boot.table) || '',
+            sysId,
+            view: (boot && boot.view) || '',
+            actionConfigId: opts.actionConfigId,
+            model: valueModel,
+            enabled: !!boot,
+        },
+        { actions: opts.actions }
+    );
+    const uiActions = (boot && boot.actions) || [];
+    const all = filterActions(
+        mergeFormActions(uiActions, declarative.actions, declarative.replacesUiActions, SAVE_ACTIONS),
+        { actions: opts.actions, include: opts.include, exclude: opts.exclude }
     );
     if (!all.length) return null;
-    // maxButtons (a header bar): the first N form buttons stay buttons, the rest join the More menu.
-    const allButtons = all.filter((a) => a.type === 'button');
-    const capped = maxButtons !== undefined;
-    const buttons = capped ? allButtons.slice(0, maxButtons) : allButtons;
-    const menu = (capped ? allButtons.slice(maxButtons) : []).concat(all.filter((a) => a.type !== 'button'));
-    const go = (a: UiAction) => {
+    const go = (a: RpAction) => {
         if (running) return;
-        setRunning(a.sysId);
-        onRun(a).finally(() => setRunning(''));
+        setRunning(a.id);
+        const done = () => setRunning('');
+        if (a.source === 'ui_action') {
+            onRun(toUiAction(a, uiActions)).finally(done);
+            return;
+        }
+        const state = form.getState();
+        const fields = Object.keys(state.fields)
+            .filter((n) => state.fields[n].value !== state.fields[n].originalValue)
+            .map((n) => ({ name: n, value: state.fields[n].value, displayValue: state.fields[n].displayValue }));
+        const env =
+            form.scripts ||
+            createGForm(form as any, {
+                table: boot ? boot.table : '',
+                sysId,
+                view: boot ? boot.view : '',
+                user: scriptUserFrom(user),
+                openRecord: form.openRecord,
+            });
+        runAction(a, {
+            surface: 'form',
+            table: boot ? boot.table : '',
+            sysId,
+            view: boot ? boot.view : '',
+            encodedRecord: boot ? boot.encodedRecord : '',
+            fields,
+            model: declarative.model,
+            openRecord: form.openRecord,
+            refresh: () => {
+                if (!form.isNew && boot) gql.invalidateForm(boot.table, boot.sysId);
+            },
+            runClientScript: (label, script) =>
+                env.runClientAction({
+                    sysId: a.id,
+                    name: a.name,
+                    label,
+                    order: a.order,
+                    type: 'button',
+                    hasClientScript: true,
+                    clientScript: script,
+                }),
+        }).finally(done);
     };
-    const busy = !!running || form.saving;
     return (
-        <div
-            className={cx('flex items-center gap-2', capped ? 'flex-nowrap' : 'flex-wrap')}
-            role="toolbar"
-            aria-label="Record actions"
-            data-rp-action-bar=""
-        >
-            {buttons.map((a) => (
-                <Button
-                    key={a.sysId}
-                    type="button"
-                    size="sm"
-                    variant={a.style === 'destructive' ? 'destructive' : a.style === 'primary' ? 'default' : 'outline'}
-                    disabled={busy}
-                    title={a.hint || undefined}
-                    onClick={() => go(a)}
-                    data-rp-action={a.name || a.sysId}
-                >
-                    {running === a.sysId ? <Spinner label="Running" /> : null}
-                    {a.label}
-                </Button>
-            ))}
-            {menu.length ? (
-                <DropdownMenu>
-                    <DropdownMenuTrigger
-                        render={
-                            <Button type="button" size="sm" variant="outline" disabled={busy} data-rp-action-menu="" />
-                        }
-                    >
-                        More <IconChevronDown size={14} />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-56">
-                        {menu.map((a) => (
-                            <DropdownMenuItem
-                                key={a.sysId}
-                                onClick={() => go(a)}
-                                className={a.style === 'destructive' ? 'text-destructive' : undefined}
-                                data-rp-action={a.name || a.sysId}
-                            >
-                                {a.label}
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ) : null}
-        </div>
+        <ActionBar
+            actions={all}
+            onRun={go}
+            running={running}
+            disabled={form.saving}
+            maxButtons={maxButtons}
+            label="Record actions"
+        />
     );
 }

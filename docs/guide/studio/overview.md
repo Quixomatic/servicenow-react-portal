@@ -50,6 +50,7 @@ Every Studio location has a URL, and the URL follows what you open. It uses the 
 | A menu item, a preview placement | `/params/view/menus/id/sp%3Aprimary/q/item%3D<sys_id>%26preview%3Dheader`. An item sys_id as `id` works too |
 | A portal's view rules / one rule | `/params/view/view-rules/id/sp/q/rule%3D<sys_id>` |
 | A docs page | `/params/view/docs/id/studio%2Foverview` |
+| A docs page of another collection | `/params/view/docs/id/test-guide%3Asetup` (`<collection>:<path>`; a bare path is `react-portal`, see [Docs and collections](docs.md)) |
 | Any record, by sys_id | `/params/id/<sys_id>`: Studio asks the server what it is (`GET /rp_studio/design/{id}`) and opens the matching activity |
 
 **What happens:**

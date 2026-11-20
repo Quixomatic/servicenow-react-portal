@@ -29,6 +29,24 @@ import * as RichTextEditor from '#/components/ui/rich-text-editor';
 import * as Skeleton from '#/components/ui/skeleton';
 import * as Empty from '#/components/ui/empty';
 import * as Kbd from '#/components/ui/kbd';
+// Design-system primitives (Wave 1).
+import * as Avatar from '#/components/ui/avatar';
+import * as Pill from '#/components/ui/pill';
+import * as Accordion from '#/components/ui/accordion';
+import * as Alert from '#/components/ui/alert';
+import * as Breadcrumb from '#/components/ui/breadcrumb';
+import * as Checkbox from '#/components/ui/checkbox';
+import * as LabelValue from '#/components/ui/label-value';
+import * as Stepper from '#/components/ui/stepper';
+import * as Progress from '#/components/ui/progress';
+import * as SplitButton from '#/components/ui/split-button';
+import * as ToggleGroup from '#/components/ui/toggle-group';
+import * as Resizable from '#/components/ui/resizable';
+import * as Tree from '#/components/ui/tree';
+import * as Heading from '#/components/ui/heading';
+import * as ImageModule from '#/components/ui/image';
+import * as DateRangePicker from '#/components/ui/date-range-picker';
+import * as CodeEditor from '#/components/ui/code-editor';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -77,6 +95,27 @@ const modules = {
     'components:skeleton': Skeleton,
     'components:empty': Empty,
     'components:kbd': Kbd,
+    // Design-system primitives (Wave 1): avatar (image / initials, presence, group +N), pill + pill list.
+    'components:avatar': Avatar,
+    'components:pill': Pill,
+    // accordion, alert, breadcrumb, checkbox, label-value, stepper, progress, split-button (+ ButtonGroup),
+    // toggle-group, resizable, tree, heading, image, date-range-picker; code-editor = CodeMirror in the
+    // lazily loaded portal-code chunk.
+    'components:accordion': Accordion,
+    'components:alert': Alert,
+    'components:breadcrumb': Breadcrumb,
+    'components:checkbox': Checkbox,
+    'components:label-value': LabelValue,
+    'components:stepper': Stepper,
+    'components:progress': Progress,
+    'components:split-button': SplitButton,
+    'components:toggle-group': ToggleGroup,
+    'components:resizable': Resizable,
+    'components:tree': Tree,
+    'components:heading': Heading,
+    'components:image': ImageModule,
+    'components:date-range-picker': DateRangePicker,
+    'components:code-editor': CodeEditor,
     'utilities:cn': cnModule,
     // TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
     // build data hooks on it: import { useQuery } from 'utilities:react-query'.

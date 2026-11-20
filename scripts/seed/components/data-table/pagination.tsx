@@ -13,6 +13,8 @@ export type PaginationProps = {
     /** Hide the range text ("1–20 of 5,124"). */
     compact?: boolean;
     label?: string;
+    /** What is counted, appended to the range text (e.g. 'groups'). */
+    unit?: string;
     className?: string;
 };
 
@@ -40,7 +42,9 @@ export function Pagination(props: PaginationProps) {
         >
             {!props.compact ? (
                 <span className="text-muted-foreground tabular-nums" aria-live="polite">
-                    {total ? `${fmt(from)}–${fmt(to)} of ${fmt(total)}` : 'No records'}
+                    {total
+                        ? `${fmt(from)}–${fmt(to)} of ${fmt(total)}${props.unit ? ' ' + props.unit : ''}`
+                        : 'No records'}
                 </span>
             ) : null}
             {props.onPageSizeChange && props.pageSizes && props.pageSizes.length > 1 ? (

@@ -1,14 +1,18 @@
 // npm run docs:pull: writes doc pages edited in Portal Studio back into docs/guide, so they can be
 // committed (.plans/docs-editor.md). Read-only on the instance (now-sdk query).
 //
+// Collection: react-portal only (docs/guide). Other collections are instance-only for now.
 // Selection: pages edited in Studio (origin = studio, or content_hash ≠ seed_hash), including
-// pages deactivated in Studio. --all pulls every page, --only a/b,c/d just those paths.
+// pages deactivated in Studio, and sections edited in Studio (x_312987_portal_doc_section: renamed,
+// reordered, re-iconed, created or deactivated). --all pulls every page, --only a/b,c/d just those paths.
 // Writes:
 //   docs/guide/<path>.md          frontmatter (title, description, section, order, tags; other keys
 //                                  kept) + the stored markdown, byte for byte
-//   docs/guide/_nav.json          only the sections a pulled page is in (or left) are rebuilt, in
-//                                  the instance's order; repo-only pages keep their relative spot
-//   scripts/seed/docs-icons.json  a pages entry when the icon isn't the section's default
+//   docs/guide/_nav.json          only the sections a pulled page is in (or left), and edited
+//                                  sections, are rebuilt from the section rows, in the instance's
+//                                  order; repo-only pages keep their relative spot
+//   scripts/seed/docs-icons.json  a pages entry when the icon isn't the section's default; an edited
+//                                  section's icon (its pages keep their current icons)
 // Deactivated pages leave _nav.json; their .md file stays (never deleted) and is reported.
 // Then it checks that loadDocs() reproduces each pulled page's content_hash exactly, so the next
 // `npm run seed` adopts the pages as clean. Flags: --dry-run, --all, --only, --help.
@@ -16,7 +20,7 @@ import { spawn, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { here } from './seed-lib.mjs';
-import { DOCS_ROOT, loadDocs, parseFrontmatter } from './docs-lib.mjs';
+import { DOCS_ROOT, DOCS_REMOTE, loadDocs, parseFrontmatter } from './docs-lib.mjs';
 import { frontmatterValue } from '../../src/server/docs/docs-text.ts';
 
 const repoRoot = join(here, '..', '..');
@@ -177,14 +181,38 @@ async function main() {
         'active',
         'seed_hash',
         'origin',
+        'doc_section',
     ];
-    const rows = await query('x_312987_portal_doc', 'pathISNOTEMPTY', fields, 40);
+    const rows = await query('x_312987_portal_doc', DOCS_REMOTE.pagesQuery, fields, 40);
+    const sectionRows = await query(
+        'x_312987_portal_doc_section',
+        DOCS_REMOTE.sectionsQuery,
+        DOCS_REMOTE.sectionFields.concat(['icon']),
+        200
+    );
+    // Each page's section comes from its section row (the page's own strings are "as of its last
+    // content write"). Pages of an inactive section leave the nav like deactivated pages.
+    const sectionById = {};
+    sectionRows.forEach((sr) => (sectionById[sr.sys_id] = sr));
+    rows.forEach((r) => {
+        const sr = sectionById[r.doc_section];
+        if (!sr) return;
+        r.section = sr.title;
+        r.section_slug = sr.slug;
+        r.section_order = sr.order;
+        if (!isTrue(sr.active)) r.active = 'false';
+    });
+    const editedSections = sectionRows.filter((sr) => edited(sr));
     const byPath = {};
     rows.forEach((r) => (byPath[r.path] = r));
     if (rows.length && rows.every((r) => r.seed_hash === undefined))
         log('  (seed_hash / origin are not installed yet: nothing counts as edited; use --only or --all)');
 
     let pick = rows.filter((r) => edited(r));
+    // Pages of a section deactivated in Studio leave _nav.json too.
+    editedSections
+        .filter((sr) => !isTrue(sr.active))
+        .forEach((sr) => rows.forEach((r) => r.doc_section === sr.sys_id && pick.indexOf(r) < 0 && pick.push(r)));
     if (flag('--all')) pick = rows.slice();
     if (ONLY) {
         const missing = ONLY.filter((p) => !byPath[p]);
@@ -197,7 +225,8 @@ async function main() {
     const navPaths = new Set();
     nav.sections.forEach((s) => s.pages.forEach((p) => navPaths.add(p.path.replace(/\.md$/, ''))));
     pick = pick.filter((r) => isTrue(r.active) || navPaths.has(r.path));
-    if (!pick.length) {
+    const sectionsToPull = ONLY ? [] : editedSections;
+    if (!pick.length && !sectionsToPull.length) {
         log('Nothing edited in Studio: docs/guide already matches the instance.');
         return;
     }
@@ -226,6 +255,7 @@ async function main() {
             if (s.pages.some((p) => p.path.replace(/\.md$/, '') === r.path)) touched.add(s.slug);
         });
     });
+    sectionsToPull.forEach((sr) => touched.add(sr.slug));
 
     // Rebuild touched sections from the instance; repo-only pages (no active row) keep their spot.
     const pickedPaths = new Set(pick.map((r) => r.path));
@@ -279,6 +309,21 @@ async function main() {
     const iconsText = existsSync(ICONS_FILE) ? readFileSync(ICONS_FILE, 'utf8') : '';
     const icons = iconsText ? JSON.parse(iconsText) : { sections: {}, pages: {} };
     icons.pages = icons.pages || {};
+    icons.sections = icons.sections || {};
+    // An edited section's icon becomes its default; its pages without an entry keep their icon.
+    sectionsToPull.forEach((sr) => {
+        if (!isTrue(sr.active)) return;
+        const icon = sr.icon || '';
+        const before = icons.sections[sr.slug] || '';
+        if (before === icon) return;
+        rows.forEach((r) => {
+            if (r.doc_section !== sr.sys_id || !isTrue(r.active)) return;
+            if (Object.prototype.hasOwnProperty.call(icons.pages, r.path)) return;
+            if ((r.icon || '') !== icon) icons.pages[r.path] = r.icon || '';
+        });
+        if (icon) icons.sections[sr.slug] = icon;
+        else delete icons.sections[sr.slug];
+    });
     pick.forEach((r) => {
         if (!isTrue(r.active)) return;
         const def = (icons.sections && icons.sections[r.section_slug]) || '';
@@ -312,7 +357,9 @@ async function main() {
     const iconsOut = JSON.stringify(icons, null, 4) + '\n';
     const navChanged = lf(navText) !== navOut;
     const iconsChanged = lf(iconsText) !== iconsOut;
-    log(`\nPull (${pick.length} page${pick.length > 1 ? 's' : ''}):`);
+    log(
+        `\nPull (${pick.length} page${pick.length === 1 ? '' : 's'}${sectionsToPull.length ? ', ' + sectionsToPull.length + ' edited section(s): ' + sectionsToPull.map((sr) => sr.slug + (isTrue(sr.active) ? '' : ' (deactivated)')).join(', ') : ''}):`
+    );
     writes.forEach((w) =>
         log(
             `  ${w.isNew ? 'new     ' : w.changed ? 'update  ' : 'same    '} docs/guide/${w.path}.md${w.conflict ? '   (CONFLICT: the repo changed too; review git diff before committing)' : ''}`
@@ -342,6 +389,17 @@ async function main() {
     const bad = writes.filter(
         (w) => !after.docs[w.path] || after.docs[w.path].content_hash !== byPath[w.path].content_hash
     );
+    const badSections = sectionsToPull.filter(
+        (sr) =>
+            isTrue(sr.active) && (!after.sections[sr.slug] || after.sections[sr.slug].content_hash !== sr.content_hash)
+    );
+    if (badSections.length) {
+        log(
+            '\nVERIFY FAILED: these sections do not hash like the instance after the pull: ' +
+                badSections.map((sr) => sr.slug).join(', ')
+        );
+        process.exitCode = 1;
+    }
     if (bad.length) {
         log(
             '\nVERIFY FAILED: these pages do not hash like the instance after the pull (the next seed would report them as conflicts):'

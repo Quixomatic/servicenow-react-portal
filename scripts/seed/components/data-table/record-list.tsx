@@ -12,19 +12,31 @@ import {
     andTerm,
     baseType,
     specificDay,
+    andQueries,
+    groupCondition,
+    effectiveQuery,
+    groupByOf,
 } from 'utilities:app/list-data';
-import type { ListColumn, ListPage, ListRow, Term } from 'utilities:app/list-data';
+import type { ListColumn, ListGroup, ListPage, ListRow, QuickFilter, Term } from 'utilities:app/list-data';
 import { useTableMeta } from 'utilities:app/graphql';
 import { ConditionBuilder, FilterBreadcrumbs } from 'components:app/condition-builder';
 import { Popup, Select } from 'components:app/combobox';
 import { FieldControl } from 'components:app/field-control';
-import { cx, IconSearch, IconX, Spinner, IconExternal } from 'components:app/field';
+import { cx, IconSearch, IconX, Spinner, IconExternal, IconChevronDown } from 'components:app/field';
 import { DataTable } from './table';
 import type { DataTableColumn, Density, SortState, CellContext } from './table';
 import { Pagination } from './pagination';
 import { ColumnChooser } from './column-chooser';
-import { CellEditor } from './cell-editor';
+import { CellEditor, hasInlineEditor } from './cell-editor';
+import type { CellTarget } from './cell-editor';
 import type { MenuItem } from './menu';
+import { ColumnFilter } from './column-filter';
+import { QuickFilterBar, resolveQuickFilters } from './quick-filters';
+import { GroupByMenu } from './group-by';
+import { SavedFiltersMenu } from './saved-filters';
+import { CardGrid } from './card-grid';
+import { ListControllerContext } from './controller';
+import type { ListController } from './controller';
 
 export type RecordListFeatures = {
     title: boolean;
@@ -39,6 +51,18 @@ export type RecordListFeatures = {
     actions: boolean;
     refresh: boolean;
     export: boolean;
+    /** Group-by menu (^GROUPBY) and the cell menu's "Group by". */
+    groupBy: boolean;
+    /** Saved filters (sys_filter) menu. */
+    savedFilters: boolean;
+    /** Funnel buttons in the column headers. */
+    columnFilters: boolean;
+    /** Quick filter chips (when `quickFilters` are given). */
+    quickFilters: boolean;
+    /** Table / grid toggle (off by default). */
+    displayToggle: boolean;
+    /** Inline append to journal fields (comments, work notes); off by default. */
+    journalEdit: boolean;
 };
 
 export type ListActionContext = {
@@ -58,7 +82,25 @@ export type ListAction = {
 };
 
 /** The user-facing query state (what a page can mirror into the URL). */
-export type ListState = { filter: string; keywords: string; orderBy: string; page: number };
+export type ListState = {
+    filter: string;
+    keywords: string;
+    orderBy: string;
+    page: number;
+    /** Grouped column ('' = none). */
+    groupBy: string;
+    /** Active quick filter ids. */
+    quick: string[];
+};
+
+/** A group header row in a grouped list's rows (see `isGroupRow`). */
+export type ListGroupRow = ListRow & { group: ListGroup };
+export function isGroupRow(row: any): row is ListGroupRow {
+    return !!row && !!row.group;
+}
+
+/** Groups per page in a grouped list (the platform returns up to 20; offset counts groups). */
+export const GROUPS_PER_PAGE = 20;
 
 export type RecordListProps = {
     table: string;
@@ -112,10 +154,34 @@ export type RecordListProps = {
      * breadcrumbs, filter panel, selection bar and table stay in the list.
      */
     toolbarSlots?: { left: (node: any) => any; right: (node: any) => any };
-    /** Extra toolbar content after the built-in buttons (e.g. a related list's New / Add). */
-    toolbarActions?: any;
+    /** Extra toolbar content after the built-in buttons (e.g. a related list's New / Add); a function gets the controller. */
+    toolbarActions?: any | ((c: ListController) => any);
     /** Called with each page the list shows (count, permissions, m2m metadata), e.g. to update a tab count. */
     onData?: (page: ListPage) => void;
+    /** Initial group-by column (the user can change it with `features.groupBy`). */
+    groupBy?: string;
+    /** Rows shown per group (default 10); "Show all" opens the group as a filter. */
+    groupRowLimit?: number;
+    /** Quick filter chips: preset ids ('active', 'mine', 'myGroups', …), 'Label=query' strings or objects. */
+    quickFilters?: (string | QuickFilter)[] | string;
+    /** Quick filters that start on. */
+    defaultQuickFilters?: string[];
+    /** 'table' (default) or 'grid' (cards); with features.displayToggle the user picks (remembered). */
+    display?: 'table' | 'grid';
+    /** Fields per card in grid mode (default 5). */
+    gridFields?: number;
+    /** glide_list cells open in the list collector (slushbucket) instead of the chip picker. */
+    listCollector?: boolean;
+    // ---- extension points (actions, menus: e.g. platform list UI actions) ----
+    /** Selection bar content (shown while rows are selected), after Clear / Edit field… and `actions`. */
+    selectionActions?: (c: ListController) => any;
+    /** A trailing actions cell per row. */
+    rowActions?: (row: ListRow, c: ListController) => any;
+    /** Items appended to the cell context menu (after a separator). */
+    contextMenuItems?: (ctx: CellContext<ListRow>, c: ListController) => MenuItem[];
+    onSelectionChange?: (ids: string[], rows: ListRow[]) => void;
+    /** Imperative access to the list (the same controller the slots get). */
+    controllerRef?: { current: ListController | null };
 };
 
 const ALL_ON: RecordListFeatures = {
@@ -131,22 +197,23 @@ const ALL_ON: RecordListFeatures = {
     actions: true,
     refresh: true,
     export: true,
+    groupBy: true,
+    savedFilters: true,
+    columnFilters: true,
+    quickFilters: true,
+    displayToggle: false,
+    journalEdit: false,
 };
 
-/** Types the field primitives can edit inline. */
-const EDITABLE_BASE = ['string', 'choice', 'reference', 'boolean', 'number', 'date', 'datetime'];
+/** Types never edited inline (the editors for the rest: cell-editor.tsx, hasInlineEditor). */
 const NOT_EDITABLE_TYPES = [
-    'journal',
-    'journal_input',
     'journal_list',
     'script',
     'script_plain',
-    'conditions',
     'sys_class_name',
     'document_id',
     'GUID',
     'domain_id',
-    'glide_list',
     'password',
     'password2',
 ];
@@ -265,6 +332,11 @@ export function RecordList(props: RecordListProps) {
         keywords: (props.state && props.state.keywords) || '',
         orderBy: props.state && props.state.orderBy !== undefined ? props.state.orderBy : props.orderBy || '',
         page: (props.state && props.state.page) || 0,
+        groupBy:
+            props.state && props.state.groupBy !== undefined
+                ? props.state.groupBy
+                : props.groupBy || groupByOf(props.query),
+        quick: props.state && props.state.quick !== undefined ? props.state.quick : props.defaultQuickFilters || [],
     };
     const [state, setState] = useState<ListState>(initial);
     const external = JSON.stringify(props.state || null);
@@ -279,6 +351,8 @@ export function RecordList(props: RecordListProps) {
                 keywords: props.state!.keywords !== undefined ? props.state!.keywords : s.keywords,
                 orderBy: props.state!.orderBy !== undefined ? props.state!.orderBy : s.orderBy,
                 page: props.state!.page !== undefined ? props.state!.page : s.page,
+                groupBy: props.state!.groupBy !== undefined ? props.state!.groupBy : s.groupBy,
+                quick: props.state!.quick !== undefined ? props.state!.quick : s.quick,
             };
             return JSON.stringify(next) === JSON.stringify(s) ? s : next;
         });
@@ -321,13 +395,24 @@ export function RecordList(props: RecordListProps) {
     const density: Density = prefs.density || props.density || 'normal';
     const wrap = prefs.wrap ?? props.wrap ?? false;
     const columnsParam = prefs.columns && prefs.columns.length ? prefs.columns.join(',') : props.columns;
+    const display: 'table' | 'grid' = (f.displayToggle && prefs.display) || props.display || 'table';
 
     // ---- data ----------------------------------------------------------------------------------
     const sorting = useMemo(() => orderToSort(state.orderBy), [state.orderBy]);
+    const quickList = useMemo(
+        () => resolveQuickFilters(props.quickFilters),
+        [JSON.stringify(props.quickFilters || null)]
+    );
+    const quickQueries = f.quickFilters
+        ? quickList.filter((q) => state.quick.indexOf(q.id) >= 0).map((q) => q.query)
+        : [];
+    const groupBy = f.groupBy || props.groupBy ? state.groupBy : '';
+    const groupRowLimit = props.groupRowLimit || 10;
+    const userQuery = andQueries(state.filter, quickQueries);
     const args = {
         table,
         columns: columnsParam,
-        query: state.filter,
+        query: userQuery,
         fixedQuery: props.fixedQuery,
         orderBy: sorting.map((s) => ({ field: s.id, desc: s.desc })),
         keywords: (props.searchMode || 'keywords') === 'keywords' ? state.keywords : undefined,
@@ -335,12 +420,15 @@ export function RecordList(props: RecordListProps) {
         relatedListName: props.relatedListName,
         parentTable: props.parentTable,
         parentRecordSysId: props.parentRecordSysId,
-        limit: pageSize,
-        offset: infinite ? 0 : state.page * pageSize,
+        groupBy,
+        // Grouped: offset counts groups, limit is rows per group (the platform's grouped paging).
+        limit: groupBy ? groupRowLimit : pageSize,
+        offset: infinite && !groupBy ? 0 : state.page * (groupBy ? GROUPS_PER_PAGE : pageSize),
     };
-    const paged = useList(args, { enabled: !infinite });
-    const scrolled = useInfiniteList(args, { enabled: infinite });
-    const list: any = infinite ? scrolled : paged;
+    const scrollMode = infinite && !groupBy;
+    const paged = useList(args, { enabled: !scrollMode });
+    const scrolled = useInfiniteList(args, { enabled: scrollMode });
+    const list: any = scrollMode ? scrolled : paged;
     const page = list.data;
     const columns: ListColumn[] = list.columns;
 
@@ -352,9 +440,9 @@ export function RecordList(props: RecordListProps) {
         );
         return text.map((c, i) => (i ? 'OR' : '') + c.name + 'LIKE' + state.keywords).join('^');
     }, [state.keywords, props.searchMode, columns]);
-    const containsArgs = { ...args, query: [state.filter, containsQuery].filter(Boolean).join('^') };
-    const containsPaged = useList(containsArgs, { enabled: !infinite && !!containsQuery });
-    const effective: any = containsQuery && !infinite ? containsPaged : list;
+    const containsArgs = { ...args, query: andQueries(userQuery, [containsQuery]) };
+    const containsPaged = useList(containsArgs, { enabled: !scrollMode && !!containsQuery });
+    const effective: any = containsQuery && !scrollMode ? containsPaged : list;
     const rows: ListRow[] = effective.rows;
     const count: number = effective.count;
     // Report each settled page (count, permissions, m2m metadata) to the owner (onData).
@@ -381,7 +469,7 @@ export function RecordList(props: RecordListProps) {
     const updatedTimer = useRef<any>(0);
     const live = useRecordWatch(
         table,
-        [props.fixedQuery, state.filter].filter(Boolean).join('^'),
+        [props.fixedQuery, userQuery].filter(Boolean).join('^'),
         (e: { sysId: string }) => {
             if (e.sysId) liveIds.current.add(e.sysId);
             if (liveTimer.current) return;
@@ -410,7 +498,51 @@ export function RecordList(props: RecordListProps) {
     // ---- selection ------------------------------------------------------------------------------
     const [selection, setSelection] = useState<Record<string, boolean>>({});
     const selectedIds = Object.keys(selection);
-    useEffect(() => setSelection({}), [state.filter, state.keywords, table]);
+    useEffect(() => setSelection({}), [state.filter, state.keywords, state.quick.join(','), state.groupBy, table]);
+    const onSelectionChange = useRef(props.onSelectionChange);
+    onSelectionChange.current = props.onSelectionChange;
+    const firstSelection = useRef(true);
+    useEffect(() => {
+        if (firstSelection.current) {
+            firstSelection.current = false;
+            return;
+        }
+        if (onSelectionChange.current)
+            onSelectionChange.current(
+                selectedIds,
+                selectedIds.map((id) => seen.current.get(id)).filter(Boolean) as ListRow[]
+            );
+    }, [selectedIds.join(',')]);
+
+    // ---- groups (^GROUPBY) ----------------------------------------------------------------------
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+    useEffect(() => setCollapsed({}), [state.groupBy]);
+    const groups: ListGroup[] | undefined = groupBy && shownPage ? shownPage.groups : undefined;
+    const groupKey = (g: ListGroup) => g.value || '__empty';
+    const displayRows: ListRow[] = useMemo(() => {
+        if (!groups) return rows;
+        const out: ListRow[] = [];
+        groups.forEach((g, i) => {
+            const k = groupKey(g);
+            out.push({
+                sysId: `__group:${i}:${k}`,
+                className: '',
+                display: g.displayValue,
+                cells: {},
+                refClass: {},
+                group: g,
+            } as ListGroupRow);
+            if (!collapsed[k]) for (const r of g.rows) out.push(r);
+        });
+        return out;
+    }, [groups, rows, collapsed]);
+    const toggleGroup = (row: ListRow) => {
+        if (!isGroupRow(row)) return;
+        const k = groupKey(row.group);
+        setCollapsed((c) => ({ ...c, [k]: !c[k] }));
+    };
+    const openGroup = (g: ListGroup) =>
+        patchState({ filter: andQueries(state.filter, [groupCondition(g.field, g.value)]), groupBy: '', page: 0 });
 
     // ---- columns for the grid ---------------------------------------------------------------
     const ordered = useMemo(() => {
@@ -423,14 +555,16 @@ export function RecordList(props: RecordListProps) {
 
     const isEditableColumn = useCallback(
         (c: ListColumn) => {
-            if (!f.inlineEdit || !page || !page.inlineEditingEnabled || c.isDotWalk) return false;
-            if (c.name.startsWith('sys_') || NOT_EDITABLE_TYPES.indexOf(c.type) >= 0) return false;
-            if (EDITABLE_BASE.indexOf(baseType(c.type, c.isChoice)) < 0) return false;
-            const m = meta.data && meta.data[c.name];
+            if (!f.inlineEdit || !page || !page.inlineEditingEnabled) return false;
+            // Dot-walked columns are editable too: getPreFetch names the record and field that get written.
+            const last = c.name.split('.').pop() || c.name;
+            if (last.startsWith('sys_') || NOT_EDITABLE_TYPES.indexOf(c.type) >= 0) return false;
+            if (!hasInlineEditor(c.type, c.isChoice, { journal: f.journalEdit })) return false;
+            const m = !c.isDotWalk && meta.data && meta.data[c.name];
             if (m && (m.readOnly || m.canWrite === false)) return false;
             return true;
         },
-        [f.inlineEdit, page, meta.data]
+        [f.inlineEdit, f.journalEdit, page, meta.data]
     );
 
     const gridColumns: DataTableColumn[] = useMemo(
@@ -457,6 +591,19 @@ export function RecordList(props: RecordListProps) {
     // ---- inline edit ----------------------------------------------------------------------------
     const [editing, setEditing] = useState<{ rowId: string; colId: string } | null>(null);
     const { write } = useCellWrite();
+    /** Write one cell: base-table cells through the list's write (optimistic patch), dot-walked ones on their record. */
+    const writeCell = async (row: ListRow, c: ListColumn, value: string, displayValue: string, target: CellTarget) => {
+        const direct = target.table === table && target.sysId === row.sysId && target.column === c.name;
+        const res = direct
+            ? await write({ table, sysIds: [row.sysId], values: [{ column: c.name, value, displayValue }] })
+            : await write({
+                  table: target.table,
+                  sysIds: [target.sysId],
+                  values: [{ column: target.column, value, displayValue }],
+              });
+        if (!direct) invalidate(table);
+        return res;
+    };
     const canEditCell = (ctx: CellContext<ListRow>) => {
         const c = colByName.get(ctx.column.id);
         return !!c && isEditableColumn(c);
@@ -541,6 +688,18 @@ export function RecordList(props: RecordListProps) {
                 onSelect: () => patchState({ orderBy: '-' + c.name, page: 0 }),
             });
         }
+        if (f.groupBy && c.isGroupable && !c.isDotWalk) {
+            items.push({ type: 'separator', id: 's-g' });
+            items.push(
+                state.groupBy === c.name
+                    ? { id: 'ungroup', label: 'Remove grouping', onSelect: () => patchState({ groupBy: '', page: 0 }) }
+                    : {
+                          id: 'group',
+                          label: `Group by ${c.label}`,
+                          onSelect: () => patchState({ groupBy: c.name, page: 0 }),
+                      }
+            );
+        }
         if (f.selection) {
             const on = !!selection[ctx.rowId];
             items.push({ type: 'separator', id: 's4' });
@@ -556,6 +715,10 @@ export function RecordList(props: RecordListProps) {
                         return n;
                     }),
             });
+        }
+        if (props.contextMenuItems) {
+            const extra = props.contextMenuItems(ctx, controller);
+            if (extra && extra.length) items.push({ type: 'separator', id: 's-x' }, ...extra);
         }
         return items;
     };
@@ -611,6 +774,40 @@ export function RecordList(props: RecordListProps) {
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     };
 
+    const controller: ListController = {
+        table,
+        view: props.view,
+        filter: state.filter,
+        fixedQuery: props.fixedQuery,
+        quickFilters: state.quick,
+        query: [
+            props.fixedQuery || '',
+            effectiveQuery({
+                query: andQueries(userQuery, containsQuery ? [containsQuery] : []),
+                keywords: (props.searchMode || 'keywords') === 'keywords' ? state.keywords : undefined,
+                orderBy: sorting.map((x) => ({ field: x.id, desc: x.desc })),
+                groupBy,
+            }),
+        ]
+            .filter(Boolean)
+            .join('^'),
+        keywords: state.keywords,
+        orderBy: state.orderBy,
+        groupBy,
+        rows,
+        count,
+        page: shownPage,
+        selectedIds,
+        selectedRows,
+        setSelection: (ids: string[]) => setSelection(Object.fromEntries(ids.map((id) => [id, true]))),
+        clearSelection: () => setSelection({}),
+        refresh,
+        setFilter: (q: string) => patchState({ filter: q, page: 0 }),
+        setGroupBy: (col: string) => patchState({ groupBy: col, page: 0 }),
+    };
+    if (props.controllerRef) props.controllerRef.current = controller;
+    const groupable = ordered.filter((c) => c.isGroupable && !c.isDotWalk);
+
     const shell = cx(
         'rpl-list flex min-w-0 flex-col [contain:inline-size]',
         variant === 'card'
@@ -622,361 +819,569 @@ export function RecordList(props: RecordListProps) {
     const toolbarSlots = props.toolbarSlots;
     const inHeader = !!toolbarSlots;
 
+    function renderGroupRow(row: ListRow) {
+        if (!isGroupRow(row)) return null;
+        const g = row.group;
+        const open = !collapsed[groupKey(g)];
+        return (
+            <span className="flex min-w-0 items-center gap-2 text-sm">
+                <IconChevronDown
+                    size={14}
+                    className={cx('shrink-0 text-muted-foreground transition-transform', open ? '' : '-rotate-90')}
+                />
+                <span className="min-w-0 truncate">
+                    <span className="font-normal text-muted-foreground">
+                        {(shownPage && shownPage.groupLabel) || g.field}:
+                    </span>{' '}
+                    {g.displayValue || '(empty)'}
+                </span>
+                <span className="rounded-full bg-background px-1.5 text-xs font-normal text-muted-foreground tabular-nums">
+                    {nf.format(g.count)}
+                </span>
+                {open && g.count > g.rows.length ? (
+                    <button
+                        type="button"
+                        tabIndex={-1}
+                        data-rpl-group-link=""
+                        className="ml-1 shrink-0 text-xs font-normal text-primary underline-offset-2 hover:underline"
+                        title="Filter the list to this group (Shift+Enter)"
+                        onClick={(e: any) => {
+                            e.stopPropagation();
+                            openGroup(g);
+                        }}
+                    >
+                        Show all {nf.format(g.count)}
+                    </button>
+                ) : null}
+            </span>
+        );
+    }
+
     return (
-        <section
-            ref={rootRef}
-            className={shell}
-            aria-labelledby={f.title ? titleId : undefined}
-            aria-label={f.title ? undefined : title}
-            data-variant={variant}
-        >
-            {/* Toolbar: inline, or the title / actions portalled into a page header's slots (toolbarSlots). */}
-            {(() => {
-                const titleGroup = (
-                    <>
-                        {f.title ? (
-                            <div className="mr-auto flex min-w-0 items-baseline gap-2">
-                                <h2
-                                    id={titleId}
-                                    className={cx(
-                                        'truncate font-semibold tracking-tight',
-                                        inHeader ? 'text-sm' : variant === 'page' ? 'text-xl' : 'text-base'
-                                    )}
-                                >
-                                    {title}
-                                </h2>
-                                <span className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
-                                    {page ? `${nf.format(count)} record${count === 1 ? '' : 's'}` : ''}
-                                </span>
-                                {effective.isFetching && page ? (
-                                    <Spinner className="text-muted-foreground" label="Refreshing" />
-                                ) : null}
-                                {liveOn ? (
-                                    <span
+        <ListControllerContext.Provider value={controller}>
+            <section
+                ref={rootRef}
+                className={shell}
+                aria-labelledby={f.title ? titleId : undefined}
+                aria-label={f.title ? undefined : title}
+                data-variant={variant}
+            >
+                {/* Toolbar: inline, or the title / actions portalled into a page header's slots (toolbarSlots). */}
+                {(() => {
+                    const titleGroup = (
+                        <>
+                            {f.title ? (
+                                <div className="mr-auto flex min-w-0 items-baseline gap-2">
+                                    <h2
+                                        id={titleId}
                                         className={cx(
-                                            'inline-flex items-center gap-1 self-center text-xs transition-colors',
-                                            justUpdated ? 'text-primary' : 'text-muted-foreground'
+                                            'truncate font-semibold tracking-tight',
+                                            inHeader ? 'text-sm' : variant === 'page' ? 'text-xl' : 'text-base'
                                         )}
-                                        title="Live: this list refreshes when records change"
-                                        data-rp-live={justUpdated ? 'updated' : 'on'}
                                     >
+                                        {title}
+                                    </h2>
+                                    <span className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
+                                        {page ? `${nf.format(count)} record${count === 1 ? '' : 's'}` : ''}
+                                    </span>
+                                    {effective.isFetching && page ? (
+                                        <Spinner className="text-muted-foreground" label="Refreshing" />
+                                    ) : null}
+                                    {liveOn ? (
                                         <span
                                             className={cx(
-                                                'size-1.5 rounded-full',
-                                                justUpdated ? 'bg-primary' : 'bg-emerald-500/70'
+                                                'inline-flex items-center gap-1 self-center text-xs transition-colors',
+                                                justUpdated ? 'text-primary' : 'text-muted-foreground'
                                             )}
-                                            aria-hidden="true"
-                                        />
-                                        <span aria-live="polite">{justUpdated ? 'Updated' : 'Live'}</span>
-                                    </span>
-                                ) : null}
-                            </div>
-                        ) : (
-                            <span className="mr-auto" />
-                        )}
-                    </>
-                );
-                const actionGroup = (
-                    <>
-                        {f.search ? (
-                            <label
-                                className={cx(
-                                    'relative flex items-center',
-                                    inHeader ? 'h-7 w-40 min-w-0 lg:w-56' : 'h-8 w-full sm:w-64'
-                                )}
-                            >
-                                <span className="sr-only">Search {title}</span>
-                                <IconSearch
-                                    size={14}
-                                    className="pointer-events-none absolute left-2.5 text-muted-foreground"
-                                />
-                                <input
-                                    type="search"
-                                    value={searchText}
-                                    onChange={(e: any) => setSearchText(e.target.value)}
-                                    onKeyDown={(e: any) => {
-                                        if (e.key === 'Enter') patchState({ keywords: searchText, page: 0 });
-                                        if (e.key === 'Escape' && searchText) {
-                                            e.preventDefault();
-                                            setSearchText('');
-                                        }
-                                    }}
-                                    placeholder="Search"
-                                    className="h-full w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                                />
-                            </label>
-                        ) : null}
-                        {f.filter ? (
-                            <button
-                                type="button"
-                                className={tbBtn(filterOpen, inHeader)}
-                                aria-expanded={filterOpen}
-                                aria-controls={filterPanelId}
-                                onClick={() => setFilterOpen(!filterOpen)}
-                            >
-                                <FilterIcon /> Filter
-                                {filterCount ? (
-                                    <span className="rounded-full bg-primary px-1.5 text-[11px] leading-4 font-medium text-primary-foreground">
-                                        {filterCount}
-                                    </span>
-                                ) : null}
-                            </button>
-                        ) : null}
-                        {f.columnChooser ? (
-                            <>
-                                <button
-                                    ref={chooserBtn}
-                                    type="button"
-                                    className={tbBtn(chooserOpen, inHeader)}
-                                    aria-expanded={chooserOpen}
-                                    aria-haspopup="dialog"
-                                    onClick={() => setChooserOpen(!chooserOpen)}
-                                >
-                                    <ColumnsIcon />{' '}
-                                    <span className={inHeader ? 'sr-only xl:not-sr-only' : ''}>Columns</span>
-                                </button>
-                                <Popup
-                                    anchor={chooserBtn}
-                                    open={chooserOpen}
-                                    onDismiss={() => setChooserOpen(false)}
-                                    matchWidth={false}
-                                    minWidth={320}
-                                    maxHeight={560}
-                                    role="dialog"
-                                    aria-label="Personalize list"
-                                    className="p-2"
-                                >
-                                    <div
-                                        onKeyDown={(e: any) => {
-                                            if (e.key === 'Escape' && !e.defaultPrevented) {
-                                                setChooserOpen(false);
-                                                if (chooserBtn.current) chooserBtn.current.focus();
-                                            }
-                                        }}
-                                    >
-                                        <ColumnChooser
-                                            table={table}
-                                            visible={visibleOpts}
-                                            hidden={hiddenOpts}
-                                            onChange={(ids) => setPrefs((p) => ({ ...p, columns: ids }))}
-                                            density={density}
-                                            onDensityChange={(d) => setPrefs((p) => ({ ...p, density: d }))}
-                                            wrap={wrap}
-                                            onWrapChange={(w) => setPrefs((p) => ({ ...p, wrap: w }))}
-                                            onReset={reset}
-                                        />
-                                    </div>
-                                </Popup>
-                            </>
-                        ) : null}
-                        {f.export ? (
-                            <button
-                                type="button"
-                                className={tbBtn(false, inHeader)}
-                                onClick={exportCsv}
-                                title={selectedRows.length ? 'Export the selected rows' : 'Export this page'}
-                            >
-                                <DownloadIcon />{' '}
-                                <span className={inHeader ? 'sr-only xl:not-sr-only' : 'sr-only sm:not-sr-only'}>
-                                    Export
-                                </span>
-                            </button>
-                        ) : null}
-                        {f.refresh ? (
-                            <button
-                                type="button"
-                                className={cx(tbBtn(false, inHeader), 'px-2')}
-                                onClick={refresh}
-                                aria-label="Refresh"
-                            >
-                                <RefreshIcon spinning={effective.isFetching} />
-                            </button>
-                        ) : null}
-                        {props.toolbarActions || null}
-                    </>
-                );
-                if (toolbarSlots)
-                    return (
-                        <>
-                            {toolbarSlots.left(titleGroup)}
-                            {toolbarSlots.right(actionGroup)}
+                                            title="Live: this list refreshes when records change"
+                                            data-rp-live={justUpdated ? 'updated' : 'on'}
+                                        >
+                                            <span
+                                                className={cx(
+                                                    'size-1.5 rounded-full',
+                                                    justUpdated ? 'bg-primary' : 'bg-emerald-500/70'
+                                                )}
+                                                aria-hidden="true"
+                                            />
+                                            <span aria-live="polite">{justUpdated ? 'Updated' : 'Live'}</span>
+                                        </span>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <span className="mr-auto" />
+                            )}
                         </>
                     );
-                return (
-                    <div
-                        className={cx(
-                            'flex flex-wrap items-center gap-2',
-                            pad,
-                            variant === 'card' ? 'pt-4 pb-3' : 'pb-3'
-                        )}
-                    >
-                        {titleGroup}
-                        {actionGroup}
-                    </div>
-                );
-            })()}
-
-            {f.breadcrumbs && (state.filter || state.keywords) ? (
-                <div className={cx(pad, 'pb-2')}>
-                    <FilterBreadcrumbs
-                        table={table}
-                        query={state.filter}
-                        onChange={(q) => patchState({ filter: q, page: 0 })}
-                        keywords={state.keywords}
-                        onClearKeywords={() => {
-                            setSearchText('');
-                            patchState({ keywords: '', page: 0 });
-                        }}
-                        onEdit={f.filter ? () => setFilterOpen(true) : undefined}
-                    />
-                </div>
-            ) : null}
-
-            {f.filter && filterOpen ? (
-                <div id={filterPanelId} className={cx(pad, 'pb-3')}>
-                    <ConditionBuilder
-                        table={table}
-                        value={state.filter}
-                        onApply={(q) => {
-                            patchState({ filter: q, page: 0 });
-                            setFilterOpen(false);
-                        }}
-                        onCancel={() => setFilterOpen(false)}
-                    />
-                </div>
-            ) : null}
-
-            {f.selection && f.actions && selectedIds.length ? (
-                <SelectionBar
-                    table={table}
-                    count={selectedIds.length}
-                    rows={selectedRows}
-                    columns={ordered.filter(isEditableColumn)}
-                    actions={props.actions || []}
-                    onClear={() => setSelection({})}
-                    refresh={refresh}
-                    className={pad}
-                />
-            ) : null}
-
-            <div
-                ref={tableWrap}
-                className={cx(
-                    'min-h-0',
-                    variant === 'card'
-                        ? 'border-t border-border'
-                        : 'overflow-hidden rounded-lg border border-border bg-card'
-                )}
-            >
-                {effective.error ? (
-                    <div role="alert" className="p-6 text-sm text-destructive">
-                        {(effective.error as Error).message}
-                    </div>
-                ) : (
-                    <DataTable<ListRow>
-                        label={title}
-                        columns={gridColumns}
-                        rows={rows}
-                        getRowId={getRowId}
-                        getValue={getCell}
-                        sorting={
-                            sorting.length
-                                ? sorting
-                                : page && page.orderBy
-                                  ? [{ id: page.orderBy.field, desc: page.orderBy.desc }]
-                                  : []
-                        }
-                        onSortingChange={(s) => patchState({ orderBy: sortToOrder(s), page: 0 })}
-                        selectable={f.selection}
-                        selection={selection}
-                        onSelectionChange={setSelection}
-                        columnSizing={prefs.widths}
-                        onColumnResizeEnd={(w) => setPrefs((p) => ({ ...p, widths: w }))}
-                        density={density}
-                        wrap={wrap}
-                        height={scrollHeight}
-                        maxHeight={maxHeight}
-                        virtualize={infinite ? true : 'auto'}
-                        onEndReached={
-                            infinite
-                                ? () => scrolled.hasNextPage && !scrolled.isFetchingNextPage && scrolled.fetchNextPage()
-                                : undefined
-                        }
-                        totalRows={count}
-                        rowIndexOffset={infinite ? 0 : state.page * pageSize}
-                        loading={effective.isLoading}
-                        fetching={effective.isFetching}
-                        skeletonRows={Math.min(pageSize, 10)}
-                        empty={
-                            <EmptyState
-                                text={props.emptyText}
-                                filtered={!!(state.filter || state.keywords)}
-                                onClear={() => patchState({ filter: '', keywords: '', page: 0 })}
-                            />
-                        }
-                        onRowOpen={openRecord}
-                        contextMenu={f.contextMenu ? contextMenu : undefined}
-                        canEditCell={f.inlineEdit ? canEditCell : undefined}
-                        onEditRequest={
-                            f.inlineEdit ? (ctx) => setEditing({ rowId: ctx.rowId, colId: ctx.column.id }) : undefined
-                        }
-                        editing={editing}
-                        onEditorDismiss={() => setEditing(null)}
-                        highlighted={updated}
-                        renderEditor={(ctx) => {
-                            const c = colByName.get(ctx.column.id);
-                            if (!c) return null;
-                            return (
-                                <CellEditor
-                                    table={table}
-                                    row={ctx.row}
-                                    column={c}
-                                    write={async (value, displayValue) => {
-                                        const res = await write({
-                                            table,
-                                            sysIds: [ctx.row.sysId],
-                                            values: [{ column: c.name, value, displayValue }],
-                                        });
-                                        if (res.ok)
-                                            toast.success(`${c.label} updated on ${ctx.row.display || 'the record'}`);
-                                        for (const m of res.info) toast(m);
-                                        return res;
-                                    }}
-                                    onDone={() => setEditing(null)}
+                    const actionGroup = (
+                        <>
+                            {f.search ? (
+                                <label
+                                    className={cx(
+                                        'relative flex items-center',
+                                        inHeader
+                                            ? 'h-7 w-40 min-w-8 shrink overflow-hidden rounded-md lg:w-56'
+                                            : 'h-8 w-full sm:w-64'
+                                    )}
+                                >
+                                    <span className="sr-only">Search {title}</span>
+                                    <IconSearch
+                                        size={14}
+                                        className="pointer-events-none absolute left-2.5 text-muted-foreground"
+                                    />
+                                    <input
+                                        type="search"
+                                        value={searchText}
+                                        onChange={(e: any) => setSearchText(e.target.value)}
+                                        onKeyDown={(e: any) => {
+                                            if (e.key === 'Enter') patchState({ keywords: searchText, page: 0 });
+                                            if (e.key === 'Escape' && searchText) {
+                                                e.preventDefault();
+                                                setSearchText('');
+                                            }
+                                        }}
+                                        placeholder="Search"
+                                        className="h-full w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                    />
+                                </label>
+                            ) : null}
+                            {f.filter ? (
+                                <button
+                                    type="button"
+                                    className={tbBtn(filterOpen, inHeader)}
+                                    aria-expanded={filterOpen}
+                                    aria-controls={filterPanelId}
+                                    onClick={() => setFilterOpen(!filterOpen)}
+                                >
+                                    <FilterIcon /> Filter
+                                    {filterCount ? (
+                                        <span className="rounded-full bg-primary px-1.5 text-[11px] leading-4 font-medium text-primary-foreground">
+                                            {filterCount}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            ) : null}
+                            {f.groupBy && (groupable.length || state.groupBy) ? (
+                                <GroupByMenu
+                                    columns={groupable}
+                                    value={state.groupBy}
+                                    onChange={(col) => patchState({ groupBy: col, page: 0 })}
+                                    onCollapseAll={
+                                        groups
+                                            ? () =>
+                                                  setCollapsed(
+                                                      Object.fromEntries(groups.map((g) => [groupKey(g), true]))
+                                                  )
+                                            : undefined
+                                    }
+                                    onExpandAll={groups ? () => setCollapsed({}) : undefined}
+                                    buttonClassName={tbBtn(!!state.groupBy, inHeader)}
+                                    compact={inHeader}
                                 />
-                            );
-                        }}
-                        footer={
-                            infinite && scrolled.isFetchingNextPage ? (
-                                <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
-                                    <Spinner label="Loading more" /> Loading more…
-                                </div>
-                            ) : null
-                        }
-                    />
-                )}
-            </div>
+                            ) : null}
+                            {f.savedFilters ? (
+                                <SavedFiltersMenu
+                                    table={table}
+                                    current={{ filter: state.filter, orderBy: state.orderBy, groupBy: state.groupBy }}
+                                    onApply={(s) =>
+                                        patchState({
+                                            filter: s.filter,
+                                            orderBy: s.orderBy || state.orderBy,
+                                            groupBy: f.groupBy ? s.groupBy : state.groupBy,
+                                            page: 0,
+                                        })
+                                    }
+                                    buttonClassName={tbBtn(false, inHeader)}
+                                    compact={inHeader}
+                                />
+                            ) : null}
+                            {f.displayToggle ? (
+                                <span
+                                    role="radiogroup"
+                                    aria-label="Display"
+                                    className="inline-flex rounded-md border border-input p-0.5"
+                                >
+                                    {(['table', 'grid'] as const).map((d) => (
+                                        <button
+                                            key={d}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={display === d}
+                                            aria-label={d === 'table' ? 'Table' : 'Cards'}
+                                            title={d === 'table' ? 'Table' : 'Cards'}
+                                            className={cx(
+                                                'inline-flex items-center justify-center rounded-[5px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                                                inHeader ? 'size-6' : 'size-7',
+                                                display === d
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'text-muted-foreground hover:bg-accent'
+                                            )}
+                                            onClick={() => setPrefs((p) => ({ ...p, display: d }))}
+                                        >
+                                            {d === 'table' ? <RowsIcon /> : <GridIcon />}
+                                        </button>
+                                    ))}
+                                </span>
+                            ) : null}
+                            {f.columnChooser ? (
+                                <>
+                                    <button
+                                        ref={chooserBtn}
+                                        type="button"
+                                        className={tbBtn(chooserOpen, inHeader)}
+                                        aria-expanded={chooserOpen}
+                                        aria-haspopup="dialog"
+                                        onClick={() => setChooserOpen(!chooserOpen)}
+                                    >
+                                        <ColumnsIcon />{' '}
+                                        <span className={inHeader ? 'sr-only xl:not-sr-only' : ''}>Columns</span>
+                                    </button>
+                                    <Popup
+                                        anchor={chooserBtn}
+                                        open={chooserOpen}
+                                        onDismiss={() => setChooserOpen(false)}
+                                        matchWidth={false}
+                                        minWidth={320}
+                                        maxHeight={560}
+                                        role="dialog"
+                                        aria-label="Personalize list"
+                                        className="p-2"
+                                    >
+                                        <div
+                                            onKeyDown={(e: any) => {
+                                                if (e.key === 'Escape' && !e.defaultPrevented) {
+                                                    setChooserOpen(false);
+                                                    if (chooserBtn.current) chooserBtn.current.focus();
+                                                }
+                                            }}
+                                        >
+                                            <ColumnChooser
+                                                table={table}
+                                                visible={visibleOpts}
+                                                hidden={hiddenOpts}
+                                                onChange={(ids) => setPrefs((p) => ({ ...p, columns: ids }))}
+                                                density={density}
+                                                onDensityChange={(d) => setPrefs((p) => ({ ...p, density: d }))}
+                                                wrap={wrap}
+                                                onWrapChange={(w) => setPrefs((p) => ({ ...p, wrap: w }))}
+                                                onReset={reset}
+                                            />
+                                        </div>
+                                    </Popup>
+                                </>
+                            ) : null}
+                            {f.export ? (
+                                <button
+                                    type="button"
+                                    className={tbBtn(false, inHeader)}
+                                    onClick={exportCsv}
+                                    title={selectedRows.length ? 'Export the selected rows' : 'Export this page'}
+                                >
+                                    <DownloadIcon />{' '}
+                                    <span className={inHeader ? 'sr-only xl:not-sr-only' : 'sr-only sm:not-sr-only'}>
+                                        Export
+                                    </span>
+                                </button>
+                            ) : null}
+                            {f.refresh ? (
+                                <button
+                                    type="button"
+                                    className={cx(tbBtn(false, inHeader), 'px-2')}
+                                    onClick={refresh}
+                                    aria-label="Refresh"
+                                >
+                                    <RefreshIcon spinning={effective.isFetching} />
+                                </button>
+                            ) : null}
+                            {typeof props.toolbarActions === 'function'
+                                ? props.toolbarActions(controller)
+                                : props.toolbarActions || null}
+                        </>
+                    );
+                    if (toolbarSlots)
+                        return (
+                            <>
+                                {toolbarSlots.left(titleGroup)}
+                                {toolbarSlots.right(actionGroup)}
+                            </>
+                        );
+                    return (
+                        <div
+                            className={cx(
+                                'flex flex-wrap items-center gap-2',
+                                pad,
+                                variant === 'card' ? 'pt-4 pb-3' : 'pb-3'
+                            )}
+                        >
+                            {titleGroup}
+                            {actionGroup}
+                        </div>
+                    );
+                })()}
 
-            {f.pagination && !infinite ? (
-                <div className={cx(pad, variant === 'card' ? 'border-t border-border py-2' : 'pt-3')}>
-                    <Pagination
-                        page={state.page}
-                        pageSize={pageSize}
-                        total={count}
-                        onPageChange={(p) => patchState({ page: p })}
-                        pageSizes={props.pageSizes || [10, 20, 50, 100, 500]}
-                        onPageSizeChange={(n) => {
-                            setPrefs((p) => ({ ...p, pageSize: n }));
-                            patchState({ page: 0 });
-                        }}
+                {f.quickFilters && quickList.length ? (
+                    <div className={cx(pad, 'pb-2')}>
+                        <QuickFilterBar
+                            filters={quickList}
+                            value={state.quick}
+                            onChange={(ids) => patchState({ quick: ids, page: 0 })}
+                        />
+                    </div>
+                ) : null}
+
+                {f.breadcrumbs && (state.filter || state.keywords) ? (
+                    <div className={cx(pad, 'pb-2')}>
+                        <FilterBreadcrumbs
+                            table={table}
+                            query={state.filter}
+                            onChange={(q) => patchState({ filter: q, page: 0 })}
+                            keywords={state.keywords}
+                            onClearKeywords={() => {
+                                setSearchText('');
+                                patchState({ keywords: '', page: 0 });
+                            }}
+                            onEdit={f.filter ? () => setFilterOpen(true) : undefined}
+                        />
+                    </div>
+                ) : null}
+
+                {f.filter && filterOpen ? (
+                    <div id={filterPanelId} className={cx(pad, 'pb-3')}>
+                        <ConditionBuilder
+                            table={table}
+                            value={state.filter}
+                            onApply={(q) => {
+                                patchState({ filter: q, page: 0 });
+                                setFilterOpen(false);
+                            }}
+                            onCancel={() => setFilterOpen(false)}
+                        />
+                    </div>
+                ) : null}
+
+                {f.selection && f.actions && selectedIds.length ? (
+                    <SelectionBar
+                        table={table}
+                        count={selectedIds.length}
+                        rows={selectedRows}
+                        columns={ordered.filter(isEditableColumn)}
+                        actions={props.actions || []}
+                        onClear={() => setSelection({})}
+                        refresh={refresh}
+                        className={pad}
+                        extra={props.selectionActions ? props.selectionActions(controller) : null}
                     />
+                ) : null}
+
+                <div
+                    ref={tableWrap}
+                    className={cx(
+                        'min-h-0',
+                        variant === 'card'
+                            ? 'border-t border-border'
+                            : 'overflow-hidden rounded-lg border border-border bg-card'
+                    )}
+                >
+                    {effective.error ? (
+                        <div role="alert" className="p-6 text-sm text-destructive">
+                            {(effective.error as Error).message}
+                        </div>
+                    ) : display === 'grid' ? (
+                        <div
+                            className="rpl-scroll min-h-0 overflow-auto overscroll-contain"
+                            style={{ height: scrollHeight, maxHeight: maxHeight }}
+                            aria-busy={effective.isFetching || undefined}
+                        >
+                            <CardGrid<ListRow>
+                                label={title}
+                                columns={gridColumns}
+                                rows={displayRows}
+                                getRowId={getRowId}
+                                getValue={getCell}
+                                maxFields={props.gridFields}
+                                onRowOpen={openRecord}
+                                selectable={f.selection}
+                                selection={selection}
+                                onSelectionChange={setSelection}
+                                rowActions={props.rowActions ? (row) => props.rowActions!(row, controller) : undefined}
+                                loading={effective.isLoading}
+                                skeletonCards={Math.min(pageSize, 6)}
+                                highlighted={updated}
+                                isGroupRow={isGroupRow}
+                                renderGroupRow={renderGroupRow}
+                                onGroupToggle={toggleGroup}
+                                isGroupExpanded={(r) => isGroupRow(r) && !collapsed[groupKey(r.group)]}
+                                empty={
+                                    <EmptyState
+                                        text={props.emptyText}
+                                        filtered={!!(userQuery || state.keywords)}
+                                        onClear={() => patchState({ filter: '', keywords: '', quick: [], page: 0 })}
+                                    />
+                                }
+                            />
+                            {infinite && !groupBy && scrolled.hasNextPage ? (
+                                <div className="flex justify-center p-3">
+                                    <button
+                                        type="button"
+                                        className={tbBtn(false)}
+                                        disabled={scrolled.isFetchingNextPage}
+                                        onClick={() => scrolled.fetchNextPage()}
+                                    >
+                                        {scrolled.isFetchingNextPage ? <Spinner label="Loading more" /> : null} Load
+                                        more
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : (
+                        <DataTable<ListRow>
+                            label={title}
+                            columns={gridColumns}
+                            rows={displayRows}
+                            getRowId={getRowId}
+                            getValue={getCell}
+                            sorting={
+                                sorting.length
+                                    ? sorting
+                                    : page && page.orderBy
+                                      ? [{ id: page.orderBy.field, desc: page.orderBy.desc }]
+                                      : []
+                            }
+                            onSortingChange={(s) => patchState({ orderBy: sortToOrder(s), page: 0 })}
+                            selectable={f.selection}
+                            selection={selection}
+                            onSelectionChange={setSelection}
+                            columnSizing={prefs.widths}
+                            onColumnResizeEnd={(w) => setPrefs((p) => ({ ...p, widths: w }))}
+                            density={density}
+                            wrap={wrap}
+                            height={scrollHeight}
+                            maxHeight={maxHeight}
+                            virtualize={scrollMode ? true : 'auto'}
+                            onEndReached={
+                                scrollMode
+                                    ? () =>
+                                          scrolled.hasNextPage &&
+                                          !scrolled.isFetchingNextPage &&
+                                          scrolled.fetchNextPage()
+                                    : undefined
+                            }
+                            totalRows={groups ? displayRows.length : count}
+                            rowIndexOffset={scrollMode || groups ? 0 : state.page * pageSize}
+                            isGroupRow={isGroupRow}
+                            renderGroupRow={renderGroupRow}
+                            onGroupToggle={toggleGroup}
+                            isGroupExpanded={(r) => isGroupRow(r) && !collapsed[groupKey(r.group)]}
+                            rowActions={props.rowActions ? (row) => props.rowActions!(row, controller) : undefined}
+                            renderHeaderExtra={
+                                f.columnFilters && (f.filter || f.breadcrumbs)
+                                    ? (col) => {
+                                          const c = colByName.get(col.id);
+                                          return c ? (
+                                              <ColumnFilter
+                                                  table={table}
+                                                  column={c}
+                                                  query={state.filter}
+                                                  onChange={(q) => patchState({ filter: q, page: 0 })}
+                                              />
+                                          ) : null;
+                                      }
+                                    : undefined
+                            }
+                            loading={effective.isLoading}
+                            fetching={effective.isFetching}
+                            skeletonRows={Math.min(pageSize, 10)}
+                            empty={
+                                <EmptyState
+                                    text={props.emptyText}
+                                    filtered={!!(userQuery || state.keywords)}
+                                    onClear={() => patchState({ filter: '', keywords: '', quick: [], page: 0 })}
+                                />
+                            }
+                            onRowOpen={openRecord}
+                            contextMenu={f.contextMenu ? contextMenu : undefined}
+                            canEditCell={f.inlineEdit ? canEditCell : undefined}
+                            onEditRequest={
+                                f.inlineEdit
+                                    ? (ctx) => setEditing({ rowId: ctx.rowId, colId: ctx.column.id })
+                                    : undefined
+                            }
+                            editing={editing}
+                            onEditorDismiss={() => setEditing(null)}
+                            highlighted={updated}
+                            editorWidth={(ctx) => {
+                                const t = (colByName.get(ctx.column.id) || { type: '' }).type;
+                                return t === 'glide_list'
+                                    ? 600
+                                    : t === 'conditions'
+                                      ? 680
+                                      : t === 'journal_input' || t === 'journal'
+                                        ? 360
+                                        : undefined;
+                            }}
+                            renderEditor={(ctx) => {
+                                const c = colByName.get(ctx.column.id);
+                                if (!c) return null;
+                                return (
+                                    <CellEditor
+                                        table={table}
+                                        row={ctx.row}
+                                        column={c}
+                                        listCollector={props.listCollector}
+                                        write={async (value, displayValue, target) => {
+                                            const res = await writeCell(ctx.row, c, value, displayValue, target);
+                                            if (res.ok)
+                                                toast.success(
+                                                    `${c.label} updated on ${ctx.row.display || 'the record'}`
+                                                );
+                                            for (const m of res.info) toast(m);
+                                            return res;
+                                        }}
+                                        onDone={() => setEditing(null)}
+                                    />
+                                );
+                            }}
+                            footer={
+                                scrollMode && scrolled.isFetchingNextPage ? (
+                                    <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
+                                        <Spinner label="Loading more" /> Loading more…
+                                    </div>
+                                ) : null
+                            }
+                        />
+                    )}
                 </div>
-            ) : infinite && f.pagination ? (
-                <div className={cx(pad, 'py-2 text-xs text-muted-foreground tabular-nums')} aria-live="polite">
-                    {nf.format(rows.length)} of {nf.format(count)} loaded
-                </div>
-            ) : null}
-        </section>
+
+                {f.pagination && groups ? (
+                    <div className={cx(pad, variant === 'card' ? 'border-t border-border py-2' : 'pt-3')}>
+                        <Pagination
+                            page={state.page}
+                            pageSize={GROUPS_PER_PAGE}
+                            total={(shownPage && shownPage.groupCount) || groups.length}
+                            unit={`groups · ${nf.format(count)} records`}
+                            onPageChange={(p) => patchState({ page: p })}
+                        />
+                    </div>
+                ) : f.pagination && !infinite ? (
+                    <div className={cx(pad, variant === 'card' ? 'border-t border-border py-2' : 'pt-3')}>
+                        <Pagination
+                            page={state.page}
+                            pageSize={pageSize}
+                            total={count}
+                            onPageChange={(p) => patchState({ page: p })}
+                            pageSizes={props.pageSizes || [10, 20, 50, 100, 500]}
+                            onPageSizeChange={(n) => {
+                                setPrefs((p) => ({ ...p, pageSize: n }));
+                                patchState({ page: 0 });
+                            }}
+                        />
+                    </div>
+                ) : infinite && f.pagination ? (
+                    <div className={cx(pad, 'py-2 text-xs text-muted-foreground tabular-nums')} aria-live="polite">
+                        {nf.format(rows.length)} of {nf.format(count)} loaded
+                    </div>
+                ) : null}
+            </section>
+        </ListControllerContext.Provider>
     );
 }
 
@@ -994,7 +1399,7 @@ function copy(text: string) {
 function tbBtn(active: boolean, compact?: boolean) {
     return cx(
         compact ? 'h-7 px-2' : 'h-8 px-2.5',
-        'inline-flex items-center gap-1.5 rounded-md border text-sm font-medium outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        'inline-flex shrink-0 items-center gap-1.5 rounded-md border text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50',
         active
             ? 'border-primary/40 bg-primary/10 text-foreground'
             : 'border-input bg-background hover:bg-accent hover:text-accent-foreground'
@@ -1033,6 +1438,8 @@ function SelectionBar(props: {
     onClear: () => void;
     refresh: () => void;
     className?: string;
+    /** Extension slot (selectionActions). */
+    extra?: any;
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [column, setColumn] = useState('');
@@ -1180,6 +1587,7 @@ function SelectionBar(props: {
                     {a.label}
                 </button>
             ))}
+            {props.extra || null}
         </div>
     );
 }
@@ -1251,6 +1659,43 @@ function RefreshIcon({ spinning }: { spinning?: boolean }) {
             className={spinning ? 'rpf-spin' : ''}
         >
             <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5" />
+        </svg>
+    );
+}
+function RowsIcon() {
+    return (
+        <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M3 6h18M3 12h18M3 18h18" />
+        </svg>
+    );
+}
+function GridIcon() {
+    return (
+        <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
     );
 }

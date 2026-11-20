@@ -84,6 +84,7 @@
         "reference/glossary": "book-a",
         "reference/limits": "gauge",
         "reference/troubleshooting": "life-buoy",
-        "reference/contracts": "file-json"
+        "reference/contracts": "file-json",
+        "studio/docs": "library"
     }
 }

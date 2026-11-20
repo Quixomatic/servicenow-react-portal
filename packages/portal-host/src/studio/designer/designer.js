@@ -46,6 +46,7 @@ import { tableApi } from '#/runtime/api';
 import { ask } from '../dialogs';
 import { ViewAsUserPicker, useViewAsUser, hiddenSets, viewAsUser } from '../view-as-user';
 import { studioApi } from '../studio-api';
+import { docsApi } from '../docs/docs-api';
 
 export function useDesigner(designer) {
     return useSyncExternalStore(designer.subscribe, designer.get, designer.get);
@@ -1319,6 +1320,139 @@ function PortalFormViewSettings({ designer, studio, portal, busy }) {
     );
 }
 
+/**
+ * Docs collections, stored in settings_json.docsCollections (collection keys): the docs widgets on
+ * this portal show these x_312987_portal_doc_collection sets. The first is the default (no `c` in the
+ * URL); with more than one, a docs sidebar using the collection switcher lets readers switch. Empty =
+ * the widgets' default, react-portal. Several portals may share a collection.
+ */
+function PortalDocsSettings({ designer, studio, portal, busy }) {
+    const settings = portal.settings || {};
+    const keys = Array.isArray(settings.docsCollections) ? settings.docsCollections.map(String) : [];
+    const [rows, setRows] = useState(null);
+    useEffect(() => {
+        let live = true;
+        docsApi
+            .collections()
+            .then((r) => live && setRows(Array.isArray(r) ? r : []))
+            .catch(() => live && setRows([]));
+        return () => {
+            live = false;
+        };
+    }, []);
+    const save = (next) => {
+        const merged = { ...settings };
+        if (next.length) merged.docsCollections = next;
+        else delete merged.docsCollections;
+        designer.updatePortal({ settings: merged });
+    };
+    const byKey = {};
+    (rows || []).forEach((r) => (byKey[r.key] = r));
+    const move = (i, d) => {
+        const next = keys.slice();
+        const j = i + d;
+        if (j < 0 || j >= next.length) return;
+        [next[i], next[j]] = [next[j], next[i]];
+        save(next);
+    };
+    const available = (rows || []).filter((r) => r.active && keys.indexOf(r.key) < 0);
+    return (
+        <div className="rpd-section" data-rpd-docs-collections="">
+            <div className="rpd-label">Docs collections</div>
+            {keys.length ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {keys.map((k, i) => {
+                        const r = byKey[k];
+                        return (
+                            <div
+                                key={k}
+                                className="rps-row"
+                                style={{ gap: 6, paddingLeft: 6 }}
+                                data-rpd-docs-collection-item={k}
+                            >
+                                <span className="label" title={r ? r.description : 'Unknown collection'}>
+                                    {r ? r.title : k}
+                                    <span style={{ color: 'var(--rps-muted)' }}>
+                                        {' '}
+                                        {k}
+                                        {i === 0 ? ' · default' : ''}
+                                        {rows && !r ? ' · not found' : ''}
+                                    </span>
+                                </span>
+                                <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 1 }}>
+                                    <button
+                                        className="rps-icon-btn"
+                                        title="Move up (the first is the default)"
+                                        disabled={busy || i === 0}
+                                        onClick={() => move(i, -1)}
+                                    >
+                                        <ArrowUp size={12} />
+                                    </button>
+                                    <button
+                                        className="rps-icon-btn"
+                                        title="Move down"
+                                        disabled={busy || i === keys.length - 1}
+                                        onClick={() => move(i, 1)}
+                                    >
+                                        <ArrowDown size={12} />
+                                    </button>
+                                    <button
+                                        className="rps-icon-btn"
+                                        title="Remove from this portal (the collection itself stays)"
+                                        disabled={busy}
+                                        onClick={() => save(keys.filter((x) => x !== k))}
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : null}
+            <label className="rpd-field">
+                <span className="rpd-label">Add a collection</span>
+                <select
+                    value=""
+                    onChange={(e) => e.target.value && save(keys.concat(e.target.value))}
+                    disabled={busy || rows === null || !available.length}
+                    data-rpd-docs-collection-add=""
+                >
+                    <option value="">
+                        {rows === null ? 'Loading…' : available.length ? 'Choose…' : 'No other collections'}
+                    </option>
+                    {available.map((r) => (
+                        <option key={r.key} value={r.key}>
+                            {r.title} ({r.key})
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <div className="rpd-hint">
+                The docs widgets on this portal show these collections; the first is the default. With more than one,
+                the docs sidebar's collection switcher lets readers switch. Empty = react-portal. Edit the pages in the{' '}
+                <button
+                    type="button"
+                    onClick={() => studio && studio.set && studio.set({ view: 'docs' })}
+                    style={{
+                        textDecoration: 'underline',
+                        textUnderlineOffset: 2,
+                        color: 'inherit',
+                        background: 'none',
+                        border: 0,
+                        padding: 0,
+                        cursor: 'pointer',
+                    }}
+                    data-rpd-open-docs=""
+                >
+                    Docs
+                </button>{' '}
+                activity.
+            </div>
+        </div>
+    );
+}
+
 function PortalSettings({ designer, studio, state }) {
     const design = state.design;
     const portal = design.portal;
@@ -1410,6 +1544,7 @@ function PortalSettings({ designer, studio, state }) {
                 </select>
             </label>
             <PortalFormViewSettings designer={designer} studio={studio} portal={portal} busy={busy} />
+            <PortalDocsSettings designer={designer} studio={studio} portal={portal} busy={busy} />
             <label className="rpd-field rpd-check">
                 <input
                     type="checkbox"

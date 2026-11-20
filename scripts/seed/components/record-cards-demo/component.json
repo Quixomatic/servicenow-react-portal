@@ -1,0 +1,6 @@
+{
+    "name": "Record Cards Demo",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "table": "incident", "formPage": "form" }
+}

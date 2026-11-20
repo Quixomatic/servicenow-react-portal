@@ -9,7 +9,8 @@
  * Any widget opens it with openDocsSearch() from utilities:app/docs. Hotkeys: Ctrl/⌘+K anywhere,
  * "/" outside text fields. Results come from useDocsSearch (client-side over every page's title,
  * headings and text; the index loads the first time the dialog opens). ↑/↓ move, Enter opens,
- * Esc closes.
+ * Esc closes. It searches the current docs collection; when the portal has several, an "All
+ * collections" toggle widens it to every collection of the portal (results name their collection).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@portal/runtime';
@@ -19,6 +20,8 @@ import { cn } from 'utilities:cn';
 import {
     useDocsSearch,
     useDocsSearchOpen,
+    useDocsCollections,
+    collectionQ,
     openDocsSearch,
     docRoute,
     requestHeading,
@@ -78,11 +81,13 @@ function ResultItem({
     active,
     onPick,
     onHover,
+    collectionTitle,
 }: {
     item: SearchResult;
     active: boolean;
     onPick: () => void;
     onHover: () => void;
+    collectionTitle?: string;
 }) {
     return (
         <button
@@ -100,8 +105,14 @@ function ResultItem({
             {item.type !== 'page' ? <div role="none" className="absolute inset-y-0 start-3 w-px bg-border" /> : null}
             {item.type === 'page' ? (
                 <>
-                    {item.section ? (
-                        <div className="inline-flex items-center text-xs text-muted-foreground">{item.section}</div>
+                    {item.section || collectionTitle ? (
+                        <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            {collectionTitle ? (
+                                <span className="font-medium text-foreground/70">{collectionTitle}</span>
+                            ) : null}
+                            {collectionTitle && item.section ? <span aria-hidden="true">·</span> : null}
+                            {item.section}
+                        </div>
                     ) : null}
                     <p className="m-0 min-w-0 truncate font-medium">{item.title}</p>
                 </>
@@ -124,15 +135,22 @@ function ResultItem({
 export default function DocsSearchDialog({
     hotkeys = true,
     placeholder = 'Search',
+    collection,
 }: {
     hotkeys?: boolean;
     placeholder?: string;
+    /** Force the current collection (a widget's `collection` option). */
+    collection?: string;
 }) {
     const [open, setOpen] = useDocsSearchOpen();
     const [query, setQuery] = useState('');
     const [cursor, setCursor] = useState(0);
+    const [everywhere, setEverywhere] = useState(false);
     const navigate = useNavigate();
-    const prefetch = usePrefetchDoc();
+    const colls = useDocsCollections(collection);
+    const several = colls.keys.length > 1 && !collection;
+    const scope = several && everywhere ? colls.keys : [colls.currentKey];
+    const titleOf = (key: string) => (colls.collections.find((c) => c.key === key) || { title: key }).title;
     const listRef = useRef<HTMLDivElement | null>(null);
     useDocsSearchHotkeys(hotkeys);
     // The index loads the first time the dialog opens, then stays cached.
@@ -140,22 +158,26 @@ export default function DocsSearchDialog({
     useEffect(() => {
         if (open) setEverOpened(true);
     }, [open]);
-    const { results, isLoading, error } = useDocsSearch(query, { enabled: everOpened });
+    const { results, isLoading, error } = useDocsSearch(query, { enabled: everOpened, collections: scope });
     useEffect(() => setCursor(0), [query]);
     useEffect(() => {
         const el = listRef.current && (listRef.current.querySelector('[data-active="true"]') as HTMLElement | null);
         if (el) el.scrollIntoView({ block: 'nearest' });
     }, [cursor]);
+    useEffect(() => setCursor(0), [everywhere]);
     const current = results[cursor];
+    const prefetch = usePrefetchDoc(current ? current.collection : colls.currentKey);
     useEffect(() => {
         if (current) prefetch(current.path);
-    }, [current && current.path]);
+    }, [current && current.collection, current && current.path]);
 
     const pick = (item: SearchResult | undefined) => {
         if (!item) return;
         setOpen(false);
         const route = docRoute(item.path);
-        navigate(route, item.hash ? { q: { h: item.hash } } : undefined);
+        const q: Record<string, string> = { ...collectionQ(item.collection || colls.currentKey, colls.defaultKey) };
+        if (item.hash) q.h = item.hash;
+        navigate(route, Object.keys(q).length ? { q } : undefined);
         // The page scrolls to it (also when it's already showing and the URL doesn't change).
         requestHeading(item.path, item.hash || '');
     };
@@ -202,6 +224,24 @@ export default function DocsSearchDialog({
                         aria-controls="rp-docs-search-results"
                         className="w-0 flex-1 bg-transparent text-lg placeholder:text-muted-foreground focus-visible:outline-none"
                     />
+                    {several ? (
+                        <button
+                            type="button"
+                            aria-pressed={everywhere}
+                            // Keep the typing focus in the search box.
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => setEverywhere((v) => !v)}
+                            title={everywhere ? 'Search only ' + titleOf(colls.currentKey) : 'Search every collection'}
+                            data-docs-search-all=""
+                            className={cn(
+                                'inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs transition-colors hover:bg-accent',
+                                everywhere ? 'border-primary/40 bg-primary/10 text-primary' : 'text-muted-foreground'
+                            )}
+                        >
+                            <Icon name="library" className="size-3.5" />
+                            All collections
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         onClick={() => setOpen(false)}
@@ -231,6 +271,7 @@ export default function DocsSearchDialog({
                         <ResultItem
                             key={r.id}
                             item={r}
+                            collectionTitle={several && everywhere ? titleOf(r.collection) : undefined}
                             active={i === cursor}
                             onPick={() => pick(r)}
                             onHover={() => setCursor(i)}
@@ -239,7 +280,13 @@ export default function DocsSearchDialog({
                 </div>
                 {!query.trim() ? (
                     <div className="flex items-center gap-3 bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
-                        <span>Search titles, headings and text</span>
+                        <span>
+                            {several
+                                ? everywhere
+                                    ? 'Searching every collection'
+                                    : 'Searching ' + titleOf(colls.currentKey)
+                                : 'Search titles, headings and text'}
+                        </span>
                         <span className="ms-auto inline-flex items-center gap-1">
                             <kbd className="rounded-md border bg-background px-1.5">↑</kbd>
                             <kbd className="rounded-md border bg-background px-1.5">↓</kbd> to move

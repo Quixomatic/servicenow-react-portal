@@ -195,6 +195,10 @@
                     "path": "primitives/form-runtime.md"
                 },
                 {
+                    "title": "Record header, ribbon and cards",
+                    "path": "primitives/record-header.md"
+                },
+                {
                     "title": "Dialogs",
                     "path": "primitives/dialogs.md"
                 },
@@ -213,6 +217,10 @@
                 {
                     "title": "Lists",
                     "path": "primitives/lists.md"
+                },
+                {
+                    "title": "Actions",
+                    "path": "primitives/actions.md"
                 },
                 {
                     "title": "GraphQL utility",
@@ -283,6 +291,10 @@
                 {
                     "title": "Menus activity",
                     "path": "studio/menus.md"
+                },
+                {
+                    "title": "Docs and collections",
+                    "path": "studio/docs.md"
                 }
             ]
         },

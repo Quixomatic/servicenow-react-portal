@@ -15,6 +15,11 @@
  *   catalogParent(store, resolve?)               g_service_catalog.parent over a store (MRVS rows → item form)
  *   compileScript(script, exports)     the sandbox (window, document, jQuery, $, $j, angular = null)
  *   createGlideAjaxClass / createGlideRecordClass
+ *   createGList(target)                g_list (Workspace's list API) over any list (GListTarget: table,
+ *                                      query(), selectedIds(), totalRows(), setFilter?, sort?, refresh?)
+ *   createListScriptEnvironment({ list, user, onError?, openRecord? })
+ *       → { g_list, g_user, run(name, script, fnName = 'onClick') }   list UI action / declarative list scripts
+ *   createGUser(user) / createGModal(wrap?)   the g_user and g_modal objects alone
  */
 import { useEffect, useRef, useState } from 'react';
 import { useUser } from '@portal/runtime';
@@ -35,6 +40,11 @@ export type {
     CatalogParent,
     ServiceCatalogOptions,
 } from './environment';
+// g_user / g_modal builders (shared by the form and list environments).
+export { createGUser, createGModal } from './environment';
+// g_list (actions wave): the list scripting API over any list, and the list script environment.
+export { createGList, createListScriptEnvironment } from './list-environment';
+export type { GListTarget, ListScriptEnvironment } from './list-environment';
 export { createGlideAjaxClass } from './glide-ajax';
 export { createGlideRecordClass } from './glide-record';
 

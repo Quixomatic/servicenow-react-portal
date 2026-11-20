@@ -4,6 +4,10 @@ export const DOCS_CSS = `
 .rpd-docs { height: 100%; }
 .rpd-docs .rps-sidebar-title { gap: 4px; padding-right: 6px; }
 .rpd-docs-filter { margin: 0 8px 6px; }
+.rpd-docs-collection { margin: 0 8px 8px; padding-bottom: 8px; border-bottom: 1px solid var(--rps-border); }
+.rpd-docs-collection .row { display: flex; align-items: center; gap: 6px; color: var(--rps-muted); }
+.rpd-docs-collection select { flex: 1; min-width: 0; }
+.rpd-docs-collection .hint { margin-top: 4px; font-size: 11px; color: var(--rps-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rpd-docs-filter input { width: 100%; }
 .rpd-docs-sec { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px 0 8px; margin-top: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--rps-muted); }
 .rpd-docs-sec .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

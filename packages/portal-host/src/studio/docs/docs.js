@@ -1,5 +1,7 @@
-// Portal Studio "Docs" activity: write the docs portal's pages (x_312987_portal_doc).
-//   page tree (sections → pages: create, move / reorder, deactivate)
+// Portal Studio "Docs" activity: write docs collections (x_312987_portal_doc_collection), their
+// sections (x_312987_portal_doc_section) and pages (x_312987_portal_doc).
+//   collection picker (+ new collection) | page tree (sections → pages: create, move / reorder,
+//   rename / deactivate sections, deactivate pages)
 //   | editor: frontmatter form, Markdown (CodeMirror) or Visual (TipTap) mode, problems strip
 //   | live preview (components:app/docs-content, the real renderer)
 // Source of truth (.plans/docs-editor.md): the repo's docs/guide stays canonical; Studio edits are
@@ -38,6 +40,7 @@ import {
     FileText,
     FolderPlus,
     GripVertical,
+    Library,
     Heading1,
     Heading2,
     Heading3,
@@ -69,7 +72,7 @@ import { ask } from '../dialogs';
 import { IconPicker } from '../menus/icon-picker';
 import { host, loadDocsRenderer } from './host-modules';
 import { docsStore, flushDocs, setDocsFlush, setDocsLogger, setDocsSaveHandler } from './location';
-import { groupSections, rememberMode, useDocs } from './docs-store';
+import { DEFAULT_COLLECTION, groupSections, rememberMode, useDocs } from './docs-store';
 import { DOCS_CSS } from './docs-css';
 import { brokenLinks, headingsOf, relativeDocLink } from './links';
 import { CALLOUT_KINDS } from './md-convert';
@@ -87,10 +90,25 @@ function slugify(s) {
         .replace(/^-+|-+$/g, '');
 }
 
-function portalUrl(path) {
-    const route = !path || path === 'index' ? '' : '/params/page-id/' + encodeURIComponent(path);
-    return '/x/312987/portal/site/docs' + route;
+/**
+ * The page on a portal that serves the collection: the first portal whose settings.docsCollections
+ * lists it (`c` in q when it isn't that portal's default), else /site/docs.
+ */
+function portalUrl(path, collectionKey) {
+    const key = collectionKey || store.get().collection || DEFAULT_COLLECTION;
+    const row = store.collectionRow(key);
+    const portals = (row && row.portals) || [];
+    const portal = portals.find((p) => p.isDefault) || portals[0] || null;
+    const slug = portal ? portal.slug : 'docs';
+    const pairs = [];
+    if (path && path !== 'index') pairs.push('page-id', encodeURIComponent(path));
+    const isDefault = portal ? portal.isDefault : key === DEFAULT_COLLECTION;
+    if (!isDefault) pairs.push('q', encodeURIComponent('c=' + key));
+    return '/x/312987/portal/site/' + slug + (pairs.length ? '/params/' + pairs.join('/') : '');
 }
+
+/** Section rows of the store (null while loading). */
+const useSectionRows = () => useDocs(store, (s) => s.sections);
 
 export default function Docs({ studio, root }) {
     const scope = useScope();
@@ -109,7 +127,8 @@ export default function Docs({ studio, root }) {
     useEffect(() => {
         setDocsLogger((level, text) => studio.log(level, text));
         if (isMock()) return;
-        if (!store.get().list) store.loadList();
+        if (!store.get().collections) store.loadCollections().then(() => !store.get().list && store.loadList());
+        else if (!store.get().list) store.loadList();
         let alive = true;
         loadDocsRenderer(root)
             .then((r) => alive && setRenderer({ status: 'ready', ...r }))
@@ -210,25 +229,32 @@ async function guardedOpen(studio, id) {
 }
 
 async function newPage(studio, section) {
-    const sections = groupSections(store.get().list).filter((s) => s.activeCount);
+    const st = store.get();
+    const sections = groupSections(st.list, st.sections).filter((s) => s.id && s.active);
     let sec = section || null;
     if (!sec) {
-        const cur = store.get().current;
-        sec = (cur && sections.find((s) => s.slug === cur.sectionSlug)) || sections[0] || null;
+        const cur = st.current;
+        sec = (cur && sections.find((s) => s.id === cur.sectionId)) || sections[0] || null;
+    }
+    if (!sec) {
+        // An empty collection: its first section comes first.
+        sec = await newSection(studio);
+        if (!sec) return;
     }
     const title = await ask(studio, {
         type: 'prompt',
         title: 'New doc page',
-        label: `Title (in ${sec ? sec.title : 'a new section'})`,
+        label: `Title (in ${sec.title})`,
         value: '',
         validate: (v) => (!String(v).trim() ? 'A title is required' : null),
     });
     if (!title) return;
-    const sectionSlug = sec ? sec.slug : 'docs';
+    const sectionSlug = sec.slug;
+    const inRepo = st.collection === DEFAULT_COLLECTION;
     const path = await ask(studio, {
         type: 'prompt',
         title: 'New doc page',
-        label: 'Path (its URL and its file, docs/guide/<path>.md)',
+        label: inRepo ? 'Path (its URL and its file, docs/guide/<path>.md)' : 'Path (its URL in the collection)',
         value: sectionSlug + '/' + slugify(title),
         validate: (v) =>
             /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*$/.test(String(v).trim())
@@ -241,12 +267,12 @@ async function newPage(studio, section) {
     await store.create({
         title: String(title).trim(),
         path: String(path).trim(),
-        section: sec ? sec.title : 'Docs',
-        sectionSlug,
+        section: sec.id,
         markdown: '# ' + String(title).trim() + '\n\n',
     });
 }
 
+/** A new section row at the end of the collection (one record; no page needed). */
 async function newSection(studio) {
     const title = await ask(studio, {
         type: 'prompt',
@@ -256,13 +282,77 @@ async function newSection(studio) {
         validate: (v) =>
             !String(v).trim()
                 ? 'A title is required'
-                : groupSections(store.get().list).some((s) => s.slug === slugify(v))
+                : (store.get().sections || []).some((s) => s.slug === slugify(v))
                   ? 'A section with that slug exists'
                   : null,
     });
+    if (!title) return null;
+    return store.createSection({ title: String(title).trim() });
+}
+
+/** A new, empty collection (then opened). Portals list it in Portal settings ▸ Docs collections. */
+async function newCollection(studio) {
+    const title = await ask(studio, {
+        type: 'prompt',
+        title: 'New docs collection',
+        label: 'Title',
+        value: '',
+        validate: (v) => (!String(v).trim() ? 'A title is required' : null),
+    });
     if (!title) return;
-    const t = String(title).trim();
-    await newPage(studio, { slug: slugify(t), title: t });
+    const key = await ask(studio, {
+        type: 'prompt',
+        title: 'New docs collection',
+        label: 'Key (portal settings and URLs use it; fixed once created)',
+        value: slugify(title),
+        validate: (v) =>
+            !/^[a-z0-9][a-z0-9-]*$/.test(String(v).trim())
+                ? 'Lower-case letters, digits and dashes'
+                : (store.get().collections || []).some((c) => c.key === String(v).trim())
+                  ? 'That key is taken'
+                  : null,
+    });
+    if (!key) return;
+    const description = await ask(studio, {
+        type: 'prompt',
+        title: 'New docs collection',
+        label: 'Description (shown in the docs switcher; optional)',
+        value: '',
+    });
+    await store.createCollection({
+        title: String(title).trim(),
+        key: String(key).trim(),
+        description: description ? String(description).trim() : '',
+        icon: 'book-open',
+    });
+}
+
+/** Switch collection, asking first when the open page has unsaved changes. */
+async function switchCollection(studio, key) {
+    flushDocs();
+    const s = store.get();
+    if (key === s.collection) return;
+    if (store.isDirty()) {
+        const choice = await ask(studio, {
+            type: 'confirm',
+            title: 'Unsaved changes',
+            message: `Save your changes to "${s.current.title}" first?`,
+            buttons: [
+                { label: 'Save', value: 'save', primary: true },
+                { label: "Don't save", value: 'discard' },
+                { label: 'Cancel', value: null },
+            ],
+        });
+        if (choice === null) return;
+        if (choice === 'save') {
+            try {
+                await store.save();
+            } catch (error) {
+                return;
+            }
+        }
+    }
+    await store.setCollection(key);
 }
 
 async function toggleActive(studio, page) {
@@ -285,20 +375,78 @@ async function toggleActive(studio, page) {
     );
 }
 
+/* ---------------- Collection picker ---------------- */
+
+/** Which docs collection the tree edits, a "new collection" action, and where it is shown. */
+function CollectionPicker({ studio, readOnly }) {
+    const collections = useDocs(store, (s) => s.collections);
+    const key = useDocs(store, (s) => s.collection);
+    const row = (collections || []).find((c) => c.key === key) || null;
+    const portals = (row && row.portals) || [];
+    return (
+        <div className="rpd-docs-collection" data-rpd-docs-collection={key}>
+            <div className="row">
+                <Library size={13} aria-hidden="true" />
+                <select
+                    value={key}
+                    onChange={(e) => switchCollection(studio, e.target.value)}
+                    disabled={!collections}
+                    aria-label="Docs collection"
+                    data-rpd-docs-collection-select=""
+                >
+                    {!collections ? <option value={key}>{key}</option> : null}
+                    {(collections || []).map((c) => (
+                        <option key={c.key} value={c.key}>
+                            {c.title}
+                            {c.active ? '' : ' (inactive)'}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    className="rps-icon-btn"
+                    title="New docs collection"
+                    onClick={() => newCollection(studio)}
+                    disabled={readOnly || !collections}
+                    data-rpd-docs-new-collection=""
+                >
+                    <Plus size={14} />
+                </button>
+            </div>
+            <div className="hint" title={row ? row.description : ''}>
+                {row ? (
+                    <>
+                        <code>{row.key}</code> · {row.pageCount} page{row.pageCount === 1 ? '' : 's'} ·{' '}
+                        {portals.length
+                            ? 'on ' + portals.map((p) => p.slug + (p.isDefault ? '' : ' (switcher)')).join(', ')
+                            : key === DEFAULT_COLLECTION
+                              ? 'on docs'
+                              : 'not on a portal yet'}
+                    </>
+                ) : (
+                    'Loading collections…'
+                )}
+            </div>
+        </div>
+    );
+}
+
 /* ---------------- Tree ---------------- */
 
 function Tree({ studio, list, error, current, readOnly }) {
     const filter = useDocs(store, (s) => s.filter);
+    const sectionRows = useSectionRows();
     const [showInactive, setShowInactive] = useState(false);
     const [drag, setDrag] = useState(null);
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
-    const sections = useMemo(() => groupSections(list), [list]);
+    const sections = useMemo(() => groupSections(list, sectionRows), [list, sectionRows]);
     const q = filter.trim().toLowerCase();
     const match = (p) => !q || (p.title + ' ' + p.path + ' ' + p.tags).toLowerCase().indexOf(q) >= 0;
-    const active = sections.filter((s) => s.activeCount);
+    // Active sections, empty ones included (a new section is filled from here); legacy groups only with pages.
+    const active = sections.filter((s) => s.active && (s.id || s.activeCount));
+    const inactiveSections = sections.filter((s) => s.id && !s.active);
     const inactive = (list || []).filter((p) => !p.active);
     const ids = [];
     active.forEach((s) => {
@@ -314,8 +462,7 @@ function Tree({ studio, list, error, current, readOnly }) {
         const from = secs.find((s) => s.pages.indexOf(id) >= 0);
         if (!from) return;
         if (overId.indexOf('sec:') === 0) {
-            const slug = overId.slice(4);
-            store.placePage(id, slug, 0);
+            store.placePage(id, overId.slice(4), 0);
             return;
         }
         const to = secs.find((s) => s.pages.indexOf(overId) >= 0);
@@ -323,7 +470,7 @@ function Tree({ studio, list, error, current, readOnly }) {
         if (to === from) {
             to.pages = arrayMove(to.pages, to.pages.indexOf(id), to.pages.indexOf(overId));
             store.order(secs);
-        } else store.placePage(id, to.slug, to.pages.indexOf(overId));
+        } else store.placePage(id, to.id, to.pages.indexOf(overId));
     };
 
     return (
@@ -350,7 +497,7 @@ function Tree({ studio, list, error, current, readOnly }) {
                 </button>
                 <a
                     className="rps-icon-btn"
-                    title="Open the docs portal"
+                    title="Open the collection in its docs portal"
                     href={portalUrl('index')}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -358,6 +505,7 @@ function Tree({ studio, list, error, current, readOnly }) {
                     <ExternalLink size={13} />
                 </a>
             </div>
+            <CollectionPicker studio={studio} readOnly={readOnly} />
             <div className="rpd-docs-filter">
                 <input
                     placeholder="Filter pages"
@@ -386,7 +534,7 @@ function Tree({ studio, list, error, current, readOnly }) {
                             const pages = s.pages.filter((p) => p.active && match(p));
                             if (q && !pages.length) return null;
                             return (
-                                <React.Fragment key={s.slug}>
+                                <React.Fragment key={s.id || s.slug}>
                                     <SectionRow
                                         section={s}
                                         studio={studio}
@@ -415,7 +563,7 @@ function Tree({ studio, list, error, current, readOnly }) {
                         ) : null}
                     </DragOverlay>
                 </DndContext>
-                {inactive.length ? (
+                {inactive.length || inactiveSections.length ? (
                     <>
                         <div
                             className="rpd-docs-sec"
@@ -428,8 +576,13 @@ function Tree({ studio, list, error, current, readOnly }) {
                             ) : (
                                 <ChevronUp size={12} style={{ transform: 'rotate(90deg)' }} />
                             )}
-                            <span className="label">Deactivated ({inactive.length})</span>
+                            <span className="label">Deactivated ({inactive.length + inactiveSections.length})</span>
                         </div>
+                        {showInactive
+                            ? inactiveSections.map((s) => (
+                                  <SectionRow key={s.id} section={s} studio={studio} readOnly={readOnly} inactive />
+                              ))
+                            : null}
                         {showInactive
                             ? inactive
                                   .filter(match)
@@ -448,15 +601,18 @@ function Tree({ studio, list, error, current, readOnly }) {
                 ) : null}
             </div>
             <div className="rpd-hint" style={{ padding: '4px 12px 6px' }}>
-                Drag pages to reorder or move them between sections (or use the arrows). Moves save at once; content
-                saves with Ctrl+S.
+                Drag pages to reorder or move them between sections (or use the arrows). Moves and section edits save at
+                once; content saves with Ctrl+S.
             </div>
         </div>
     );
 }
 
-function SectionRow({ section, studio, first, last, readOnly }) {
-    const { setNodeRef, isOver } = useDroppable({ id: 'sec:' + section.slug, disabled: readOnly });
+function SectionRow({ section, studio, first, last, readOnly, inactive }) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: 'sec:' + (section.id || section.slug),
+        disabled: readOnly || !section.id || inactive,
+    });
     const rename = async (e) => {
         e.stopPropagation();
         const title = await ask(studio, {
@@ -466,14 +622,62 @@ function SectionRow({ section, studio, first, last, readOnly }) {
             value: section.title,
             validate: (v) => (!String(v).trim() ? 'A title is required' : null),
         });
-        if (title) store.renameSection(section.slug, String(title).trim());
+        if (title) store.renameSection(section.id, String(title).trim());
     };
+    const toggle = async (e) => {
+        e.stopPropagation();
+        if (section.active) {
+            const ok = await ask(studio, {
+                type: 'confirm',
+                title: 'Deactivate section',
+                message: `Hide the section "${section.title}" and its ${section.activeCount} page(s) from the docs portal? Nothing is deleted: reactivate it any time.`,
+                buttons: [
+                    { label: 'Deactivate', value: true, primary: true },
+                    { label: 'Cancel', value: null },
+                ],
+            });
+            if (!ok) return;
+        }
+        store.updateSection(
+            section.id,
+            { active: !section.active },
+            section.active ? `Deactivated section ${section.title}` : `Reactivated section ${section.title}`
+        );
+    };
+    if (inactive)
+        return (
+            <div className="rps-row rpd-docs-row inactive" data-rpd-docs-section={section.slug}>
+                <Library size={14} />
+                <span className="label">
+                    {section.title} <span style={{ color: 'var(--rps-muted)' }}>(section)</span>
+                </span>
+                {!readOnly ? (
+                    <span className="actions" onClick={(e) => e.stopPropagation()}>
+                        <button className="rps-icon-btn" title="Reactivate section" onClick={toggle}>
+                            <Eye size={12} />
+                        </button>
+                    </span>
+                ) : null}
+            </div>
+        );
     return (
         <div ref={setNodeRef} className={'rpd-docs-sec' + (isOver ? ' drop' : '')} data-rpd-docs-section={section.slug}>
             <span className="label" title={section.slug}>
                 {section.title}
             </span>
-            {!readOnly ? (
+            {section.origin === 'studio' ? (
+                <span className="rpd-docs-badge studio" title="Section created in Studio, not in the repo yet">
+                    new
+                </span>
+            ) : section.studioEdited ? (
+                <span
+                    className="rpd-docs-badge edited"
+                    title="Section edited in Studio since the last seed (npm run docs:pull writes it back to _nav.json)"
+                >
+                    edited
+                </span>
+            ) : null}
+            {!readOnly && section.id ? (
                 <span className="actions">
                     <button
                         className="rps-icon-btn"
@@ -489,7 +693,7 @@ function SectionRow({ section, studio, first, last, readOnly }) {
                         className="rps-icon-btn"
                         title="Move section up"
                         disabled={first}
-                        onClick={() => store.moveSection(section.slug, -1)}
+                        onClick={() => store.moveSection(section.id, -1)}
                     >
                         <ChevronUp size={12} />
                     </button>
@@ -497,9 +701,16 @@ function SectionRow({ section, studio, first, last, readOnly }) {
                         className="rps-icon-btn"
                         title="Move section down"
                         disabled={last}
-                        onClick={() => store.moveSection(section.slug, 1)}
+                        onClick={() => store.moveSection(section.id, 1)}
                     >
                         <ChevronDown size={12} />
+                    </button>
+                    <button
+                        className="rps-icon-btn"
+                        title="Deactivate section (hide it and its pages; nothing is deleted)"
+                        onClick={toggle}
+                    >
+                        <EyeOff size={12} />
                     </button>
                 </span>
             ) : null}
@@ -599,8 +810,14 @@ function Empty({ studio, list, readOnly }) {
             <h2>Docs</h2>
             <div>Pick a page on the left to edit it, or create one.</div>
             <div style={{ maxWidth: 440, fontSize: 12 }}>
-                The repo's docs/guide stays the source of truth: the seed keeps pages you edit here, and{' '}
-                <code>npm run docs:pull</code> writes them back so they can be committed.
+                {useDocs(store, (s) => s.collection) === DEFAULT_COLLECTION ? (
+                    <>
+                        The repo's docs/guide stays the source of truth for this collection: the seed keeps pages you
+                        edit here, and <code>npm run docs:pull</code> writes them back so they can be committed.
+                    </>
+                ) : (
+                    'This collection lives on the instance only (the seed never touches it). A portal shows it once Portal settings ▸ Docs collections lists it.'
+                )}
             </div>
             {!readOnly && list ? (
                 <button className="rps-btn rps-btn-icon" onClick={() => newPage(studio)}>
@@ -616,6 +833,7 @@ function Empty({ studio, list, readOnly }) {
 function Center({ studio, root, dark, readOnly, renderer, save, visualFlush, list }) {
     const current = useDocs(store, (s) => s.current);
     const draft = useDocs(store, (s) => s.draft);
+    const sectionRows = useSectionRows();
     const mode = useDocs(store, (s) => s.mode);
     const saving = useDocs(store, (s) => s.saving);
     const dirty = useDocs(store, () => store.isDirty());
@@ -646,7 +864,7 @@ function Center({ studio, root, dark, readOnly, renderer, save, visualFlush, lis
     );
 
     if (!current || !draft) return null;
-    const sections = groupSections(list).filter((s) => s.activeCount || s.slug === current.sectionSlug);
+    const sections = groupSections(list, sectionRows).filter((s) => s.id && (s.active || s.id === current.sectionId));
     const pathEditable = current.origin === 'studio' && !readOnly;
 
     const setMode = (next) => {
@@ -666,26 +884,15 @@ function Center({ studio, root, dark, readOnly, renderer, save, visualFlush, lis
         }
     };
 
-    const moveSection = async (slug) => {
-        if (slug === '__new') {
-            const title = await ask(studio, {
-                type: 'prompt',
-                title: 'Move to a new section',
-                label: 'Section title',
-                value: '',
-                validate: (v) => (!String(v).trim() ? 'A title is required' : null),
-            });
-            if (!title) return;
-            await store.patch(
-                current.id,
-                { section: String(title).trim(), sectionSlug: slugify(title) },
-                'Moved to ' + String(title).trim()
-            );
+    const moveSection = async (sectionId) => {
+        if (sectionId === '__new') {
+            const sec = await newSection(studio);
+            if (sec) await store.patch(current.id, { section: sec.id }, 'Moved to ' + sec.title);
             return;
         }
-        const s = sections.find((x) => x.slug === slug);
-        if (s && slug !== current.sectionSlug)
-            await store.patch(current.id, { section: s.title, sectionSlug: s.slug }, 'Moved to ' + s.title);
+        const s = sections.find((x) => x.id === sectionId);
+        if (s && sectionId !== current.sectionId)
+            await store.patch(current.id, { section: s.id }, 'Moved to ' + s.title);
     };
 
     return (
@@ -768,13 +975,13 @@ function Center({ studio, root, dark, readOnly, renderer, save, visualFlush, lis
                     <label className="rpd-field">
                         <span className="rpd-label">Section</span>
                         <select
-                            value={current.sectionSlug}
+                            value={current.sectionId}
                             onChange={(e) => moveSection(e.target.value)}
                             disabled={readOnly}
                             data-rpd-docs-field="section"
                         >
                             {sections.map((s) => (
-                                <option key={s.slug} value={s.slug}>
+                                <option key={s.id} value={s.id}>
                                     {s.title}
                                 </option>
                             ))}
@@ -1397,7 +1604,7 @@ function PreviewPane({ studio, root, renderer }) {
                 {current ? (
                     <a
                         className="rps-tbtn"
-                        href={portalUrl(current.path)}
+                        href={portalUrl(current.path, current.collection)}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Open the saved page in the docs portal"

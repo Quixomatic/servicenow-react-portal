@@ -312,3 +312,13 @@
         min-height: inherit;
     }
 }
+
+/* Design-system primitives (Wave 1): components:progress indeterminate stripe. */
+@keyframes rp-progress-indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(300%);
+    }
+}

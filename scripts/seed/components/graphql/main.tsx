@@ -66,6 +66,8 @@ export {
     resolveViewRules,
     explainViewRules,
     bootstrapFromUiView,
+    // record header (app/record-header): formLayout.highlightedValueStyle → { field: style }
+    highlightsOf,
 } from './documents';
 export type { ViewExplanation, ViewRuleVerdict } from './documents';
 export {
@@ -113,4 +115,5 @@ export type {
     ReferenceItem,
     ReferenceSearchResult,
     FormChanges,
+    HighlightStyle,
 } from './types';

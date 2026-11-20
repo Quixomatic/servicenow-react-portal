@@ -135,6 +135,8 @@ const API_NAMES = [
     'g_navigation',
     'g_service_catalog',
     'g_i18n',
+    // List scripts (list UI actions, declarative list client scripts): the g_list shim.
+    'g_list',
     'gsftSubmit',
     'NOW',
 ];
@@ -160,6 +162,81 @@ export function compileScript(
         );
     compiled.set(key, run);
     return run;
+}
+
+/** g_user for client scripts (forms and lists): name, roles, hasRole & co. */
+export function createGUser(user: ScriptUser): any {
+    const fullName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ');
+    const roles = (user.roles || []).map(String);
+    const g_user: any = {
+        userID: user.sysId,
+        userName: user.userName,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        fullName,
+        roles,
+        getFullName: () => fullName,
+        hasRole: (r: string) => roles.indexOf('admin') >= 0 || roles.indexOf(String(r)) >= 0,
+        hasRoleExactly: (r: string) => roles.indexOf(String(r)) >= 0,
+        hasRoles: () => roles.length > 0,
+        hasRoleFromList: (list: string) =>
+            roles.indexOf('admin') >= 0 ||
+            String(list || '')
+                .split(',')
+                .some((r) => roles.indexOf(r.trim()) >= 0),
+        getClientData: () => '',
+    };
+    return g_user;
+}
+
+/** g_modal on our dialogs (alert / confirm / showFields / showFrame); `wrap` guards script callbacks. */
+export function createGModal(wrap: <F extends (...a: any[]) => any>(fn: F) => F = (fn) => fn): any {
+    // g_modal on our dialogs (app/confirm-dialog, app/field-dialog). Messages may carry HTML (Workspace
+    // passes rich text): sanitised by the dialog's text rendering, i.e. shown as text here.
+    const textOf = (v: unknown) =>
+        String(v == null ? '' : v)
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    const g_modal: any = {
+        alert: (title: string, message?: string, callback?: () => void) =>
+            alertDialog({ title: textOf(title), description: message ? textOf(message) : undefined }).then(() => {
+                if (typeof callback === 'function') wrap(callback)();
+            }),
+        // confirm(title, message, callback?, options?): callback(confirmed); the promise resolves true on
+        // confirm and, on cancel, resolves false when a callback is given, else rejects (Workspace).
+        confirm: (
+            title: string,
+            message?: string,
+            callback?: (ok: boolean) => void,
+            options?: { confirmTitle?: string; cancelTitle?: string; confirmType?: string }
+        ) =>
+            confirmDialog({
+                title: textOf(title),
+                description: message ? textOf(message) : undefined,
+                confirmLabel: options && options.confirmTitle ? textOf(options.confirmTitle) : undefined,
+                cancelLabel: options && options.cancelTitle ? textOf(options.cancelTitle) : undefined,
+                destructive: !!(options && options.confirmType === 'destructive'),
+            }).then((ok) => {
+                if (typeof callback === 'function') {
+                    wrap(callback)(ok);
+                    return ok;
+                }
+                if (!ok) throw false;
+                return true;
+            }),
+        // showFields({ title, fields, instruction?, confirmTitle?, cancelTitle?, size? }) → { updatedFields } / rejects on cancel.
+        showFields: (spec: { title?: string; fields?: unknown[]; [k: string]: unknown }) =>
+            showFieldsDialog({
+                ...(spec as any),
+                fields: Array.isArray(spec && spec.fields) ? (spec.fields as any[]) : [],
+            }),
+        showFrame: (opts: { url?: string }) => {
+            if (opts && opts.url) window.open(opts.url, '_blank', 'noopener');
+            return Promise.resolve();
+        },
+    };
+    return g_modal;
 }
 
 function str(v: unknown): string {
@@ -442,72 +519,8 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         getFormElement: () => null,
     };
 
-    const fullName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ');
-    const roles = (user.roles || []).map(String);
-    const g_user: any = {
-        userID: user.sysId,
-        userName: user.userName,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        fullName,
-        roles,
-        getFullName: () => fullName,
-        hasRole: (r: string) => roles.indexOf('admin') >= 0 || roles.indexOf(String(r)) >= 0,
-        hasRoleExactly: (r: string) => roles.indexOf(String(r)) >= 0,
-        hasRoles: () => roles.length > 0,
-        hasRoleFromList: (list: string) =>
-            roles.indexOf('admin') >= 0 ||
-            String(list || '')
-                .split(',')
-                .some((r) => roles.indexOf(r.trim()) >= 0),
-        getClientData: () => '',
-    };
-
-    // g_modal on our dialogs (app/confirm-dialog, app/field-dialog). Messages may carry HTML (Workspace
-    // passes rich text): sanitised by the dialog's text rendering, i.e. shown as text here.
-    const textOf = (v: unknown) =>
-        String(v == null ? '' : v)
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    const g_modal: any = {
-        alert: (title: string, message?: string, callback?: () => void) =>
-            alertDialog({ title: textOf(title), description: message ? textOf(message) : undefined }).then(() => {
-                if (typeof callback === 'function') wrap(callback)();
-            }),
-        // confirm(title, message, callback?, options?): callback(confirmed); the promise resolves true on
-        // confirm and, on cancel, resolves false when a callback is given, else rejects (Workspace).
-        confirm: (
-            title: string,
-            message?: string,
-            callback?: (ok: boolean) => void,
-            options?: { confirmTitle?: string; cancelTitle?: string; confirmType?: string }
-        ) =>
-            confirmDialog({
-                title: textOf(title),
-                description: message ? textOf(message) : undefined,
-                confirmLabel: options && options.confirmTitle ? textOf(options.confirmTitle) : undefined,
-                cancelLabel: options && options.cancelTitle ? textOf(options.cancelTitle) : undefined,
-                destructive: !!(options && options.confirmType === 'destructive'),
-            }).then((ok) => {
-                if (typeof callback === 'function') {
-                    wrap(callback)(ok);
-                    return ok;
-                }
-                if (!ok) throw false;
-                return true;
-            }),
-        // showFields({ title, fields, instruction?, confirmTitle?, cancelTitle?, size? }) → { updatedFields } / rejects on cancel.
-        showFields: (spec: { title?: string; fields?: unknown[]; [k: string]: unknown }) =>
-            showFieldsDialog({
-                ...(spec as any),
-                fields: Array.isArray(spec && spec.fields) ? (spec.fields as any[]) : [],
-            }),
-        showFrame: (opts: { url?: string }) => {
-            if (opts && opts.url) window.open(opts.url, '_blank', 'noopener');
-            return Promise.resolve();
-        },
-    };
+    const g_user: any = createGUser(user);
+    const g_modal: any = createGModal(wrap);
     const openRecord = (table: string, sysId: string, params?: Record<string, unknown>) => {
         if (host.openRecord) host.openRecord(table, sysId, params);
         else window.open(`/${encodeURIComponent(table)}.do?sys_id=${encodeURIComponent(sysId)}`, '_blank', 'noopener');

@@ -7,6 +7,8 @@
         "icon": "book-open",
         "search": true,
         "collapsible": true,
+        "headerSwitcher": "portal",
+        "collection": "",
         "switcher": [],
         "links": [],
         "tintSections": []

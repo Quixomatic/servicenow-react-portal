@@ -10,13 +10,69 @@
  * value (1 critical … 5 planning), anything else by keywords in the label (rejected → danger,
  * closed / cancelled → neutral, resolved / approved / complete → success, on hold / waiting /
  * pending / requested → warning, in progress / work / assess → progress, new / open → info).
- * Platform highlighted-value configs (sys_ux_highlighted_value_config) aren't read yet.
+ *
+ * Platform colours: the platform evaluates its own highlighted-value rules (sys_highlighted_value
+ * + conditions, grouped by sys_ux_highlighted_value_config) on the server, as the user, and returns
+ * a style per field (formLayout.highlightedValueStyle, GlideHeaderQuery_Query.headerItems). Pass
+ * that style's colorName / status as `color` / `status`, or call toneForPlatform(colorName, status):
+ *   critical, red, magenta → danger · high, orange → high · moderate, warning, yellow → warning ·
+ *   info, blue, teal → progress · positive, green → success · low, gray → neutral · pink, purple → info
+ * A matched platform colour beats the heuristic; with none, toneFor() decides.
+ *
  * Colours: theme tokens for info (primary), danger (destructive) and neutral (muted); emerald,
- * amber and sky for success, warning and progress, each with a dark variant.
+ * amber, orange and sky for success, warning, high and progress, each with a dark variant.
  */
 import { cx } from 'components:app/field';
 
-export type HighlightTone = 'neutral' | 'info' | 'progress' | 'warning' | 'success' | 'danger';
+export type HighlightTone = 'neutral' | 'info' | 'progress' | 'warning' | 'high' | 'success' | 'danger';
+
+/** A platform highlighted-value style (formLayout.highlightedValueStyle / headerItems), as returned. */
+export type PlatformHighlight = {
+    field?: string;
+    /** The label the platform shows (the display value, or the rule's value override). */
+    value?: string | null;
+    status?: string | null;
+    colorName?: string | null;
+    showIcon?: boolean | null;
+    iconName?: string | null;
+    variantName?: string | null;
+    /** The matching sys_highlighted_value_condition (null = no rule matched: no platform colour). */
+    matchingConditionSysId?: string | null;
+};
+
+const PLATFORM_TONES: Record<string, HighlightTone> = {
+    critical: 'danger',
+    red: 'danger',
+    magenta: 'danger',
+    high: 'high',
+    orange: 'high',
+    moderate: 'warning',
+    warning: 'warning',
+    yellow: 'warning',
+    'green-yellow': 'warning',
+    info: 'progress',
+    blue: 'progress',
+    teal: 'progress',
+    cyan: 'progress',
+    positive: 'success',
+    green: 'success',
+    low: 'neutral',
+    gray: 'neutral',
+    grey: 'neutral',
+    pink: 'info',
+    purple: 'info',
+};
+
+/** A platform colour name (or status) → our tone; undefined when neither is known. */
+export function toneForPlatform(color?: string | null, status?: string | null): HighlightTone | undefined {
+    const c = String(color || '')
+        .toLowerCase()
+        .trim();
+    const s = String(status || '')
+        .toLowerCase()
+        .trim();
+    return PLATFORM_TONES[c] || PLATFORM_TONES[s] || undefined;
+}
 
 const PRIORITY_FIELDS = ['priority', 'urgency', 'impact', 'severity'];
 
@@ -40,6 +96,7 @@ export const TONE_PILL: Record<HighlightTone, string> = {
     info: 'border-primary/20 bg-primary/10 text-primary',
     progress: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
     warning: 'border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300',
+    high: 'border-orange-500/30 bg-orange-500/12 text-orange-700 dark:text-orange-300',
     success: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     danger: 'border-destructive/25 bg-destructive/10 text-destructive',
 };
@@ -49,6 +106,7 @@ export const TONE_DOT: Record<HighlightTone, string> = {
     info: 'bg-primary',
     progress: 'bg-sky-500',
     warning: 'bg-amber-500',
+    high: 'bg-orange-500',
     success: 'bg-emerald-500',
     danger: 'bg-destructive',
 };
@@ -58,6 +116,9 @@ export type HighlightedValueProps = {
     value?: string | number;
     field?: string;
     tone?: HighlightTone;
+    /** Platform colour name / status (a highlighted-value style): beats the heuristic, loses to `tone`. */
+    color?: string | null;
+    status?: string | null;
     /** pill (default): tinted rounded badge with a dot; dot: coloured dot + plain text. */
     variant?: 'pill' | 'dot';
     size?: 'sm' | 'default';
@@ -70,13 +131,15 @@ export function HighlightedValue({
     value,
     field,
     tone,
+    color,
+    status,
     variant = 'pill',
     size = 'default',
     className,
     title,
 }: HighlightedValueProps) {
     if (!label) return null;
-    const t = tone || toneFor(label, { field, value });
+    const t = tone || toneForPlatform(color, status) || toneFor(label, { field, value });
     if (variant === 'dot') {
         return (
             <span
@@ -117,6 +180,8 @@ export default function HighlightedValuePreview() {
                 <HighlightedValue key={s} label={s} />
             ))}
             <HighlightedValue label="1 - Critical" field="priority" value="1" />
+            <HighlightedValue label="High" color="high" />
+            <HighlightedValue label="5 - Planning" field="priority" color="green" />
             <HighlightedValue label="Approved" variant="dot" />
         </div>
     );

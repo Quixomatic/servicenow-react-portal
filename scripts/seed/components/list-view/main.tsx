@@ -5,6 +5,8 @@ import type { ListState, RecordListFeatures } from 'components:app/data-table';
 import type { ListRow } from 'utilities:app/list-data';
 import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots';
 import { useViewRuleResolution, useViewRulesContext } from 'utilities:app/graphql';
+// Platform list actions (wave 3b): toolbar, bulk (selection bar) and row context menu.
+import { useListActionSlots } from 'components:app/action-bar';
 
 type Options = {
     table?: string;
@@ -27,7 +29,7 @@ type Options = {
      * (default) = header when the layout has those slots.
      */
     toolbarPlacement?: 'auto' | 'inline' | 'header';
-    /** Mirror filter / search / sort / page into the URL (shareable, back/forward). */
+    /** Mirror filter / search / sort / page / group / quick filters into the URL (shareable; replaces the history entry). */
     syncUrl?: boolean;
     showTitle?: boolean;
     showSearch?: boolean;
@@ -39,10 +41,35 @@ type Options = {
     contextMenu?: boolean;
     selection?: boolean;
     actions?: boolean;
+    /** Platform list actions (declarative list actions): only these names (comma-separated). */
+    actionsInclude?: string;
+    /** Platform list actions never shown (comma-separated names). */
+    actionsExclude?: string;
+    /** sys_ux_action_config sys_id; default: the portal's settings.actionConfigId. */
+    actionConfigId?: string;
+    /** Classic server-side list UI actions (context menu / list choice), checked per row by the platform. */
+    classicActions?: boolean;
     showExport?: boolean;
     showRefresh?: boolean;
     /** Live updates (AMB): refetch the current page when matching records change. */
     liveUpdates?: boolean;
+    /** Initial group-by column (^GROUPBY). */
+    groupBy?: string;
+    /** Rows shown per group (default 10). */
+    groupRowLimit?: number;
+    /** Quick filter chips: preset ids (active, mine, myGroups, unassigned, createdByMe, updatedToday) or 'Label=encoded query'. */
+    quickFilters?: string[];
+    /** Quick filters on at first. */
+    defaultQuickFilters?: string[];
+    showGroupBy?: boolean;
+    showSavedFilters?: boolean;
+    showColumnFilters?: boolean;
+    /** Table / cards toggle. */
+    displayToggle?: boolean;
+    /** Append journal entries (comments, work notes) inline. */
+    journalEdit?: boolean;
+    /** glide_list cells edit in the list collector (slushbucket). */
+    listCollector?: boolean;
 };
 
 const NAME = /^[a-z0-9_]+$/;
@@ -59,7 +86,8 @@ function pick(...values: unknown[]): string {
  * table / query / view come from the widget options, else the route params, else the URL params
  * (table, query, view; older links that packed them inside q still work). With syncUrl (default) the
  * filter, search, sort and page live in the URL: the filter as the explicit `query` param (with `table`
- * when the widget has no fixed table), search / sort / page inside q (kw=…&sort=-number&page=2).
+ * when the widget has no fixed table), search / sort / page / group-by / quick filters inside q
+ * (kw=…&sort=-number&page=2&group=priority&quick=active,mine). State writes replace history entries.
  * Rows open the portal's `form` page (recordPage) with explicit table + sys_id params. On a layout with header slots
  * (app/app-subheader) the title and toolbar move into the header (toolbarPlacement).
  */
@@ -100,6 +128,15 @@ export default function ListView({ options = {} }: { options?: Options }) {
               keywords: pick(urlObj.kw, qp.get('kw')),
               orderBy: pick(urlObj.sort, qp.get('sort')) || options.orderBy || '',
               page: Math.max(0, (parseInt(pick(urlObj.page, qp.get('page')), 10) || 1) - 1),
+              // group= in q ('' / absent → the option; 'none' → explicitly ungrouped).
+              groupBy: qp.has('group')
+                  ? qp.get('group') === 'none'
+                      ? ''
+                      : qp.get('group') || ''
+                  : options.groupBy || '',
+              quick: qp.has('quick')
+                  ? (qp.get('quick') || '').split(',').filter(Boolean)
+                  : options.defaultQuickFilters || [],
           }
         : undefined;
 
@@ -117,11 +154,18 @@ export default function ListView({ options = {} }: { options?: Options }) {
         set('kw', s.keywords);
         set('sort', s.orderBy, options.orderBy || '');
         set('page', s.page ? String(s.page + 1) : '');
+        if (s.groupBy !== (options.groupBy || '')) next.set('group', s.groupBy || 'none');
+        else next.delete('group');
+        const dq = (options.defaultQuickFilters || []).join(',');
+        if (s.quick.join(',') !== dq) next.set('quick', s.quick.join(','));
+        else next.delete('quick');
         navigate(page, {
             table: options.table ? undefined : table,
             view: options.view ? undefined : urlView || undefined,
             query: s.filter || undefined,
             q: next.toString(),
+            // List state changes replace the history entry (Back leaves the list, not each filter step).
+            replace: true,
         });
     };
 
@@ -137,6 +181,29 @@ export default function ListView({ options = {} }: { options?: Options }) {
             navigate(hasFormPage, { table: row.className || t, sysId: row.sysId });
         } else window.open(`/${row.className || t}.do?sys_id=${row.sysId}`, '_blank', 'noopener');
     };
+
+    // Platform actions: New / Export… in the toolbar, bulk actions on the selection, row context menu.
+    const platformActions = useListActionSlots({
+        table,
+        view: view || undefined,
+        fixedQuery: options.fixedQuery,
+        listTitle: options.title,
+        actions: options.actions !== false,
+        include: options.actionsInclude || undefined,
+        exclude: options.actionsExclude || undefined,
+        actionConfigId: options.actionConfigId || undefined,
+        classic: !!options.classicActions,
+        openRecord: (t, id, params) => {
+            const query = params && params.query ? String(params.query) : undefined;
+            if (hasFormPage) navigate(hasFormPage, { table: t, sysId: id, query });
+            else
+                window.open(
+                    `/${t}.do?sys_id=${id}${query ? '&sysparm_query=' + encodeURIComponent(query) : ''}`,
+                    '_blank',
+                    'noopener'
+                );
+        },
+    });
 
     // Header slots exist on this layout (app-shell sub-header)? 'header' and 'auto' use them.
     const leftSlot = useHeaderSlot('left');
@@ -171,6 +238,11 @@ export default function ListView({ options = {} }: { options?: Options }) {
         actions: options.actions !== false,
         export: options.showExport !== false,
         refresh: options.showRefresh !== false,
+        groupBy: options.showGroupBy !== false,
+        savedFilters: options.showSavedFilters !== false,
+        columnFilters: options.showColumnFilters !== false,
+        displayToggle: !!options.displayToggle,
+        journalEdit: !!options.journalEdit,
     };
 
     return (
@@ -202,6 +274,12 @@ export default function ListView({ options = {} }: { options?: Options }) {
                     toolbarSlots={toolbarSlots}
                     prefKey={`${instanceId || 'list-view'}:${table}`}
                     live={!!options.liveUpdates}
+                    groupBy={options.groupBy}
+                    groupRowLimit={options.groupRowLimit}
+                    quickFilters={options.quickFilters}
+                    defaultQuickFilters={options.defaultQuickFilters}
+                    listCollector={options.listCollector}
+                    {...platformActions.props}
                 />
             )}
         </div>

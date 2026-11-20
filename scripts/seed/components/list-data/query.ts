@@ -451,3 +451,74 @@ export function describeTerm(t: Term, fieldLabel?: string, opLabel?: string): st
         v.indexOf('@javascript') > 0 ? v.split('@')[0] : v.replace(/^javascript:gs\.dateGenerate\('([^']+)'.*$/, '$1');
     return [fieldLabel || t.field, opLabel || t.op, shown].filter(Boolean).join(' ');
 }
+
+// ---- composing queries (quick filters, group drill-down, column filters) ------------------
+
+/**
+ * AND extra conditions into every ^NQ group of a filter (quick filters, a group's condition), the
+ * way the platform's own lists do it: '^NQ' ORs whole condition sets, so an extra term appended
+ * only at the end would leak records from the other sets.
+ */
+export function andQueries(filter: string, extras: string[]): string {
+    const add = extras.map((x) => String(x || '').trim()).filter(Boolean);
+    if (!add.length) return filter || '';
+    const base = String(filter || '').trim();
+    if (!base) return add.join('^');
+    return base
+        .split('^NQ')
+        .map((part) => [part].concat(add).filter(Boolean).join('^'))
+        .join('^NQ');
+}
+
+/** The condition for one group of a grouped list (an empty group value means "is empty"). */
+export function groupCondition(field: string, value: string): string {
+    return value ? `${field}=${value}` : `${field}ISEMPTY`;
+}
+
+/** The GROUPBY column of an encoded query ('' when ungrouped). */
+export function groupByOf(encoded: string | null | undefined): string {
+    const m = /(?:^|\^)GROUPBY([a-z0-9_.$]+)/i.exec(String(encoded || ''));
+    return m ? m[1] : '';
+}
+
+/** The query without GROUPBY / ORDERBY / EQ tokens (the filter part to apply). */
+export function stripListTokens(encoded: string | null | undefined): string {
+    return String(encoded || '')
+        .split('^')
+        .filter((t) => t && t !== 'EQ' && t.indexOf('GROUPBY') !== 0 && t.indexOf('ORDERBY') !== 0)
+        .join('^')
+        .replace(/\^NQ$/, '');
+}
+
+/**
+ * Column (header) filters: the single-term AND clauses on one field, across every group. A column
+ * filter owns exactly those clauses; OR'ed clauses and the builder's other terms are left alone.
+ */
+export function columnTerms(model: QueryModel, field: string): Term[] {
+    const out: Term[] = [];
+    for (const g of model.groups) for (const c of g.clauses) if (c.length === 1 && c[0].field === field) out.push(c[0]);
+    return out;
+}
+
+/** Replace a column's filter (null clears it); the term is ANDed into every group. */
+export function setColumnTerm(model: QueryModel, field: string, term: Term | null): QueryModel {
+    const groups = model.groups
+        .map((g) => ({ clauses: g.clauses.filter((c) => !(c.length === 1 && c[0].field === field)) }))
+        .filter((g) => g.clauses.length);
+    const next = { ...model, groups };
+    return term ? andTerm(next, term) : next;
+}
+
+/** Built-in quick filters (ids usable in widget options): `active`, `mine`, `myGroups`, `unassigned`, `createdByMe`, `updatedToday`. */
+export const QUICK_FILTER_PRESETS: Record<string, { label: string; query: string }> = {
+    active: { label: 'Active', query: 'active=true' },
+    mine: { label: 'Assigned to me', query: 'assigned_to=javascript:gs.getUserID()' },
+    // "One of My Groups" dynamic filter option (sys_filter_option_dynamic, baseline).
+    myGroups: { label: 'My groups', query: 'assignment_groupDYNAMICd6435e965f510100a9ad2572f2b47744' },
+    unassigned: { label: 'Unassigned', query: 'assigned_toISEMPTY' },
+    createdByMe: { label: 'Opened by me', query: 'opened_by=javascript:gs.getUserID()' },
+    updatedToday: {
+        label: 'Updated today',
+        query: 'sys_updated_onONToday@javascript:gs.beginningOfToday()@javascript:gs.endOfToday()',
+    },
+};

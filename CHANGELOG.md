@@ -2,6 +2,87 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.20.0] - 2026-11-20
+
+Docs collections, design-system primitives and a code editor field, a zero-config record header and
+ribbon, list power features, and platform UI and declarative actions on lists and forms.
+
+### Added: docs collections
+- **New tables** `x_312987_portal_doc_collection` (key, title, description, icon) and `x_312987_portal_doc_section` (collection, slug, title, order, icon; unique per collection; origin / seed_hash like pages).
+- **Pages** gain `doc_section` and a denormalized `collection`, filled by "RP: Doc page collection from section". Paths are unique per collection (index `rp_doc_collection_path`). The guide is the collection `react-portal`. The legacy section strings stay in the page hash, so no page hash changed.
+- **Portals point at collections:** `settings.docsCollections` (first = default; empty = react-portal), with a "Docs collections" picker in Studio's portal settings. Several portals can share a collection.
+- **The collection travels as the q key `c`.** It's left out for the default, so old links keep working.
+- **New `components:app/docs-collection-switcher`,** separate from the docs portal's own portal switcher. `docs-sidebar` gains `headerSwitcher` (`portal` | `collections` | `none`). Docs widgets take a `collection` option; `useDocsCollection` / `useDocsCollections` are exported from `utilities:app/docs`.
+- **Docs search** covers the current collection, with an "All collections" toggle when a portal has several.
+- **Studio Docs:**
+  - a collection picker and "new collection";
+  - sections are records, so rename, reorder and deactivate edit only the section;
+  - deep link `/view/docs/id/<collection>:<path>`.
+- **Seed and `docs:pull`:** sections come from `_nav.json` with the same keep / conflict / `--docs-force` rules, and the pull writes section edits back. Collections other than react-portal are instance-only. A one-time migration linked the 72 existing pages.
+
+### Added: design-system primitives
+- **Host kit:**
+  - `components:avatar` (initials, presence, group "+N"), `pill` (removable, PillList overflow), `alert`, `accordion` (arrow keys between triggers), `breadcrumb` (ellipsis collapse), `checkbox` (indeterminate);
+  - `label-value` (stacked / inline / grid), `stepper`, `progress`, `split-button` (+ ButtonGroup), `toggle-group`, `resizable` (keyboard splitter), `tree` (WAI-ARIA);
+  - `heading`, `image`, `date-range-picker`;
+  - `calendar` gains range props.
+- **Code editor:** `components:code-editor`, CodeMirror 6 in a lazily loaded `portal-code` chunk. **`app/code-field`:** script, script_plain, xml, css, json and html_script fields open in it instead of a plain textarea.
+- **`app/date-range-field`:** a start/end pair bound to two form fields, with presets.
+- **Demo:** sp Components ▸ Primitives (`app/primitives-demo`).
+
+### Added: record header, ribbon and cards (no configuration)
+- **`app/record-header`** in every record-form header placement, keeping the banner layout:
+  - highlighted values in the platform's own colours (the highlight styles now come with the form's existing request);
+  - Read only / New badges;
+  - presence avatars of other users on the record, on Workspace's channel, so portal users and agents see each other.
+- **`app/record-ribbon`:** a light strip of key values above the form, with built-in defaults per table family. Record-form options `ribbon` and `presence` (both default on).
+- **Reference preview:** reference fields open a record or contact card with Open record.
+- **New primitives** `app/record-card`, `app/contact-card`, `app/quick-form` (inline / dialog). Demo on sp ▸ Fields.
+- `app/highlighted-value` takes platform colours and gains a "high" tone.
+- A proposal for configurable header and ribbon fields is in `.plans/record-header-config.md` (not built).
+
+### Added: lists
+- **Group-by** on the platform's own `^GROUPBY`: collapsible groups with counts, "Show all" opens a group as a filter, 20 groups per page.
+- **Column header filters:** text, "is one of", reference search, date presets and ranges. They feed the same filter, breadcrumbs and URL.
+- **Quick filter chips** (`active`, `mine`, `myGroups`, … or `Label=query`).
+- **Saved filters** on the platform's `sys_filter`, as the user: save, apply, rename, update, delete own.
+- **Cards view** (`CardGrid`; list-card `display: 'grid'` and a toggle, remembered per user).
+- **Inline edit:**
+  - dot-walked cells save the referenced record;
+  - `glide_list` cells use a picker or a list collector;
+  - conditions cells use the condition builder;
+  - journal append is opt-in (`journalEdit`).
+- **New `components:app/slushbucket`** (Slushbucket, RecordSlushbucket).
+- **Data-table extension points:** `toolbarActions`, `selectionActions`, `rowActions`, `contextMenuItems`, `onSelectionChange`, `controllerRef`, `useListController`.
+- List view keeps group-by and quick filters in the URL; list state changes replace the history entry.
+
+### Added: platform actions
+- **Declarative list actions** (New, Assign to me, Launch Process Mining…) in the list toolbar, as bulk actions in the selection bar, and in the row context menu.
+  - The platform evaluates conditions and roles; Workspace's client conditions are applied.
+  - Server scripts run as the user, and redirects stay in the portal.
+- **Declarative form actions** join the record form's action bar. A portal's `settings.actionConfigId` (`sys_ux_action_config`) can borrow a workspace's action layout.
+- **Opt-in classic list UI actions** (`classicActions`, default off): server-side context-menu / list-choice actions, checked per row with the platform's own per-record check.
+- **New `utilities:app/actions`** (`useActions`, `useRunAction`, `runAction`) and `components:app/action-bar` (`ActionBar`, `useListActionSlots`).
+- **`g_list`** for list scripts in `utilities:app/gform`.
+- **Widget options** on list-view and record-form: `actions`, `actionsInclude`, `actionsExclude`, `actionConfigId`.
+
+### Fixed
+- **Studio's title bar** on View rules and Docs no longer shows the component picker, New, Preview and Save, and their status bar no longer shows the open component's build state.
+- **The inline list editor** no longer compares against a stale permission-check value after a save.
+
+### Notes
+- **Manual upgrade step:** drop the old unique index on `x_312987_portal_doc.path` (table `x_312987_portal_doc` → Database Indexes → `path`). The app install doesn't remove it, and it blocks reusing a path in a second collection. It's still in place on dev189813.
+- `src/server/docs/docs-legacy.ts` keeps pre-1.20 Studio hosts working; remove it later.
+- **Open decisions:**
+  - the portal `actionConfigId` setting in Studio, and classic list actions (built, off by default, not yet seen live);
+  - the record header config proposal.
+- **Not verified:** saved filters as a roleless user (writing `sys_filter.user` may need filter_admin).
+- **Test data:**
+  - TEST docs collection and portal `rp-test-docs` (`37fa1767…`, `1bff5b63…`);
+  - sys_filter "W3A test filter renamed" (`08a4ef67…`);
+  - INC0020825 restored after action tests.
+- Runtime Tests: 33/33.
+
 ## [1.19.1] - 2026-11-20
 
 `npm run seed` now splits execs by component count as well as size, and recovers on its own when the

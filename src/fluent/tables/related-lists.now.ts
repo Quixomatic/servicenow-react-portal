@@ -521,3 +521,62 @@ List({
     parent: 'x_312987_portal_placement',
     columns: ['region', 'component', 'order', 'active'],
 });
+
+/* ---- x_312987_portal_doc_collection ---- */
+
+export const docCollectionRelatedLists = Record({
+    $id: Now.ID['related-lists-doc-collection'],
+    table: 'sys_ui_related_list',
+    data: { name: 'x_312987_portal_doc_collection', view: 'Default view' },
+});
+
+Record({
+    $id: Now.ID['related-list-doc-collection-section'],
+    table: 'sys_ui_related_list_entry',
+    data: {
+        list_id: docCollectionRelatedLists,
+        position: 0,
+        related_list: 'x_312987_portal_doc_section.collection',
+    },
+});
+
+List({
+    table: 'x_312987_portal_doc_section',
+    view: default_view,
+    parent: 'x_312987_portal_doc_collection',
+    columns: ['order', 'title', 'slug', 'icon', 'active', 'origin'],
+});
+
+Record({
+    $id: Now.ID['related-list-doc-collection-doc'],
+    table: 'sys_ui_related_list_entry',
+    data: { list_id: docCollectionRelatedLists, position: 1, related_list: 'x_312987_portal_doc.collection' },
+});
+
+List({
+    table: 'x_312987_portal_doc',
+    view: default_view,
+    parent: 'x_312987_portal_doc_collection',
+    columns: ['path', 'title', 'doc_section', 'order', 'active', 'origin'],
+});
+
+/* ---- x_312987_portal_doc_section ---- */
+
+export const docSectionRelatedLists = Record({
+    $id: Now.ID['related-lists-doc-section'],
+    table: 'sys_ui_related_list',
+    data: { name: 'x_312987_portal_doc_section', view: 'Default view' },
+});
+
+Record({
+    $id: Now.ID['related-list-doc-section-doc'],
+    table: 'sys_ui_related_list_entry',
+    data: { list_id: docSectionRelatedLists, position: 0, related_list: 'x_312987_portal_doc.doc_section' },
+});
+
+List({
+    table: 'x_312987_portal_doc',
+    view: default_view,
+    parent: 'x_312987_portal_doc_section',
+    columns: ['order', 'title', 'path', 'active', 'origin'],
+});

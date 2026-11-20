@@ -9,10 +9,16 @@
  *
  * The value is the sys_id, the display value the record's display field. A value that arrives
  * without a display value (standalone use) is resolved once and cached.
+ *
+ * Preview (sn-interactive-decoration): with a value, an info button (in the control; in the label row
+ * when read-only) opens app/record-card's preview: the referenced record's key fields (a user gets a
+ * contact card) and "Open record", which uses the surrounding form's openRecord (app/form) when there
+ * is one, else getRecordHref, else the classic form in a new tab. `preview={false}` turns it off.
  */
 import { useMemo, useState } from 'react';
 import { useReferenceSearch, useReferenceDisplay } from 'utilities:app/graphql';
-import { useField, FieldShell, adornmentButtonClass, IconX, IconExternal } from 'components:app/field';
+import { useField, useFormContext, FieldShell, adornmentButtonClass, IconX, IconExternal } from 'components:app/field';
+import { RecordPreview } from 'components:app/record-card';
 import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field';
 import { Combobox } from 'components:app/combobox';
 import type { ComboItem } from 'components:app/combobox';
@@ -28,6 +34,8 @@ export type ReferenceFieldProps = FieldProps & {
     size?: FieldSize;
     showOptional?: boolean;
     className?: string;
+    /** The referenced record's preview card (info button). Default true. */
+    preview?: boolean;
 };
 
 export function ReferenceField(props: ReferenceFieldProps) {
@@ -89,6 +97,27 @@ export function ReferenceField(props: ReferenceFieldProps) {
     };
     const href =
         field.value && refTable && props.getRecordHref ? props.getRecordHref(refTable, field.value) : undefined;
+    // Preview "Open record": the form's own openRecord (guards unsaved changes), else the href, else classic.
+    const ctx = useFormContext() as any;
+    const openRecord =
+        ctx && typeof ctx.openRecord === 'function'
+            ? (t: string, id: string) => ctx.openRecord(t, id)
+            : props.getRecordHref
+              ? (t: string, id: string) => {
+                    const h = props.getRecordHref!(t, id);
+                    if (h) window.location.assign(h);
+                }
+              : undefined;
+    const preview =
+        props.preview !== false && field.value && refTable ? (
+            <RecordPreview
+                table={refTable}
+                sysId={field.value}
+                label={shownDisplay || field.value}
+                onOpen={openRecord}
+                trigger="icon"
+            />
+        ) : null;
     const total = search.total;
     const status = open
         ? search.isLoading
@@ -114,6 +143,8 @@ export function ReferenceField(props: ReferenceFieldProps) {
                     )
                 ) : undefined
             }
+            // Read-only: the preview sits in the label row (FieldShell's adornment slot).
+            adornment={field.state.readOnly ? preview : undefined}
         >
             <Combobox
                 id={field.ids.input}
@@ -165,6 +196,11 @@ export function ReferenceField(props: ReferenceFieldProps) {
                 }}
                 endAdornment={
                     <>
+                        {preview ? (
+                            <span className="inline-flex" onPointerDown={(e: any) => e.stopPropagation()}>
+                                {preview}
+                            </span>
+                        ) : null}
                         {href ? (
                             <a
                                 href={href}

@@ -6,7 +6,17 @@
             "title": "Doc path",
             "description": "Show this doc (e.g. concepts/layouts) instead of the one in the URL. Empty = the page route (the docs portal's '*' page; '' is index)."
         },
-        "breadcrumb": { "type": "boolean", "title": "Breadcrumb", "description": "Section › page above the title." },
+        "collection": {
+            "type": "string",
+            "title": "Collection",
+            "maxLength": 60,
+            "description": "Show a page of this docs collection (its key) instead of the URL's / the portal's default."
+        },
+        "breadcrumb": {
+            "type": "boolean",
+            "title": "Breadcrumb",
+            "description": "Section › page above the title."
+        },
         "tocDepth": {
             "type": "integer",
             "title": "Table of contents depth",
@@ -25,6 +35,10 @@
             "format": "url",
             "description": "Template for an \"Edit on GitHub\" button; {source} = repository path (docs/guide/…md), {path} = doc path. Empty hides it."
         },
-        "editLabel": { "type": "string", "title": "Edit link label", "maxLength": 60 }
+        "editLabel": {
+            "type": "string",
+            "title": "Edit link label",
+            "maxLength": 60
+        }
     }
 }

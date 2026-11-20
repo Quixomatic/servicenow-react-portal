@@ -7,6 +7,10 @@
  * persisted per portal) and leaves a small floating panel (expand + search). Mobile (frame < 768px):
  * a drawer from the right in the overlay layer, opened by app/docs-header (useSidebar().openMobile).
  * It also mounts the page's single search dialog (components:app/docs-search).
+ *
+ * The slot under the search (headerSwitcher): 'portal' (default) = the `switcher` option's portal /
+ * page jumps; 'collections' = components:app/docs-collection-switcher over the portal's docs
+ * collections (nothing with one collection); 'none'. `collection` forces the collection shown.
  */
 import { useEffect, useRef } from 'react';
 import { Link, usePortal, usePortalLocation, useSidebar, useTheme } from '@portal/runtime';
@@ -15,9 +19,10 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from 'components:sh
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'components:dropdown-menu';
 import { Skeleton } from 'components:skeleton';
 import { cn } from 'utilities:cn';
-import { useDocsNav, docPathOf, docRoute, usePrefetchDoc } from 'utilities:app/docs';
+import { useDocsNav, useDocsCollection, docPathOf, docRoute, usePrefetchDoc } from 'utilities:app/docs';
 import type { DocsSection } from 'utilities:app/docs';
 import DocsSearchDialog, { DocsSearchTrigger, DocsSearchButton } from 'components:app/docs-search';
+import DocsCollectionSwitcher from 'components:app/docs-collection-switcher';
 
 type SwitchItem = {
     title: string;
@@ -35,6 +40,8 @@ type Options = {
     search?: boolean;
     collapsible?: boolean;
     switcher?: SwitchItem[];
+    headerSwitcher?: 'portal' | 'collections' | 'none';
+    collection?: string;
     links?: FooterLink[];
     tintSections?: string[];
 };
@@ -55,7 +62,7 @@ export default function DocsSidebar({ options = {} }: { options?: Options }) {
     const collapsed = !sidebar.isMobile && options.collapsible !== false && !sidebar.open;
     return (
         <>
-            {options.search !== false ? <DocsSearchDialog /> : null}
+            {options.search !== false ? <DocsSearchDialog collection={options.collection} /> : null}
             {sidebar.isMobile ? (
                 <Sheet open={sidebar.openMobile} onOpenChange={(v: boolean) => sidebar.setOpenMobile(v)}>
                     <SheetContent
@@ -108,9 +115,9 @@ export default function DocsSidebar({ options = {} }: { options?: Options }) {
                                 ) : null}
                             </div>
                             {options.search !== false ? <DocsSearchTrigger /> : null}
-                            <Switcher items={options.switcher} />
+                            <HeaderSwitcher options={options} />
                         </div>
-                        <NavTree tintSections={options.tintSections} />
+                        <NavTree tintSections={options.tintSections} collection={options.collection} />
                         <div className="flex flex-col p-4 pt-2">
                             <div className="flex items-center rounded-lg border bg-secondary/50 p-0.5 pe-0 text-muted-foreground">
                                 <FooterLinks links={options.links} />
@@ -124,11 +131,21 @@ export default function DocsSidebar({ options = {} }: { options?: Options }) {
     );
 }
 
+/** The slot under the search: the portal switcher, the collection switcher, or nothing. */
+function HeaderSwitcher({ options }: { options: Options }) {
+    const mode = options.headerSwitcher || 'portal';
+    if (mode === 'none') return null;
+    if (mode === 'collections') return <DocsCollectionSwitcher collection={options.collection} />;
+    return <Switcher items={options.switcher} />;
+}
+
 function Brand({ options, className }: { options: Options; className?: string }) {
     const portal = usePortal();
+    const coll = useDocsCollection(options.collection);
     return (
         <Link
             to=""
+            q={Object.keys(coll.q).length ? coll.q : undefined}
             className={cn(
                 'inline-flex min-w-0 items-center gap-2.5 font-semibold text-foreground no-underline',
                 className
@@ -269,16 +286,20 @@ function NavTree({
     onNavigate,
     className,
     tintSections,
+    collection,
 }: {
     onNavigate?: () => void;
     className?: string;
     tintSections?: string[];
+    collection?: string;
 }) {
     const tinted = new Set(tintSections || []);
-    const nav = useDocsNav();
+    const coll = useDocsCollection(collection);
+    const nav = useDocsNav(coll.key);
     const loc = usePortalLocation();
     const current = docPathOf(loc ? loc.page : '');
-    const prefetch = usePrefetchDoc();
+    const prefetch = usePrefetchDoc(coll.key);
+    const linkQ = Object.keys(coll.q).length ? coll.q : undefined;
     const ref = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
         const el = ref.current && (ref.current.querySelector('[data-active="true"]') as HTMLElement | null);
@@ -324,6 +345,7 @@ function NavTree({
                                     <Link
                                         key={p.path}
                                         to={docRoute(p.path)}
+                                        q={linkQ}
                                         data-active={active ? 'true' : undefined}
                                         aria-current={active ? 'page' : undefined}
                                         onMouseEnter={() => prefetch(p.path)}
@@ -375,9 +397,14 @@ function Drawer({ options, onClose }: { options: Options; onClose: () => void })
                         <Icon name="panel-left" />
                     </button>
                 </div>
-                <Switcher items={options.switcher} />
+                <HeaderSwitcher options={options} />
             </div>
-            <NavTree onNavigate={onClose} tintSections={options.tintSections} className="text-[0.9375rem]" />
+            <NavTree
+                onNavigate={onClose}
+                tintSections={options.tintSections}
+                collection={options.collection}
+                className="text-[0.9375rem]"
+            />
         </div>
     );
 }

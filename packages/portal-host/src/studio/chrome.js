@@ -48,7 +48,44 @@ export function Titlebar({ studio, designer, menus }) {
     const view = useStudio(studio, (s) => s.view);
     if (view === 'pages' && designer) return <DesignerTitlebar studio={studio} designer={designer} />;
     if (view === 'menus' && menus) return <MenusTitlebar menus={menus} />;
+    if (ACTIVITY_TITLES[view]) return <ActivityTitlebar view={view} />;
     return <ComponentTitlebar studio={studio} />;
+}
+
+// Activities that save inside their own panes (View rules, Docs): no component picker, New or Save.
+const ACTIVITY_TITLES = { viewRules: 'View rules', docs: 'Docs' };
+
+function ThemeButton() {
+    const { theme, resolvedTheme, cycle } = useStudioTheme();
+    return (
+        <button
+            className="rps-tbtn"
+            title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}`}
+            onClick={cycle}
+            data-rps-theme={theme}
+        >
+            {theme === 'system' ? (
+                <Monitor size={15} />
+            ) : resolvedTheme === 'dark' ? (
+                <Moon size={15} />
+            ) : (
+                <Sun size={15} />
+            )}
+        </button>
+    );
+}
+
+function ActivityTitlebar({ view }) {
+    return (
+        <div className="rps-titlebar" data-rps-titlebar={view}>
+            <span className="rps-brand">
+                <Code2 size={16} color="var(--rps-accent)" /> Portal Studio · {ACTIVITY_TITLES[view]}
+            </span>
+            <span className="rps-spacer" />
+            <CopyLinkButton />
+            <ThemeButton />
+        </div>
+    );
 }
 
 function DesignerTitlebar({ studio, designer }) {
@@ -644,7 +681,25 @@ export function StatusBar({ studio, designer, menus, dark, mock }) {
     const view = useStudio(studio, (s) => s.view);
     if (view === 'pages' && designer) return <DesignerStatusBar designer={designer} dark={dark} mock={mock} />;
     if (view === 'menus' && menus) return <MenusStatusBar menus={menus} dark={dark} mock={mock} />;
+    if (ACTIVITY_TITLES[view]) return <ActivityStatusBar view={view} dark={dark} mock={mock} />;
     return <ComponentStatusBar studio={studio} dark={dark} mock={mock} />;
+}
+
+// View rules and Docs: no build state (that belongs to the open component), just scope and theme.
+function ActivityStatusBar({ view, dark, mock }) {
+    const { theme: themeMode, cycle } = useStudioTheme();
+    return (
+        <div className="rps-statusbar" data-rps-statusbar={view}>
+            <span className="item">{ACTIVITY_TITLES[view]}</span>
+            {mock ? <span className="item">mock data</span> : null}
+            <span className="spacer" />
+            <ScopeStatus />
+            <button className="item" onClick={cycle} title="Theme">
+                {themeMode === 'system' ? <Monitor size={12} /> : dark ? <Moon size={12} /> : <Sun size={12} />}{' '}
+                {themeMode}
+            </button>
+        </div>
+    );
 }
 
 function DesignerStatusBar({ designer, dark, mock }) {

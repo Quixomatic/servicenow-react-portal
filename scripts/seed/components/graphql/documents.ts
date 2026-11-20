@@ -19,6 +19,7 @@ import type {
     RelatedListInfo,
     ViewRuleInputs,
     ViewResolutionInfo,
+    HighlightStyle,
 } from './types';
 
 /**
@@ -266,6 +267,7 @@ export const UI_VIEW_SELECTION = `{
               ${RELATED_LISTS_FIELDS}
               recordValues { name value displayValue }
               fieldStates { name hidden mandatory readonly }
+              highlightedValueStyle { field value status colorName showIcon iconName variantName matchingConditionSysId }
               elementsData {
                 name: elementName
                 dictionary: dictionaryData {
@@ -464,6 +466,27 @@ export async function fetchFormBootstrap(
     );
 }
 
+/**
+ * formLayout.highlightedValueStyle → { field: style }, keeping only styles whose rule matched
+ * (matchingConditionSysId): the platform evaluates sys_highlighted_value rules on the server, as the user.
+ */
+export function highlightsOf(list: any): Record<string, HighlightStyle> {
+    const out: Record<string, HighlightStyle> = {};
+    for (const h of Array.isArray(list) ? list : []) {
+        if (!h || !h.field || !h.matchingConditionSysId) continue;
+        out[String(h.field)] = {
+            field: String(h.field),
+            value: h.value == null ? '' : String(h.value),
+            status: h.status ? String(h.status) : '',
+            colorName: h.colorName ? String(h.colorName) : '',
+            showIcon: !!h.showIcon,
+            iconName: h.iconName ? String(h.iconName) : '',
+            variantName: h.variantName ? String(h.variantName) : '',
+        };
+    }
+    return out;
+}
+
 /** FormBootstrap from a uiView result (FORM_QUERY or FORM_RULES_QUERY). */
 export function bootstrapFromUiView(
     U: any,
@@ -524,6 +547,8 @@ export function bootstrapFromUiView(
         // Related lists (app/related-list wave): none for a new record, as in Workspace.
         relatedLists: !sysId || sysId === '-1' ? [] : normalizeRelatedLists(L.relatedLists),
         hasRelatedLists: !!(L.relatedListMetadata && L.relatedListMetadata.hasRelatedLists),
+        // Record header (app/record-header): the platform's highlighted-value styles, matched rules only.
+        highlights: highlightsOf(L.highlightedValueStyle),
         annotations: annotationsOf(L.annotations),
         policies: ((S && S.ClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
         actions: ((A && A.formActions) || [])

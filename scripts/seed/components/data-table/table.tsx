@@ -80,15 +80,29 @@ export type DataTableProps<Row = any> = {
     onEditRequest?: (ctx: CellContext<Row>) => void;
     editing?: CellRef | null;
     renderEditor?: (ctx: CellContext<Row>) => any;
+    /** Minimum editor popup width for a cell (px; capped to the viewport). Default 260. */
+    editorWidth?: (ctx: CellContext<Row>) => number | undefined;
     onEditorDismiss?: () => void;
     /** Content after the last row (e.g. "Loading more…"). */
     footer?: any;
     /** Rows to mark as just updated (live updates): a brief, subtle highlight; keyed by row id. */
     highlighted?: Record<string, boolean>;
+    /** Extra header content per column (e.g. a column filter button); Alt+Down on a header activates it. */
+    renderHeaderExtra?: (column: DataTableColumn) => any;
+    /** A trailing actions cell per row (not resizable); Enter / F2 on it focuses its first control. */
+    rowActions?: (row: Row) => any;
+    rowActionsLabel?: string;
+    /** Group header rows (grouped lists): a full-width row with a toggle; Enter / Space toggle it. */
+    isGroupRow?: (row: Row) => boolean;
+    renderGroupRow?: (row: Row) => any;
+    onGroupToggle?: (row: Row) => void;
+    /** aria-expanded of a group row. */
+    isGroupExpanded?: (row: Row) => boolean;
     className?: string;
 };
 
 const SELECT_ID = '__select';
+const ACTIONS_ID = '__actions';
 
 /**
  * DataTable: TanStack Table for state (manual sorting, selection, sizing) and TanStack Virtual
@@ -98,6 +112,8 @@ const SELECT_ID = '__select';
  */
 export function DataTable<Row = any>(props: DataTableProps<Row>) {
     const { columns, rows, getRowId, getValue, selectable, density = 'normal' } = props;
+    const hasActions = !!props.rowActions;
+    const isGroup = (row: Row | undefined) => !!row && !!props.isGroupRow && props.isGroupRow(row);
     const rowHeight = ROW_HEIGHT[density];
     const scroller = useRef<HTMLDivElement | null>(null);
     const tableRef = useRef<HTMLTableElement | null>(null);
@@ -133,8 +149,19 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
                 enableSorting: c.sortable !== false,
                 meta: { column: c },
             });
+        if (hasActions)
+            list.push({
+                id: ACTIONS_ID,
+                size: 56,
+                minSize: 56,
+                maxSize: 56,
+                enableResizing: false,
+                enableSorting: false,
+                header: '',
+                meta: { actions: true },
+            });
         return list;
-    }, [columns, selectable, getValue]);
+    }, [columns, selectable, getValue, hasActions]);
 
     const table = useReactTable({
         data: rows,
@@ -231,7 +258,8 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
         if (!focusWanted.current) return;
         const el =
             tableRef.current &&
-            (tableRef.current.querySelector(`[data-cell="${active.r}:${active.c}"]`) as HTMLElement | null);
+            ((tableRef.current.querySelector(`[data-cell="${active.r}:${active.c}"]`) ||
+                tableRef.current.querySelector(`[data-cell^="${active.r}:"]`)) as HTMLElement | null);
         if (el) {
             focusWanted.current = false;
             el.focus({ preventScroll: false });
@@ -241,7 +269,7 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
     const ctxFor = (r: number, c: number): CellContext<Row> | null => {
         const row = modelRows[r];
         const leaf = leafs[c];
-        if (!row || !leaf || leaf.id === SELECT_ID) return null;
+        if (!row || !leaf || leaf.id === SELECT_ID || leaf.id === ACTIONS_ID || isGroup(row.original)) return null;
         const column = (leaf.columnDef.meta as any).column as DataTableColumn;
         return { row: row.original, rowId: row.id, rowIndex: r, column, value: getValue(row.original, column.id) };
     };
@@ -266,7 +294,7 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
         else delete next[rowId];
         props.onSelectionChange(next);
     };
-    const pageIds = modelRows.map((r: any) => r.id);
+    const pageIds = modelRows.filter((r: any) => !isGroup(r.original)).map((r: any) => r.id);
     const pageSelected = pageIds.filter((id: string) => selection[id]).length;
     const togglePage = () => {
         if (!props.onSelectionChange) return;
@@ -288,8 +316,39 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
     };
 
     const onKeyDown = (e: any) => {
-        if (e.target && e.target.closest && e.target.closest('[data-rpl-editor]')) return;
+        if (e.target && e.target.closest && e.target.closest('[data-rpl-editor],[data-rpl-actions-inner]')) return;
         const { r, c } = active;
+        const groupRow = r >= 0 && modelRows[r] && isGroup(modelRows[r].original) ? modelRows[r].original : null;
+        if (groupRow && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const cellEl = tableRef.current && tableRef.current.querySelector(`[data-cell="${r}:0"]`);
+            const link = cellEl && (cellEl.querySelector('[data-rpl-group-link]') as HTMLElement | null);
+            if (e.key === 'Enter' && e.shiftKey && link) link.click();
+            else if (props.onGroupToggle) props.onGroupToggle(groupRow);
+            return;
+        }
+        if (r >= 0 && leafs[c] && leafs[c].id === ACTIONS_ID && (e.key === 'Enter' || e.key === 'F2')) {
+            const cellEl = tableRef.current && tableRef.current.querySelector(`[data-cell="${r}:${c}"]`);
+            const first = cellEl && (cellEl.querySelector('button,a[href],[tabindex]') as HTMLElement | null);
+            if (first) {
+                e.preventDefault();
+                e.stopPropagation();
+                first.focus();
+                return;
+            }
+        }
+        if (r === -1 && e.altKey && e.key === 'ArrowDown') {
+            const th = tableRef.current && tableRef.current.querySelector(`[data-cell="-1:${c}"]`);
+            const host = th && (th.closest('th') as HTMLElement | null);
+            const extra = host && (host.querySelector('[data-rpl-header-extra]') as HTMLElement | null);
+            if (extra) {
+                e.preventDefault();
+                e.stopPropagation();
+                extra.click();
+                return;
+            }
+        }
         const page = Math.max(1, Math.floor((scroller.current ? scroller.current.clientHeight : 400) / rowHeight) - 1);
         let handled = true;
         switch (e.key) {
@@ -466,6 +525,23 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
                                             </span>
                                         </th>
                                     );
+                                if (leaf.id === ACTIONS_ID)
+                                    return (
+                                        <th
+                                            key={leaf.id}
+                                            role="columnheader"
+                                            className="rpl-th rpl-actions-cell"
+                                            aria-colindex={c + 1}
+                                        >
+                                            <span
+                                                tabIndex={isActive ? 0 : -1}
+                                                data-cell={`-1:${c}`}
+                                                className="rpl-th-btn"
+                                            >
+                                                <span className="sr-only">{props.rowActionsLabel || 'Actions'}</span>
+                                            </span>
+                                        </th>
+                                    );
                                 const col = (leaf.columnDef.meta as any).column as DataTableColumn;
                                 const si = sortIndex(leaf.id);
                                 const dir = si >= 0 ? (sorting[si].desc ? 'descending' : 'ascending') : undefined;
@@ -478,43 +554,48 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
                                         aria-colindex={c + 1}
                                         className={cx('rpl-th group/th relative', alignClass(col))}
                                     >
-                                        <span
-                                            role={canSort ? 'button' : undefined}
-                                            tabIndex={isActive ? 0 : -1}
-                                            data-cell={`-1:${c}`}
-                                            className={cx('rpl-th-btn', canSort ? 'cursor-pointer' : '')}
-                                            onClick={(e: any) => {
-                                                setActive({ r: -1, c });
-                                                if (canSort) sortHeader(leaf.id, e.shiftKey);
-                                            }}
-                                            title={
-                                                canSort
-                                                    ? `Sort by ${col.header} (Shift+click adds a secondary sort)`
-                                                    : col.header
-                                            }
-                                        >
-                                            <span className="truncate">{flexRender(leaf.columnDef.header, {})}</span>
-                                            {canSort ? (
-                                                <span
-                                                    aria-hidden="true"
-                                                    className={cx(
-                                                        'rpl-sort shrink-0',
-                                                        si >= 0
-                                                            ? 'text-foreground'
-                                                            : 'text-transparent group-hover/th:text-muted-foreground'
-                                                    )}
-                                                >
-                                                    <IconChevronDown
-                                                        size={14}
-                                                        className={si >= 0 && !sorting[si].desc ? 'rotate-180' : ''}
-                                                    />
+                                        <span className="rpl-th-row">
+                                            <span
+                                                role={canSort ? 'button' : undefined}
+                                                tabIndex={isActive ? 0 : -1}
+                                                data-cell={`-1:${c}`}
+                                                className={cx('rpl-th-btn', canSort ? 'cursor-pointer' : '')}
+                                                onClick={(e: any) => {
+                                                    setActive({ r: -1, c });
+                                                    if (canSort) sortHeader(leaf.id, e.shiftKey);
+                                                }}
+                                                title={
+                                                    canSort
+                                                        ? `Sort by ${col.header} (Shift+click adds a secondary sort)`
+                                                        : col.header
+                                                }
+                                            >
+                                                <span className="truncate">
+                                                    {flexRender(leaf.columnDef.header, {})}
                                                 </span>
-                                            ) : null}
-                                            {si >= 0 && sorting.length > 1 ? (
-                                                <span className="text-[10px] text-muted-foreground tabular-nums">
-                                                    {si + 1}
-                                                </span>
-                                            ) : null}
+                                                {canSort ? (
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className={cx(
+                                                            'rpl-sort shrink-0',
+                                                            si >= 0
+                                                                ? 'text-foreground'
+                                                                : 'text-transparent group-hover/th:text-muted-foreground'
+                                                        )}
+                                                    >
+                                                        <IconChevronDown
+                                                            size={14}
+                                                            className={si >= 0 && !sorting[si].desc ? 'rotate-180' : ''}
+                                                        />
+                                                    </span>
+                                                ) : null}
+                                                {si >= 0 && sorting.length > 1 ? (
+                                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                                        {si + 1}
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                            {props.renderHeaderExtra ? props.renderHeaderExtra(col) : null}
                                         </span>
                                         {leaf.getCanResize() ? (
                                             <span
@@ -579,6 +660,42 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
                             : visibleIdx.map((r) => {
                                   const row = modelRows[r];
                                   if (!row) return null;
+                                  if (isGroup(row.original)) {
+                                      const groupActive = active.r === r;
+                                      return (
+                                          <tr
+                                              key={row.id}
+                                              role="row"
+                                              aria-rowindex={offset + r + 2}
+                                              data-index={r}
+                                              data-group=""
+                                              className="rpl-tr rpl-group-tr"
+                                              style={{ height: rowHeight }}
+                                          >
+                                              <td
+                                                  role="gridcell"
+                                                  colSpan={colCount}
+                                                  aria-colindex={1}
+                                                  aria-expanded={
+                                                      props.isGroupExpanded
+                                                          ? props.isGroupExpanded(row.original)
+                                                          : undefined
+                                                  }
+                                                  tabIndex={groupActive ? 0 : -1}
+                                                  data-cell={`${r}:0`}
+                                                  className="rpl-td rpl-group-td"
+                                                  onMouseDown={() => setActive({ r, c: 0 })}
+                                                  onClick={(e: any) => {
+                                                      const t = e.target;
+                                                      if (t && t.closest && t.closest('[data-rpl-group-link]')) return;
+                                                      if (props.onGroupToggle) props.onGroupToggle(row.original);
+                                                  }}
+                                              >
+                                                  {props.renderGroupRow ? props.renderGroupRow(row.original) : null}
+                                              </td>
+                                          </tr>
+                                      );
+                                  }
                                   const selected = !!selection[row.id];
                                   return (
                                       <tr
@@ -617,6 +734,25 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
                                                           >
                                                               <Check state={selected ? 'on' : 'off'} />
                                                           </span>
+                                                      </td>
+                                                  );
+                                              if (cell.column.id === ACTIONS_ID)
+                                                  return (
+                                                      <td
+                                                          key={cell.id}
+                                                          role="gridcell"
+                                                          aria-colindex={c + 1}
+                                                          tabIndex={isActive ? 0 : -1}
+                                                          data-cell={`${r}:${c}`}
+                                                          className="rpl-td rpl-actions-cell"
+                                                          onMouseDown={() => setActive({ r, c })}
+                                                      >
+                                                          <div
+                                                              className="rpl-cell justify-center"
+                                                              data-rpl-actions-inner=""
+                                                          >
+                                                              {props.rowActions!(row.original)}
+                                                          </div>
                                                       </td>
                                                   );
                                               const col = (cell.column.columnDef.meta as any).column as DataTableColumn;
@@ -723,7 +859,10 @@ export function DataTable<Row = any>(props: DataTableProps<Row>) {
                     open
                     onDismiss={props.onEditorDismiss}
                     matchWidth
-                    minWidth={260}
+                    minWidth={Math.min(
+                        (props.editorWidth && props.editorWidth(editingCtx)) || 260,
+                        typeof window !== 'undefined' ? window.innerWidth - 16 : 9999
+                    )}
                     maxHeight={480}
                     className="p-2"
                     aria-label={`Edit ${editingCtx.column.header}`}

@@ -226,3 +226,25 @@ export function docHashInput(row: Record<string, any>): string {
 export function docHash(row: Record<string, any>, sha256Hex: (text: string) => string): string {
     return sha256Hex(docHashInput(row)).toLowerCase().slice(0, 32);
 }
+
+/** The fields of a doc section (x_312987_portal_doc_section) that its content_hash covers. */
+export type DocSectionInput = { slug: string; title: string; order: number; icon: string; active: boolean };
+
+/** Hash input of a section: canonical JSON of its normalized fields. */
+export function sectionHashInput(s: DocSectionInput): string {
+    return canonical({
+        slug: String(s.slug || ''),
+        title: String(s.title || ''),
+        order: Number(s.order),
+        icon: String(s.icon || ''),
+        active: s.active !== false,
+    });
+}
+
+/**
+ * A section's content_hash (first 32 hex digits of sha256), the same rule as docHash. Separate from
+ * the page hash: a section's rename or reorder changes only its own row.
+ */
+export function sectionHash(s: DocSectionInput, sha256Hex: (text: string) => string): string {
+    return sha256Hex(sectionHashInput(s)).toLowerCase().slice(0, 32);
+}

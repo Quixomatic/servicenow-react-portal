@@ -1,0 +1,6 @@
+{
+    "name": "Primitives Demo",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": { "title": "Design-system primitives" }
+}

@@ -29,7 +29,25 @@ import {
 import { studioContext, requireReactPortalScope } from '../security/scope.ts';
 import { searchUsers, portalAudience } from '../design/audience-service.ts';
 import { requireStudio } from '../security/access.ts';
-import { listDocs, getDoc, createDoc, updateDoc, orderDocs } from '../docs/docs-service.ts';
+import {
+    listDocs,
+    getDoc,
+    createDoc,
+    updateDoc,
+    orderDocs,
+    listCollections,
+    createCollection,
+    updateCollection,
+    listSections,
+    createSection,
+    updateSection,
+} from '../docs/docs-service.ts';
+import { legacyListDocs, legacyCreateDoc, legacyUpdateDoc, legacyOrderDocs } from '../docs/docs-legacy.ts';
+
+/** Docs requests from a pre-collection Studio host carry no `collection`: the v1.19 behaviour serves them. */
+function legacyBody(body: unknown): boolean {
+    return !body || typeof body !== 'object' || !('collection' in (body as any));
+}
 import type { CompleteBuildRequest, SaveRequest } from '../../shared/contracts';
 
 /**
@@ -268,9 +286,12 @@ export function iconsRoute(request: any, response: any): void {
 
 /* ---------------- Docs (x_312987_portal_doc, the Docs activity) ---------------- */
 
-/** GET /docs: every doc page (inactive included), nav order, without markdown. */
+/** GET /docs?collection=<key>: every page of a collection (inactive included), nav order, without markdown. */
 export function listDocsRoute(request: any, response: any): void {
-    handle(request, response, () => ({ data: listDocs() }));
+    handle(request, response, (req) => {
+        const collection = queryParam(req as any, 'collection');
+        return { data: collection ? listDocs(collection) : legacyListDocs() };
+    });
 }
 
 /** GET /docs/{id}: one doc page with its markdown. */
@@ -278,17 +299,67 @@ export function getDocRoute(request: any, response: any): void {
     handle(request, response, (req) => ({ data: getDoc(requiredParam(req, 'id')) }));
 }
 
-/** POST /docs { title, section?, sectionSlug?, path?, description?, tags?, icon?, markdown? } */
+/** POST /docs { collection, section (sys_id), title, path?, description?, tags?, icon?, markdown? } */
 export function createDocRoute(request: any, response: any): void {
-    handle(request, response, (req) => write(() => ({ data: createDoc(req.body as any), status: 201 })));
+    handle(request, response, (req) =>
+        write(() => ({
+            data: legacyBody(req.body) ? legacyCreateDoc(req.body as any) : createDoc(req.body as any),
+            status: 201,
+        }))
+    );
 }
 
 /** PATCH /docs/{id} { baseHash?, ...fields, markdown?, active? }: derived fields recomputed server-side. */
 export function updateDocRoute(request: any, response: any): void {
-    handle(request, response, (req) => write(() => ({ data: updateDoc(requiredParam(req, 'id'), req.body as any) })));
+    handle(request, response, (req) =>
+        write(() => {
+            const id = requiredParam(req, 'id');
+            return {
+                data: legacyBody(req.body) ? legacyUpdateDoc(id, req.body as any) : updateDoc(id, req.body as any),
+            };
+        })
+    );
 }
 
-/** POST /docs/order { sections: [{ slug, title, pages: [id...] }] }: move / reorder, then renumber. */
+/** POST /docs/order { collection, sections: [{ id, pages: [id...] }] }: move / reorder sections and pages. */
 export function orderDocsRoute(request: any, response: any): void {
-    handle(request, response, (req) => write(() => ({ data: orderDocs(req.body as any) })));
+    handle(request, response, (req) =>
+        write(() => ({
+            data: legacyBody(req.body) ? legacyOrderDocs(req.body as any) : orderDocs(req.body as any),
+        }))
+    );
+}
+
+/** GET /doc-collections: every docs collection with counts and the portals using it. */
+export function listDocCollectionsRoute(request: any, response: any): void {
+    handle(request, response, () => ({ data: listCollections() }));
+}
+
+/** POST /doc-collections { key, title, description?, icon? } */
+export function createDocCollectionRoute(request: any, response: any): void {
+    handle(request, response, (req) => write(() => ({ data: createCollection(req.body as any), status: 201 })));
+}
+
+/** PATCH /doc-collections/{id} { title?, description?, icon?, active? } */
+export function updateDocCollectionRoute(request: any, response: any): void {
+    handle(request, response, (req) =>
+        write(() => ({ data: updateCollection(requiredParam(req, 'id'), req.body as any) }))
+    );
+}
+
+/** GET /doc-sections?collection=<key>: a collection's sections (inactive included), in order. */
+export function listDocSectionsRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: listSections(queryParam(req as any, 'collection')) }));
+}
+
+/** POST /doc-sections { collection, title, slug?, icon? } */
+export function createDocSectionRoute(request: any, response: any): void {
+    handle(request, response, (req) => write(() => ({ data: createSection(req.body as any), status: 201 })));
+}
+
+/** PATCH /doc-sections/{id} { title?, icon?, active? }: one row (+ its pages already edited in Studio). */
+export function updateDocSectionRoute(request: any, response: any): void {
+    handle(request, response, (req) =>
+        write(() => ({ data: updateSection(requiredParam(req, 'id'), req.body as any) }))
+    );
 }

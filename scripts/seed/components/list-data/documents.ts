@@ -7,6 +7,7 @@ import type {
     FilterField,
     ListArgs,
     ListColumn,
+    ListGroup,
     ListPage,
     ListPreferences,
     ListRow,
@@ -32,14 +33,23 @@ export const LIST_QUERY = `query rpList($table: String!, $view: String, $columns
       relatedListName: $relatedListName, parentTable: $parentTable, parentRecordSysId: $parentRecordSysId,
       runHighlightedValuesQuery: false, ignoreTotalRecordCount: false) {
       tableLabel query fixedQuery
-      metadata { dateFormat dateTimeFormat canCreate canWrite canDelete m2MData { isM2M sourceField targetTable targetField } }
+      metadata { dateFormat dateTimeFormat canCreate canWrite canDelete isGrouped groupedColumn groupByDisplayValue m2MData { isM2M sourceField targetTable targetField } }
       allColumns {
         columnName
         columnData { label fullLabel internalType isChoice isFilterable isSortable isGroupable tableName excludedOperators isFirstNonRef }
       }
       layoutQuery {
-        table orderByColumn orderByIsDescending count inlineEditingEnabled
+        table orderByColumn orderByIsDescending count groupCount inlineEditingEnabled
         queryRows {
+          ... on GlideListLayout_GroupedQueryRowType {
+            displayValue value field aggregateQuery count
+            query {
+              ... on GlideListLayout_QueryRowType {
+                className uniqueId displayValue
+                rowData { columnName columnData { displayValue value recordClassName } }
+              }
+            }
+          }
           ... on GlideListLayout_QueryRowType {
             className uniqueId displayValue
             rowData { columnName columnData { displayValue value recordClassName } }
@@ -63,10 +73,14 @@ export function columnsParam(columns: ListArgs['columns']): string {
         .join(',');
 }
 
-/** The query the server runs: keywords + filter + ORDERBY. */
-export function effectiveQuery(args: Pick<ListArgs, 'query' | 'orderBy' | 'keywords'>): string {
+/** The query the server runs: keywords + filter + GROUPBY + ORDERBY. */
+export function effectiveQuery(args: Pick<ListArgs, 'query' | 'orderBy' | 'keywords' | 'groupBy'>): string {
     const model = parseQuery(args.query || '');
     if (args.keywords !== undefined) model.keywords = args.keywords;
+    if (args.groupBy !== undefined) {
+        model.extra = model.extra.filter((x) => x.indexOf('GROUPBY') !== 0);
+        if (args.groupBy) model.extra.push('GROUPBY' + columnsParam(args.groupBy));
+    }
     if (args.orderBy && args.orderBy.length) model.orderBy = args.orderBy;
     // A unique tie-breaker so offset paging is stable when many rows share the sort value.
     if (model.orderBy.length && !model.orderBy.some((o) => o.field === 'sys_id'))
@@ -144,7 +158,25 @@ export async function fetchList(args: ListArgs, signal?: AbortSignal): Promise<L
     const L = data && data.GlideListLayout_Query && data.GlideListLayout_Query.getListLayout;
     if (!L) throw new Error(`No list layout for ${table}`);
     const lq = L.layoutQuery || {};
-    const rows = (lq.queryRows || []).filter((r: any) => r && r.uniqueId).map(toRow);
+    const meta = L.metadata || {};
+    const raw: any[] = lq.queryRows || [];
+    // Grouped (^GROUPBY): one entry per group, each with its first rows; rows = every group's rows.
+    const grouped = !!meta.isGrouped || raw.some((r: any) => r && r.aggregateQuery !== undefined && !r.uniqueId);
+    const groups: ListGroup[] | undefined = grouped
+        ? raw
+              .filter((g: any) => g && !g.uniqueId)
+              .map((g: any) => ({
+                  field: String(g.field || meta.groupedColumn || ''),
+                  value: g.value == null ? '' : String(g.value),
+                  displayValue: g.displayValue == null ? '' : String(g.displayValue),
+                  count: Number(g.count || 0),
+                  aggregateQuery: String(g.aggregateQuery || ''),
+                  rows: (g.query || []).filter((r: any) => r && r.uniqueId).map(toRow),
+              }))
+        : undefined;
+    const rows = groups
+        ? groups.reduce((all: ListRow[], g) => all.concat(g.rows), [])
+        : raw.filter((r: any) => r && r.uniqueId).map(toRow);
     return {
         table: lq.table || table,
         tableLabel: L.tableLabel || table,
@@ -171,6 +203,12 @@ export async function fetchList(args: ListArgs, signal?: AbortSignal): Promise<L
                       targetField: String(L.metadata.m2MData.targetField || ''),
                   }
                 : null,
+        groupBy: groups
+            ? String(meta.groupedColumn || (groups[0] && groups[0].field) || args.groupBy || '')
+            : undefined,
+        groupLabel: groups ? String(meta.groupByDisplayValue || '') : undefined,
+        groupCount: groups ? Number(lq.groupCount == null ? groups.length : lq.groupCount) : undefined,
+        groups,
     };
 }
 

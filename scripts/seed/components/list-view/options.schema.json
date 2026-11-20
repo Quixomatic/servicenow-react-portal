@@ -70,7 +70,7 @@
         },
         "syncUrl": {
             "type": "boolean",
-            "title": "Keep filter, sort and page in the URL",
+            "title": "Keep filter, sort, page, group and quick filters in the URL",
             "default": true
         },
         "showTitle": {
@@ -120,8 +120,28 @@
         },
         "actions": {
             "type": "boolean",
-            "title": "Bulk actions",
+            "title": "Actions (platform list actions and bulk actions)",
             "default": true
+        },
+        "actionsInclude": {
+            "type": "string",
+            "title": "Only these platform actions",
+            "description": "Comma-separated action names; empty = all"
+        },
+        "actionsExclude": {
+            "type": "string",
+            "title": "Hide these platform actions",
+            "description": "Comma-separated action names"
+        },
+        "actionConfigId": {
+            "type": "string",
+            "title": "Action configuration (sys_ux_action_config)",
+            "description": "Empty: the portal's setting"
+        },
+        "classicActions": {
+            "type": "boolean",
+            "title": "Classic list UI actions (server-side context menu / list choice)",
+            "default": false
         },
         "showExport": {
             "type": "boolean",
@@ -137,6 +157,63 @@
             "type": "boolean",
             "title": "Live updates",
             "description": "Refresh the current page when matching records change (record watch)",
+            "default": false
+        },
+        "groupBy": {
+            "type": "string",
+            "title": "Group by",
+            "description": "A groupable column (^GROUPBY); the user can change it"
+        },
+        "groupRowLimit": {
+            "type": "integer",
+            "title": "Rows per group",
+            "default": 10
+        },
+        "quickFilters": {
+            "type": "array",
+            "title": "Quick filters",
+            "description": "Chips ANDed into the query: active, mine, myGroups, unassigned, createdByMe, updatedToday, or Label=encoded query",
+            "items": {
+                "type": "string"
+            }
+        },
+        "defaultQuickFilters": {
+            "type": "array",
+            "title": "Quick filters on at first",
+            "description": "Ids of quick filters that start on",
+            "items": {
+                "type": "string"
+            }
+        },
+        "showGroupBy": {
+            "type": "boolean",
+            "title": "Group-by menu",
+            "default": true
+        },
+        "showSavedFilters": {
+            "type": "boolean",
+            "title": "Saved filters (sys_filter)",
+            "default": true
+        },
+        "showColumnFilters": {
+            "type": "boolean",
+            "title": "Column header filters",
+            "default": true
+        },
+        "displayToggle": {
+            "type": "boolean",
+            "title": "Table / cards toggle",
+            "default": false
+        },
+        "journalEdit": {
+            "type": "boolean",
+            "title": "Inline journal entries",
+            "description": "Append comments / work notes from the list (append-only)",
+            "default": false
+        },
+        "listCollector": {
+            "type": "boolean",
+            "title": "List fields edit in a list collector",
             "default": false
         }
     }

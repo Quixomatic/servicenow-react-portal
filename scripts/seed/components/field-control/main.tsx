@@ -42,12 +42,15 @@ import { HtmlField } from 'components:app/html-field';
 import { AttachmentField } from 'components:app/attachment-field';
 // Activity (A5): journal fields (work notes, comments) instead of the textarea fallback.
 import { JournalField } from 'components:app/journal-field';
+// Design-system wave: script / markup types as a code editor (CodeMirror, lazily loaded).
+import { CodeField } from 'components:app/code-field';
 
 /** Glide types each built-in primitive handles. */
 export const BUILT_IN_TYPES: Record<string, string[]> = {
     string: ['string', 'sys_class_name', 'GUID', 'domain_id', 'ip_address', 'color', 'translated_field', 'user_input'],
     // journal / journal_input / journal_list moved to `journal` (A5, app/journal-field).
-    textarea: ['multi_two_lines', 'translated_text', 'script', 'script_plain', 'wiki_text'],
+    // script / script_plain moved to `code` (app/code-field).
+    textarea: ['multi_two_lines', 'translated_text', 'wiki_text'],
     html: ['html', 'translated_html'],
     number: ['integer', 'longint', 'decimal', 'float', 'numeric', 'percent_complete', 'order_index'],
     boolean: ['boolean'],
@@ -70,6 +73,18 @@ export const BUILT_IN_TYPES: Record<string, string[]> = {
     attachment: ['file_attachment', 'user_image'],
     // Activity (A5)
     journal: ['journal', 'journal_input', 'journal_list'],
+    // Code editor (app/code-field)
+    code: [
+        'script',
+        'script_plain',
+        'script_server',
+        'xml',
+        'css',
+        'json',
+        'json_translations',
+        'html_script',
+        'html_template',
+    ],
 };
 
 const COMPONENTS: Record<string, any> = {
@@ -95,6 +110,7 @@ const COMPONENTS: Record<string, any> = {
     html: HtmlField,
     attachment: AttachmentField,
     journal: JournalField,
+    code: CodeField,
 };
 
 let registered = false;

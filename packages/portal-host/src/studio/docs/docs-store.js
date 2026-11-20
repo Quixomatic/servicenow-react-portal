@@ -1,6 +1,8 @@
-// Docs activity store (x_312987_portal_doc). Lives outside React so deep links can open a page
-// before the activity mounts (docs/location.js). One open page at a time, with a draft
-// (frontmatter fields + markdown) compared against the saved row for the dirty marker.
+// Docs activity store: one docs collection at a time (x_312987_portal_doc_collection), its sections
+// (x_312987_portal_doc_section: real rows, so a rename or reorder edits the section, not every page)
+// and its pages (x_312987_portal_doc). Lives outside React so deep links can open a page before the
+// activity mounts (docs/location.js). One open page at a time, with a draft (frontmatter fields +
+// markdown) compared against the saved row for the dirty marker.
 import { useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { docsApi } from './docs-api';
@@ -10,6 +12,25 @@ export const DRAFT_FIELDS = ['title', 'description', 'tags', 'icon', 'markdown']
 // The editor mode the user last chose (our own namespace; never a platform preference). Visual
 // when nothing is stored: a first-time user or a fresh state opens in the visual editor.
 const MODE_KEY = 'x_312987_portal.docs.mode';
+// The collection last opened (same namespace).
+const COLLECTION_KEY = 'x_312987_portal.docs.collection';
+export const DEFAULT_COLLECTION = 'react-portal';
+
+function storedCollection() {
+    try {
+        return window.localStorage.getItem(COLLECTION_KEY) || DEFAULT_COLLECTION;
+    } catch (e) {
+        return DEFAULT_COLLECTION;
+    }
+}
+
+function rememberCollection(key) {
+    try {
+        window.localStorage.setItem(COLLECTION_KEY, key || DEFAULT_COLLECTION);
+    } catch (e) {
+        /* storage unavailable */
+    }
+}
 
 function storedMode() {
     try {
@@ -45,25 +66,39 @@ function slugify(s) {
         .replace(/^-+|-+$/g, '');
 }
 
-/** Sections of the page list in nav order: [{ slug, title, order, pages }] (inactive pages kept, flagged). */
-export function groupSections(list) {
+/**
+ * Sections of the collection in nav order, from the section rows: [{ id, slug, title, order, icon,
+ * active, studioEdited, origin, pages, activeCount }] (inactive pages kept, flagged). Pages without a
+ * section row (pre-migration) are grouped by their legacy section slug.
+ */
+export function groupSections(list, sectionRows) {
     const out = [];
     const by = {};
-    (list || []).forEach((d) => {
-        const slug = d.sectionSlug || slugify(d.section) || 'docs';
-        if (!by[slug]) {
-            by[slug] = { slug, title: d.section || slug, order: d.sectionOrder, pages: [], activeCount: 0 };
-            out.push(by[slug]);
-        }
-        if (d.active && !by[slug].activeCount) {
-            // The first active page decides the section's title and position.
-            by[slug].title = d.section || slug;
-            by[slug].order = d.sectionOrder;
-        }
-        if (d.active) by[slug].activeCount++;
-        by[slug].pages.push(d);
+    (sectionRows || []).forEach((r) => {
+        by[r.id] = { ...r, pages: [], activeCount: 0 };
+        out.push(by[r.id]);
     });
-    out.sort((a, b) => (a.activeCount ? 0 : 1) - (b.activeCount ? 0 : 1) || a.order - b.order);
+    (list || []).forEach((d) => {
+        let key = d.sectionId;
+        if (!key || !by[key]) {
+            key = 'slug:' + (d.sectionSlug || slugify(d.section) || 'docs');
+            if (!by[key]) {
+                by[key] = {
+                    id: '',
+                    slug: key.slice(5),
+                    title: d.section || key.slice(5),
+                    order: d.sectionOrder,
+                    active: true,
+                    pages: [],
+                    activeCount: 0,
+                };
+                out.push(by[key]);
+            }
+        }
+        if (d.active) by[key].activeCount++;
+        by[key].pages.push(d);
+    });
+    out.sort((a, b) => (a.active ? 0 : 1) - (b.active ? 0 : 1) || a.order - b.order);
     out.forEach((s) =>
         s.pages.sort(
             (a, b) => (a.active ? 0 : 1) - (b.active ? 0 : 1) || a.order - b.order || a.title.localeCompare(b.title)
@@ -74,6 +109,10 @@ export function groupSections(list) {
 
 export function createDocsStore({ navigate, log } = {}) {
     let state = {
+        collections: null,
+        collectionsError: null,
+        collection: storedCollection(),
+        sections: null,
         list: null,
         listError: null,
         currentId: null,
@@ -117,13 +156,81 @@ export function createDocsStore({ navigate, log } = {}) {
             return (state.list || []).find((d) => d.path === path) || null;
         },
 
-        async loadList() {
+        async loadCollections() {
             try {
-                const list = await docsApi.list();
-                set({ list: Array.isArray(list) ? list : [], listError: null });
+                const rows = await docsApi.collections();
+                set({ collections: Array.isArray(rows) ? rows : [], collectionsError: null });
+                if (!state.collections.some((c) => c.key === state.collection) && state.collections.length) {
+                    const def = state.collections.find((c) => c.key === DEFAULT_COLLECTION) || state.collections[0];
+                    set({ collection: def.key, list: null, sections: null });
+                }
+                return state.collections;
+            } catch (error) {
+                set({ collectionsError: error, collections: [] });
+                return null;
+            }
+        },
+
+        collectionRow(key) {
+            return (state.collections || []).find((c) => c.key === (key || state.collection)) || null;
+        },
+
+        /** Switch collection (the caller checks unsaved changes first). Closes the open page. */
+        async setCollection(key) {
+            const next = key || DEFAULT_COLLECTION;
+            if (next === state.collection && state.list) return state.list;
+            rememberCollection(next);
+            set({
+                collection: next,
+                list: null,
+                sections: null,
+                listError: null,
+                currentId: null,
+                current: null,
+                draft: null,
+                anchor: null,
+            });
+            return store.loadList();
+        },
+
+        async loadList() {
+            const key = state.collection;
+            try {
+                const [list, sections] = await Promise.all([docsApi.list(key), docsApi.sections(key)]);
+                if (state.collection !== key) return null;
+                set({
+                    list: Array.isArray(list) ? list : [],
+                    sections: Array.isArray(sections) ? sections : [],
+                    listError: null,
+                });
                 return state.list;
             } catch (error) {
-                set({ listError: error });
+                if (state.collection === key) set({ listError: error });
+                return null;
+            }
+        },
+
+        async createCollection(body) {
+            try {
+                const row = await docsApi.createCollection(body);
+                await store.loadCollections();
+                await store.setCollection(row.key);
+                toast.success(`Created collection ${row.title}`);
+                return row;
+            } catch (error) {
+                toast.error(error.message);
+                return null;
+            }
+        },
+
+        async updateCollection(id, body, label) {
+            try {
+                const row = await docsApi.updateCollection(id, body);
+                await store.loadCollections();
+                if (label) toast.success(label);
+                return row;
+            } catch (error) {
+                toast.error(error.message);
                 return null;
             }
         },
@@ -185,7 +292,7 @@ export function createDocsStore({ navigate, log } = {}) {
             const s = state;
             if (!s.current || !s.draft || s.saving) return null;
             if (!store.isDirty()) return s.current;
-            const body = { ...s.draft };
+            const body = { ...s.draft, collection: s.collection };
             if (!force) body.baseHash = s.current.contentHash;
             set({ saving: true });
             try {
@@ -212,7 +319,7 @@ export function createDocsStore({ navigate, log } = {}) {
         /** Field changes that save immediately (section move, (de)activate): fields + current draft untouched. */
         async patch(id, fields, label) {
             try {
-                const doc = await docsApi.update(id, fields);
+                const doc = await docsApi.update(id, { ...fields, collection: state.collection });
                 await store.loadList();
                 if (state.current && state.current.id === id) {
                     const keep = state.draft;
@@ -236,7 +343,7 @@ export function createDocsStore({ navigate, log } = {}) {
 
         async create(body) {
             try {
-                const doc = await docsApi.create(body);
+                const doc = await docsApi.create({ ...body, collection: state.collection });
                 await store.loadList();
                 await store.open(doc.id);
                 toast.success(`Created ${doc.path}`);
@@ -247,11 +354,16 @@ export function createDocsStore({ navigate, log } = {}) {
             }
         },
 
-        /** POST /docs/order with the given sections ([{ slug, title, pages: [id] }]). */
+        /** POST /docs/order with the given sections ([{ id, pages: [id] }]). */
         async order(sections, label) {
             try {
-                const list = await docsApi.order({ sections });
+                const list = await docsApi.order({
+                    collection: state.collection,
+                    sections: sections.map((s) => ({ id: s.id, pages: s.pages })),
+                });
                 set({ list: Array.isArray(list) ? list : state.list });
+                const rows = await docsApi.sections(state.collection).catch(() => null);
+                if (Array.isArray(rows)) set({ sections: rows });
                 if (state.current) {
                     const row = (state.list || []).find((d) => d.id === state.current.id);
                     if (row) set({ current: { ...state.current, ...row, markdown: state.current.markdown } });
@@ -264,15 +376,51 @@ export function createDocsStore({ navigate, log } = {}) {
             }
         },
 
-        /** Active sections as the order endpoint wants them. */
+        /** Active sections (with a row) as the order endpoint wants them. */
         activeSections() {
-            return groupSections(state.list)
-                .filter((s) => s.activeCount)
+            return groupSections(state.list, state.sections)
+                .filter((s) => s.id && s.active)
                 .map((s) => ({
+                    id: s.id,
                     slug: s.slug,
                     title: s.title,
                     pages: s.pages.filter((p) => p.active).map((p) => p.id),
                 }));
+        },
+
+        sectionRow(id) {
+            return (state.sections || []).find((s) => s.id === id) || null;
+        },
+
+        /** A new (empty) section at the end of the collection. */
+        async createSection(body, label) {
+            try {
+                const row = await docsApi.createSection({ ...body, collection: state.collection });
+                const rows = await docsApi.sections(state.collection);
+                set({ sections: Array.isArray(rows) ? rows : state.sections });
+                if (label !== false) toast.success(label || `Created section ${row.title}`);
+                return row;
+            } catch (error) {
+                toast.error(error.message);
+                return null;
+            }
+        },
+
+        /** One section row: { title?, icon?, active? }. Its pages already edited in Studio follow. */
+        async updateSection(id, body, label) {
+            try {
+                await docsApi.updateSection(id, body);
+                await store.loadList();
+                if (state.current) {
+                    const row = (state.list || []).find((d) => d.id === state.current.id);
+                    if (row) set({ current: { ...state.current, ...row, markdown: state.current.markdown } });
+                }
+                if (label) toast.success(label);
+                return true;
+            } catch (error) {
+                toast.error(error.message);
+                return false;
+            }
         },
 
         /** Move a page up (-1) or down (+1) within its section. */
@@ -288,35 +436,37 @@ export function createDocsStore({ navigate, log } = {}) {
             return store.order(sections);
         },
 
-        /** Put a page at `index` of section `slug` (another section: a move). */
-        placePage(id, slug, index) {
+        /** Put a page at `index` of section `sectionId` (another section: a move). */
+        placePage(id, sectionId, index) {
             const sections = store.activeSections();
             sections.forEach((s) => {
                 const k = s.pages.indexOf(id);
                 if (k >= 0) s.pages.splice(k, 1);
             });
-            const target = sections.find((s) => s.slug === slug);
+            const target = sections.find((s) => s.id === sectionId);
             if (!target) return;
             target.pages.splice(Math.max(0, Math.min(index, target.pages.length)), 0, id);
-            return store.order(sections.filter((s) => s.pages.length || s.slug === slug));
+            return store.order(sections);
         },
 
-        moveSection(slug, delta) {
+        /** Swap a section with its neighbour: section rows only (their order), no page rows. */
+        moveSection(sectionId, delta) {
             const sections = store.activeSections();
-            const i = sections.findIndex((s) => s.slug === slug);
+            const i = sections.findIndex((s) => s.id === sectionId);
             const j = i + delta;
             if (i < 0 || j < 0 || j >= sections.length) return;
             const [s] = sections.splice(i, 1);
             sections.splice(j, 0, s);
-            return store.order(sections);
+            return store.order(
+                sections.map((x) => ({ id: x.id, pages: [] })),
+                `Moved section ${s.title}`
+            );
         },
 
-        renameSection(slug, title) {
-            const sections = store.activeSections();
-            const s = sections.find((x) => x.slug === slug);
+        renameSection(sectionId, title) {
+            const s = store.sectionRow(sectionId);
             if (!s || !title || title === s.title) return;
-            s.title = title;
-            return store.order(sections, `Section renamed to ${title}`);
+            return store.updateSection(sectionId, { title }, `Section renamed to ${title}`);
         },
     };
     return store;

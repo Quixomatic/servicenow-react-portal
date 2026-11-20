@@ -56,7 +56,42 @@ export type ListPage = {
     canDelete?: boolean;
     /** Many-to-many related list (relatedListName on an m2m table): which field points at the parent, which at the other side. */
     m2m?: { sourceField: string; targetTable: string; targetField: string } | null;
+    /** Group-by (^GROUPBY): the grouped column, its label, the total number of groups and this page's groups. */
+    groupBy?: string;
+    groupLabel?: string;
+    groupCount?: number;
+    groups?: ListGroup[];
 };
+
+/** One group of a grouped list (getListLayout with ^GROUPBY): its value, count and first rows. */
+export type ListGroup = {
+    field: string;
+    value: string;
+    displayValue: string;
+    /** Records in the group (across every page). */
+    count: number;
+    /** The platform's condition for this group ('priority=1', 'assigned_to='). */
+    aggregateQuery: string;
+    /** The group's first rows (up to the request's limit). */
+    rows: ListRow[];
+};
+
+/** A platform saved filter (sys_filter), read and written as the user (its ACLs apply). */
+export type SavedFilter = {
+    sysId: string;
+    title: string;
+    table: string;
+    /** Encoded query as stored (may carry ^ORDERBY / ^GROUPBY / ^EQ). */
+    filter: string;
+    /** Owner (sys_user sys_id); '' for group or global filters. */
+    user: string;
+    group: string;
+    groupName: string;
+    scope: 'mine' | 'group' | 'global';
+};
+
+/** A quick filter chip: a named condition ANDed into the list's query while on. */
+export type QuickFilter = { id: string; label: string; query: string };
 
 export type ListArgs = {
     table: string;
@@ -75,6 +110,8 @@ export type ListArgs = {
     relatedListName?: string;
     parentTable?: string;
     parentRecordSysId?: string;
+    /** Group by this column (^GROUPBY): `offset` then counts groups and `limit` is rows per group. */
+    groupBy?: string;
 };
 
 /** A field you can filter on (one level of dot-walk metadata). */
@@ -108,6 +145,8 @@ export type ListPreferences = {
     density?: 'compact' | 'normal' | 'comfortable';
     pageSize?: number;
     wrap?: boolean;
+    /** Table or card grid (lists that offer both). */
+    display?: 'table' | 'grid';
 };
 
 export type CellEditability = { canEdit: boolean; reason?: string };

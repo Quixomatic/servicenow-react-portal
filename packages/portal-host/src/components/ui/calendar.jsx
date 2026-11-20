@@ -9,6 +9,9 @@ import { cn } from 'cn';
 //   <Calendar value="2026-11-19" onSelect={(ymd) => …} min max isDisabled locale weekStartsOn today
 //             defaultMonth="2026-11" onMonthChange={(ym) => …} autoFocus footer={…} />
 //
+// Ranges (components:date-range-picker): rangeStart / rangeEnd mark both ends as selected and the
+// days between as in range; onDayHover(ymd) reports the pointed or focused day (a range preview).
+//
 // Keyboard (WAI-ARIA date grid, roving tabindex): arrows move a day or a week, Home / End go to the
 // start / end of the week, PageUp / PageDown change the month (Shift: the year), Enter / Space pick.
 // The caption button switches to a month grid, then a year grid (12 years a page); Escape in those
@@ -75,17 +78,28 @@ function Calendar({
     autoFocus,
     className,
     footer,
+    rangeStart,
+    rangeEnd,
+    onDayHover,
     ...props
 }) {
     const minT = parseYmd(min);
     const maxT = parseYmd(max);
     const todayT = parseYmd(today) ?? localToday();
     const selectedT = parseYmd(value);
+    const rangeAT = parseYmd(rangeStart);
+    const rangeBT = parseYmd(rangeEnd);
+    const rangeLo = rangeAT != null && rangeBT != null ? Math.min(rangeAT, rangeBT) : rangeAT;
+    const rangeHi = rangeAT != null && rangeBT != null ? Math.max(rangeAT, rangeBT) : null;
     const startDay = weekStartsOn ?? weekStartFor(locale);
 
     // The focused day drives the visible month (roving tabindex).
     const [focusT, setFocusT] = React.useState(() =>
-        clamp(selectedT ?? parseYmd(defaultMonth && `${String(defaultMonth).slice(0, 7)}-01`) ?? todayT, minT, maxT)
+        clamp(
+            selectedT ?? rangeAT ?? parseYmd(defaultMonth && `${String(defaultMonth).slice(0, 7)}-01`) ?? todayT,
+            minT,
+            maxT
+        )
     );
     const [view, setView] = React.useState('days');
     const [yearPage, setYearPage] = React.useState(() => new Date(focusT).getUTCFullYear());
@@ -379,7 +393,8 @@ function Calendar({
                             <tr key={wi}>
                                 {row.map((t) => {
                                     const outside = monthStart(t) !== monthT;
-                                    const isSelected = selectedT === t;
+                                    const isSelected = selectedT === t || rangeLo === t || rangeHi === t;
+                                    const inRange = rangeHi != null && t > rangeLo && t < rangeHi;
                                     const isToday = todayT === t;
                                     const off = disabled(t);
                                     const focus = t === focusT;
@@ -387,7 +402,7 @@ function Calendar({
                                         <td
                                             key={t}
                                             role="gridcell"
-                                            aria-selected={isSelected || undefined}
+                                            aria-selected={isSelected || inRange || undefined}
                                             className="p-0 text-center"
                                         >
                                             <button
@@ -395,6 +410,7 @@ function Calendar({
                                                 tabIndex={focus ? 0 : -1}
                                                 data-focus-target={focus ? 'true' : undefined}
                                                 data-selected={isSelected || undefined}
+                                                data-in-range={inRange || undefined}
                                                 data-today={isToday || undefined}
                                                 data-outside={outside || undefined}
                                                 aria-disabled={off || undefined}
@@ -407,7 +423,9 @@ function Calendar({
                                                         ? 'cursor-not-allowed text-muted-foreground/40 line-through'
                                                         : isSelected
                                                           ? 'bg-primary font-medium text-primary-foreground hover:bg-primary/90'
-                                                          : 'hover:bg-accent hover:text-accent-foreground',
+                                                          : inRange
+                                                            ? 'rounded-none bg-accent text-accent-foreground hover:bg-accent/70'
+                                                            : 'hover:bg-accent hover:text-accent-foreground',
                                                     !off && !isSelected && isToday
                                                         ? 'bg-accent font-semibold text-accent-foreground'
                                                         : '',
@@ -418,6 +436,8 @@ function Calendar({
                                                     if (!off && onSelect) onSelect(toYmd(t));
                                                 }}
                                                 onKeyDown={(e) => onDayKey(e, t)}
+                                                onMouseEnter={onDayHover ? () => onDayHover(toYmd(t)) : undefined}
+                                                onFocus={onDayHover ? () => onDayHover(toYmd(t)) : undefined}
                                             >
                                                 {new Date(t).getUTCDate()}
                                             </button>

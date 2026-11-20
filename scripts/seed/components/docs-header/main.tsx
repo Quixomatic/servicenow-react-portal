@@ -6,16 +6,22 @@
 import { Link, usePortal, useSidebar } from '@portal/runtime';
 import { Icon } from 'components:icon';
 import { DocsSearchButton } from 'components:app/docs-search';
+import { useDocsCollection } from 'utilities:app/docs';
 
-type Options = { title?: string; icon?: string; search?: boolean };
+type Options = { title?: string; icon?: string; search?: boolean; collection?: string };
 
 export default function DocsHeader({ options = {} }: { options?: Options }) {
     const portal = usePortal();
     const sidebar = useSidebar();
+    const coll = useDocsCollection(options.collection);
     if (!sidebar.isMobile) return null;
     return (
         <div className="flex h-14 items-center border-b bg-background/80 ps-4 pe-2.5 backdrop-blur-sm">
-            <Link to="" className="inline-flex min-w-0 items-center gap-2.5 font-semibold text-foreground no-underline">
+            <Link
+                to=""
+                q={Object.keys(coll.q).length ? coll.q : undefined}
+                className="inline-flex min-w-0 items-center gap-2.5 font-semibold text-foreground no-underline"
+            >
                 {options.icon ? (
                     <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
                         <Icon name={options.icon} className="size-3.5" />

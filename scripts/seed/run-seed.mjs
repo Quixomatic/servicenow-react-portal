@@ -22,7 +22,7 @@ import { here, loadComponents, loadTemplate, templateHash, renderSeed, newRunId,
 // Docs step (docs/guide → x_312987_portal_doc): diff by content_hash, before the component parts.
 // Skipped with --no-docs, and on --only runs unless --docs is given; --docs adds it (diff-based) to an --only run; --docs-all rewrites every page.
 // Pages edited in Studio (content_hash ≠ seed_hash) are never overwritten unless --docs-force: classifyDocs in docs-lib.mjs.
-import { loadDocs, renderDocsSeed, classifyDocs } from './docs-lib.mjs';
+import { loadDocs, renderDocsSeed, classifyDocs, planDocsExtras, DOCS_REMOTE } from './docs-lib.mjs';
 
 const repoRoot = join(here, '..', '..');
 const argv = process.argv.slice(2);
@@ -433,13 +433,11 @@ async function planDocs() {
     const { docs, unlisted, missing } = loaded;
     if (missing.length) log(`\nDocs: _nav.json lists missing files (skipped): ${missing.join(', ')}`);
     let remote;
+    let remoteSections;
     try {
-        remote = await query(
-            T + 'doc',
-            'pathISNOTEMPTY',
-            ['path', 'content_hash', 'active', 'seed_hash', 'origin'],
-            200
-        );
+        // Collection react-portal only (plus rows from before doc collections, which belong to it).
+        remote = await query(T + 'doc', DOCS_REMOTE.pagesQuery, DOCS_REMOTE.pageFields, 200);
+        remoteSections = await query(T + 'doc_section', DOCS_REMOTE.sectionsQuery, DOCS_REMOTE.sectionFields, 200);
     } catch (e) {
         log(
             `\nDocs: skipped, x_312987_portal_doc isn't readable (install the app first?): ${String(e.message).slice(0, 160)}`
@@ -450,8 +448,13 @@ async function planDocs() {
     const changed = plan.write;
     const deactivate = plan.deactivate;
     const adopt = plan.adopt;
+    const extras = planDocsExtras(loaded, remote, remoteSections, {
+        all: flag('--docs-all'),
+        force: flag('--docs-force'),
+    });
     log(`
 Docs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the instance → ${changed.length} to write, ${adopt.length} to adopt, ${deactivate.length} to deactivate`);
+    extras.lines.forEach((l) => log(l));
     if (unlisted.length) log(`  Not in _nav.json (not seeded): ${unlisted.join(', ')}`);
     if (changed.length && changed.length <= 12) log(`  ${changed.join(', ')}`);
     if (adopt.length && adopt.length <= 12)
@@ -465,8 +468,17 @@ Docs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the i
         );
     if (plan.studioOnly.length)
         log(`  Studio pages not in the repo, kept (run npm run docs:pull): ${plan.studioOnly.join(', ')}`);
-    if (!changed.length && !deactivate.length && !adopt.length) return [];
-    const base = bytes(renderDocsSeed({ rows: [], deactivate, adopt, runId: 'x'.repeat(40) }));
+    if (!changed.length && !deactivate.length && !adopt.length && !extras.changed) return [];
+    const base = bytes(
+        renderDocsSeed({
+            rows: [],
+            deactivate,
+            adopt,
+            runId: 'x'.repeat(40),
+            collection: extras.collection,
+            sections: extras.sections,
+        })
+    );
     const parts = [];
     let cur = [];
     let size = base;
@@ -490,7 +502,15 @@ Docs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the i
             keys: [],
             reprocess: false,
             runId,
-            script: renderDocsSeed({ rows: paths.map((p) => docs[p]), deactivate: dea, adopt: ado, runId }),
+            script: renderDocsSeed({
+                rows: paths.map((p) => docs[p]),
+                deactivate: dea,
+                adopt: ado,
+                runId,
+                collection: extras.collection,
+                // Sections and the migration go with the first part; later parts only look sections up.
+                sections: i === 0 ? extras.sections : null,
+            }),
         };
     });
 }

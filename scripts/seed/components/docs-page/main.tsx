@@ -5,7 +5,8 @@
  *
  * The doc path comes from the route: the docs portal has a home page ('' → index) and a '*' page
  * (concepts/layouts → /site/docs/params/page-id/concepts%2Flayouts). A heading travels as the q
- * param h (…/q/h%3Dregions): the page scrolls to it once the content is in.
+ * param h (…/q/h%3Dregions): the page scrolls to it once the content is in. The docs collection is
+ * the URL's `c` (utilities:app/docs useDocsCollection), or the `collection` option.
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, RegionPortal, usePortalLocation } from '@portal/runtime';
@@ -17,6 +18,7 @@ import { parseMarkdown } from 'utilities:app/markdown';
 import {
     useDoc,
     useDocsNav,
+    useDocsCollection,
     docPathOf,
     docRoute,
     neighbours,
@@ -31,6 +33,7 @@ import DocsToc, { DocsTocBar } from 'components:app/docs-toc';
 
 type Options = {
     path?: string;
+    collection?: string;
     breadcrumb?: boolean;
     tocDepth?: number;
     prevNext?: boolean;
@@ -42,8 +45,10 @@ export default function DocsPage({ options = {} }: { options?: Options }) {
     const loc = usePortalLocation();
     const path = options.path ? docPathOf(options.path) : docPathOf(loc ? loc.page : '');
     const wantedHeading = (loc && loc.qParams && (loc.qParams as any).h) || '';
-    const { doc, isLoading, error, notFound } = useDoc(path);
-    const nav = useDocsNav();
+    const coll = useDocsCollection(options.collection);
+    const linkQ = Object.keys(coll.q).length ? coll.q : undefined;
+    const { doc, isLoading, error, notFound } = useDoc(path, coll.key);
+    const nav = useDocsNav(coll.key);
     const parsed = useMemo(() => (doc ? parseMarkdown(doc.markdown) : null), [doc]);
     const articleRef = useRef<HTMLElement | null>(null);
     const depth = Math.min(4, Math.max(2, Number(options.tocDepth) || 3));
@@ -72,7 +77,9 @@ export default function DocsPage({ options = {} }: { options?: Options }) {
 
     const pages = nav.pages;
     const { previous, next } = neighbours(pages, path);
-    const meta: DocMeta | null = doc || nav.byPath[path] || null;
+    // The section title comes from the nav (the section row), the rest from the page itself.
+    const navMeta = nav.byPath[path] || null;
+    const meta: DocMeta | null = doc ? { ...doc, section: navMeta ? navMeta.section : doc.section } : navMeta;
     const edit =
         options.editUrl && doc ? options.editUrl.replace('{source}', doc.sourcePath).replace('{path}', doc.path) : '';
 
@@ -80,7 +87,7 @@ export default function DocsPage({ options = {} }: { options?: Options }) {
         <div className="rp-docs-page">
             <article ref={articleRef as any} className="rp-docs-page__article" data-doc-path={path}>
                 {notFound ? (
-                    <NotFound path={path} />
+                    <NotFound path={path} linkQ={linkQ} />
                 ) : error ? (
                     <Empty className="border">
                         <EmptyHeader>
@@ -138,7 +145,7 @@ export default function DocsPage({ options = {} }: { options?: Options }) {
                             </div>
                         ) : null}
                         {options.prevNext !== false && parsed && (previous || next) ? (
-                            <PrevNext previous={previous} next={next} />
+                            <PrevNext previous={previous} next={next} linkQ={linkQ} collection={coll.key} />
                         ) : null}
                     </>
                 )}
@@ -168,11 +175,22 @@ function offsetFor(el: Element) {
     return h + 24;
 }
 
-function PrevNext({ previous, next }: { previous: DocMeta | null; next: DocMeta | null }) {
-    const prefetch = usePrefetchDoc();
+function PrevNext({
+    previous,
+    next,
+    linkQ,
+    collection,
+}: {
+    previous: DocMeta | null;
+    next: DocMeta | null;
+    linkQ?: Record<string, string>;
+    collection: string;
+}) {
+    const prefetch = usePrefetchDoc(collection);
     const card = (item: DocMeta, dir: 'prev' | 'next') => (
         <Link
             to={docRoute(item.path)}
+            q={linkQ}
             onMouseEnter={() => prefetch(item.path)}
             onFocus={() => prefetch(item.path)}
             className={cn(
@@ -205,7 +223,7 @@ function PrevNext({ previous, next }: { previous: DocMeta | null; next: DocMeta 
     );
 }
 
-function NotFound({ path }: { path: string }) {
+function NotFound({ path, linkQ }: { path: string; linkQ?: Record<string, string> }) {
     return (
         <Empty className="mt-8 border">
             <EmptyHeader>
@@ -218,7 +236,7 @@ function NotFound({ path }: { path: string }) {
                 </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-                <Link to="" className="text-sm font-medium text-primary underline underline-offset-4">
+                <Link to="" q={linkQ} className="text-sm font-medium text-primary underline underline-offset-4">
                     Back to the introduction
                 </Link>
             </EmptyContent>

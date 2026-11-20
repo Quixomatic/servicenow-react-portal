@@ -21,6 +21,19 @@ type Options = {
     recordPage?: string;
     /** Live updates (AMB): refetch the current page when matching records change. */
     liveUpdates?: boolean;
+    /** 'table' (default) or 'grid' (cards). */
+    display?: 'table' | 'grid';
+    /** Let the user switch table / cards (remembered per user). */
+    displayToggle?: boolean;
+    /** Fields per card in grid mode (default 5). */
+    gridFields?: number;
+    groupBy?: string;
+    groupRowLimit?: number;
+    /** Quick filter chips: preset ids or 'Label=encoded query'. */
+    quickFilters?: string[];
+    defaultQuickFilters?: string[];
+    journalEdit?: boolean;
+    listCollector?: boolean;
 };
 
 /**
@@ -31,7 +44,10 @@ export default function ListCard({ options = {} }: { options?: Options }) {
     const portal = usePortal() as any;
     const navigate = useNavigate();
     const { instanceId } = useComponent() as { instanceId?: string };
-    const features: Partial<RecordListFeatures> = {};
+    const features: Partial<RecordListFeatures> = {
+        displayToggle: !!options.displayToggle,
+        journalEdit: !!options.journalEdit,
+    };
     for (const k of options.hide || []) (features as any)[k] = false;
     const fixed =
         options.parentField && options.parentSysId && /^[a-z0-9_.]+$/.test(options.parentField)
@@ -63,6 +79,13 @@ export default function ListCard({ options = {} }: { options?: Options }) {
             onRowOpen={open}
             prefKey={`${instanceId || 'list-card'}:${options.table || 'incident'}`}
             live={!!options.liveUpdates}
+            display={options.display}
+            gridFields={options.gridFields}
+            groupBy={options.groupBy}
+            groupRowLimit={options.groupRowLimit}
+            quickFilters={options.quickFilters}
+            defaultQuickFilters={options.defaultQuickFilters}
+            listCollector={options.listCollector}
         />
     );
 }

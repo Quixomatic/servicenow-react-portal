@@ -23,6 +23,18 @@
             "title": "Collapsible",
             "description": "A button that collapses the sidebar on desktop (state persists per portal)."
         },
+        "headerSwitcher": {
+            "type": "string",
+            "title": "Switcher slot",
+            "enum": ["portal", "collections", "none"],
+            "description": "Under the search: 'portal' = the Section switcher below (portal / page jumps); 'collections' = the portal's docs collections (Portal settings ▸ Docs collections; hidden with one); 'none'."
+        },
+        "collection": {
+            "type": "string",
+            "title": "Collection",
+            "maxLength": 60,
+            "description": "Show this docs collection (its key) instead of the URL's / the portal's default."
+        },
         "switcher": {
             "type": "array",
             "title": "Section switcher",

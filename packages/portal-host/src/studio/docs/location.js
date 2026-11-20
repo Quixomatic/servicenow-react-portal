@@ -1,9 +1,12 @@
 // Docs activity: the store singleton and its deep-link entry (studio/deep-link/registry.js).
 //   /x/312987/portal/studio/params/view/docs/id/<doc path>/q/anchor%3D<heading id>
+//   /x/312987/portal/studio/params/view/docs/id/<collection>:<doc path>   (another docs collection)
+// A bare path is the react-portal collection, so links from before doc collections keep working.
+// Doc paths can't contain ':', so the prefix is unambiguous (like theme:<key> and sp:/kb).
 // The open page lives in the store (not component state), so a link opens it before the activity
 // mounts. Ctrl/⌘+S and the beforeunload guard reach the store through requestDocsSave / docsDirty.
 import { registerStudioLocation } from '../deep-link/registry';
-import { createDocsStore } from './docs-store';
+import { createDocsStore, DEFAULT_COLLECTION } from './docs-store';
 import { ask } from '../dialogs';
 
 let logger = null;
@@ -50,13 +53,46 @@ registerStudioLocation({
     serialize() {
         const s = docsStore.get();
         const row = s.current || (s.currentId && (s.list || []).find((d) => d.id === s.currentId));
-        return { id: row ? row.path : '', anchor: s.anchor || '' };
+        const prefix = s.collection && s.collection !== DEFAULT_COLLECTION ? s.collection + ':' : '';
+        return { id: row ? prefix + row.path : prefix, anchor: s.anchor || '' };
     },
     async apply(params, ctx) {
-        const path = String(params.id || '')
-            .replace(/^\/+|\/+$/g, '')
-            .replace(/\.md$/, '');
+        const raw = String(params.id || '');
+        const colon = raw.indexOf(':');
+        const collection = colon >= 0 ? raw.slice(0, colon) || DEFAULT_COLLECTION : DEFAULT_COLLECTION;
+        const path = (colon >= 0 ? raw.slice(colon + 1) : raw).replace(/^\/+|\/+$/g, '').replace(/\.md$/, '');
         const anchor = params.anchor || '';
+        if (!docsStore.get().collections) await docsStore.loadCollections();
+        // Another collection: switch (unsaved changes ask first).
+        if (collection !== docsStore.get().collection) {
+            if (!docsStore.collectionRow(collection)) {
+                ctx.notFound(`No docs collection "${collection}"`);
+                return undefined;
+            }
+            flushDocs();
+            if (docsStore.isDirty() && ctx.studio) {
+                const cur = docsStore.get().current;
+                const choice = await ask(ctx.studio, {
+                    type: 'confirm',
+                    title: 'Unsaved changes',
+                    message: `Save your changes to "${cur.title}" before opening the ${collection} collection?`,
+                    buttons: [
+                        { label: 'Save', value: 'save', primary: true },
+                        { label: "Don't save", value: 'discard' },
+                        { label: 'Cancel', value: null },
+                    ],
+                });
+                if (choice === null) return { cancelled: true };
+                if (choice === 'save') {
+                    try {
+                        await docsStore.save();
+                    } catch (error) {
+                        return { cancelled: true };
+                    }
+                }
+            }
+            await docsStore.setCollection(collection);
+        }
         if (!docsStore.get().list) await docsStore.loadList();
         if (!path) return undefined;
         const s = docsStore.get();
@@ -66,7 +102,7 @@ registerStudioLocation({
         }
         const row = docsStore.byPath(path);
         if (!row) {
-            ctx.notFound(`No doc page "${path}"`);
+            ctx.notFound(`No doc page "${path}" in ${collection}`);
             return undefined;
         }
         flushDocs();
@@ -97,7 +133,7 @@ registerStudioLocation({
         let last = '';
         return docsStore.subscribe(() => {
             const s = docsStore.get();
-            const key = (s.current ? s.current.path : '') + '#' + (s.anchor || '');
+            const key = s.collection + ':' + (s.current ? s.current.path : '') + '#' + (s.anchor || '');
             if (key === last) return;
             last = key;
             onChange();
@@ -105,6 +141,7 @@ registerStudioLocation({
     },
     label() {
         const s = docsStore.get();
-        return 'Docs' + (s.current ? ' · ' + s.current.path : '');
+        const col = s.collection && s.collection !== DEFAULT_COLLECTION ? ' · ' + s.collection : '';
+        return 'Docs' + col + (s.current ? ' · ' + s.current.path : '');
     },
 });

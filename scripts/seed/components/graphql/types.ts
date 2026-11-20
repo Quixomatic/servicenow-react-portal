@@ -176,7 +176,21 @@ export interface FormBootstrap {
     relatedLists?: RelatedListInfo[];
     /** formLayout.relatedListMetadata.hasRelatedLists. */
     hasRelatedLists?: boolean;
+    /** Platform highlighted-value styles by field (formLayout.highlightedValueStyle, matched rules only). */
+    highlights?: Record<string, HighlightStyle>;
 }
+
+/** A platform highlighted-value style for one field (the server evaluated the rules as the user). */
+export type HighlightStyle = {
+    field: string;
+    /** The label to show (display value or the rule's override). */
+    value: string;
+    status: string;
+    colorName: string;
+    showIcon: boolean;
+    iconName: string;
+    variantName: string;
+};
 
 /**
  * One related list of a record's form view (GlideLayout_Query.formLayout.relatedLists, normalized).

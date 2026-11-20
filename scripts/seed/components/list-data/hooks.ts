@@ -12,7 +12,9 @@ import {
     columnsParam,
     effectiveQuery,
 } from './documents';
-import type { ListArgs, ListPage, ListPreferences, ListRow, WriteResult } from './types';
+import { fetchSavedFilters, createSavedFilter, updateSavedFilter, deleteSavedFilter } from './filters';
+import { restGet } from 'utilities:app/graphql';
+import type { ListArgs, ListPage, ListPreferences, ListRow, SavedFilter, WriteResult } from './types';
 
 /** Everything this utility caches lives under ['rp-list', …]. */
 export const listKeys = {
@@ -52,6 +54,8 @@ export const listKeys = {
     fields: (table: string) => ['rp-list', 'fields', table] as const,
     edit: (table: string, column: string, ids: string) => ['rp-list', 'edit', table, column, ids] as const,
     pref: (user: string, key: string) => ['rp-list', 'pref', user, key] as const,
+    filters: (user: string, table: string) => ['rp-list', 'filters', user, table] as const,
+    groups: (user: string) => ['rp-list', 'my-groups', user] as const,
 };
 
 const MINUTE = 60_000;
@@ -142,7 +146,7 @@ export function useEditability(
     table: string | undefined,
     column: string | undefined,
     sysIds: string[],
-    options: { enabled?: boolean; fieldType?: string } = {}
+    options: { enabled?: boolean; fieldType?: string; staleTime?: number } = {}
 ) {
     const ids = sysIds.slice().sort().join(',');
     return useQuery({
@@ -153,7 +157,7 @@ export function useEditability(
                 signal
             ),
         enabled: !!(table && column && sysIds.length) && options.enabled !== false,
-        staleTime: 30_000,
+        staleTime: options.staleTime ?? 30_000,
     });
 }
 
@@ -197,6 +201,8 @@ export function useCellWrite() {
                     });
                 }
                 qc.invalidateQueries({ queryKey: listKeys.table(args.table) });
+                // Edit prefetches carry current values (dot-walked cells compare against them): refetch them all.
+                qc.invalidateQueries({ queryKey: ['rp-list', 'edit'] });
                 return res;
             } finally {
                 setPending((n) => n - 1);
@@ -344,6 +350,71 @@ export function useFieldPath(table: string | undefined, path: string | undefined
             };
         },
         enabled: !!table && !!path,
+        staleTime: 10 * MINUTE,
+    });
+}
+
+/** The user's saved filters (sys_filter) for a table: own, group and global ones the ACLs let them read. */
+export function useSavedFilters(table: string | undefined, options: { enabled?: boolean } = {}) {
+    const user = useUser() as { sysId?: string };
+    const userId = (user && user.sysId) || '';
+    return useQuery<SavedFilter[]>({
+        queryKey: listKeys.filters(userId, table || ''),
+        queryFn: ({ signal }: { signal: AbortSignal }) => fetchSavedFilters(table as string, userId, signal),
+        enabled: !!table && !!userId && options.enabled !== false,
+        staleTime: 60_000,
+    });
+}
+
+/** Save / rename / re-save / delete saved filters (as the user); the table's filter list refetches after each. */
+export function useSavedFilterActions(table: string) {
+    const qc = useQueryClient();
+    const user = useUser() as { sysId?: string };
+    const userId = (user && user.sysId) || '';
+    const done = () => qc.invalidateQueries({ queryKey: listKeys.filters(userId, table) });
+    return {
+        save: async (title: string, filter: string, group?: string) => {
+            const f = await createSavedFilter({ table, title, filter, userSysId: userId, group });
+            await done();
+            return f;
+        },
+        update: async (sysId: string, patch: { title?: string; filter?: string }) => {
+            const f = await updateSavedFilter(sysId, patch, userId);
+            await done();
+            return f;
+        },
+        remove: async (sysId: string) => {
+            await deleteSavedFilter(sysId);
+            await done();
+        },
+    };
+}
+
+/** Groups the user belongs to (for sharing a filter with a group); empty when the ACLs refuse. */
+export function useMyGroups(options: { enabled?: boolean } = {}) {
+    const user = useUser() as { sysId?: string };
+    const userId = (user && user.sysId) || '';
+    return useQuery<{ value: string; label: string }[]>({
+        queryKey: listKeys.groups(userId),
+        queryFn: async ({ signal }: { signal: AbortSignal }) => {
+            try {
+                const rows = await restGet<any[]>(
+                    `/api/now/table/sys_user_grmember?sysparm_query=${encodeURIComponent(
+                        `user=${userId}^group.active=true^ORDERBYgroup.name`
+                    )}&sysparm_fields=group&sysparm_display_value=all&sysparm_exclude_reference_link=true&sysparm_limit=100`,
+                    signal
+                );
+                return (rows || [])
+                    .map((r) => ({
+                        value: String((r.group && r.group.value) || ''),
+                        label: String((r.group && r.group.display_value) || ''),
+                    }))
+                    .filter((g) => g.value);
+            } catch (e) {
+                return [];
+            }
+        },
+        enabled: !!userId && options.enabled !== false,
         staleTime: 10 * MINUTE,
     });
 }

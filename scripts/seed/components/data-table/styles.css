@@ -208,3 +208,145 @@
         box-shadow: inset 2px 0 0 color-mix(in oklab, var(--primary) 50%, transparent);
     }
 }
+
+/* Wave 3a: header filters, row actions, group rows, card grid. */
+.rpl-th-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.125rem;
+}
+.text-right .rpl-th-row {
+    flex-direction: row-reverse;
+}
+.rpl-th-row > .rpl-th-btn {
+    min-width: 0;
+}
+.rpl-th-extra {
+    display: inline-flex;
+    flex-shrink: 0;
+    width: 1.375rem;
+    height: 1.375rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    color: transparent;
+    outline: none;
+    cursor: pointer;
+}
+.rpl-th:hover .rpl-th-extra,
+.rpl-th:focus-within .rpl-th-extra,
+.rpl-th-extra[aria-expanded='true'] {
+    color: var(--muted-foreground);
+}
+.rpl-th-extra:hover {
+    background: var(--accent);
+    color: var(--foreground);
+}
+.rpl-th-extra[data-active] {
+    color: var(--primary);
+}
+.rpl-th-extra:focus-visible {
+    box-shadow: 0 0 0 2px var(--ring);
+}
+@media (hover: none) {
+    .rpl-th-extra {
+        color: var(--muted-foreground);
+    }
+}
+.rpl-actions-cell {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    padding-inline: 0.25rem !important;
+    background: var(--card, var(--background));
+    box-shadow: inset 1px 0 0 color-mix(in oklab, var(--border) 70%, transparent);
+}
+.rpl-th.rpl-actions-cell {
+    z-index: 2;
+    background: color-mix(in oklab, var(--muted) 70%, var(--card, var(--background)));
+}
+.rpl-group-td {
+    padding: 0 0.5rem;
+    background: color-mix(in oklab, var(--muted) 40%, var(--card, var(--background)));
+    font-weight: 500;
+    cursor: pointer;
+}
+.rpl-group-tr:hover > .rpl-group-td {
+    background: color-mix(in oklab, var(--muted) 70%, var(--card, var(--background)));
+}
+.rpl-group-td > * {
+    /* The label stays in view when the table scrolls sideways. */
+    position: sticky;
+    left: 0.5rem;
+    width: max-content;
+    max-width: min(100%, 90vw);
+}
+.rpl-group-td:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--ring);
+    outline: none;
+}
+.rpl-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+    gap: 0.75rem;
+}
+.rpl-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    background: var(--card, var(--background));
+    color: var(--card-foreground, var(--foreground));
+    outline: none;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+.rpl-card:hover {
+    border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
+}
+.rpl-card:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+    border-color: var(--ring);
+}
+.rpl-card[data-selected] {
+    border-color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 6%, var(--card, var(--background)));
+}
+.rpl-card[data-updated] {
+    border-color: var(--primary);
+}
+.rpl-chip {
+    display: inline-flex;
+    height: 1.75rem;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    border: 1px solid var(--input, var(--border));
+    background: var(--background);
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--foreground);
+    outline: none;
+    white-space: nowrap;
+    transition:
+        background-color 0.15s,
+        border-color 0.15s;
+}
+.rpl-chip:hover {
+    background: var(--accent);
+}
+.rpl-chip:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.rpl-chip[aria-pressed='true'] {
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+    background: color-mix(in oklab, var(--primary) 12%, var(--background));
+    color: var(--foreground);
+}

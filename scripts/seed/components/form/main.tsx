@@ -4,8 +4,10 @@
  *   useRecordForm({ table, sysId, view, onSaved, viewRules?, forceView? })   FormStore + bootstrap + UI policies + save();
  *                                                    portal view rules resolve in the same request
  *                                                    (form.resolution: source 'rule' = forced by a rule)
- *   <RecordForm table sysId view showViews onViewChange onSaved headerActions />
- *                                                    header (label, number, state), view switcher,
+ *   <RecordForm table sysId view showViews onViewChange onSaved headerActions ribbon presence />
+ *                                                    header (app/record-header: title, platform-coloured
+ *                                                    highlighted values, badges, presence avatars), the
+ *                                                    record ribbon (app/record-ribbon), view switcher,
  *                                                    sections, dirty tracking, Save / Discard
  *   <FormLayout bootstrap readOnly />, <FormSection>, <FormElement>   the view's layout only
  *                                                    (collapsible section headings; sections hidden
@@ -27,7 +29,7 @@ import { RecordForm } from './record-form';
 export { useRecordForm, SAVE_ACTIONS, notify } from './use-record-form';
 export type { RecordForm as RecordFormModel, UseRecordFormOptions, SaveOutcome } from './use-record-form';
 export { RecordForm } from './record-form';
-export type { RecordFormProps } from './record-form';
+export type { RecordFormProps, FormActionOptions } from './record-form';
 export {
     FormLayout,
     FormSection,

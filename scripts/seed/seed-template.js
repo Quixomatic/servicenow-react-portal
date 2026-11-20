@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.19.1/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.20.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     var T = 'x_312987_portal_';
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
@@ -1017,6 +1017,8 @@
                                 { page: 'activity', label: 'Activity', icon: 'messages-square' },
                                 // Attachments (A6): presentation variants of one record's attachments.
                                 { page: 'attachments', label: 'Attachments', icon: 'paperclip' },
+                                // Design-system primitives demo (app/primitives-demo).
+                                { page: 'primitives', label: 'Primitives', icon: 'component' },
                             ],
                         },
                         {
@@ -1381,6 +1383,48 @@
                                 pageSize: 10,
                             },
                         },
+                        // Wave 3a: cards (now-data-set grid mode) with quick filter chips, and a grouped list
+                        // (^GROUPBY) with list-collector / dot-walk / journal inline edit.
+                        {
+                            c: 'columns',
+                            options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
+                            children: {
+                                'col-1': [
+                                    {
+                                        c: 'list-card',
+                                        options: {
+                                            title: 'Incidents as cards',
+                                            table: 'incident',
+                                            columns: 'number,short_description,priority,state,assigned_to,caller_id',
+                                            orderBy: '-sys_updated_on',
+                                            pageSize: 6,
+                                            display: 'grid',
+                                            displayToggle: true,
+                                            quickFilters: ['active', 'mine', 'myGroups', 'Critical=priority=1'],
+                                            defaultQuickFilters: ['active'],
+                                            hide: ['export'],
+                                        },
+                                    },
+                                ],
+                                'col-2': [
+                                    {
+                                        c: 'list-card',
+                                        options: {
+                                            title: 'Active incidents by priority',
+                                            table: 'incident',
+                                            query: 'active=true',
+                                            columns: 'number,short_description,watch_list,caller_id.email,comments',
+                                            orderBy: '-number',
+                                            groupBy: 'priority',
+                                            groupRowLimit: 3,
+                                            journalEdit: true,
+                                            listCollector: true,
+                                            hide: ['export'],
+                                        },
+                                    },
+                                ],
+                            },
+                        },
                         {
                             c: 'columns',
                             options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] },
@@ -1551,8 +1595,18 @@
                         },
                     ],
                 },
-                // Field primitives (app/field + app/*-field): standalone and bound to a real incident.
-                { route: 'fields', name: 'Fields', widgets: [{ c: 'field-demo', options: { table: 'incident' } }] },
+                // Field primitives (app/field + app/*-field): standalone and bound to a real incident; then the
+                // record card, contact card, reference preview and quick form (record-cards-demo).
+                {
+                    route: 'fields',
+                    name: 'Fields',
+                    widgets: [
+                        { c: 'field-demo', options: { table: 'incident' } },
+                        { c: 'record-cards-demo', options: { formPage: 'form' } },
+                    ],
+                },
+                // Design-system primitives (host kit accordion, alert, avatar, pill, … + app/code-field, app/date-range-field).
+                { route: 'primitives', name: 'Primitives', widgets: [{ c: 'primitives-demo', options: {} }] },
                 // Generic record list (app/list-view) for any table, full bleed: explicit URL params table /
                 // query / view (no table → incident); search / sort / page ride in q. The toolbar goes into
                 // the sub-header slots and the table is the only scroller. Rows open the form page.
@@ -2186,7 +2240,8 @@
             theme: 'docs',
             home: 'index',
             layout: 'docs-layout',
-            settings: { contentWidth: 'full' },
+            // docsCollections: the doc collections this portal shows (the first is the default).
+            settings: { contentWidth: 'full', docsCollections: ['react-portal'] },
             portalWidgets: [
                 {
                     c: 'docs-sidebar',
@@ -2196,6 +2251,8 @@
                         icon: 'book-open',
                         search: true,
                         collapsible: true,
+                        // The slot under the search: this portal's portal / page jumps (not the collection switcher).
+                        headerSwitcher: 'portal',
                         switcher: [
                             {
                                 title: 'Documentation',

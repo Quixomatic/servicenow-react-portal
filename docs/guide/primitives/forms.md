@@ -17,6 +17,7 @@ tags: [forms, record-form, sections, tabs, save]
 | Load | GraphQL `GlideViewQuery_Query.uiView` (layout, values, display values, field states, sections, UI policies, client scripts, form UI actions, scratchpad), the same query Workspace uses |
 | Save / create | The form's Save UI action, `POST /api/now/ui/ui_action/{id}`, sending only the changed fields |
 | Other UI actions | Client actions run through the [`g_form` shim](form-runtime.md); server actions through the platform. Redirects stay in the portal |
+| Declarative actions | The form's declarative actions (UX form action layout) join the UI actions on the bar; see [Actions](actions.md) |
 
 ## `useRecordForm(options)`
 
@@ -85,8 +86,10 @@ import { RecordForm } from 'components:app/form'
 | `attachments` | `off` (default), `below` (a panel under the sections) or `header` (a paperclip + count that shows / hides the panel). See [Attachments](attachments.md) |
 | `renderElement(name, ctx)` | Custom element rendering |
 | `relatedLists` | `auto` (default: extra tabs in tabs mode, collapsible sections below a stacked form), `tabs`, `stacked`, `off`. See [Related lists](related-lists.md) |
+| `ribbon` | `true` (default: the built-in key fields for the table), a field list, or `false`. Never on new records. See [Record header, ribbon and cards](record-header.md) |
+| `presence` | Avatars of other users on the record in the header (default `true`) |
 
-What it renders: the header (unsaved indicator, table label, number, state badges), the UI action bar, Discard and Save (**Ctrl/⌘+S**), the form settings (cog) menu, an error summary that focuses and links to each invalid field, sections and columns.
+What it renders: the header (unsaved indicator; `app/record-header`: table label, title, highlighted values coloured by the platform's rules, Read only / New badges, presence avatars), the record ribbon, the UI action bar, Discard and Save (**Ctrl/⌘+S**), the form settings (cog) menu, an error summary that focuses and links to each invalid field, sections and columns.
 
 ### Sections and tabs
 
@@ -118,7 +121,7 @@ Both are lazy: a list loads only when shown. `g_form.showRelatedList` / `hideRel
 
 ### Header placement
 
-- In a **banner** sub-header (`app/app-shell` with `subheader: banner`): the full record header (back, table, large title, badges, short description) and actions go into the header.
+- In a **banner** sub-header (`app/app-shell` with `subheader: banner`): the full record header (back, table, large title, highlighted values, badges, presence, short description) and actions go into the header.
 - In a **bar** sub-header: a compact header.
 - Without header slots, or with `headerPlacement: 'inline'`: the card's own header row.
 - On phones the UI actions move into a More menu; Save stays visible.
@@ -145,16 +148,19 @@ A form page widget, like Service Portal's form widget: one generic `form` page s
 | `attachments` | `off`, `below`, `header` (the record's attachments; default off) |
 | `relatedLists` | `auto`, `tabs`, `stacked`, `off` |
 | `activity` | `off` (default), `notes`, `below`: the opt-in composer + activity stream |
+| `ribbon` | The record ribbon above the form (default `true`) |
+| `presence` | Presence avatars in the header (default `true`) |
 
 It navigates with explicit `table` / `sys-id` / `view` URL params.
 
 ## Not built yet
 
-Classic view rules (`sysrule_view`; by design: use [portal view rules](../concepts/view-rules.md)), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), highlighted values and form personalization.
+Classic view rules (`sysrule_view`; by design: use [portal view rules](../concepts/view-rules.md)), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), form personalization, and configurable header / ribbon fields (proposal: `.plans/record-header-config.md`).
 
 ## Related
 
 - [Form runtime](form-runtime.md)
 - [Related lists](related-lists.md)
+- [Record header, ribbon and cards](record-header.md)
 - [Fields](fields.md)
 - [Header slots](header-slots.md)

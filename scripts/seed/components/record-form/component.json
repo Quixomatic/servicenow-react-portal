@@ -15,6 +15,12 @@
         "presentation": "stacked",
         "attachments": "off",
         "relatedLists": "auto",
-        "activity": "off"
+        "activity": "off",
+        "actions": true,
+        "actionsInclude": "",
+        "actionsExclude": "",
+        "actionConfigId": "",
+        "ribbon": true,
+        "presence": true
     }
 }

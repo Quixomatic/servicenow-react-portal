@@ -9,10 +9,13 @@ import {
     IntegerColumn,
     MultiLineTextColumn,
     ChoiceColumn,
+    ReferenceColumn,
 } from '@servicenow/sdk/core';
 
 /**
- * Documentation pages for the `docs` portal: one row per Markdown file of docs/guide/, written by
+ * Documentation pages: one row per page of a docs collection (x_312987_portal_doc_collection), in a
+ * section (x_312987_portal_doc_section, `doc_section`). The collection `react-portal` is docs/guide/,
+ * one row per Markdown file, written by
  * `npm run seed` (the docs step, diff-based on content_hash) and by Portal Studio's Docs activity. Content, not application metadata, so
  * it doesn't extend sys_metadata: rows never travel in the app package or update sets.
  *
@@ -35,10 +38,29 @@ export const x_312987_portal_doc = Table({
             hint: 'Doc path without .md, e.g. concepts/layouts (index = the home page)',
         }),
         title: StringColumn({ label: 'Title', maxLength: 200, mandatory: true }),
+        doc_section: ReferenceColumn({
+            label: 'Section',
+            referenceTable: 'x_312987_portal_doc_section',
+            cascadeRule: 'restrict',
+            hint: 'The sidebar section (its collection is the page collection)',
+        }),
+        collection: ReferenceColumn({
+            label: 'Collection',
+            referenceTable: 'x_312987_portal_doc_collection',
+            cascadeRule: 'restrict',
+            readOnly: true,
+            hint: "Set from the section's collection (RP: Doc page collection from section)",
+        }),
         description: StringColumn({ label: 'Description', maxLength: 1000 }),
-        section: StringColumn({ label: 'Section', maxLength: 100, hint: 'Sidebar section title (from _nav.json)' }),
-        section_slug: StringColumn({ label: 'Section slug', maxLength: 80 }),
-        section_order: IntegerColumn({ label: 'Section order', default: 100 }),
+        // Legacy section strings: part of content_hash (so existing hashes never change), meaning "the
+        // page's section as of its last content write" (seed write or Studio save). Read doc_section.
+        section: StringColumn({
+            label: 'Section title (legacy)',
+            maxLength: 100,
+            hint: "The section's title at the page's last content write (part of the content hash); doc_section is authoritative",
+        }),
+        section_slug: StringColumn({ label: 'Section slug (legacy)', maxLength: 80 }),
+        section_order: IntegerColumn({ label: 'Section order (legacy)', default: 100 }),
         order: IntegerColumn({ label: 'Order', default: 100, hint: 'Position within the section' }),
         tags: StringColumn({ label: 'Tags', maxLength: 500, hint: 'Comma-separated' }),
         icon: StringColumn({ label: 'Icon', maxLength: 80, hint: 'Lucide icon name for the sidebar' }),
@@ -78,7 +100,8 @@ export const x_312987_portal_doc = Table({
             hint: 'content_hash as last written by the docs seed (differs from content_hash = edited in Studio)',
         }),
     },
-    index: [{ name: 'rp_doc_path', element: 'path', unique: true }],
+    // Paths are unique per collection (replaces the old table-wide rp_doc_path).
+    index: [{ name: 'rp_doc_collection_path', element: ['collection', 'path'], unique: true }],
 });
 
 Form({
@@ -115,6 +138,19 @@ Form({
                         { field: 'markdown', type: 'table_field' },
                         { field: 'headings_json', type: 'table_field' },
                         { field: 'search_text', type: 'table_field' },
+                    ],
+                },
+            ],
+        },
+        {
+            // Its own form section, so the existing layout keeps its element positions.
+            caption: 'Collection',
+            content: [
+                {
+                    layout: 'one-column',
+                    elements: [
+                        { field: 'doc_section', type: 'table_field' },
+                        { field: 'collection', type: 'table_field' },
                     ],
                 },
             ],

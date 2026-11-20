@@ -103,7 +103,8 @@ Hooks: `useForm({ table, sysId, view, query, values, bootstrap })`, `useFormCont
 | Primitive | Dictionary types |
 |---|---|
 | `app/string-field` | string, sys_class_name, GUID, domain_id, ip_address, color, translated_field, user_input |
-| `app/textarea-field` | multi_two_lines, translated_text, script, script_plain, wiki_text |
+| `app/textarea-field` | multi_two_lines, translated_text, wiki_text |
+| `app/code-field` | script, script_plain, script_server, xml, css, json, json_translations, html_script, html_template (code editor on `components:code-editor`, below) |
 | `app/journal-field` | journal_input, journal (work notes tinted and badged internal; the value is the new entry, posted by the form save); journal_list read-only. See [Activity and journals](activity.md) |
 | `app/html-field` | html, translated_html, catalog variable type 23 (rich-text editor on `components:rich-text-editor`; read-only through `components:rich-text`) |
 | `app/number-field` | integer, longint, decimal, float, numeric, percent_complete, order_index (locale-aware, stepping) |
@@ -141,6 +142,31 @@ Hooks: `useForm({ table, sysId, view, query, values, bootstrap })`, `useFormCont
 - `min` / `max` come from props, else the dictionary attributes `min` / `max` (`'YYYY-MM-DD'` or `'today'`). `format` overrides the user's pattern.
 - `app/time-field` (`glide_time`) accepts `'9'`, `'930'`, `'9:30 pm'`, `'noon'` and the like, with a suggestion list every `step` minutes (default 30). It keeps the value shape it was given: `'HH:mm:ss'` wall time, or the platform's stored `'1970-01-01 HH:mm:ss'` UTC value.
 - **`utilities:app/datetime`** holds the logic with no UI, for any widget: zones (`zonedParts`, `parseGlideDateTime`, `formatGlideDateTime`, `useUserTimeZone`), the user's formats (`useUserFormats`, `useLocale`), dates (`formatDate`, `parseDate`, `addDays`, `addMonths`, `weekStartFor`, `isValidYmd`), times (`parseTime`, `formatTime`, `timeValueToSeconds`, `secondsToTimeValue`) and date-times (`parseDateTime`, `wallOf`).
+
+## Date range and code fields
+
+**`app/date-range-field`** (`DateRangeField`) is a start / end pair as one control, on the host kit's [`components:date-range-picker`](../runtime-api/host-kit.md#date-range-picker).
+
+```tsx
+<DateRangeField startName="start_date" endName="end_date" label="Planned dates" />          {/* bound to the form */}
+<DateRangeField name="period" label="Period" value={range} onRangeChange={setRange} />    {/* standalone */}
+```
+
+- **Bound mode** writes each end into its own field, and only once both ends are picked:
+  - `glide_date` gets `'YYYY-MM-DD'`;
+  - date-time fields keep their current time of day, else 00:00:00 for the start day and 23:59:59 for the end day, in the user's time zone (stored in UTC).
+- **Presets** are relative to today in the user's zone (`presets={false}` hides them).
+- **Read-only** shows the range in the user's date format.
+- **Shell:** label, hint, mandatory and messages come from the start field's shell, and an error on the end field shows there too. `min` / `max` come from props, else the start field's dictionary attributes.
+- **Exports:** `toRangeValue(value, type, tz)` and `fromRangeValue(ymd, type, edge, current, tz)` hold the value logic.
+
+**`app/code-field`** (`CodeField`) renders script and markup types with the host kit's [`components:code-editor`](../runtime-api/host-kit.md#code-editor) (CodeMirror 6, in a lazily loaded chunk). Before, these types were a plain textarea.
+
+- **Language:** follows the type (script → JavaScript, xml, css, json, html_script → HTML), or the `language` prop.
+- **Saving:** keystrokes stage; blur or Ctrl/⌘+Enter commits.
+- **Read-only:** shows highlighted code, still focusable and selectable. An empty read-only value is the usual em dash, and no editor chunk loads for it.
+- **Props:** `minLines` (6 when editable), `maxHeight` (`24rem`), `lineNumbers`, `tabSize`.
+- **Exports:** `CODE_FIELD_TYPES` and `codeLanguageForType`.
 
 ## Conditions, tables and fields
 
