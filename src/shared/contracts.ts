@@ -252,6 +252,14 @@ export interface NavItem {
     q?: Record<string, string>
     /** route items: another portal's slug (params_json.portal), for a cross-portal link. */
     portalSlug?: string
+    /**
+     * page / route items: explicit record params (params_json.record), the site page's optional URL
+     * params (<Link table sysId view query>). Active matching requires them to equal the location's.
+     */
+    table?: string
+    sysId?: string
+    view?: string
+    query?: string
     /** url items: the external URL (http(s): or mailto:). */
     href?: string
     target?: '_self' | '_blank'
@@ -288,7 +296,13 @@ export interface MenuItemDto {
     pageId: string | null
     /** Display only: the referenced page's route and title. */
     page: { id: string; route: string; title: string } | null
-    params: { params?: Record<string, string>; query?: Record<string, string> } | null
+    params: {
+        params?: Record<string, string>
+        query?: Record<string, string>
+        /** Explicit record params: { table, sys_id, view, query }. */
+        record?: { table?: string; sys_id?: string; view?: string; query?: string }
+        portal?: string
+    } | null
     route: string
     url: string
     icon: string

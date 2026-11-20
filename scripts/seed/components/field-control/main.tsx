@@ -31,11 +31,16 @@ import { ConditionsField } from 'components:app/conditions-field'
 import { TableNameField } from 'components:app/table-name-field'
 import { FieldNameField } from 'components:app/field-name-field'
 import { HtmlField } from 'components:app/html-field'
+// Attachments (A6): single-file fields.
+import { AttachmentField } from 'components:app/attachment-field'
+// Activity (A5): journal fields (work notes, comments) instead of the textarea fallback.
+import { JournalField } from 'components:app/journal-field'
 
 /** Glide types each built-in primitive handles. */
 export const BUILT_IN_TYPES: Record<string, string[]> = {
     string: ['string', 'sys_class_name', 'GUID', 'domain_id', 'ip_address', 'color', 'translated_field', 'user_input'],
-    textarea: ['multi_two_lines', 'journal', 'journal_input', 'journal_list', 'translated_text', 'script', 'script_plain', 'wiki_text'],
+    // journal / journal_input / journal_list moved to `journal` (A5, app/journal-field).
+    textarea: ['multi_two_lines', 'translated_text', 'script', 'script_plain', 'wiki_text'],
     html: ['html', 'translated_html'],
     number: ['integer', 'longint', 'decimal', 'float', 'numeric', 'percent_complete', 'order_index'],
     boolean: ['boolean'],
@@ -54,6 +59,10 @@ export const BUILT_IN_TYPES: Record<string, string[]> = {
     conditions: ['conditions'],
     table: ['table_name'],
     fieldname: ['field_name'],
+    // Attachments (A6)
+    attachment: ['file_attachment', 'user_image'],
+    // Activity (A5)
+    journal: ['journal', 'journal_input', 'journal_list'],
 }
 
 const COMPONENTS: Record<string, any> = {
@@ -77,6 +86,8 @@ const COMPONENTS: Record<string, any> = {
     table: TableNameField,
     fieldname: FieldNameField,
     html: HtmlField,
+    attachment: AttachmentField,
+    journal: JournalField,
 }
 
 let registered = false

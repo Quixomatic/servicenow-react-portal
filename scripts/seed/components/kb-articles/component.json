@@ -1,0 +1,1 @@
+{ "name": "Knowledge Articles", "kind": "widget", "tailwind": true, "defaults": { "title": "Knowledge", "limit": 6, "kbPage": "kb", "showCategories": true } }

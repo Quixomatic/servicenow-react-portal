@@ -24,7 +24,7 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
  * slot, the UI actions, view switcher and New to the right (the picker shows only with no record open)
  * (headerPlacement: 'auto' | 'header' | 'inline'). `listPage` adds a back button to a list page.
  *
- * Options: { table, sysId, view, picker, showViews, pickerQuery, headerPlacement, listPage, presentation }
+ * Options: { table, sysId, view, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity }
  * presentation: 'stacked' (default) | 'tabs', the default only: the user's toggle on the form wins.
  */
 type Options = {
@@ -39,6 +39,12 @@ type Options = {
     presentation?: 'stacked' | 'tabs'
     /** Portal page with the list (back button; gets the table param). '' = none. */
     listPage?: string
+    /** Attachments (A6): 'off' (default), 'below' the form, or a 'header' toggle. */
+    attachments?: 'off' | 'below' | 'header'
+    /** Related lists (A4): 'auto' (default: tabs in tabs mode, sections when stacked), 'tabs', 'stacked' or 'off'. */
+    relatedLists?: 'auto' | 'tabs' | 'stacked' | 'off'
+    /** Activity (A5), opt-in: 'off' (default), 'notes' (in the Notes section) or 'below' the form. */
+    activity?: 'off' | 'notes' | 'below'
 }
 
 /** Resolves true when there's nothing to lose or the user agrees to discard (app/confirm-dialog). */
@@ -173,6 +179,9 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     showViews={options.showViews !== false}
                     headerSlots={headerSlots}
                     presentation={options.presentation === 'tabs' ? 'tabs' : options.presentation === 'stacked' ? 'stacked' : undefined}
+                    attachments={options.attachments === 'below' || options.attachments === 'header' ? options.attachments : undefined}
+                    relatedLists={options.relatedLists === 'tabs' || options.relatedLists === 'stacked' || options.relatedLists === 'off' ? options.relatedLists : undefined}
+                    activity={options.activity === 'notes' || options.activity === 'below' ? options.activity : undefined}
                     onDirty={setDirty}
                     onViewChange={(v) => {
                         confirmDiscard(dirty).then((ok) => {
@@ -202,6 +211,9 @@ function FormFor(props: {
     headerSlots?: { left?: (node: any) => any; right?: (node: any) => any }
     headerActions?: any
     presentation?: 'stacked' | 'tabs'
+    attachments?: 'off' | 'below' | 'header'
+    relatedLists?: 'auto' | 'tabs' | 'stacked' | 'off'
+    activity?: 'off' | 'notes' | 'below'
     onDirty: (d: boolean) => void
     onViewChange: (v: string) => void
     onCreated: (id: string) => void
@@ -220,7 +232,7 @@ function FormFor(props: {
     const meta = useFormMeta(form)
     const { onDirty } = props
     useEffect(() => onDirty(meta.isDirty), [meta.isDirty, onDirty])
-    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} presentation={props.presentation} />
+    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} presentation={props.presentation} attachments={props.attachments} relatedLists={props.relatedLists} activity={props.activity} />
 }
 
 /** Columns the picker searches and shows, when the table has them (first = label). */

@@ -48,6 +48,14 @@ export type ListPage = {
     offset: number
     dateFormat?: string
     dateTimeFormat?: string
+    /** Fixed query the server applied (for a related list: the relationship's resolved query). */
+    fixedQuery?: string
+    /** Table-level permissions for the current user (metadata.canCreate / canWrite / canDelete). */
+    canCreate?: boolean
+    canWrite?: boolean
+    canDelete?: boolean
+    /** Many-to-many related list (relatedListName on an m2m table): which field points at the parent, which at the other side. */
+    m2m?: { sourceField: string; targetTable: string; targetField: string } | null
 }
 
 export type ListArgs = {

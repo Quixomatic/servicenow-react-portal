@@ -26,13 +26,17 @@ const TINTS: Record<string, string> = {
  * trigger: spacing separates it.
  */
 export default function AppHeader({ options = {} }: { options?: Options }) {
-    const { page } = usePortal()
+    const portal = usePortal() as any
+    const page = portal && portal.page
+    // A page opened with an explicit title (q title=…, e.g. the "My incidents" menu item on the
+    // generic list page) closes the trail with that title instead of the page's own.
+    const qTitle = String((portal && portal.location && portal.location.qParams && portal.location.qParams.title) || '').trim()
     const nav = useNavigation(options.menu || 'primary')
     // Labelled items only (no separators, no empty / whitespace labels), so two slashes never meet.
     const crumbs: { label: string; link?: any }[] = nav.activePath
         .filter((i: any) => i && i.type !== 'separator' && String(i.label || '').trim())
         .map((i: any) => ({ label: String(i.label).trim(), link: i.type === 'group' ? null : i.link }))
-    const title = String((page ? page.title || page.name : '') || '').trim()
+    const title = qTitle || String((page ? page.title || page.name : '') || '').trim()
     // The page title closes the trail unless the active item already says it (case-insensitive).
     if (title && (!crumbs.length || crumbs[crumbs.length - 1].label.toLowerCase() !== title.toLowerCase())) crumbs.push({ label: title })
     const lead = nav.activePath.find((i: any) => i.icon)

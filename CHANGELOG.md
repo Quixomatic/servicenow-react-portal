@@ -2,6 +2,89 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.16.0] - 2026-11-20
+
+Related lists, attachments and the activity stream; a real Service Portal home with search and a
+user-centred menu; and a seeding and reprocessing overhaul (portal reprocess ~40× faster,
+diff-based `npm run seed`).
+
+### Added: related lists
+- **`app/related-list`** (one related list of any record) and **`app/related-lists`** (tabs, stacked or single), on the platform's own `formLayout.relatedLists` and `getListLayout` calls.
+  - Reference, many-to-many and scripted relationships.
+  - Counts, lazy loading, omit-if-empty, personalisation per list, live refresh.
+  - Hooks: `useRelatedLists`, `useRelatedList`.
+- **Record forms show related lists:** as extra tabs in tabs mode, or as collapsible sections below a stacked form. RecordForm option `relatedLists` (`auto` / `tabs` / `stacked` / `off`).
+- **Actions:** New (child with the parent preset); Add / Edit… / Remove for many-to-many.
+- **`g_form`:** `showRelatedList` / `hideRelatedList` / `showRelatedLists` / `hideRelatedLists` / `getRelatedListNames` now work.
+- **New `app/related-lists-card` widget**, with demos on the sp Lists page.
+
+### Added: attachments (functionality first; presentation undecided)
+- **`utilities:app/attachments`:** Workspace's attachment query plus the Attachment API.
+  - Hooks for list, permissions, uploads with progress / cancel / retry, and optimistic rename / delete.
+  - Extension, size and name checks; headless drop and paste hooks; live updates over AMB.
+  - New records attach to the sys_id the form reserves.
+- **Primitives:** `app/attachment-dropzone`, `app/attachment-list` (list / grid / chips, thumbnails, image preview, `renderItem`), `app/attachment-panel`, and `app/attachment-field` for the `file_attachment` / `user_image` types.
+- **RecordForm option `attachments`:** `off` (default), `below`, or a `header` toggle. `g_form.enableAttachments` / `disableAttachments` work.
+- **New `app/attachments-card` widget,** and an sp Attachments page comparing three presentations.
+- **Shared uploads:** HTML-field images and catalog attachment variables upload through the shared utility.
+
+### Added: activity stream and journals (presentation undecided)
+- **`utilities:app/activity`** on the platform's own calls (`GlideActivity getEvents`, `putJournal`), live over AMB `/activity/events/<sys_id>`.
+- **Primitives:**
+  - `app/activity-stream`: accessible feed, filters, day groups, field changes old → new, attachments, emails; plus `RecordActivity` and the chat-style `ActivityConversation`.
+  - `app/journal-composer`: work notes / comments, Ctrl/⌘+Enter, form-bound mode.
+  - `app/journal-field`: replaces the textarea for journal fields; a form save posts the entry.
+- **New `app/activity-card` widget** (timeline / conversation / compact), and an sp Activity page comparing the presentations.
+- **RecordForm option `activity`:** `off` (default), `notes` or `below`.
+
+### Added: Service Portal home, search and menu
+- **The sp home, rebuilt from reusable widgets:**
+  - a hero search in the banner;
+  - announcements;
+  - quick-link tiles with live counts;
+  - My active items (requests, incidents, approvals; live);
+  - Knowledge (popular, latest, topics);
+  - popular catalog tiles;
+  - a "Can't find what you need?" band.
+- **Search on the platform's own search, as the user** (catalog search API plus the text index):
+  - `utilities:app/search`;
+  - the `app/search-box` combobox (grouped typeahead, recent searches, `/` shortcut);
+  - an `app/search-results` page with tabs per source.
+- **Knowledge page `app/knowledge`:** browse topics and most-viewed articles, or read an article through rich text, with related articles.
+- **Host kit:** `components:skeleton`, `components:empty`, `components:kbd`. New primitive `app/highlighted-value`.
+- **Menu items carry list parameters** (`params_json.record`: table, sys_id, view, query), and the active item is matched on them.
+  - The sp Service desk menu: My requests, My incidents, My approvals, My tasks and My surveys (only for users who have some), Knowledge, Catalog.
+  - The breadcrumb and list header show the item's title.
+- **Banner sub-header:** gains a full-width row for the hero search.
+
+### Changed: seeding and reprocessing
+- **Portal reprocess ~40× faster.** `assembleManifest` now caches registry lookups for the duration of one call (`withRegistryCache`).
+  - sp went from ~60 s to ~1.4 s, and its queries from 55,662 to 546; app from ~22 s to ~1 s.
+  - Manifests are byte-identical to before. Every seed, Studio save and designer save benefits.
+- **New `npm run seed`:** diff-based.
+  - It reads the instance's components and extra files, and seeds only the ones that differ.
+  - It runs the portals step only when the template changed (marker property `x_312987_portal.seed.template_hash`).
+  - It splits payloads under the instance's ~1.5 MB exec limit, reprocesses once at the end, and waits on each run's `[seed] done` line, so runs never stack.
+  - Flags: `--dry-run`, `--all`, `--only`, `--portals`, `--reprocess`.
+- **Batch mode for every seed:**
+  - compile-on-save and per-write portal reprocess are suppressed for the run;
+  - each changed component compiles once, in dependency order;
+  - each portal reprocesses once at the end (only writing when the manifest hash changed);
+  - per-phase timings and per-table write counts in the log;
+  - stale components are reported, never deleted.
+- **`build-seed.mjs`:** `--only`, `--part i/n`, `--portals`. A shared `seed-lib.mjs` is used by both tools.
+- **Seed upserts** compare values ignoring platform formatting (booleans, JSON key order, CRLF), so unchanged records aren't rewritten.
+- **`reprocessForOwner`** respects the batch flag. **Placement instance CSS** always compiles; inside a batch only the portal reprocess is deferred.
+
+### Fixed
+- **Placement instance CSS** wasn't compiled under the first version of the batch seed (grid spans and block options were missing).
+- **`app/field-dialog` / `g_modal.showFields`:** reference and glide_list fields now search.
+
+### Notes
+- Runtime Tests: 31/31.
+- Catalog coverage: 173 match / 34 partial / 158 none; high usefulness 93 / 11 / **0** (no high-usefulness gaps left).
+- Not yet tested as a non-admin (roleless) user.
+
 ## [1.15.0] - 2026-11-19
 
 Cart and checkout on the platform's Service Catalog cart, and the variable editor now saves.

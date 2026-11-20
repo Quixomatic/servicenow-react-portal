@@ -74,6 +74,8 @@ useAmbStatus(): { connection: 'connecting' | 'open' | 'broken' | 'closed' | 'una
 - `useRecord` / `useTableQuery` with `live: true`.
 - `app/list-view` and `app/list-card` with the `liveUpdates` option (changed rows highlight).
 - `app/record-form`: a clean form refreshes silently; a dirty one shows a "Changed by someone else" banner.
+- `utilities:app/attachments` (`useAttachments`): watches `sys_attachment` for `table_name=<table>^table_sys_id=<sys_id>` and refetches that record's attachments, so another tab's uploads, renames and deletes appear.
+- `utilities:app/activity` (`useActivity`): the activity stream's own channel `/activity/events/<sys_id>` (via `useAmbChannel`), whose messages carry the event itself; it's applied to the cache in place.
 
 ## Mock mode
 

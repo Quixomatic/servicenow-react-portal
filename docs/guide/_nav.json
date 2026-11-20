@@ -199,12 +199,28 @@
                     "path": "primitives/form-runtime.md"
                 },
                 {
+                    "title": "Activity and journals",
+                    "path": "primitives/activity.md"
+                },
+                {
+                    "title": "Related lists",
+                    "path": "primitives/related-lists.md"
+                },
+                {
+                    "title": "Attachments",
+                    "path": "primitives/attachments.md"
+                },
+                {
                     "title": "GraphQL utility",
                     "path": "primitives/graphql.md"
                 },
                 {
                     "title": "Header slots",
                     "path": "primitives/header-slots.md"
+                },
+                {
+                    "title": "Home page and search",
+                    "path": "primitives/home-and-search.md"
                 }
             ]
         },

@@ -163,7 +163,9 @@ export function FieldDialog(props: FieldDialogProps) {
                         }}
                     >
                         {spec.fields.map((f, i) => (
-                            <FieldControl key={keyOf(f, i)} name={keyOf(f, i)} />
+                            // referringTable: reference / glide_list lookups run against that table's dictionary field
+                            // (the dialog's own store has no table, so lookups had nothing to search).
+                            <FieldControl key={keyOf(f, i)} name={keyOf(f, i)} table={s(f.referringTable) || undefined} />
                         ))}
                         {error ? (
                             <p role="alert" className="m-0 text-sm text-destructive" data-rp-field-dialog-error="">

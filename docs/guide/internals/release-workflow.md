@@ -88,6 +88,29 @@ The builder scans each folder's client sources for record imports (`components:a
 
 > **Warning:** Keep every component folder buildable (`main.tsx` + `component.json`) at all times: `npm run version:bump` regenerates the seed and fails on a half-built folder.
 
+### `npm run seed` (diff-based)
+
+The everyday way to seed. `scripts/seed/run-seed.mjs` treats the **instance as the source of truth** (several agents seed it), so it keeps no local cache:
+
+1. **Diff.** Read-only `now-sdk query` calls read every `app/*` component (the fields the seed writes), its `source_file` rows and its build. Both sides are normalised the way the seed's `upsert` / `sameValue` compares them (canonical JSON, booleans as `1`/`true`, CRLF → LF) and hashed. A component is selected when it's missing, a field differs, a source file is added, changed or removed, or it has no build record yet.
+2. **Components.** One `components` seed with just those components, in dependency order, split automatically into parts under the exec payload limit (budget 1300 KB; the instance rejects ~1.5 MB). Intermediate parts don't reprocess.
+3. **Portals.** The `--portals` step (themes, portals, pages, menus, placements) runs only when the template changed: a portals or full run stores the template's hash in `x_312987_portal.seed.template_hash` when it finishes, and the runner compares it with the local template (the module-root line is ignored, so a version bump alone doesn't count).
+4. **One reprocess.** Only the last exec reprocesses the portals. Nothing changed → `nothing to seed`, nothing runs.
+5. **Waiting.** Every exec carries a run id that the seed puts in its `[seed] done (...) run=<id>` syslog line (or `[seed] failed run=<id>` / `[seed] final reprocess failed run=<id>`). The runner polls syslog for it before starting the next part. An exec that times out or "did not return a script execution response" may still be running, so it's polled (up to `--wait-minutes`, default 30), never re-run.
+
+```bash
+npm run seed                      # seed what differs, then print counts and timings
+npm run seed -- --dry-run         # show the diff and the plan, run nothing
+npm run seed -- --only a,b        # just these components (no template check unless --portals)
+npm run seed -- --portals         # force the portals step
+npm run seed -- --all             # every component + portals (the old full seed), auto-split
+npm run seed -- --reprocess       # force the final reprocess even when nothing else runs
+```
+
+Builds in state `failed` are reported, not reseeded automatically (a broken component would otherwise rerun the seed every time). Instance components with no seed folder are listed, never deleted. If a part fails, earlier parts' records are written but the portals weren't reprocessed: fix the cause and rerun (add `--reprocess` if the diff is now empty).
+
+`build-seed.mjs` still writes `scripts/seed-demo.js` (`--only`, `--part i/n`, `--portals`) for manual runs and `npm run version:bump`; both share `scripts/seed/seed-lib.mjs`.
+
 ## Smoke checks
 
 - The **Runtime Tests** page (`/site/sp/params/page-id/tests`) runs a live checklist of every runtime hook and `$sp` helper.

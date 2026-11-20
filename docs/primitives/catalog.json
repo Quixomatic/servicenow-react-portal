@@ -2256,7 +2256,7 @@
       "name": "app/journal-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/textarea-field — journal types fall back to a plain textarea: no journal switch (work notes vs comments), no mentions, no history",
+    "ourMatch": "match: components:app/journal-field — journal_input / journal (work notes tinted, internal badge, audience line), journal_list read-only; no mentions",
     "sourceRef": "sys_ux_lib_component:ada975c95750e3134f3f1047d236d0db | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "sharedProps": [
       "color",
@@ -2395,9 +2395,10 @@
       "journal_input"
     ],
     "ourComponent": [
-      "components:app/textarea-field"
+      "components:app/journal-field",
+      "components:app/journal-composer"
     ],
-    "coverageNotes": "field-control maps journal/journal_input/journal_list to TextareaField. See backlog \"Activity stream + journal composer\"."
+    "coverageNotes": "field-control maps journal/journal_input/journal_list to JournalField; the form save posts the entry. The switch between work notes and comments lives in app/journal-composer. Not built: @mentions."
   },
   {
     "tag": "now-textarea",
@@ -8509,7 +8510,7 @@
       "name": "app/attachment-field",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/attachment-variable — catalog-only (uploads to the catalog draft record); not registered for file_attachment/user_image dictionary types",
+    "ourMatch": "match: components:app/attachment-field (file_attachment, user_image), components:app/attachment-variable (catalog type 33)",
     "sourceRef": "sys_ux_lib_component:9389aea7bb110a97762d6ae6eb5c3f9d | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/_devsnc_sn-record-file-attachment.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@devsnc/sn-record-file-attachment/index.min.js.map.jsdbx",
     "sharedProps": [
       "autofocus",
@@ -8576,9 +8577,10 @@
       "user_image"
     ],
     "ourComponent": [
+      "components:app/attachment-field",
       "components:app/attachment-variable"
     ],
-    "coverageNotes": "Drop zone with extension/size checks."
+    "coverageNotes": "Registered in app/field-control for file_attachment / user_image: upload to ZZ_YY<table> / the record (reserved sys_id when new), value = attachment sys_id, progress + cancel, replace, rename (file), remove, image preview; user_image limited to jpg/jpeg/png/bmp/gif/ico/svg; read-only shows a link / the image. Not covered: virus-state messaging."
   },
   {
     "tag": "now-color-selector",
@@ -14619,12 +14621,14 @@
       "name": "app/related-list",
       "kind": "widget"
     },
-    "ourMatch": "partial: components:app/data-table — RecordList supports fixedQuery / relatedListName + parent; not wired into forms (no relatedLists in the form bootstrap, no related-list tabs)",
+    "ourMatch": "match: components:app/related-list, components:app/data-table, utilities:app/list-data",
     "sourceRef": "sys_ux_macroponent:3e6ce775e9b2140536acf1276b4d20bc | sys_ux_lib_component:28e4eb5c2b8ea8be23d88f1f78af1eb1 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/data-table"
+      "components:app/related-list",
+      "components:app/data-table",
+      "utilities:app/list-data"
     ],
-    "coverageNotes": "RecordList supports fixedQuery / relatedListName + parent; not wired into forms (no relatedLists in the form bootstrap, no related-list tabs)"
+    "coverageNotes": "RelatedList: getListLayout with relatedListName + parentTable + parentRecordSysId + fixedQuery (the relationship's server-resolved filter): the relationship's own columns, m2MData, canCreate/canDelete; reference, many-to-many and scripted (REL:) relationships; count, search, sort, paging, personalisation per list name, live refresh, empty state; New (reference), Add / Edit… / Remove (m2m). Missing: declarative / classic related-list UI actions (E1), group-by."
   },
   {
     "tag": "now-record-list-connected-snapshot",
@@ -17917,7 +17921,7 @@
       "components:app/form",
       "utilities:app/graphql"
     ],
-    "coverageNotes": "useRecordForm: one GlideViewQuery_Query.uiView request (layout, values, field states, metadata, UI policies, client scripts, g_scratchpad, form UI actions), save via the Save UI action, sys_mod_count conflict check."
+    "coverageNotes": "useRecordForm: one GlideViewQuery_Query.uiView request (layout, values, field states, metadata, UI policies, client scripts, g_scratchpad, form UI actions, related lists with counts), save via the Save UI action, sys_mod_count conflict check."
   },
   {
     "tag": "now-record-form-connected",
@@ -18149,13 +18153,15 @@
       "name": "app/form",
       "kind": "widget"
     },
-    "ourMatch": "partial: components:app/form, components:app/record-form — Missing: related lists, activity stream, attachments, formatters (placeholders), form personalisation.",
+    "ourMatch": "partial: components:app/form, components:app/record-form — Missing: related lists, formatters other than activity (placeholders), form personalisation.",
     "sourceRef": "sys_ux_lib_component:ec69984ec18644891353bc47dbf325b3 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
       "components:app/form",
-      "components:app/record-form"
+      "components:app/record-form",
+      "components:app/related-lists",
+      "components:app/activity-stream"
     ],
-    "coverageNotes": "RecordForm: header (banner / bar / inline), cog settings (view, stacked / tabs), collapsible sections, tabs mode, annotations, 2-4 column splits, UI action bar, Save / Discard in the header, conflict check, per-field remote-change markers, remembered view. Missing: related lists, activity stream, attachments, formatters (placeholders), form personalisation."
+    "coverageNotes": "RecordForm: header (banner / bar / inline), cog settings (view, stacked / tabs), collapsible sections, tabs mode, annotations, 2-4 column splits, UI action bar, Save / Discard in the header, conflict check, per-field remote-change markers, remembered view. Missing: related lists, activity: opt-in (RecordForm activity=\"notes\" | \"below\", app/activity-stream; off by default while the presentation is undecided); attachments (app/attachment-panel, option off / below / header) done; other formatters (placeholders), form personalisation."
   },
   {
     "tag": "now-record-form-section-connected",
@@ -18744,12 +18750,13 @@
       "name": "app/record-page",
       "kind": "widget"
     },
-    "ourMatch": "partial: components:app/record-form — record page has only the form: no Details/related-list/related-item tabs, no activity side panel",
+    "ourMatch": "partial: components:app/record-form, components:app/related-lists — record page: form + related-list tabs (merged into the form tabs or below the form); no related-item tabs, no activity side panel",
     "sourceRef": "sys_ux_lib_component:e22b62165d875632aaf1c0c04b2b7213 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/record-form"
+      "components:app/record-form",
+      "components:app/related-lists"
     ],
-    "coverageNotes": "record page has only the form: no Details/related-list/related-item tabs, no activity side panel"
+    "coverageNotes": "Form + related-list tabs (app/related-lists, merged into app/form-tabs in tabs mode); no related-item tabs (declarative related items), no activity side panel"
   },
   {
     "tag": "now-record-related-list-tab-content",
@@ -18981,10 +18988,14 @@
       "name": "app/related-list-tabs",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/related-lists, components:app/form-tabs, components:app/form",
     "sourceRef": "sys_ux_lib_component:8772febbb9f8cf70574c5542a718f1f5 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Related lists are not fetched in the form bootstrap."
+    "ourComponent": [
+      "components:app/related-lists",
+      "components:app/form-tabs",
+      "components:app/form"
+    ],
+    "coverageNotes": "formLayout.relatedLists in the form bootstrap; related lists as extra tabs after the sections (tabs presentation) or collapsible sections below a stacked form, counts on tabs, lazy panels, omitIfEmpty, g_form.show/hideRelatedList(s). Standalone app/related-lists (tabs / stacked / single) and the app/related-lists-card widget."
   },
   {
     "tag": "sn-record-common-quick-form",
@@ -19508,10 +19519,16 @@
       "name": "app/attachments",
       "kind": "widget"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/attachment-panel, components:app/attachments-card — upload (multi, drag-drop, paste, progress, cancel), rename, delete, download / download all, image preview, live (AMB); no document-viewer preview, encryption modules or multi-select delete",
     "sourceRef": "sys_ux_macroponent:0e238931bce36c9fe3b52475c69c85a3 | sys_ux_lib_component:3b442b0a49981f104f75325e7baf6ef6 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Only the catalog attachment variable exists."
+    "ourComponent": [
+      "components:app/attachment-panel",
+      "components:app/attachment-list",
+      "components:app/attachment-dropzone",
+      "components:app/attachments-card",
+      "utilities:app/attachments"
+    ],
+    "coverageNotes": "utilities:app/attachments: GlideAttachmentQuery_Query (canCreate, per-file canDelete / canEditName, extensions, fileNameLength) + Attachment API list / upload (XHR progress, abort) / delete, rename via GlideRecord_Mutation.update_sys_attachment, sys_attachment AMB watch, validation (read-only first, extension, size from exposed com.glide.attachment.max_size). Panel = drop zone + upload queue + list (list / grid / chips, renderItem). RecordForm attachments option (off / below / header toggle); new records attach to the reserved sys_id. g_form.enable/disableAttachments drive it. Not covered: doc viewer (PDF / Office) previews, crypto modules, multi-select delete / download, pre-upload rename modal."
   },
   {
     "tag": "now-record-common-record-presence",
@@ -19991,12 +20008,13 @@
       "name": "app/activity-stream",
       "kind": "widget"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/activity-stream, utilities:app/activity — GlideActivity getEvents (journal, audit, attachments, emails, relations), platform filter configuration, filter chips + Fields menu, day groups, Show more, live via AMB /activity/events/<sys_id>, role=feed; no tags, filter sets, edit/delete, new-activity marker",
     "sourceRef": "sys_ux_macroponent:821dfc11da1d0fb007579ccb53738fd5 | sys_ux_lib_component:4f6f089446890030a5b1f67b340c41f4 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/form"
+      "components:app/activity-stream",
+      "utilities:app/activity"
     ],
-    "coverageNotes": "activity.xml formatter renders a placeholder."
+    "coverageNotes": "ActivityStream (feed, keyboard Page Up/Down, Ctrl+Home/End), work notes tinted, HTML via components:rich-text, field changes old → new, minimal attachment entries (seam for utilities:app/attachments), emails with body on demand, truncated entries via /api/now/ui/stream_entry/full_entry. Not built: tags, saved filter sets, edit/delete, last-viewed marker, email actions."
   },
   {
     "tag": "now-activity-stream-compose-connected",
@@ -20234,10 +20252,13 @@
       "name": "app/journal-composer",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/journal-composer — journal switch (writable fields via field ACLs), plain text, Ctrl/⌘+Enter, putJournal (as Workspace), bound mode (form value; Post and save when the form is dirty); no mentions, rich text, email mini-composer, pop-out",
     "sourceRef": "sys_ux_macroponent:77cb9632116e67049295c7c35d6a6147 | sys_ux_lib_component:2d62841616f7dfdd86a719b52a816dd0 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Journal fields fall back to textarea."
+    "ourComponent": [
+      "components:app/journal-composer",
+      "utilities:app/activity"
+    ],
+    "coverageNotes": "Posts with GlideActivity_Mutation.putJournal. Bound to a RecordForm the text is the form value (g_form, mandatory, form Save). Not built: @mentions, rich-text journals, email compose, response templates."
   },
   {
     "tag": "now-activity-combo",
@@ -20458,10 +20479,13 @@
       "name": "app/activity-stream",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/activity-stream (RecordActivity) — composer above the stream, stacked (no side-by-side by design)",
     "sourceRef": "sys_ux_lib_component:2535e4fd8141a1353cb36af932f69cd9 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Nothing built yet."
+    "ourComponent": [
+      "components:app/activity-stream",
+      "components:app/journal-composer"
+    ],
+    "coverageNotes": "RecordActivity = JournalComposer + ActivityStream (stacked); ActivityConversation (chat style); the app/activity-card widget (timeline / conversation / compact variants); RecordForm opt-in activity modes."
   },
   {
     "tag": "sn-form-internal-client-scripting-environment",
@@ -28580,12 +28604,13 @@
       "name": "ui/link-list",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/site-footer — footer menu renders link groups; no primitive",
+    "ourMatch": "match: components:app/quick-links",
     "sourceRef": "sys_ux_macroponent:b83fb1af6e8e84e024d4057df053038b | sys_ux_lib_component:a69c0e3c8ff7feaa515eeb0ce89b1318 | https://dev189813.service-now.com/uxab/_servicenow_now-link-set.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-link-set/index.min.js.map.jsdbx",
     "ourComponent": [
+      "components:app/quick-links",
       "components:app/site-footer"
     ],
-    "coverageNotes": "footer menu renders link groups; no primitive"
+    "coverageNotes": "app/quick-links: link tiles, compact list or call-to-action band, from options or a portal menu; optional live count badges (useRecordCount)."
   },
   {
     "tag": "now-iframe",
@@ -29201,12 +29226,12 @@
       "name": "ui/empty-state",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/data-table — empty state internal to data-table; no ui/empty-state",
+    "ourMatch": "match: components:empty",
     "sourceRef": "sys_ux_lib_component:84938fbc2bb1856d7cebb3e8c44c710e | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-empty-state/index.min.js.map.jsdbx",
     "ourComponent": [
-      "components:app/data-table"
+      "components:empty"
     ],
-    "coverageNotes": "empty state internal to data-table; no ui/empty-state"
+    "coverageNotes": "Host kit shadcn Empty (EmptyHeader, EmptyMedia icon variant, EmptyTitle, EmptyDescription, EmptyContent), container-sized. Used by the home widgets, search results and knowledge. data-table's own empty state predates it."
   },
   {
     "tag": "now-confirmation-message",
@@ -29396,13 +29421,14 @@
       "name": "app/highlighted-value",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:badge, components:app/data-table — no sys_ux_highlighted_value_config colours; list cells use a severity-dot heuristic for 1..5 fields",
+    "ourMatch": "partial: components:app/highlighted-value — label/priority heuristic tones (pill or dot); no sys_ux_highlighted_value_config colours, no popover",
     "sourceRef": "sys_ux_macroponent:7fdccde954f753ae89139c6c24551be5 | sys_ux_lib_component:bba2fb7b1c41122389bb4354d498cefd | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "ourComponent": [
+      "components:app/highlighted-value",
       "components:badge",
       "components:app/data-table"
     ],
-    "coverageNotes": "no sys_ux_highlighted_value_config colours; list cells use a severity-dot heuristic for 1..5 fields"
+    "coverageNotes": "components:app/highlighted-value: HighlightedValue (pill / dot, sm / default) and toneFor(label, { field, value }) — priority-like fields by value, everything else by keywords (rejected, closed, resolved, on hold, in progress, new). Used by search hits and my-items. Missing: platform highlighted-value configs, popover."
   },
   {
     "tag": "now-pill",
@@ -29606,12 +29632,13 @@
       "name": "ui/avatar",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/app-sidebar — initials avatar inside the UserMenu part only; no ui/avatar",
+    "ourMatch": "partial: components:app/app-sidebar, components:app/activity-stream — initials avatars inside the UserMenu and ActivityAvatar (activity entries); no ui/avatar",
     "sourceRef": "sys_ux_macroponent:211969ddfcc5e7050fcfa6cc019e9c8f | sys_ux_lib_component:223be0881a4988fcbe7112c23bf93c75 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/app-sidebar"
+      "components:app/app-sidebar",
+      "components:app/activity-stream"
     ],
-    "coverageNotes": "initials avatar inside the UserMenu part only; no ui/avatar"
+    "coverageNotes": "Initials avatars inside the UserMenu part and app/activity-stream (ActivityAvatar, photo when the user has one); no host-kit ui/avatar."
   },
   {
     "tag": "now-loader",
@@ -29736,13 +29763,12 @@
       "name": "ui/skeleton",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/data-table, components:app/field-control — skeleton rows/fields are internal; no ui/skeleton",
+    "ourMatch": "match: components:skeleton",
     "sourceRef": "sys_ux_macroponent:d183245237fbfcd1dc7487857919ddb0 | sys_ux_lib_component:ded06b9fca1504b35d1b9ed2d2cd8403 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/data-table",
-      "components:app/field-control"
+      "components:skeleton"
     ],
-    "coverageNotes": "skeleton rows/fields are internal; no ui/skeleton"
+    "coverageNotes": "Host kit shadcn Skeleton (pulsing block, sized with classes). data-table and field-control keep their internal skeleton rows."
   },
   {
     "tag": "now-progress-bar",
@@ -31673,12 +31699,13 @@
       "name": "app/search-box",
       "kind": "primitive"
     },
-    "ourMatch": "partial: components:app/catalog-picker — catalog item live search only; no global search",
+    "ourMatch": "match: components:app/search-box, utilities:app/search",
     "sourceRef": "sys_ux_macroponent:ce26d6793802478648556dc1f88fe020 | sys_ux_lib_component:a85d595d1e7139958a363bdd16fc850b | https://dev189813.service-now.com/uxab/shell-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/catalog-picker"
+      "components:app/search-box",
+      "utilities:app/search"
     ],
-    "coverageNotes": "catalog item live search only; no global search"
+    "coverageNotes": "SearchBox: WAI-ARIA combobox, typeahead grouped by source (catalog search API, kb text index, my requests, my incidents, portal pages), recent searches (x_312987_portal localStorage), suggestions, \"/\" shortcut, See all / search everything into the results page. No AI Search (inactive on the instance)."
   },
   {
     "tag": "sn-component-workspace-global-search-typeahead",
@@ -31696,11 +31723,13 @@
       "name": "app/search-box",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "partial: components:app/search-box — portal sources, not the Workspace global search API / search profiles",
     "sourceRef": "sys_ux_lib_component:5e87ea2c5ed7bcaf6f5455dfc29d155c",
     "verified": false,
-    "ourComponent": [],
-    "coverageNotes": "Nothing built yet."
+    "ourComponent": [
+      "components:app/search-box"
+    ],
+    "coverageNotes": "The portal typeahead covers the interaction; the Global Search REST API and AI Search profiles are not used (AI Search inactive; global search ~2.4 s, agent-oriented groups)."
   },
   {
     "tag": "sn-search-results-container",
@@ -31797,10 +31826,12 @@
       "name": "app/search-results",
       "kind": "widget"
     },
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/search-results",
     "sourceRef": "sys_ux_macroponent:78580cbc090d816f232d10e954f6dc74 | sys_ux_lib_component:761a7850bcbf1376ffdb8aa52c6e5302",
-    "ourComponent": [],
-    "coverageNotes": "Nothing built yet."
+    "ourComponent": [
+      "components:app/search-results"
+    ],
+    "coverageNotes": "Results page widget: tabs per source with totals, an All tab with top hits per source, paged results (Load more), empty and no-results states. Term and tab in the page q (term, source)."
   },
   {
     "tag": "sn-search-facets",
@@ -31871,10 +31902,12 @@
       "name": "app/search-facets",
       "kind": "primitive"
     },
-    "ourMatch": "none",
+    "ourMatch": "partial: components:app/search-results — source tabs with counts; no field facets / refiners",
     "sourceRef": "sys_ux_macroponent:f87c8f9a2b17510491d16e97103e1362 | sys_ux_lib_component:d959697dc1ae9ed14ec2a875026db3c3",
-    "ourComponent": [],
-    "coverageNotes": "Nothing built yet."
+    "ourComponent": [
+      "components:app/search-results"
+    ],
+    "coverageNotes": "Facet-by-source only (tabs with totals). No per-field refiners."
   },
   {
     "tag": "sn-tab-filter",
@@ -32722,12 +32755,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "partial: components:app/data-table — skeletons are internal to data-table/field-control",
+    "ourMatch": "match: components:skeleton",
     "sourceRef": "sys_ux_macroponent:7c349f00f7e1dc76b35f502322cccb73 | sys_ux_lib_component:1787f55ff9030e3ca290a1bf22fb8d89 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
     "ourComponent": [
-      "components:app/data-table"
+      "components:skeleton"
     ],
-    "coverageNotes": "skeletons are internal to data-table/field-control"
+    "coverageNotes": "Compose components:skeleton blocks for custom shapes."
   },
   {
     "tag": "sn-catalog-service-fulfillment",
@@ -33906,10 +33939,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/attachment-panel (header: title, count, download all, attach button)",
     "sourceRef": "sys_ux_lib_component:2cab6b9539ff81ce3376141c06cad265 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Nothing built yet."
+    "ourComponent": [
+      "components:app/attachment-panel"
+    ],
+    "coverageNotes": "Panel header row."
   },
   {
     "tag": "now-record-common-attachment-card",
@@ -34038,10 +34073,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/attachment-list (AttachmentTile / AttachmentRow)",
     "sourceRef": "sys_ux_lib_component:3017a8a3d51e0c766ea926e821193402 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Nothing built yet."
+    "ourComponent": [
+      "components:app/attachment-list"
+    ],
+    "coverageNotes": "Exported parts."
   },
   {
     "tag": "sn-form-internal-searchbar",
@@ -36213,12 +36250,13 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "partial: components:app/site-footer — see now-link-set",
+    "ourMatch": "partial: components:app/quick-links, components:app/site-footer — groups flatten into one set; footer renders grouped links",
     "sourceRef": "sys_ux_macroponent:67cf54ff68b39f4e45b946184b91bacb | sys_ux_lib_component:7742e052752231adc002c5d85f0a2522 | https://dev189813.service-now.com/uxab/_servicenow_now-link-set.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-link-set/index.min.js.map.jsdbx",
     "ourComponent": [
+      "components:app/quick-links",
       "components:app/site-footer"
     ],
-    "coverageNotes": "see now-link-set"
+    "coverageNotes": "Groups from a menu flatten into one tile set; the footer still renders grouped link columns."
   },
   {
     "tag": "now-accordion-item",
@@ -37519,10 +37557,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "none",
+    "ourMatch": "match: components:empty",
     "sourceRef": "sys_ux_macroponent:6f51fcc407363e5a52ac464315713ee9 | sys_ux_lib_component:9769a9aa3c7efff767558e150204e04a | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Inventory row (not reviewed); nothing built."
+    "ourComponent": [
+      "components:empty"
+    ],
+    "coverageNotes": "components:empty covers the empty-state template."
   },
   {
     "tag": "sn-form-internal-attachments-list",
@@ -37651,10 +37691,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "none",
+    "ourMatch": "match: components:app/attachment-list",
     "sourceRef": "sys_ux_lib_component:981c4bf5fba2fcf648b25b3be90404a2 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Inventory row (not reviewed); nothing built."
+    "ourComponent": [
+      "components:app/attachment-list"
+    ],
+    "coverageNotes": "List / grid / chips layouts."
   },
   {
     "tag": "now-flyout-menu-list",
@@ -38354,10 +38396,12 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "none",
+    "ourMatch": "partial: components:app/attachment-list (AttachmentTile) — not a generic templated card",
     "sourceRef": "sys_ux_lib_component:b13f717ea765ba28e451fbd17f603624 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx | https://dev189813.service-now.com/uxab/nds-bundle.map.jsdbx",
-    "ourComponent": [],
-    "coverageNotes": "Inventory row (not reviewed); nothing built."
+    "ourComponent": [
+      "components:app/attachment-list"
+    ],
+    "coverageNotes": "Tile used by the grid layout."
   },
   {
     "tag": "sn-catalog-default-variable",
@@ -41921,9 +41965,10 @@
     "usefulness": "low",
     "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
     "proposedPrimitive": null,
-    "ourMatch": "partial: components:app/data-table — see now-record-list-connected-related",
+    "ourMatch": "match: components:app/related-list — see now-record-list-connected-related",
     "sourceRef": "sys_ux_lib_component:f856a11b2901530e40f8ee70cf17e4b0 | https://dev189813.service-now.com/uxab/list-form-bundle.map.jsdbx",
     "ourComponent": [
+      "components:app/related-list",
       "components:app/data-table"
     ],
     "coverageNotes": "see now-record-list-connected-related"

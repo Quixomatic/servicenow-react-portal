@@ -20,7 +20,8 @@ type Options = { menu?: string; showTitle?: boolean; note?: string }
  * still replaces the title) or "hidden" (renders nothing; app-shell drops the region). Banner text:
  * layout options subheaderTitle (default: the page's title) and subheaderSubtitle (default: the
  * page's description, if it has one); subheaderIcon (Lucide name) and subheaderTint (primary,
- * chart-1…5, none: theme tokens).
+ * chart-1…5, none: theme tokens). The banner also has a "below" slot: a full-width row under the
+ * title (app/hero-search puts the portal search there).
  */
 export default function AppSubheader({ options = {} }: { options?: Options }) {
     const { page } = usePortal()
@@ -82,6 +83,9 @@ export default function AppSubheader({ options = {} }: { options?: Options }) {
                         {options.note ? <span className="max-sm:hidden">{options.note}</span> : null}
                     </span>
                 </div>
+                {/* Banner only: a full-width row under the title (e.g. app/hero-search). Bar pages have no
+                    "below" outlet, so contributions fall back inline. */}
+                {banner ? <HeaderSlotOutlet name="below" className="col-span-full flex min-w-0 empty:hidden max-sm:w-full" /> : null}
             </div>
         </div>
     )

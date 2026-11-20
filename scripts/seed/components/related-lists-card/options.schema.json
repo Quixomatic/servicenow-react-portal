@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "table": { "type": "string", "title": "Table", "description": "Empty: the route / URL table param" },
+    "sysId": { "type": "string", "title": "Record sys_id", "description": "Empty: the route / URL sys_id param" },
+    "view": { "type": "string", "title": "Form view", "description": "The view whose related lists show (empty = default)" },
+    "layout": { "type": "string", "title": "Layout", "enum": ["tabs", "stacked", "single"], "enumNames": ["Tabs", "Stacked sections", "One list"], "default": "tabs" },
+    "name": { "type": "string", "title": "List (layout: one list)", "description": "e.g. task_sla.task or REL:<sys_id>" },
+    "include": { "type": "string", "title": "Only these lists", "description": "Comma-separated related list names" },
+    "exclude": { "type": "string", "title": "Leave out", "description": "Comma-separated related list names" },
+    "title": { "type": "string", "title": "Title", "default": "Related lists" },
+    "recordPage": { "type": "string", "title": "Record page", "default": "form" },
+    "actions": { "type": "boolean", "title": "Actions", "description": "New / Add / Edit… / Remove where the platform allows them", "default": true },
+    "liveUpdates": { "type": "boolean", "title": "Live updates", "description": "Refresh the shown list when its records change (record watch)", "default": false },
+    "pageSize": { "type": "integer", "title": "Rows per page", "default": 10 }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "type": "object",
+  "properties": {
+    "variant": {
+      "type": "string",
+      "title": "Presentation",
+      "enum": [
+        "timeline",
+        "conversation",
+        "compact"
+      ],
+      "description": "timeline: composer on top, filters, day headings; conversation: chat bubbles, composer at the bottom; compact: narrow side panel",
+      "default": "timeline"
+    },
+    "table": {
+      "type": "string",
+      "title": "Table",
+      "description": "Record table; empty = the route / URL param (table)",
+      "default": ""
+    },
+    "sysId": {
+      "type": "string",
+      "title": "Record sys_id",
+      "description": "Empty = the route / URL param (sys_id)",
+      "default": ""
+    },
+    "title": {
+      "type": "string",
+      "title": "Title",
+      "default": "Activity"
+    },
+    "showRecord": {
+      "type": "boolean",
+      "title": "Show the record",
+      "description": "Number and short description under the title, linking to the record page",
+      "default": true
+    },
+    "composer": {
+      "type": "boolean",
+      "title": "Composer",
+      "description": "Let the user post work notes / comments",
+      "default": true
+    },
+    "journalFields": {
+      "type": "string",
+      "title": "Journal fields",
+      "description": "Comma list the composer offers, in order (empty = every field the user may write), e.g. comments",
+      "default": ""
+    },
+    "defaultJournalField": {
+      "type": "string",
+      "title": "Default journal field",
+      "default": ""
+    },
+    "kinds": {
+      "type": "string",
+      "title": "Entry kinds",
+      "description": "Comma list: journal, audit, attachment, email, relation (empty = all)",
+      "default": ""
+    },
+    "showFilters": {
+      "type": "boolean",
+      "title": "Filters",
+      "default": true
+    },
+    "pageSize": {
+      "type": "number",
+      "title": "Entries per page",
+      "default": 10
+    },
+    "recordPage": {
+      "type": "string",
+      "title": "Record page",
+      "description": "Portal page that opens the record (gets table / sys-id); empty = no link",
+      "default": "form"
+    }
+  }
+}

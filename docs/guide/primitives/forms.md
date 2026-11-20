@@ -49,7 +49,9 @@ import { RecordForm } from 'components:app/form'
 | `headerActions` | Extra header content on the right (e.g. a "New" button) |
 | `headerSlots` | `{ left?, right? }`: render the header into a page header's slots (see [Header slots](header-slots.md)) |
 | `presentation` | `stacked` (default) or `tabs`: a **default only**; the user's own choice wins |
+| `attachments` | `off` (default), `below` (a panel under the sections) or `header` (a paperclip + count that shows / hides the panel). See [Attachments](attachments.md) |
 | `renderElement(name, ctx)` | Custom element rendering |
+| `relatedLists` | `auto` (default: extra tabs in tabs mode, collapsible sections below a stacked form), `tabs`, `stacked`, `off`. See [Related lists](related-lists.md) |
 
 What it renders: the header (unsaved indicator, table label, number, state badges), the UI action bar, Discard and Save (**Ctrl/⌘+S**), the form settings (cog) menu, an error summary that focuses and links to each invalid field, sections and columns.
 
@@ -60,6 +62,19 @@ What it renders: the header (unsaved indicator, table label, number, state badge
 - An untitled first section (e.g. incident's main fields) always stays on top: never collapsible, never a tab.
 - A section hidden by `g_form.setSectionDisplay`, or whose fields are all hidden, disappears in both modes.
 - The cog menu has **View ▸** and **Layout ▸** (Stacked / Tabs). The user's layout choice is stored in `x_312987_portal.form.presentation`. Platform preferences (`tabbed.forms`, `workspace.layout.*`) are never read or written.
+
+### Related lists
+
+The bootstrap also carries the view's related lists (`formLayout.relatedLists`, with counts), so they show without another request:
+
+- in tabs presentation, as tabs after the sections, with counts;
+- when stacked, as collapsible sections under the form.
+
+Both are lazy: a list loads only when shown. `g_form.showRelatedList` / `hideRelatedList` apply. Rows and **New** open through the form's `openRecord`, so the unsaved-changes guard applies. Details: [Related lists](related-lists.md).
+
+### Activity (opt-in)
+
+`activity`: `off` (default; journal fields render as `app/journal-field`), `notes` (the composer and stream in the view's Notes section, at its first journal input) or `below` (under the sections). The presentation isn't decided yet. Details: [Activity and journals](activity.md).
 
 ### Header placement
 
@@ -85,15 +100,19 @@ A form page widget, like Service Portal's form widget: one generic `form` page s
 | `headerPlacement` | `auto`, `header`, `inline` |
 | `listPage` | A portal page with the list: adds a back button that carries the table |
 | `presentation` | `stacked` or `tabs` (default only; the user's choice wins) |
+| `attachments` | `off`, `below`, `header` (the record's attachments; default off) |
+| `relatedLists` | `auto`, `tabs`, `stacked`, `off` |
+| `activity` | `off` (default), `notes`, `below`: the opt-in composer + activity stream |
 
 It navigates with explicit `table` / `sys-id` / `view` URL params.
 
 ## Not built yet
 
-View rules (classic and Workspace view rules are ignored), related lists, the activity stream and journal composer, attachments, annotations (**in progress**), section-level formatters (placeholders render instead), highlighted values and form personalization.
+View rules (classic and Workspace view rules are ignored), annotations (**in progress**), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), highlighted values and form personalization.
 
 ## Related
 
 - [Form runtime](form-runtime.md)
+- [Related lists](related-lists.md)
 - [Fields](fields.md)
 - [Header slots](header-slots.md)

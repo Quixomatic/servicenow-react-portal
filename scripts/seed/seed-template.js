@@ -12,12 +12,61 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.15.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.16.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
     var UC_ITIL = '2f137fb2eb303010e0ef83c45e52287c'
     var log = []
+
+    // ---- Batch mode (seed performance) ----
+    // 'full' seeds everything; 'components' (build-seed --only a,b) seeds just those components.
+    var SEED_MODE = '__SEED_MODE__'
+    // Run id (tags the "[seed] done" / failure syslog lines; scripts/seed/run-seed.mjs polls for it)
+    // and this template's hash, stored by portals/full runs in TEMPLATE_HASH_PROPERTY when they finish
+    // so `npm run seed` reruns the portals step only after the template changes.
+    var SEED_RUN_ID = '__SEED_RUN_ID__'
+    var SEED_TEMPLATE_HASH = '__SEED_TEMPLATE_HASH__'
+    var TEMPLATE_HASH_PROPERTY = 'x_312987_portal.seed.template_hash'
+    // While the seed runs, the compile-on-save rules and per-write portal reprocessing are off:
+    // every component compiles ONCE in dependency order below, and every active portal reprocesses
+    // ONCE at the end. Without this, each changed record compiled on save, then again in the pass,
+    // and each compile rebuilt every portal using it.
+    var seedSession = gs.getSession()
+    var SKIP_COMPILE = 'x_312987_portal.skip_compile'
+    var SKIP_REPROCESS = 'x_312987_portal.skip_reprocess'
+    seedSession.putClientData(SKIP_COMPILE, 'true')
+    seedSession.putClientData(SKIP_REPROCESS, 'true')
+    function clearBatchFlags() {
+        seedSession.putClientData(SKIP_COMPILE, '')
+        seedSession.putClientData(SKIP_REPROCESS, '')
+    }
+    var seedT0 = Date.now()
+    var seedTimes = []
+    var seedStats = { written: 0, compiled: 0, upToDate: 0, failed: 0, portals: 0, byTable: {} }
+    function mark(label) {
+        seedTimes.push(label + ' ' + (Date.now() - seedT0) + 'ms')
+    }
+    try {
+
+    // Stored vs wanted, ignoring formatting the platform adds: JSON fields compare by canonical
+    // content (key order and whitespace don't matter), booleans as 'true'/'1', text with CRLF/LF
+    // normalised. Without this, unchanged records were rewritten on every run.
+    function canonical(x) {
+        if (Array.isArray(x)) return '[' + x.map(canonical).join(',') + ']'
+        if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map(function (key) { return JSON.stringify(key) + ':' + canonical(x[key]) }).join(',') + '}'
+        return JSON.stringify(x)
+    }
+    function sameValue(stored, wantedStr, wanted) {
+        var cur = String(stored === null || stored === undefined ? '' : stored)
+        if (cur === wantedStr) return true
+        if (typeof wanted === 'boolean') return (cur === '1' || cur === 'true') === wanted
+        if (cur.replace(/\r\n/g, '\n') === wantedStr.replace(/\r\n/g, '\n')) return true
+        if (wanted !== null && typeof wanted === 'object') {
+            try { return canonical(JSON.parse(cur || 'null')) === canonical(wanted) } catch (e) { return false }
+        }
+        return false
+    }
 
     function upsert(table, query, fields) {
         var gr = new GlideRecord(T + table)
@@ -30,13 +79,17 @@
         for (var k in fields) {
             var v = fields[k]
             var s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
-            if (isNew || String(gr.getValue(k) || '') !== s) {
+            if (isNew || !sameValue(gr.getValue(k), s, v)) {
                 gr.setValue(k, s)
                 dirty = true
             }
         }
         var id = isNew ? gr.insert() : dirty ? (gr.update(), gr.getUniqueValue()) : gr.getUniqueValue()
         if (!id) throw new Error('Could not write ' + table + ' ' + query + ': ' + gs.getErrorMessages())
+        if (dirty) {
+            seedStats.written++
+            seedStats.byTable[table] = (seedStats.byTable[table] || 0) + 1
+        }
         return id
     }
 
@@ -229,29 +282,101 @@
     // compiles all settle at script end, so an importer can compile before its import is ready and
     // fail with "hasn't compiled successfully yet". Recompile every component in dependency order
     // once the save compiles have run (up-to-date builds are skipped).
+    // --portals: no component sources in this payload; placements need the existing component ids.
+    if (SEED_MODE === 'portals') {
+        var existing = new GlideRecord(T + 'component')
+        existing.addQuery('namespace', 'app')
+        existing.query()
+        while (existing.next()) C[existing.getValue('key')] = existing.getUniqueValue()
+    }
+
     var builds = require(ROOT + 'build/build-service.ts')
     var owners = require(ROOT + 'source/owner.ts')
     var importLog = []
     var importChain = Promise.resolve()
+    mark('records')
+    // Themes compile too (their compile-on-save rule is off during the seed).
+    Object.keys(themeIds).forEach(function (tk) {
+        importChain = importChain.then(function () {
+            return builds.compileOwner(owners.loadOwner('theme', themeIds[tk])).then(function (b) {
+                if (b.upToDate) seedStats.upToDate++
+                else seedStats.compiled++
+            })
+        })
+    })
     // Every component, not only the import graph: a compiler upgrade (new COMPILER_VERSION) changes
     // every build's input hash, and unchanged records are not re-saved. Up-to-date builds are skipped.
     Object.keys(components).forEach(function (key) {
         importChain = importChain.then(function () {
             return builds.compileOwner(owners.loadOwner('component', C[key])).then(function (b) {
                 var errs = (b.diagnostics && b.diagnostics.errors) || []
+                if (b.upToDate) seedStats.upToDate++
+                else if (errs.length) seedStats.failed++
+                else seedStats.compiled++
                 importLog.push(key + ': ' + (b.upToDate ? 'up to date' : b.state) + (errs.length ? ' ERR ' + errs.map(function (e) { return e.message }).join('; ') : ''))
             })
         })
     })
-    importChain.then(
-        function () { gs.info('[seed] compiles (dependency order): ' + importLog.join(' | ')) },
-        function (e) { gs.error('[seed] record-import compile pass failed: ' + e) }
-    )
+    importChain
+        .then(
+            function () {
+                mark('compiles')
+                gs.info('[seed] compiles (dependency order): ' + importLog.join(' | '))
+            },
+            function (e) { gs.error('[seed] record-import compile pass failed: ' + e) }
+        )
+        .then(function () {
+            // Instance CSS of every placement the seed wrote (grid layout, style tokens, classes,
+            // x-css-var block options): the placement business rule is suppressed by the batch flag,
+            // so compile here, before the reprocess ships it in the manifests.
+            var instanceStyle = require(ROOT + 'design/instance-style.ts')
+            return Promise.all(
+                seedPlacements.map(function (id) {
+                    return instanceStyle.refreshInstanceCss(id).then(null, function (e) {
+                        gs.error('[seed] instance CSS failed for placement ' + id + ': ' + e)
+                        return false
+                    })
+                })
+            ).then(function (changed) {
+                mark('instance css (' + changed.filter(Boolean).length + ' of ' + changed.length + ' changed)')
+            })
+        })
+        .then(function () {
+            // One reprocess per active portal, now that every build is in place (the compiles above
+            // didn't reprocess: the skip flag is still on). The flags are cleared first so a failure
+            // here can't leave the session suppressing compiles.
+            clearBatchFlags()
+            var relLog = []
+            var pgr = new GlideRecord(T + 'portal')
+            pgr.addActiveQuery()
+            // --part runs skip this (the closing --portals run reprocesses once); --only runs keep it.
+            if ('__SEED_REPROCESS__' === 'no') pgr.addQuery('sys_id', 'NULL')
+            pgr.query()
+            while (pgr.next()) {
+                var rel = releases.processPortal(pgr.getUniqueValue(), false) // writes only when the manifest hash changed
+                seedStats.portals++
+                relLog.push(pgr.getValue('slug') + ' rev ' + rel.revision + (rel.problems.length ? ' problems: ' + rel.problems.join('; ') : ''))
+            }
+            mark('reprocess')
+            // Portal structure is in place: record which template produced it (scoped gs.setProperty
+            // creates the property in this scope when missing). Written before the done line.
+            if (SEED_MODE === 'portals' || SEED_MODE === 'full') {
+                gs.setProperty(TEMPLATE_HASH_PROPERTY, SEED_TEMPLATE_HASH, 'React Portal: hash of scripts/seed/seed-template.js at the last finished portals/full seed (npm run seed compares it).')
+            }
+            gs.info('[seed] done (' + SEED_MODE + ') run=' + SEED_RUN_ID + ': ' + seedStats.written + ' records written, ' + seedStats.compiled + ' compiled, ' +
+                seedStats.upToDate + ' up to date, ' + seedStats.failed + ' failed, ' + seedStats.portals + ' portals reprocessed (written: ' + JSON.stringify(seedStats.byTable) + ') | ' +
+                relLog.join(', ') + ' | ' + seedTimes.join(', '))
+        })
+        .then(null, function (e) {
+            clearBatchFlags()
+            gs.error('[seed] final reprocess failed run=' + SEED_RUN_ID + ': ' + e)
+        })
 
     /* ---------------- Portals, pages, placements ---------------- */
 
     // Place a list of widgets/blocks; a block's `children` maps its drop zones to nested lists.
-    function placeAll(pid, pageId, parentId, list, defaultRegion) {
+    var seedPlacements = []
+    function placeAll(pid, pageId, parentId, list, defaultRegion, kept) {
         for (var j = 0; j < list.length; j++) {
             var w = list[j]
             var region = w.region || defaultRegion
@@ -268,7 +393,9 @@
                 style_tokens_json: w.style || '',
                 classes: w.classes || '',
             })
-            if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone)
+            if (kept) kept[id] = true
+            seedPlacements.push(id)
+            if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone, kept)
         }
     }
 
@@ -276,13 +403,15 @@
 
     // Upsert a portal's menus by (portal, key) and their items by (menu, parent, label); separators
     // by (menu, parent, type, order). Item defs:
-    //   { page: '<route>', label?, params?, query? }        → page item (references the page record)
+    //   { page: '<route>', label?, params?, query?, record? } → page item (references the page record);
+    //                                                         record = explicit URL params { table, sys_id, view, query }
     //   { route: 'orders?tab=open', label, portal? }       → route item (portal: another portal's slug)
     //   { url: 'https://…', label, target? }               → external URL item
     //   { label, children: [...], collapsed? }             → group
     //   { type: 'separator' }
     // Common: icon (lucide kebab-case), tooltip, match ('exact' | 'prefix'), roles ('a,b'), badge,
-    // availableFor / notAvailableFor (user_criteria sys_ids, see seedCriteria).
+    // availableFor / notAvailableFor (user_criteria sys_ids, see seedCriteria), condition (script: show the
+    // item only when it returns true for the user).
     // The menu business rules validate each write; one release reprocess runs at the end of seedPortal.
     function seedMenuItems(menuId, parentId, list, counts) {
         var keep = {}
@@ -291,11 +420,12 @@
             var order = (i + 1) * 100
             var type = it.type || (it.children ? 'group' : it.page !== undefined ? 'page' : it.url ? 'url' : 'route')
             var params = null
-            if (it.params || it.query || it.portal) {
+            if (it.params || it.query || it.portal || it.record) {
                 params = {}
                 if (it.params) params.params = it.params
                 if (it.query) params.query = it.query
                 if (it.portal) params.portal = it.portal
+                if (it.record) params.record = it.record
             }
             var fields = {
                 menu: menuId,
@@ -315,6 +445,7 @@
                 collapsed: !!it.collapsed,
                 roles: it.roles || '',
                 badge: it.badge || '',
+                condition: it.condition || '',
             }
             if (type === 'page' && !fields.page) throw new Error('menu item "' + it.label + '": no page with route ' + it.page)
             var where = 'menu=' + menuId + '^parent' + (parentId ? '=' + parentId : 'ISEMPTY') +
@@ -339,9 +470,8 @@
     }
 
     function seedMenus(pid, pageIds, menus) {
-        var session = gs.getSession()
-        session.putClientData('x_312987_portal.skip_reprocess', 'true') // one reprocess at the end
-        try {
+        // The seed-wide batch flag (top of the script) already suppresses per-write reprocessing.
+        {
             for (var m = 0; m < menus.length; m++) {
                 var def = menus[m]
                 var menuId = upsert('menu', 'portal=' + pid + '^key=' + def.key, {
@@ -355,12 +485,11 @@
                 seedMenuItems(menuId, '', def.items, counts)
                 log.push('  menu ' + def.key + ': ' + counts.items + ' items' + (counts.deactivated ? ', ' + counts.deactivated + ' stale deactivated' : ''))
             }
-        } finally {
-            session.putClientData('x_312987_portal.skip_reprocess', '')
         }
     }
 
     function seedPortal(def) {
+        if (SEED_MODE === 'components') return '' // build-seed --only: components only, no portal structure
         var pid = upsert('portal', 'slug=' + def.slug, {
             name: def.name,
             slug: def.slug,
@@ -386,7 +515,22 @@
                 content_width: pg.contentWidth || 'inherit',
             })
             seedCriteria('page', 'page', pageIds[pg.route], pg)
-            placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main')
+            var keptPl = {}
+            placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main', keptPl)
+            // pg.prune: placements on this page that the seed no longer lists (e.g. the old home
+            // page's demo cards) are deactivated, not deleted. Opt-in, so designer-made placements on
+            // other seeded pages stay.
+            if (pg.prune) {
+                var stalePl = new GlideRecord(T + 'placement')
+                stalePl.addEncodedQuery('page=' + pageIds[pg.route] + '^active=true')
+                stalePl.query()
+                while (stalePl.next()) {
+                    if (keptPl[stalePl.getUniqueValue()]) continue
+                    stalePl.setValue('active', false)
+                    stalePl.update()
+                    log.push('  ' + def.slug + '/' + pg.route + ': deactivated placement ' + stalePl.getDisplayValue('component'))
+                }
+            }
         }
         var portalWidgets = def.portalWidgets || [
             { c: 'site-header', region: 'header', options: { brand: def.name } },
@@ -420,8 +564,8 @@
         }
         upsert('portal', 'slug=' + def.slug, { home_page: pageIds[def.home] })
         if (def.menus) seedMenus(pid, pageIds, def.menus)
-        var rel = releases.processPortal(pid, true)
-        log.push('portal ' + def.slug + ': release rev ' + rel.revision + (rel.problems.length ? ' problems: ' + rel.problems.join('; ') : ' (no problems)'))
+        // The release reprocesses once at the end of the seed, after every compile (see importChain).
+        log.push('portal ' + def.slug + ': seeded (release reprocesses at the end)')
         return pid
     }
 
@@ -440,30 +584,50 @@
     if (demoItem.next()) DEMO_CATALOG_ITEM = demoItem.getUniqueValue()
     log.push('demo catalog item: ' + (DEMO_CATALOG_ITEM || 'not found (run scripts/seed/catalog-demo-global.js in global scope)'))
 
+    // Home page and "My …" menu items: the platform's dynamic filter option "Me", the OOB "Report
+    // Outage" record producer, and menu conditions that hide My tasks / My surveys for users who have none.
+    var ME = 'DYNAMIC90d1921e5f510100a9ad2572f2b477fe'
+    var REPORT_ISSUE = '38c1fc840a0a0b2700285921c2bf5fc8'
+    var COND_HAS_TASKS = "var ga = new GlideAggregate('task'); ga.addQuery('active', true); ga.addQuery('assigned_to', gs.getUserID()); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0"
+    var COND_HAS_SURVEYS = "var ga = new GlideAggregate('asmt_assessment_instance'); ga.addQuery('user', gs.getUserID()); ga.addQuery('state', 'IN', 'ready,wip'); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0"
+
     seedPortal({
         slug: 'sp', name: 'Service Portal', theme: 'sp-light', isDefault: true, home: 'home', layout: 'app-shell',
         // App shell (like the Dashboard portal) in sp's own look: a plain sidebar-coloured canvas
         // (no texture), the full-height icon-collapsible sidebar with the header band beside it, and
         // an inset main card whose sub-header takes the pages' titles and toolbars (header slots).
-        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' }, exposedProperties: ['glide.sc.checkout.twostep'] },
+        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' }, exposedProperties: ['glide.sc.checkout.twostep', 'com.glide.attachment.max_size', 'glide.attachment.extensions'] },
         nav: [{ label: 'Home', to: '', icon: 'house' }, { label: 'Incidents', to: 'incidents', icon: 'ticket' }, { label: 'Record list', to: 'list', icon: 'table-2' }, { label: 'Lists', to: 'lists', icon: 'list' }, { label: 'Orders', to: 'orders', icon: 'shopping-cart' }, { label: 'Tests', to: 'tests', icon: 'flask-conical' }, { label: 'Embeds', to: 'embeds', icon: 'layers' }, { label: 'Layouts', to: 'layouts', icon: 'layout-grid' }, { label: 'Fields', to: 'fields', icon: 'text-cursor-input' }, { label: 'Catalog', to: 'catalog', icon: 'store' }, { label: 'Form', to: 'form', icon: 'file-text' }, { label: 'About', to: 'about', icon: 'info' }],
         // Menu records (navigation_json above stays one release as the fallback).
         menus: [
             { key: 'primary', name: 'Primary', items: [
+                // User-centred items: the generic list page with explicit record params (table + a
+                // "Me" query: the platform's dynamic filter) and a title (q title=…). Items that only
+                // apply to some users carry a condition (My tasks, My surveys).
                 { label: 'Service desk', children: [
                     { page: 'home', label: 'Home', icon: 'house', match: 'exact' },
+                    { page: 'list', label: 'My requests', icon: 'package', record: { table: 'sc_req_item', query: 'active=true^requested_for' + ME + '^ORopened_by' + ME }, query: { title: 'My requests' } },
+                    { page: 'list', label: 'My incidents', icon: 'life-buoy', record: { table: 'incident', query: 'active=true^caller_id' + ME + '^ORopened_by' + ME }, query: { title: 'My incidents' } },
+                    { page: 'list', label: 'My approvals', icon: 'stamp', record: { table: 'sysapproval_approver', query: 'approver' + ME + '^state=requested' }, query: { title: 'My approvals' } },
+                    { page: 'list', label: 'My tasks', icon: 'list-checks', record: { table: 'task', query: 'active=true^assigned_to' + ME }, query: { title: 'My tasks' }, condition: COND_HAS_TASKS },
+                    { page: 'list', label: 'My surveys', icon: 'clipboard-check', record: { table: 'asmt_assessment_instance', query: 'user' + ME + '^stateINready,wip' }, query: { title: 'My surveys' }, condition: COND_HAS_SURVEYS },
+                    { page: 'kb', label: 'Knowledge', icon: 'book-open' },
+                    { page: 'catalog', label: 'Catalog', icon: 'store' },
+                ] },
+                { label: 'Components', children: [
                     { page: 'list', label: 'Record list', icon: 'table-2', tooltip: 'Any table: ?table=&query=&view=' },
                     { page: 'form', label: 'Record form', icon: 'file-text', tooltip: 'Any record: ?table=&sys_id=&view=' },
                     { page: 'incidents', label: 'Incidents', icon: 'ticket' },
-                    { page: 'catalog', label: 'Catalog', icon: 'store' },
                     { page: 'orders', label: 'Orders', icon: 'shopping-cart' },
-                ] },
-                { label: 'Components', children: [
                     { page: 'lists', label: 'List cards', icon: 'list' },
                     { page: 'fields', label: 'Fields', icon: 'text-cursor-input' },
                     { page: 'layouts', label: 'Layouts', icon: 'layout-grid' },
                     { page: 'embeds', label: 'Embeds', icon: 'layers' },
                     { page: 'variable-editor', label: 'Variable editor', icon: 'clipboard-list' },
+                    // Activity (A5): app/activity-card demo.
+                    { page: 'activity', label: 'Activity', icon: 'messages-square' },
+                    // Attachments (A6): presentation variants of one record's attachments.
+                    { page: 'attachments', label: 'Attachments', icon: 'paperclip' },
                 ] },
                 { label: 'More', children: [
                     { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
@@ -478,7 +642,7 @@
             // moved to the account menu. The footer menu record is left in place, unused.
             // The sidebar user menu (app-sidebar, above Theme / Sign out).
             { key: 'account', name: 'Account', items: [
-                { page: 'list', label: 'My open incidents', icon: 'inbox', query: { query: 'active=true^caller_id=javascript:gs.getUserID()' } },
+                { page: 'list', label: 'My open incidents', icon: 'inbox', record: { table: 'incident', query: 'active=true^caller_id' + ME + '^ORopened_by' + ME }, query: { title: 'My incidents' } },
                 { page: 'catalog', label: 'Request something', icon: 'store' },
                 { type: 'separator' },
                 { route: '', portal: 'app', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -499,9 +663,35 @@
         ],
         pages: [
             // Banner sub-header (app-shell layout option subheader): a hero band over the home page.
-            { route: 'home', name: 'Home', layoutOptions: { subheader: 'banner', subheaderTitle: 'How can we help?', subheaderSubtitle: 'Report an issue, request something from the catalog, or check on your open incidents.', subheaderIcon: 'life-buoy' }, widgets: [
-                { c: 'hello-card', options: { title: 'Welcome to the Service Portal', body: 'Rendered by React 19 from records: layout, theme and widgets are all compiled builds.', links: [{ label: 'Orders', to: 'orders' }, { label: 'Order 42', to: 'orders/42' }, { label: 'About (other layout)', to: 'about' }] } },
-                { c: 'server-clock' },
+            // Home: the banner sub-header with the hero search in it (app/hero-search → the banner's
+            // "below" slot), announcements, quick links, my items + knowledge side by side, popular
+            // catalog items and a get-help band. prune: the old demo cards are deactivated.
+            { route: 'home', name: 'Home', prune: true, layoutOptions: { subheader: 'banner', subheaderTitle: 'How can we help?', subheaderSubtitle: 'Search for answers, request something, or check on your requests.', subheaderIcon: 'life-buoy' }, widgets: [
+                { c: 'hero-search', options: { placement: 'banner', placeholder: 'Search for help, services and your requests', suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'] } },
+                { c: 'announcements', options: { types: 'widget', limit: 2 } },
+                { c: 'quick-links', options: { variant: 'tiles', columns: 4, items: [
+                    { label: 'Report an issue', description: 'Something broken? Let the service desk know.', icon: 'triangle-alert', tint: 'chart-4', to: 'catalog', q: { item: REPORT_ISSUE } },
+                    { label: 'Request something', description: 'Hardware, software and services from the catalog.', icon: 'store', tint: 'chart-2', to: 'catalog' },
+                    { label: 'Knowledge', description: 'How-to articles and answers to common questions.', icon: 'book-open', tint: 'chart-1', to: 'kb' },
+                    { label: 'My approvals', description: 'Requests waiting for your decision.', icon: 'stamp', tint: 'chart-3', to: 'list', table: 'sysapproval_approver', query: 'approver' + ME + '^state=requested', q: { title: 'My approvals' }, countTable: 'sysapproval_approver', countQuery: 'approver' + ME + '^state=requested', countLabel: 'pending' },
+                ] } },
+                { c: 'grid', options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1.5rem', itemSpan: 6 }, children: { items: [
+                    { c: 'my-items', layout: { colSpan: 7, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'My active items', limit: 5, recordPage: 'form', listPage: 'list', live: true } },
+                    { c: 'kb-articles', layout: { colSpan: 5, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'Knowledge', limit: 5, kbPage: 'kb', categoriesLimit: 6, compact: true } },
+                ] } },
+                { c: 'catalog-tiles', options: { title: 'Popular requests', description: 'What people around you order most.', mode: 'popular', limit: 8, columns: 4, catalogPage: 'catalog', items: ['73b1bafa9752cd1021983d1e6253afb5', 'c3b9cbf29716cd1021983d1e6253afad', '774906834fbb4200086eeed18110c737', '3022c182d52d3904c602d97466d5a6b1', '729166dc47d20950f53d37d2846d434a', '4a17d6a3ff133100ba13ffffffffffe7', '54c9ead947dec110f53d37d2846d43ea'], exclude: ['2f600ac0935d86d0df2f76718bba1077'] } },
+                { c: 'quick-links', options: { variant: 'cta', title: "Can't find what you need?", description: 'Search the knowledge base or tell the service desk. We usually answer within a business day.', items: [
+                    { label: 'Report an issue', icon: 'triangle-alert', to: 'catalog', q: { item: REPORT_ISSUE } },
+                    { label: 'Browse knowledge', icon: 'book-open', to: 'kb' },
+                ] } },
+            ] },
+            // Portal search results (app/search-results): q term=…&source=… (the hero search's Enter).
+            { route: 'search', name: 'Search', widgets: [
+                { c: 'search-results', options: { resultsPage: 'search', catalogPage: 'catalog', kbPage: 'kb', recordPage: 'form', pageSize: 10, suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'] } },
+            ] },
+            // Knowledge (app/knowledge): browse topics and most viewed articles; ?sys_id= shows one article.
+            { route: 'kb', name: 'Knowledge', widgets: [
+                { c: 'knowledge', options: { listLimit: 20, showRelated: true, resultsPage: 'search' } },
             ] },
             { route: 'orders', name: 'Orders', widgets: [
                 { c: 'hello-card', options: { title: 'Orders', body: 'Pick an order. Each opens the orders/:id route.', links: [{ label: 'Order 42', to: 'orders/42' }, { label: 'Order 43', to: 'orders/43' }, { label: 'Order 44 (with q)', to: 'orders/44', q: 'view=summary&tab=2' }] } },
@@ -523,6 +713,16 @@
                     ],
                     'col-2': [
                         { c: 'list-card', options: { title: 'SLAs of INC0000060 (related list)', table: 'task_sla', parentField: 'task', parentSysId: '1c741bd70b2322007518478d83673af3', columns: 'sla,stage,has_breached,business_percentage,planned_end_time', pageSize: 5, hide: ['search', 'selection', 'actions', 'export'] } },
+                    ],
+                } },
+                // Related lists (app/related-lists-card): a record's related lists outside a form. INC0000060
+                // as tabs (counts on the tabs, lazy), the Service Desk group stacked (m2m Group Members: Add / Edit… / Remove).
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
+                    'col-1': [
+                        { c: 'related-lists-card', options: { title: 'INC0000060: related lists', table: 'incident', sysId: '1c741bd70b2322007518478d83673af3', layout: 'tabs', liveUpdates: true } },
+                    ],
+                    'col-2': [
+                        { c: 'related-lists-card', options: { title: 'Service Desk group: related lists', table: 'sys_user_group', sysId: 'd625dccec0a8016700a222a0f7900d06', layout: 'stacked' } },
                     ],
                 } },
             ] },
@@ -602,8 +802,41 @@
             ] },
             // Variable editor (app/variable-editor): a submitted request item's variables, read-only or
             // editable, from the platform's form layout (GlideLayout_Query.formLayout variables).
+            // Attachments (A6): one record's attachments (INC0020825, a 'safe to delete' test incident) in
+            // three presentations of app/attachments-card, plus app/record-form with its attachments option.
+            // James is still choosing the look: these are side-by-side variants, not a decision.
+            { route: 'attachments', name: 'Attachments', widgets: [
+                { c: 'hello-card', options: { title: 'Attachments: presentation variants', body: 'The same record (INC0020825) three ways: a list, compact chips and a thumbnail grid. Drop, paste or browse files on any of them; the others update live. The form below has the record form\'s attachments option (header toggle): pick a test record, or New to add files before the first save.' } },
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1.4fr)' }, { size: 'minmax(0, 1fr)' }] }, children: {
+                    'col-1': [
+                        { c: 'attachments-card', options: { table: 'incident', sysId: '1964bd1783e05310e8fbc9a6feaad338', title: 'List', layout: 'list', dropzone: 'area' } },
+                    ],
+                    'col-2': [
+                        { c: 'attachments-card', options: { table: 'incident', sysId: '1964bd1783e05310e8fbc9a6feaad338', title: 'Compact chips', layout: 'chips', dropzone: 'button' } },
+                    ],
+                } },
+                { c: 'attachments-card', options: { table: 'incident', sysId: '1964bd1783e05310e8fbc9a6feaad338', title: 'Grid', layout: 'grid', dropzone: 'compact' } },
+                { c: 'record-form', options: { table: 'incident', picker: true, pickerQuery: 'short_descriptionLIKEsafe to delete', showViews: false, headerPlacement: 'inline', attachments: 'header' } },
+            ] },
             { route: 'variable-editor', name: 'Variable editor', widgets: [
                 { c: 'variable-editor-demo', options: {} },
+            ] },
+            // Activity (A5): presentation variants of one record's activity (INC0020831, a "safe to delete" test
+            // incident), side by side so James can compare. Nothing is decided: the record form keeps its
+            // activity option off by default; the last variant shows the opt-in "notes" mode. prune: the first
+            // seed's Columns block and its two cards are deactivated.
+            { route: 'activity', name: 'Activity', prune: true, widgets: [
+                { c: 'hello-card', options: { title: 'Activity: presentation variants', body: 'The same record (INC0020831) four ways: A, a full timeline (composer on top, filters, day headings); B, a narrow side panel; C, a chat-style conversation (Service Portal Ticket conversations, comments and attachments); D, inside the record form (the opt-in activity: notes option). Post from any of them: the others update live.' } },
+                { c: 'columns', options: { tracks: [{ size: 'minmax(0, 1.6fr)' }, { size: 'minmax(0, 1fr)' }], mobile: { tracks: [{ size: 'minmax(0, 1fr)' }] } }, children: {
+                    'col-1': [
+                        { c: 'activity-card', options: { variant: 'timeline', title: 'A · Timeline', table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', pageSize: 10, recordPage: 'form' } },
+                    ],
+                    'col-2': [
+                        { c: 'activity-card', options: { variant: 'compact', title: 'B · Side panel', table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', showFilters: false, pageSize: 8, recordPage: 'form' } },
+                    ],
+                } },
+                { c: 'activity-card', options: { variant: 'conversation', title: 'C · Conversation', table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', journalFields: 'comments', kinds: 'journal,attachment', pageSize: 20, recordPage: 'form' } },
+                { c: 'record-form', options: { table: 'incident', sysId: '34f4b59b83e05310e8fbc9a6feaad3e4', picker: false, showViews: false, headerPlacement: 'inline', activity: 'notes' } },
             ] },
             // Cart and checkout (app/cart): lines, quantity, requested for, Empty cart, Checkout. The
             // placed request opens on the generic record form page.
@@ -658,7 +891,7 @@
     // tinted menu items, a transparent top header with breadcrumbs, and an inset card main.
     seedPortal({
         slug: 'app', name: 'Dashboard', theme: 'app-neutral', home: 'overview', layout: 'app-shell',
-        settings: { contentWidth: '6xl', exposedProperties: ['glide.sc.checkout.twostep'] },
+        settings: { contentWidth: '6xl', exposedProperties: ['glide.sc.checkout.twostep', 'com.glide.attachment.max_size', 'glide.attachment.extensions'] },
         nav: [
             { label: 'Workspace', children: [
                 { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
@@ -779,5 +1012,22 @@
     }
     log.push('js url: ' + (boot.layout && boot.layout.build && boot.layout.build.js))
 
+    // Stale report (full seeds only): app/* component records on the instance with no seed folder.
+    // Reported, never deleted (deletions are a deliberate, separate step).
+    if (SEED_MODE === 'full') {
+        var staleComps = []
+        var sc = new GlideRecord(T + 'component')
+        sc.addQuery('namespace', 'app')
+        sc.query()
+        while (sc.next()) if (!components[sc.getValue('key')]) staleComps.push(sc.getValue('unique_id') + (sc.getValue('active') === '1' ? '' : ' (inactive)'))
+        log.push('stale components (no seed folder; not deleted): ' + (staleComps.length ? staleComps.join(', ') : 'none'))
+    }
+    mark('seed script')
+
     gs.info(log.join('\n'))
+    } catch (seedError) {
+        clearBatchFlags()
+        gs.error('[seed] failed run=' + SEED_RUN_ID + ': ' + seedError)
+        throw seedError
+    }
 })()

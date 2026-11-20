@@ -1,6 +1,6 @@
 {
   "name": "x-312987-react-portal",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Service Portal with modern tooling",
   "license": "UNLICENSED",
   "imports": {
@@ -13,7 +13,8 @@
     "types": "now-sdk dependencies",
     "dev": "now-sdk run dev",
     "vendor:compiler": "node scripts/build-compiler-vendor.mjs",
-    "version:bump": "node scripts/bump-version.mjs"
+    "version:bump": "node scripts/bump-version.mjs",
+    "seed": "node scripts/seed/run-seed.mjs"
   },
   "devDependencies": {
     "@servicenow/glide": "27.0.5",

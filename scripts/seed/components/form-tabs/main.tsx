@@ -37,7 +37,7 @@ export type FormTabState = { value: string; select: (tab: string) => void }
  * writes it back into q (keeping the other q keys and the explicit URL params). `syncUrl: false`
  * keeps it in memory only (e.g. a form inside a dialog).
  */
-export function useFormTabState(options: { sections: SectionLike[]; visible: Set<string>; syncUrl?: boolean }): FormTabState {
+export function useFormTabState(options: { sections: SectionLike[]; visible: Set<string>; syncUrl?: boolean; extraValues?: string[] }): FormTabState {
     const { sections, visible } = options
     const syncUrl = options.syncUrl !== false
     const location = (usePortalLocation() as any) || {}
@@ -49,7 +49,8 @@ export function useFormTabState(options: { sections: SectionLike[]; visible: Set
     useEffect(() => {
         if (syncUrl) setLocal('')
     }, [fromUrl, syncUrl])
-    const shown = sections.filter((s) => visible.has(sectionName(s))).map(tabValue)
+    // Extra tabs after the sections (e.g. related lists, 'rl:<name>') are valid tab values too.
+    const shown = sections.filter((s) => visible.has(sectionName(s))).map(tabValue).concat(options.extraValues || [])
     const wanted = local || (syncUrl ? fromUrl : '')
     const value = shown.indexOf(wanted) >= 0 ? wanted : shown[0] || ''
     const select = useCallback(
@@ -112,8 +113,16 @@ export type FormTabsProps = {
     /** Fields to fix per section name, after a failed save. */
     errors?: Record<string, number>
     renderSection: (section: SectionLike, index: number) => any
+    /**
+     * Tabs after the sections (a record's related lists: app/related-lists' useRelatedListTabs).
+     * Their panels mount only while selected (lazy), unlike section panels.
+     */
+    extraTabs?: FormExtraTab[]
     className?: string
 }
+
+/** A tab after the form's sections: value (unique, e.g. 'rl:task_sla.task'), label, optional count, lazy content. */
+export type FormExtraTab = { value: string; label: string; count?: number; render: () => any }
 
 export function FormTabs(props: FormTabsProps) {
     const { sections, visible, value } = props
@@ -157,12 +166,29 @@ export function FormTabs(props: FormTabsProps) {
                             </TabsTrigger>
                         )
                     })}
+                    {(props.extraTabs || []).map((t) => (
+                        <TabsTrigger key={t.value} value={t.value} className="h-9 flex-none px-3" data-rp-form-tab={t.value} data-rp-form-extra-tab="">
+                            {t.label}
+                            {t.count !== undefined && t.count >= 0 ? (
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground tabular-nums" data-rp-tab-badge="count">
+                                    {new Intl.NumberFormat().format(t.count)}
+                                    <span className="sr-only"> record{t.count === 1 ? '' : 's'}</span>
+                                </span>
+                            ) : null}
+                        </TabsTrigger>
+                    ))}
                 </TabsList>
             </div>
             {shown.map(({ s, i }) => (
                 // keepMounted: inactive panels are hidden, not removed (field state, validation).
                 <TabsContent key={tabValue(s)} value={tabValue(s)} keepMounted className="flex flex-col gap-4" data-rp-form-tab-panel={tabValue(s)}>
                     {props.renderSection(s, i)}
+                </TabsContent>
+            ))}
+            {(props.extraTabs || []).map((t) => (
+                // Not keepMounted: an extra tab's content (a related list) loads only while it's selected.
+                <TabsContent key={t.value} value={t.value} className="flex min-w-0 flex-col gap-4" data-rp-form-tab-panel={t.value}>
+                    {t.value === value ? t.render() : null}
                 </TabsContent>
             ))}
         </Tabs>

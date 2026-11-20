@@ -1,0 +1,100 @@
+{
+  "type": "object",
+  "properties": {
+    "variant": {
+      "type": "string",
+      "title": "Variant",
+      "enum": [
+        "tiles",
+        "cta",
+        "list"
+      ],
+      "enumNames": [
+        "Tiles",
+        "Call-to-action band",
+        "Compact list"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "title": "Title"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "menu": {
+      "type": "string",
+      "title": "Take the items from a portal menu (key)"
+    },
+    "columns": {
+      "type": "integer",
+      "title": "Columns at full width",
+      "minimum": 2,
+      "maximum": 6
+    },
+    "items": {
+      "type": "array",
+      "title": "Items",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Lucide icon"
+          },
+          "tint": {
+            "type": "string",
+            "title": "Tint",
+            "enum": [
+              "",
+              "primary",
+              "chart-1",
+              "chart-2",
+              "chart-3",
+              "chart-4",
+              "chart-5"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "title": "Page route"
+          },
+          "table": {
+            "type": "string",
+            "title": "table param"
+          },
+          "query": {
+            "type": "string",
+            "title": "query param"
+          },
+          "href": {
+            "type": "string",
+            "title": "External URL",
+            "format": "url"
+          },
+          "countTable": {
+            "type": "string",
+            "title": "Count badge: table"
+          },
+          "countQuery": {
+            "type": "string",
+            "title": "Count badge: query"
+          },
+          "countLabel": {
+            "type": "string",
+            "title": "Count badge: label"
+          }
+        }
+      }
+    }
+  }
+}

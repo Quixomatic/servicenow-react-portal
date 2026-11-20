@@ -8,63 +8,49 @@
 //   anything else    → extra source_file rows (path relative to the folder)
 // scripts/seed/assets/<file> → inlined as a data URI wherever the template says __ASSET_DATA_URI:<file>__
 // Run:  node scripts/seed/build-seed.mjs   then   now-sdk exec --file scripts/seed-demo.js
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { join, relative, sep, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+//
+// Day to day, prefer `npm run seed` (scripts/seed/run-seed.mjs): it diffs the component folders
+// against the instance, seeds only what changed (auto-split under the exec payload limit), runs the
+// portals step only when this template changed, waits for each run's "[seed] done" syslog line and
+// reprocesses once at the end. This builder stays for manual runs and `npm run version:bump`.
+// Loading, ordering and rendering live in seed-lib.mjs (shared with run-seed.mjs).
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { here, loadComponents, renderSeed, newRunId, bytes } from './seed-lib.mjs'
 
-const here = dirname(fileURLToPath(import.meta.url))
-const root = join(here, 'components')
-const walk = (d) => readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]))
+const ordered = loadComponents()
 
-const components = {}
-for (const key of readdirSync(root).sort()) {
-    const dir = join(root, key)
-    const c = { meta: JSON.parse(readFileSync(join(dir, 'component.json'), 'utf8')), clientScript: '', css: '', serverScript: '', extraFiles: [] }
-    for (const f of walk(dir).sort()) {
-        const rel = relative(dir, f).split(sep).join('/')
-        const content = readFileSync(f, 'utf8')
-        if (rel === 'component.json') continue
-        else if (rel === 'main.tsx' || rel === 'main.jsx') c.clientScript = content
-        else if (rel === 'styles.css') c.css = content
-        else if (rel === 'server.js') c.serverScript = content
-        else if (rel === 'options.schema.json') c.optionsSchema = JSON.parse(content)
-        else c.extraFiles.push({ path: rel, target: rel.endsWith('.css') ? 'style' : 'client', content })
-    }
-    if (!c.clientScript) throw new Error(`${key}: missing main.tsx/main.jsx`)
-    // Record imports (components:app/<key>, utilities:app/<key>) found in the client sources.
-    const imports = new Set()
-    for (const src of [c.clientScript].concat(c.extraFiles.filter((f) => f.target === 'client').map((f) => f.content))) {
-        for (const m of src.matchAll(/^\s*import\s+(?!type\s)[^'"]*['"](?:components|utilities):app\/([a-z][a-z0-9-]*)['"]/gm)) if (m[1] !== key) imports.add(m[1])
-    }
-    c.imports = Array.from(imports).sort()
-    components[key] = c
+// --only a,b,c → a targeted seed: just those components (in dependency order), no portals/pages/
+// menus. For quick agent iterations; release seeds stay full. The seed still compiles each listed
+// component and reprocesses every active portal once at the end.
+const onlyArg = process.argv.find((a) => a.startsWith('--only'))
+const onlyKeys = onlyArg ? (onlyArg.includes('=') ? onlyArg.split('=')[1] : process.argv[process.argv.indexOf(onlyArg) + 1] || '').split(',').map((s) => s.trim()).filter(Boolean) : null
+let seedComponents = ordered
+// --part i/n → the i-th of n contiguous slices of the dependency order (components only). The
+// instance rejects exec payloads much over ~1.5 MB, so a full seed runs as parts + --portals.
+const partArg = process.argv.find((a) => a.startsWith('--part'))
+const partSpec = partArg ? (partArg.includes('=') ? partArg.split('=')[1] : process.argv[process.argv.indexOf(partArg) + 1]) : ''
+// --portals → portals, pages, menus and themes only (component ids are looked up on the instance).
+const portalsOnly = process.argv.includes('--portals')
+let seedMode = onlyKeys || partSpec ? 'components' : portalsOnly ? 'portals' : 'full'
+if (partSpec) {
+    const [i, n] = partSpec.split('/').map(Number)
+    if (!(n >= 1 && i >= 1 && i <= n)) throw new Error('--part expects i/n, e.g. --part 1/3')
+    const keys = Object.keys(ordered)
+    const size = Math.ceil(keys.length / n)
+    seedComponents = {}
+    for (const key of keys.slice((i - 1) * size, i * size)) seedComponents[key] = ordered[key]
+}
+if (portalsOnly) seedComponents = {}
+if (onlyKeys) {
+    const unknown = onlyKeys.filter((k) => !ordered[k])
+    if (unknown.length) throw new Error(`--only: no seed folder for ${unknown.join(', ')}`)
+    seedComponents = {}
+    for (const key of Object.keys(ordered)) if (onlyKeys.includes(key)) seedComponents[key] = ordered[key]
 }
 
-// Seed in dependency order: a record import must compile before its importers (the compile
-// rejects an import whose target has no successful build yet). Alphabetical within a level.
-const ordered = {}
-const visiting = new Set()
-const visit = (key, trail) => {
-    if (ordered[key]) return
-    if (visiting.has(key)) throw new Error(`Record import cycle: ${trail.concat(key).join(' -> ')}`)
-    if (!components[key]) throw new Error(`${trail[trail.length - 1]} imports app/${key}, which has no seed folder`)
-    visiting.add(key)
-    for (const dep of components[key].imports) visit(dep, trail.concat(key))
-    visiting.delete(key)
-    ordered[key] = components[key]
-}
-for (const key of Object.keys(components)) visit(key, [])
-
-// Binary assets (scripts/seed/assets/<file>) inlined as data URIs where the template says
-// __ASSET_DATA_URI:<file>__ (e.g. the app-neutral theme's noise textures).
-const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', webp: 'image/webp' }
-const assetUri = (_, file) => {
-    const ext = file.split('.').pop().toLowerCase()
-    return `data:${MIME[ext] || 'application/octet-stream'};base64,${readFileSync(join(here, 'assets', file)).toString('base64')}`
-}
-const template = readFileSync(join(here, 'seed-template.js'), 'utf8').replace(/__ASSET_DATA_URI:([\w.-]+)__/g, assetUri)
-// A function replacement: a string one would expand $' / $& / $$ found in component sources (e.g. ['$', '$j']).
-const componentsJson = JSON.stringify(ordered, null, 1)
-const out = template.replace('__COMPONENTS_JSON__', () => componentsJson)
+const runId = newRunId('manual')
+const out = renderSeed({ mode: seedMode, components: seedComponents, reprocess: !partSpec, runId })
 writeFileSync(join(here, '..', 'seed-demo.js'), out)
-console.log(`seed-demo.js: ${Object.keys(components).length} components, ${(out.length / 1024).toFixed(0)} KB`)
+console.log(`seed-demo.js (${seedMode}${partSpec ? ' part ' + partSpec : ''}, run ${runId}): ${Object.keys(seedComponents).length} of ${Object.keys(ordered).length} components, ${(bytes(out) / 1024).toFixed(0)} KB`)
+if (bytes(out) > 1400 * 1024) console.warn('WARNING: over ~1.4 MB, the instance may reject this exec. Use `npm run seed` (auto-splits), or --part 1/2 … then --portals.')

@@ -24,6 +24,8 @@ import { createScriptEnvironment } from './environment'
 import type { ScriptEnvironment, ScriptError, ScriptHost, ScriptUser, ServiceCatalogOptions } from './environment'
 
 export { createScriptEnvironment, compileScript, catalogParent } from './environment'
+// Related-list display flags (g_form.show/hideRelatedList), app/related-list wave.
+export { isRelatedListShown, matchRelatedLists, setRelatedListDisplay, setAllRelatedListsDisplay } from './environment'
 export type { ScriptEnvironment, ScriptEnvironmentOptions, ScriptError, ScriptHost, ScriptUser, CatalogParent, ServiceCatalogOptions } from './environment'
 export { createGlideAjaxClass } from './glide-ajax'
 export { createGlideRecordClass } from './glide-record'
@@ -70,6 +72,7 @@ export type GFormOptions = {
     openRecord?: ScriptHost['openRecord']
     hasField?: ScriptHost['hasField']
     sectionNames?: ScriptHost['sectionNames']
+    relatedListNames?: ScriptHost['relatedListNames']
     /** Catalog form (names are variable names) and its g_service_catalog extras (MRVS rows: parent). */
     catalog?: boolean
     serviceCatalog?: ServiceCatalogOptions
@@ -89,6 +92,7 @@ export function hostFor(store: FormStore, o: GFormOptions): ScriptHost {
         openRecord: o.openRecord,
         hasField: o.hasField,
         sectionNames: o.sectionNames,
+        relatedListNames: o.relatedListNames,
     }
 }
 

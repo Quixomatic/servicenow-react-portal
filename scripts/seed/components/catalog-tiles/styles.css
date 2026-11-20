@@ -1,0 +1,6 @@
+/* Columns follow the widget's own width (container queries), stepping 4 → 2 → 1 (or the option's
+   count → 2 → 1) so a full set of tiles never leaves an orphan row. */
+.rp-ct { container-type: inline-size; container-name: rp-ct; }
+.rp-ct-grid { grid-template-columns: repeat(var(--rp-ct-cols, 4), minmax(0, 1fr)); }
+@container rp-ct (max-width: 759px) { .rp-ct-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container rp-ct (max-width: 460px) { .rp-ct-grid { grid-template-columns: minmax(0, 1fr); } }

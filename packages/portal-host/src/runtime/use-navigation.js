@@ -6,8 +6,9 @@
 //
 // NavItem = { id, type: 'page'|'route'|'url'|'group'|'separator', label, icon?, badge?, tooltip?,
 //             to?, href?, target?, match?, active, open?, children: NavItem[], tint?,
-//             recordId?, q?, portalSlug?, link?, attrs }
-//   `link` is the <Link {...item.link}> props for route/page items ({ to, recordId, q, portalSlug }
+//             recordId?, q?, portalSlug?, table?, sysId?, view?, query?, link?, attrs }
+//   `link` is the <Link {...item.link}> props for route/page items ({ to, recordId, q, portalSlug,
+//   table, sysId, view, query }
 //   plus `data-rp-nav-item`). `attrs` ({ 'data-rp-nav-item': id }) goes on any other element that
 //   renders the item (url anchors, group triggers): Studio's Menus preview selects items by it.
 //
@@ -25,7 +26,11 @@
 //
 // Active: the route item whose resolved path equals the current page path, else the one whose
 // path is the longest prefix of it (orders → active on orders/42); items with match 'exact' are
-// only active on their own path. At most one leaf is active; its ancestor groups are active and
+// only active on their own path. Explicit record params (table / sysId / view / query, from menu
+// params_json.record) must all equal the location's for the item to be active, so two items on
+// one page (list?table=incident… and list?table=sc_req_item…) highlight apart; among items on the
+// same path the one with the most matching record params, then matching q keys, wins (an item
+// without params is the fallback). At most one leaf is active; its ancestor groups are active and
 // open. Leaves without a tint get chart-1…chart-5 by position (menu records have no tint).
 //
 // MenuPreviewContext (internal, Studio's Menus preview): { [key]: NavItem[] } replaces the
@@ -79,13 +84,18 @@ function normalize(raw, id, portal, leaves) {
 	const portalSlug = raw.portalSlug ? String(raw.portalSlug) : undefined;
 	const recordId = raw.recordId !== undefined && raw.recordId !== null && raw.recordId !== '' ? String(raw.recordId) : undefined;
 	const q = raw.q || undefined;
+	const str = (v) => (v === undefined || v === null || v === '' ? undefined : String(v));
+	const record = { table: str(raw.table), sysId: str(raw.sysId !== undefined ? raw.sysId : raw.sys_id), view: str(raw.view), query: str(raw.query) };
 	base.to = to;
 	base.target = raw.target === '_blank' ? '_blank' : '_self';
 	base.match = raw.match === 'exact' ? 'exact' : 'prefix';
 	base.recordId = recordId;
 	base.q = q;
 	base.portalSlug = portalSlug;
-	base.link = { to, recordId, q, portalSlug, 'data-rp-nav-item': itemId };
+	Object.keys(record).forEach((k) => {
+		if (record[k] !== undefined) base[k] = record[k];
+	});
+	base.link = { to, recordId, q, portalSlug, ...record, 'data-rp-nav-item': itemId };
 	// Resolved page path for matching (cross-portal links never match).
 	leaves.routes.push({ item: base, path: portalSlug ? null : resolvePath(portal, to) });
 	return base;
@@ -97,19 +107,42 @@ function fromPages(pages) {
 		.map((p) => ({ type: 'page', id: p.id, label: p.title || p.name || '/' + p.route, to: p.route }));
 }
 
-function findActive(leaves, current) {
+const RECORD_KEYS = ['table', 'sysId', 'view', 'query'];
+
+/** -1 when an explicit record param differs from the location's, else a specificity score. */
+function paramScore(item, loc) {
+	let score = 0;
+	for (const k of RECORD_KEYS) {
+		if (item[k] === undefined) continue;
+		if (!loc || String(loc[k] || '') !== item[k]) return -1;
+		score += 100;
+	}
+	const q = item.q && typeof item.q === 'object' ? item.q : null;
+	const have = (loc && loc.qParams) || {};
+	if (q) Object.keys(q).forEach((k) => {
+		if (String(have[k] === undefined ? '' : have[k]) === String(q[k])) score += 1;
+	});
+	return score;
+}
+
+function findActive(leaves, current, loc) {
 	let best = null;
+	let bestScore = -1;
 	let bestLen = -1;
 	leaves.forEach((l) => {
 		if (l.path === null) return;
+		const score = paramScore(l.item, loc);
+		if (score < 0) return;
 		if (l.path === current) {
-			if (bestLen !== Infinity) {
+			if (bestLen !== Infinity || score > bestScore) {
 				best = l.item;
 				bestLen = Infinity;
+				bestScore = score;
 			}
 		} else if (bestLen !== Infinity && l.item.match !== 'exact' && l.path && current.indexOf(l.path + '/') === 0 && l.path.length > bestLen) {
 			best = l.item;
 			bestLen = l.path.length;
+			bestScore = score;
 		}
 	});
 	return best;
@@ -133,6 +166,8 @@ export function useNavigation(key) {
 	const preview = useContext(MenuPreviewContext);
 	const api = usePortal();
 	const current = api ? api.path : '';
+	// The location's record params and q keys decide between items on the same page.
+	const loc = api ? api.location : null;
 	const navigation = ctx && ctx.portal ? ctx.portal.navigation : null;
 	// Menu records (bootstrap.menus[key]: NavItem[] or { name, items }) win over navigation_json.
 	const menus = ctx ? ctx.menus : null;
@@ -152,7 +187,7 @@ export function useNavigation(key) {
 		leaves.all.forEach((item, i) => {
 			if (!item.tint) item.tint = TINTS[i % TINTS.length];
 		});
-		const active = findActive(leaves.routes, current || resolvePath(portal, ''));
+		const active = findActive(leaves.routes, current || resolvePath(portal, ''), loc);
 		const activePath = active ? pathTo(items, active, []) || [active] : [];
 		activePath.forEach((item) => {
 			item.active = true;
@@ -170,5 +205,5 @@ export function useNavigation(key) {
 					: null,
 			path: current
 		};
-	}, [navigation, menuEntry, pages, portal, current, menuKey]);
+	}, [navigation, menuEntry, pages, portal, current, menuKey, loc]);
 }

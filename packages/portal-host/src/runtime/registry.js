@@ -26,6 +26,9 @@ import * as Icon from '#/components/ui/icon';
 import * as Calendar from '#/components/ui/calendar';
 import * as RichText from '#/components/ui/rich-text';
 import * as RichTextEditor from '#/components/ui/rich-text-editor';
+import * as Skeleton from '#/components/ui/skeleton';
+import * as Empty from '#/components/ui/empty';
+import * as Kbd from '#/components/ui/kbd';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -71,6 +74,9 @@ const modules = {
 	'components:rich-text-editor': RichTextEditor,
 	// Curated lucide icons by name: <Icon name="layout-dashboard" />.
 	'components:icon': Icon,
+	'components:skeleton': Skeleton,
+	'components:empty': Empty,
+	'components:kbd': Kbd,
 	'utilities:cn': cnModule,
 	// TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
 	// build data hooks on it: import { useQuery } from 'utilities:react-query'.

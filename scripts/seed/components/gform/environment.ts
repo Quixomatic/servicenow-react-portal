@@ -5,6 +5,8 @@ import { createGlideRecordClass } from './glide-record'
 import { createGlideAjaxClass } from './glide-ajax'
 import { confirmDialog, alertDialog } from 'components:app/confirm-dialog'
 import { showFieldsDialog } from 'components:app/field-dialog'
+// Attachments (A6): g_form.enableAttachments / disableAttachments.
+import { setFormAttachmentsEnabled } from 'utilities:app/attachments'
 
 /**
  * The legacy client-script environment (a compatibility layer: only legacy client scripts, UI
@@ -43,6 +45,8 @@ export type ScriptHost = {
     hasField?: (name: string) => boolean
     /** The form's section names (g_form.getSectionNames); the first, untitled section answers to ''. */
     sectionNames?: () => string[]
+    /** The form's related list names ('task_sla.task', 'REL:<sys_id>') for g_form.show/hideRelatedList (app/related-list wave). */
+    relatedListNames?: () => string[]
     /** Record display value (header title). */
     displayValue?: () => string
     /** g_form.submit / save: run a UI action by name or sys_id (default: Save). False = blocked. */
@@ -377,13 +381,17 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         },
         getSectionNames: () => (host.sectionNames ? host.sectionNames() : []),
         isSectionVisible: (name: string) => store.getSectionDisplay(String(name || '').toLowerCase()) !== false,
-        showRelatedList: () => {},
-        hideRelatedList: () => {},
-        showRelatedLists: () => {},
-        hideRelatedLists: () => {},
-        getRelatedListNames: () => [],
-        enableAttachments: () => {},
-        disableAttachments: () => {},
+        // Related lists (app/related-list wave): display flags on the store (keys 'rl:<name>', 'rl:*'),
+        // read by RecordForm's related lists through isRelatedListShown.
+        showRelatedList: (name: string) => setRelatedListDisplay(store, name, true, host.relatedListNames ? host.relatedListNames() : undefined),
+        hideRelatedList: (name: string) => setRelatedListDisplay(store, name, false, host.relatedListNames ? host.relatedListNames() : undefined),
+        showRelatedLists: () => setAllRelatedListsDisplay(store, true, host.relatedListNames ? host.relatedListNames() : []),
+        hideRelatedLists: () => setAllRelatedListsDisplay(store, false, host.relatedListNames ? host.relatedListNames() : []),
+        getRelatedListNames: () => (host.relatedListNames ? host.relatedListNames() : []),
+        // Attachments (A6): form-level flag beside the store (utilities:app/attachments), read by
+        // app/attachment-panel; disable = no new files (existing ones stay listed), as on the platform.
+        enableAttachments: () => setFormAttachmentsEnabled(store, true),
+        disableAttachments: () => setFormAttachmentsEnabled(store, false),
         // Decorations next to the field label: (field, icon, title, color?) — 'icon-star' etc. map to Lucide icons.
         addDecoration: (n: string, icon: string, title: string, color?: string) => store.addDecoration(resolve(n), str(icon), str(title), color ? str(color) : undefined),
         removeDecoration: (n: string, icon?: string, title?: string) => store.removeDecoration(resolve(n), icon === undefined ? undefined : str(icon), title === undefined ? undefined : str(title)),
@@ -564,4 +572,43 @@ export function createScriptEnvironment(options: ScriptEnvironmentOptions): Scri
         currentAction: () => action,
     }
     return env
+}
+
+// ---- related lists (app/related-list wave) ------------------------------------------------------
+// g_form.showRelatedList / hideRelatedList(s) keep display flags on the form store, next to the
+// section flags: 'rl:<name>' per list and 'rl:*' for all (the store lower-cases keys). A list shows
+// unless its own flag, else the all-lists flag, is false. Names match as the classic form does:
+// the list name ('task_sla.task'), its table ('task_sla'), or a relationship's 'REL:<sys_id>' / bare sys_id.
+
+/** The form's related list names that `name` designates (the name itself when the form's lists are unknown). */
+export function matchRelatedLists(name: string, names?: string[]): string[] {
+    const key = String(name || '').trim().toLowerCase()
+    if (!key) return []
+    if (!names) return [key]
+    return names.filter((n) => {
+        const l = String(n).toLowerCase()
+        return l === key || l.split('.')[0] === key || l === 'rel:' + key
+    })
+}
+
+export function setRelatedListDisplay(store: FormStore, name: string, on: boolean, names?: string[]): boolean {
+    const matched = matchRelatedLists(name, names)
+    // A list that isn't on this view is ignored silently, as on the classic form (platform scripts
+    // hide relationship lists on every task form).
+    if (!matched.length) return false
+    matched.forEach((n) => store.setSectionDisplay('rl:' + n.toLowerCase(), !!on))
+    return true
+}
+
+export function setAllRelatedListsDisplay(store: FormStore, on: boolean, names: string[]): void {
+    store.setSectionDisplay('rl:*', !!on)
+    // Per-list flags set earlier would otherwise win over the all-lists call.
+    names.forEach((n) => store.setSectionDisplay('rl:' + String(n).toLowerCase(), !!on))
+}
+
+/** Is the related list displayed (not hidden by g_form.hideRelatedList / hideRelatedLists)? */
+export function isRelatedListShown(store: Pick<FormStore, 'getSectionDisplay'>, name: string): boolean {
+    const own = store.getSectionDisplay('rl:' + String(name || '').toLowerCase())
+    if (own !== undefined) return own !== false
+    return store.getSectionDisplay('rl:*') !== false
 }

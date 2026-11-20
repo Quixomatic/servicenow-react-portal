@@ -161,6 +161,38 @@ export interface FormBootstrap {
     globals: { language: string; dateTimeFormat: string; decimalSeparator: string; grouping: string; textDirection: string }
     /** Parts of the bootstrap that failed without failing the form (policies, actions). */
     warnings: string[]
+    // ---- related lists (app/related-list wave): formLayout.relatedLists, as Workspace requests them ----
+    /** The view's related lists (sys_ui_related_list), with counts and resolved filters; [] for a new record. */
+    relatedLists?: RelatedListInfo[]
+    /** formLayout.relatedListMetadata.hasRelatedLists. */
+    hasRelatedLists?: boolean
+}
+
+/**
+ * One related list of a record's form view (GlideLayout_Query.formLayout.relatedLists, normalized).
+ * Kinds: reference ('task_sla.task': rows whose `relatedField` points at the parent), scripted
+ * ('REL:<sys_relationship>': the server runs the relationship and returns its query as `filter`),
+ * many-to-many (an m2m table such as sys_user_grmember; only the list call's m2MData tells).
+ */
+export type RelatedListInfo = {
+    /** The related list name: '<table>.<field>' or 'REL:<sys_id>' (g_form.hideRelatedList names). */
+    name: string
+    /** Rows' table (targetTable). */
+    table: string
+    /** The parent's table (sourceTable). */
+    parentTable: string
+    /** displayLabel, else label (scripted relationships have no displayLabel). */
+    label: string
+    /** The platform's count of related records (as the user can read them). */
+    count: number
+    /** Encoded query selecting the related rows (server-resolved, also for scripted relationships). */
+    filter: string
+    /** The reference field on `table` pointing at the parent; for 'REL:' lists the same as name. */
+    relatedField: string
+    /** Hide the list when it has no rows (sys_ui_related_list omit-if-empty). */
+    omitIfEmpty: boolean
+    groupByField: string
+    kind: 'reference' | 'scripted'
 }
 
 /** A client script (sys_script_client / catalog_script_client) as the platform ships it to Workspace. */

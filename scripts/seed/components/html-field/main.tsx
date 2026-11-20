@@ -14,7 +14,8 @@
  *   editing simplifies it.
  * - Inline images: on a saved record (bound form, real sys_id, not a catalog variable) pasted,
  *   dropped or uploaded images are attached to that record, as the platform's HTML editor does
- *   (POST /api/now/attachment/file, src = /sys_attachment.do?sys_id=…). Elsewhere images are
+ *   (utilities:app/attachments uploadAttachment → POST /api/now/attachment/file, src =
+ *   /sys_attachment.do?sys_id=…; new records use the sys_id the form reserved). Elsewhere images are
  *   URL-only. `imageUpload={false}` turns uploads off; `uploadImage(file)` replaces the uploader.
  * - g_form: setValue / getValue / setReadOnly / setMandatory / showFieldMsg work through the
  *   form store like every field.
@@ -24,7 +25,7 @@ import { useField, FieldShell } from 'components:app/field'
 import type { FieldProps, FieldLayout, FieldSize } from 'components:app/field'
 import { RichTextEditor } from 'components:rich-text-editor'
 import { RichText, isHtmlEmpty, findUnsupportedHtml } from 'components:rich-text'
-import { authHeaders } from 'utilities:app/graphql'
+import { uploadAttachment, attachmentUrl, namePastedFile } from 'utilities:app/attachments'
 
 export type HtmlFieldProps = FieldProps & {
     layout?: FieldLayout
@@ -55,14 +56,11 @@ export async function uploadRecordImage(args: { file: File; table: string; sysId
     const { file, table, sysId } = args
     if (!/^image\//.test(file.type)) throw new Error(`${file.name} is not an image`)
     if (file.size > MAX_INLINE_IMAGE_BYTES) throw new Error(`${file.name} is larger than ${Math.round(MAX_INLINE_IMAGE_BYTES / 1024 / 1024)} MB`)
-    const name = file.name && file.name !== 'image.png' ? file.name : `pasted-image-${Date.now()}.${(file.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`
-    const url = `/api/now/attachment/file?table_name=${encodeURIComponent(table)}&table_sys_id=${encodeURIComponent(sysId)}&file_name=${encodeURIComponent(name)}`
-    const headers = authHeaders(false)
-    headers['Content-Type'] = file.type || 'application/octet-stream'
-    const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: file })
-    const json = await response.json().catch(() => null)
-    if (!response.ok || !json || !json.result) throw new Error((json && json.error && json.error.message) || `Image upload failed (HTTP ${response.status})`)
-    return { src: `/sys_attachment.do?sys_id=${json.result.sys_id}`, alt: name.replace(/\.[a-z0-9]+$/i, ''), sysId: json.result.sys_id, fileName: json.result.file_name }
+    // The shared attachment upload (utilities:app/attachments): same endpoint, plus progress / abort for other callers.
+    const named = namePastedFile(file)
+    const name = named.name || `pasted-image-${Date.now()}.png`
+    const att = await uploadAttachment({ file: named, table, sysId, fileName: name })
+    return { src: attachmentUrl(att.sysId), alt: name.replace(/\.[a-z0-9]+$/i, ''), sysId: att.sysId, fileName: att.fileName }
 }
 
 /** Where inline images of this field upload to, or null (URL-only). */

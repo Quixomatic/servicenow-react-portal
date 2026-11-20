@@ -4,7 +4,7 @@ import { T } from '../lib/tables.ts'
 import { parseJson, isPlainObject } from '../lib/util.ts'
 import { matchRoute } from '../lib/paths.ts'
 import { notFound, rpError } from '../lib/errors.ts'
-import { componentRef, themeRef, DEFAULT_REGIONS } from '../registry/registry.ts'
+import { componentRef, componentById, themeRef, withRegistryCache, DEFAULT_REGIONS } from '../registry/registry.ts'
 import { parseRegionSpec, resolveRegions, RegionSpecEntry } from '../registry/block-regions.ts'
 import { currentUser } from '../security/user.ts'
 import { assembleMenus, resolveMenus, ManifestMenu, MenuResolveContext } from './menu-service.ts'
@@ -102,7 +102,7 @@ export function placementsFor(ownerQuery: string, layouts: Record<string, Compon
         T.placement,
         `${ownerQuery}^active=true`,
         (pl) => {
-            const comp = getById(T.component, str(pl, 'component'))
+            const comp = componentById(str(pl, 'component'))
             if (!comp || !bool(comp, 'active')) return
             const ref = componentRef(comp)
             if (ref.kind === 'layout') layouts[ref.id] = ref
@@ -163,12 +163,20 @@ export function mergeOptions(component: GR, placement: GR | null): Record<string
     return { ...(isPlainObject(defaults) ? defaults : {}), ...(isPlainObject(own) ? own : {}) }
 }
 
-/** Assemble a manifest from current records (live mode, and the input to publishing). */
+/**
+ * Assemble a manifest from current records (live mode, and the input to publishing). Registry
+ * lookups (components, builds, import edges) are memoized for this one call only: widgets share
+ * primitives, so their import trees would otherwise re-query the same records many times.
+ */
 export function assembleManifest(portal: GR): Manifest {
+    return withRegistryCache(() => assembleManifestNow(portal))
+}
+
+function assembleManifestNow(portal: GR): Manifest {
     const portalId = portal.getUniqueValue()
     const layouts: Record<string, ComponentRef> = {}
 
-    const defaultLayout = getById(T.component, str(portal, 'default_layout'))
+    const defaultLayout = componentById(str(portal, 'default_layout'))
     let defaultLayoutId: string | null = null
     if (defaultLayout && bool(defaultLayout, 'active')) {
         const ref = componentRef(defaultLayout)
@@ -183,7 +191,7 @@ export function assembleManifest(portal: GR): Manifest {
         `portal=${portalId}^active=true`,
         (pg) => {
             let layoutId: string | null = null
-            const override = getById(T.component, str(pg, 'layout_override'))
+            const override = componentById(str(pg, 'layout_override'))
             if (override && bool(override, 'active')) {
                 const ref = componentRef(override)
                 layouts[ref.id] = ref

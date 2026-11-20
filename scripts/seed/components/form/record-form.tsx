@@ -28,6 +28,14 @@ import { useCollapsedSections, usePresentationPreference } from './preferences'
 import type { FormPresentation } from './preferences'
 import { FormTabs, useFormTabState, tabValue } from 'components:app/form-tabs'
 import { Icon } from 'components:icon'
+// Attachments (A6): the record's attachments panel, an option (off by default; presentation undecided).
+import { AttachmentPanel, AttachmentsToggle } from 'components:app/attachment-panel'
+// Related lists (A4): below the form, or extra tabs after the sections in tabs presentation.
+import { RelatedLists, useRelatedListTabs } from 'components:app/related-lists'
+import { isRelatedListShown } from 'utilities:app/gform'
+import type { FormExtraTab } from 'components:app/form-tabs'
+// Activity (A5): opt-in journal composer + activity stream (activity="notes" | "below"; default off).
+import { activityElementRenderer, ActivityBelowForm } from 'components:app/activity-stream'
 
 export type RecordFormProps = {
     /** A form from useRecordForm (else table / sysId / view build one). */
@@ -59,6 +67,26 @@ export type RecordFormProps = {
      * user's own choice (the toggle on the form, x_312987_portal.form.presentation) wins.
      */
     presentation?: FormPresentation
+    /**
+     * Attachments (A6): 'off' (default), 'below' (a panel under the sections), or 'header' (a
+     * paperclip + count in the header that shows / hides the panel above the sections). New
+     * records attach to the sys_id the form reserved, so files can be added before the first save.
+     */
+    attachments?: 'off' | 'below' | 'header'
+    /**
+     * Related lists (A4): 'auto' (default) follows the presentation: extra tabs after the sections in
+     * tabs mode, collapsible sections below the form when stacked; 'tabs' / 'stacked' pick the
+     * layout below the form ('tabs' still merges into the form's tabs in tabs mode); 'off' hides them.
+     * g_form.showRelatedList / hideRelatedList(s) apply.
+     */
+    relatedLists?: 'auto' | 'tabs' | 'stacked' | 'off'
+    /**
+     * Activity (A5), opt-in (the presentation isn't decided yet): 'off' (default: journal fields as
+     * app/journal-field, as before), 'notes' (composer + stream where the view's activity formatter
+     * belongs, i.e. at its first journal input; below the sections when it has none) or 'below'
+     * (under the sections). In both, the view's journal inputs move into the composer.
+     */
+    activity?: 'off' | 'notes' | 'below'
 }
 
 /** A record form with header, view switcher, sections, dirty tracking and save. */
@@ -273,6 +301,23 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     const failure = form.saveError
     const narrow = useNarrow()
     const layout = useLayout() as any
+    // Activity (A5): chain the caller's renderElement, then the opt-in activity mode.
+    const renderElement = useMemo(() => activityElementRenderer({ form, mode: props.activity || 'off', renderElement: props.renderElement }), [form, props.activity, props.renderElement])
+    // Related lists (A4): g_form.show/hideRelatedList flags live on the store ('rl:' keys); re-render when they change.
+    const rlKey = useSyncExternalStore(
+        form.subscribe,
+        () => {
+            const lists = (form.bootstrap && form.bootstrap.relatedLists) || []
+            return lists.filter((l) => !isRelatedListShown(form, l.name)).map((l) => l.name).join('|')
+        },
+        () => '',
+    )
+    const isRelatedShown = useMemo(() => {
+        const hidden = new Set(rlKey ? rlKey.split('|') : [])
+        return (name: string) => !hidden.has(name)
+    }, [rlKey])
+    // Attachments (A6): 'header' mode shows / hides the panel from a header toggle.
+    const [attachmentsOpen, setAttachmentsOpen] = useState(false)
     // Ctrl/⌘+S anywhere on the page (Save may live in the page header, outside the form).
     const saveShortcut = useRef<() => void>(() => {})
     useEffect(() => {
@@ -439,6 +484,24 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             canTab={tabsPossible}
         />
     )
+    // Attachments (A6): boot.sysId is the reserved sys_id on a new record (kept on insert).
+    const attachmentsMode = props.attachments || 'off'
+    const attachmentsPanelId = `rp-form-attachments-${boot.sysId}`
+    const attachmentsToggle =
+        attachmentsMode === 'header' ? (
+            <AttachmentsToggle table={boot.table} sysId={boot.sysId} pressed={attachmentsOpen} onPressedChange={setAttachmentsOpen} controls={attachmentsPanelId} />
+        ) : null
+    const attachmentsPanel =
+        attachmentsMode === 'below' || (attachmentsMode === 'header' && attachmentsOpen) ? (
+            <AttachmentPanel id={attachmentsPanelId} table={boot.table} sysId={boot.sysId} form={form} className={attachmentsMode === 'below' ? 'mb-4' : 'mb-6'} />
+        ) : null
+    // Related lists (A4): the bootstrap's lists (no extra request); merged into the form's tabs in tabs mode.
+    const relatedMode = props.relatedLists || 'auto'
+    const relatedConfig =
+        relatedMode !== 'off' && !form.isNew && boot.relatedLists && boot.relatedLists.length
+            ? { table: boot.table, sysId: boot.sysId, view: boot.view === 'Default view' ? '' : boot.view, lists: boot.relatedLists, isShown: isRelatedShown, onOpenRecord: form.openRecord, live: true }
+            : null
+    const relatedMerged = !!relatedConfig && relatedMode !== 'stacked' && presentation === 'tabs' && tabsPossible
     return (
         <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`}>
             {/* g_modal (client scripts, UI actions) dialogs; only the page's first outlet renders. */}
@@ -451,6 +514,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                               <>
                                   {unsaved}
                                   {actionBar}
+                                  {attachmentsToggle}
                                   {props.headerActions}
                                   {headerSave}
                                   {settingsMenu}
@@ -465,6 +529,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                         form={form}
                         actions={
                             <>
+                                {attachmentsToggle}
                                 {props.headerActions}
                                 {headerSave}
                                 {settingsMenu}
@@ -481,6 +546,8 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             )}
             <CardContent>
                 <FormProvider form={form}>
+                    {/* Attachments (A6), header mode: above the sections (outside <form>: rename's Enter must not submit). */}
+                    {attachmentsMode === 'header' ? attachmentsPanel : null}
                     <form
                         noValidate
                         aria-label={`${boot.tableLabel} form`}
@@ -571,10 +638,11 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                             readOnly={form.readOnly}
                             fieldLayout={props.fieldLayout}
                             hideFormatters={props.hideFormatters}
-                            renderElement={props.renderElement}
+                            renderElement={renderElement /* Activity (A5): was props.renderElement */}
                             isCollapsed={isCollapsed}
                             onToggleSection={toggleSection}
                             sectionBadges={sectionBadges}
+                            relatedTabs={relatedMerged ? relatedConfig : null}
                         />
                         {form.scriptErrors.length ? (
                             <details className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-rp-script-errors="">
@@ -591,6 +659,20 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                             </details>
                         ) : null}
                     </form>
+                    {/* Activity (A5): 'below' mode (or 'notes' on a view without a journal input): under the sections. */}
+                    <ActivityBelowForm form={form} bootstrap={boot} mode={props.activity || 'off'} />
+                    {/* Attachments (A6), below mode: under the sections. */}
+                    {attachmentsMode === 'below' ? attachmentsPanel : null}
+                    {/* Related lists (A4) below the form, outside <form> (their inputs must not submit it). */}
+                    {relatedConfig && !relatedMerged ? (
+                        <div className="border-t border-border pt-4 pb-4" data-rp-form-related="">
+                            <RelatedLists
+                                {...relatedConfig}
+                                layout={relatedMode === 'tabs' || (relatedMode === 'auto' && presentation === 'tabs') ? 'tabs' : 'stacked'}
+                                heading={relatedMode === 'tabs' || (relatedMode === 'auto' && presentation === 'tabs') ? undefined : 'Related lists'}
+                            />
+                        </div>
+                    ) : null}
                 </FormProvider>
             </CardContent>
         </Card>
@@ -608,9 +690,14 @@ function FormBody(
         revealTab: { current: ((section: string) => void) | null }
         firstInvalidSection?: string
         validation: unknown
+        /** Related lists (A4) as extra tabs after the sections (tabs presentation only). */
+        relatedTabs?: any
     },
 ) {
-    const { bootstrap, presentation, revealTab, firstInvalidSection, validation, ...layout } = props
+    const { bootstrap, presentation, revealTab, firstInvalidSection, validation, relatedTabs, ...layout } = props
+    // Related lists (A4): tab descriptors (lazy panels); disabled unless merged into the tabs.
+    const related = useRelatedListTabs(relatedTabs || { table: '', sysId: '', enabled: false })
+    const extraTabs: FormExtraTab[] = relatedTabs ? related.tabs.map((t) => ({ value: t.value, label: t.label, count: t.count, render: t.render })) : []
     const visible = useVisibleSections(bootstrap, props.hideFormatters)
     // The first section without a caption (incident's main fields) is never a tab: it stays on top,
     // always open; the tabs hold the named sections.
@@ -619,8 +706,8 @@ function FormBody(
     const named = lead ? bootstrap.sections.slice(1) : bootstrap.sections
     const tabsPossible = canUseTabs(bootstrap.sections)
     const namedShown = named.filter((s) => visible.has(sectionName(s)))
-    const asTabs = presentation === 'tabs' && tabsPossible && namedShown.length > 0
-    const tabs = useFormTabState({ sections: named, visible, syncUrl: asTabs })
+    const asTabs = presentation === 'tabs' && tabsPossible && (namedShown.length > 0 || extraTabs.length > 0)
+    const tabs = useFormTabState({ sections: named, visible, syncUrl: asTabs, extraValues: extraTabs.map((t) => t.value) })
     const byName: Record<string, any> = {}
     named.forEach((s) => (byName[sectionName(s)] = s))
     revealTab.current = (section: string) => {
@@ -647,6 +734,7 @@ function FormBody(
                         onValueChange={tabs.select}
                         errors={layout.sectionBadges}
                         renderSection={(s: any) => <SectionRows section={s} bootstrap={bootstrap} {...layout} />}
+                        extraTabs={extraTabs}
                     />
                 </>
             ) : (

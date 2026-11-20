@@ -1,0 +1,10 @@
+/* Columns follow the widget's own width (container queries): the option's count → 2 → 1, so four
+   tiles never leave an orphan. */
+.rp-ql { container-type: inline-size; container-name: rp-ql; }
+.rp-ql-grid { grid-template-columns: repeat(var(--rp-ql-cols, 4), minmax(0, 1fr)); }
+@container rp-ql (max-width: 899px) { .rp-ql-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container rp-ql (max-width: 440px) { .rp-ql-grid { grid-template-columns: minmax(0, 1fr); } }
+/* Call-to-action band: a soft wash of the primary token (follows light/dark). */
+.rp-ql-cta {
+    background: linear-gradient(110deg, color-mix(in oklab, var(--primary) 8%, var(--card)) 0%, var(--card) 70%);
+}

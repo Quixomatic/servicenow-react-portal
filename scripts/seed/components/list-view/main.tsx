@@ -166,7 +166,7 @@ export default function ListView({ options = {} }: { options?: Options }) {
             <RecordList
                 key={`${table}|${view}`}
                 table={table}
-                title={options.title}
+                title={options.title || qp.get('title') || undefined}
                 columns={options.columns}
                 query={options.query}
                 fixedQuery={options.fixedQuery}

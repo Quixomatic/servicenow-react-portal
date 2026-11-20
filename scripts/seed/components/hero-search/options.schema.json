@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "properties": {
+    "placement": {
+      "type": "string",
+      "title": "Placement",
+      "enum": [
+        "banner",
+        "inline"
+      ],
+      "enumNames": [
+        "In the banner sub-header",
+        "Where placed"
+      ]
+    },
+    "placeholder": {
+      "type": "string",
+      "title": "Placeholder"
+    },
+    "sources": {
+      "type": "array",
+      "title": "Sources (in order)",
+      "items": {
+        "type": "string",
+        "enum": [
+          "catalog",
+          "knowledge",
+          "requests",
+          "incidents",
+          "pages"
+        ]
+      }
+    },
+    "resultsPage": {
+      "type": "string",
+      "title": "Results page route"
+    },
+    "catalogPage": {
+      "type": "string",
+      "title": "Catalog page route"
+    },
+    "kbPage": {
+      "type": "string",
+      "title": "Knowledge page route"
+    },
+    "recordPage": {
+      "type": "string",
+      "title": "Record form page route"
+    },
+    "suggestions": {
+      "type": "array",
+      "title": "Popular searches",
+      "items": {
+        "type": "string"
+      }
+    },
+    "showChips": {
+      "type": "boolean",
+      "title": "Show popular searches under the box"
+    }
+  }
+}

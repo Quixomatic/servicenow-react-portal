@@ -38,6 +38,8 @@ export interface ManifestMenuItem {
     pageId: string | null
     params: Record<string, string>
     query: Record<string, string>
+    /** Explicit record params (params_json.record): the site page's table / sys_id / view / query URL params. */
+    record?: MenuRecordParams
     route: string
     url: string
     /** Route items: another portal's slug (params_json.portal) for a cross-portal link ('' = this portal). */
@@ -76,11 +78,33 @@ export function parseItemPortal(text: string): string {
     return raw.portal.trim()
 }
 
-/** params_json → { params, query }. */
-export function parseItemParams(text: string): { params: Record<string, string>; query: Record<string, string> } {
+/** Explicit record params of a page / route item: the site page's own optional URL params. */
+export interface MenuRecordParams {
+    table?: string
+    sys_id?: string
+    view?: string
+    query?: string
+}
+
+const RECORD_PARAM_KEYS: (keyof MenuRecordParams)[] = ['table', 'sys_id', 'view', 'query']
+
+/** params_json.record → the allowed record params (strings, non-empty), or {} . */
+export function parseItemRecord(raw: unknown): MenuRecordParams {
+    const out: MenuRecordParams = {}
+    if (!isPlainObject(raw)) return out
+    const src = raw as Record<string, unknown>
+    for (const k of RECORD_PARAM_KEYS) {
+        const v = k === 'sys_id' && src.sys_id === undefined ? src.sysId : src[k]
+        if (v !== null && v !== undefined && typeof v !== 'object' && String(v) !== '') out[k] = String(v)
+    }
+    return out
+}
+
+/** params_json → { params, query, record }. */
+export function parseItemParams(text: string): { params: Record<string, string>; query: Record<string, string>; record: MenuRecordParams } {
     const raw = parseJson<unknown>(text, null)
-    if (!isPlainObject(raw)) return { params: {}, query: {} }
-    return { params: stringMap(raw.params), query: stringMap(raw.query) }
+    if (!isPlainObject(raw)) return { params: {}, query: {}, record: {} }
+    return { params: stringMap(raw.params), query: stringMap(raw.query), record: parseItemRecord(raw.record) }
 }
 
 function manifestItem(gr: GR): ManifestMenuItem {
@@ -100,6 +124,7 @@ function manifestItem(gr: GR): ManifestMenuItem {
         pageId: str(gr, 'page') || null,
         params: p.params,
         query: p.query,
+        record: p.record,
         route: str(gr, 'route'),
         url: str(gr, 'url'),
         portal: parseItemPortal(str(gr, 'params_json')),
@@ -313,6 +338,14 @@ function resolveItem(item: ManifestMenuItem, ctx: MenuResolveContext, pagesById:
         nav.to = r.to
         if (Object.keys(r.q).length) nav.q = r.q
         if (item.portal && item.portal !== ctx.portal.slug) nav.portalSlug = item.portal
+    }
+    // Explicit record params (not for cross-portal links: they belong to the other portal's pages).
+    const rec = item.record || {}
+    if (!nav.portalSlug) {
+        if (rec.table) nav.table = rec.table
+        if (rec.sys_id) nav.sysId = rec.sys_id
+        if (rec.view) nav.view = rec.view
+        if (rec.query) nav.query = rec.query
     }
     nav.match = item.match === 'exact' ? 'exact' : 'prefix'
     if (item.target === '_blank') nav.target = '_blank'

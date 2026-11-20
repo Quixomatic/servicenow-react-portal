@@ -1,4 +1,5 @@
 import { graphql, authHeaders, normalizePolicy, normalizeClientScripts, executeUiAction, CLIENT_SCRIPT_FIELDS } from 'utilities:app/graphql'
+import { uploadAttachment } from 'utilities:app/attachments'
 import type { ClientScript, ClientScripts, UiPolicy } from 'utilities:app/graphql'
 import type { CatalogItem, CatalogVariable, DelegationResult, MrvsRowField, MrvsRowForm, PriceResult, SubmitResult, VariableEditorData } from './types'
 
@@ -453,12 +454,8 @@ export async function saveRecordVariables(args: {
 }
 
 /** Upload a file for an attachment variable to the form's draft record; resolves with the attachment sys_id. */
-export async function uploadVariableAttachment(args: { file: File; draftTable: string; draftSysId: string }): Promise<{ sysId: string; fileName: string }> {
-    const url = `/api/now/attachment/file?table_name=${encodeURIComponent('ZZ_YY' + args.draftTable)}&table_sys_id=${encodeURIComponent(args.draftSysId)}&file_name=${encodeURIComponent(args.file.name)}`
-    const headers = authHeaders(false)
-    headers['Content-Type'] = args.file.type || 'application/octet-stream'
-    const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: args.file })
-    const json = await response.json().catch(() => null)
-    if (!response.ok || !json || !json.result) throw new Error((json && json.error && json.error.message) || `Upload failed (HTTP ${response.status})`)
-    return { sysId: json.result.sys_id, fileName: json.result.file_name }
+export async function uploadVariableAttachment(args: { file: File; draftTable: string; draftSysId: string; onProgress?: (fraction: number) => void; signal?: AbortSignal }): Promise<{ sysId: string; fileName: string }> {
+    // The shared upload (utilities:app/attachments): ZZ_YY<draft table> keeps it out of attachment lists.
+    const att = await uploadAttachment({ file: args.file, table: 'ZZ_YY' + args.draftTable, sysId: args.draftSysId, onProgress: args.onProgress, signal: args.signal })
+    return { sysId: att.sysId, fileName: att.fileName }
 }

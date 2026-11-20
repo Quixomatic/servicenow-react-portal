@@ -6,6 +6,7 @@ import { canonicalJson, sha256, nowValue, parseJson } from '../lib/util.ts'
 import { requireStudio } from '../security/access.ts'
 import { assembleManifest, Manifest, flattenRegions } from '../runtime/portal-service.ts'
 import { buildOf } from '../registry/registry.ts'
+import { reprocessSuppressed } from '../lib/session-flags.ts'
 import type { ReleaseSummary, PlacementRef } from '../../shared/contracts'
 
 /**
@@ -158,6 +159,9 @@ export function processAllPortals(): number {
 
 /** Reprocess every portal that uses a component (layout or placement) or a theme. */
 export function reprocessForOwner(type: 'component' | 'theme', id: string): number {
+    // A batch (designer write, demo seed) sets the skip flag and reprocesses each portal once at
+    // its end, so a compile inside the batch must not rebuild every portal that uses the component.
+    if (reprocessSuppressed()) return 0
     const portals: Record<string, boolean> = {}
     if (type === 'theme') {
         each(T.portal, `theme=${id}`, (p) => (portals[p.getUniqueValue()] = true))

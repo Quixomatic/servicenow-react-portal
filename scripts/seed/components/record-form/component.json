@@ -1,1 +1,1 @@
-{ "name": "Record Form", "kind": "widget", "tailwind": true, "defaults": { "table": "", "sysId": "", "view": "", "picker": true, "showViews": true, "pickerQuery": "", "headerPlacement": "auto", "listPage": "", "presentation": "stacked" } }
+{ "name": "Record Form", "kind": "widget", "tailwind": true, "defaults": { "table": "", "sysId": "", "view": "", "picker": true, "showViews": true, "pickerQuery": "", "headerPlacement": "auto", "listPage": "", "presentation": "stacked", "attachments": "off", "relatedLists": "auto", "activity": "off" } }

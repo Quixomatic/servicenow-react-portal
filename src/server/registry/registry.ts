@@ -65,6 +65,123 @@ export function buildOf(ownerType: 'component' | 'theme', ownerId: string): GR |
     return findOne(T.build, `owner_key=${ownerType}:${ownerId}`)
 }
 
+/* ---------------- Per-call lookup cache ---------------- */
+
+/** A record import edge of a build: its specifier and the imported component's sys_id. */
+interface DepEdge {
+    specifier: string
+    compId: string
+}
+
+/** The plain fields of a component that an import entry carries. */
+interface CompInfo {
+    uniqueId: string
+    name: string
+    kind: ComponentKind
+    serverMode: ServerMode
+}
+
+/** A component's current build: its sys_id and entry assets (null when not usable). */
+interface CurrentBuild {
+    id: string
+    ref: BuildRef | null
+}
+
+interface RegistryCache {
+    components: Record<string, GR | null>
+    infos: Record<string, CompInfo | null>
+    builds: Record<string, CurrentBuild | null>
+    owners: Record<string, string | null>
+    deps: Record<string, DepEdge[]>
+}
+
+/**
+ * Lookups memoized for the duration of ONE withRegistryCache() call (one manifest assembly).
+ * Never shared across calls: it is created on entry and dropped in `finally`. Contains only
+ * registry records (components, builds, build_dep edges), nothing user-specific.
+ */
+let cache: RegistryCache | null = null
+
+/**
+ * Run fn with registry lookups memoized (components, current builds and their entry assets,
+ * build owners, record import edges). Use only around read-only work: a build written inside fn
+ * would not be seen. Nested calls share the outer cache.
+ */
+export function withRegistryCache<R>(fn: () => R): R {
+    if (cache) return fn()
+    cache = { components: {}, infos: {}, builds: {}, owners: {}, deps: {} }
+    try {
+        return fn()
+    } finally {
+        cache = null
+    }
+}
+
+/** A component record by sys_id (memoized inside withRegistryCache). Treat it as read-only. */
+export function componentById(id: string): GR | null {
+    if (!cache) return getById(T.component, id)
+    if (!(id in cache.components)) cache.components[id] = getById(T.component, id)
+    return cache.components[id]
+}
+
+function componentInfo(id: string): CompInfo | null {
+    const read = (): CompInfo | null => {
+        const comp = cache ? componentById(id) : getById(T.component, id)
+        if (!comp) return null
+        return {
+            uniqueId: str(comp, 'unique_id'),
+            name: str(comp, 'name'),
+            kind: (str(comp, 'kind') || 'widget') as ComponentKind,
+            serverMode: (str(comp, 'server_mode') || 'none') as ServerMode,
+        }
+    }
+    if (!cache) return read()
+    if (!(id in cache.infos)) cache.infos[id] = read()
+    return cache.infos[id]
+}
+
+/** A component's current build (buildOf + buildRef), or null when it has no build record. */
+function currentBuild(compId: string): CurrentBuild | null {
+    const read = (): CurrentBuild | null => {
+        const b = buildOf('component', compId)
+        return b ? { id: b.getUniqueValue(), ref: buildRef(b) } : null
+    }
+    if (!cache) return read()
+    if (!(compId in cache.builds)) cache.builds[compId] = read()
+    return cache.builds[compId]
+}
+
+function copyBuildRef(ref: BuildRef | null): BuildRef | null {
+    return ref ? { id: ref.id, js: ref.js, css: ref.css } : null
+}
+
+/** The owner component sys_id of a build ('' when the owner key is empty; null when no such build). */
+function buildOwner(buildId: string): string | null {
+    const read = (): string | null => {
+        const b = getById(T.build, buildId)
+        return b ? str(b, 'owner_key').replace(/^component:/, '') : null
+    }
+    if (!cache) return read()
+    if (!(buildId in cache.owners)) cache.owners[buildId] = read()
+    return cache.owners[buildId]
+}
+
+/** A build's record import edges (kind=component), in query order; edges to a missing build are dropped. */
+function componentDeps(buildId: string): DepEdge[] {
+    const read = (): DepEdge[] => {
+        const edges: DepEdge[] = []
+        each(T.buildDep, `build=${buildId}^kind=component`, (dep) => {
+            const owner = buildOwner(str(dep, 'target_build'))
+            if (owner === null) return
+            edges.push({ specifier: str(dep, 'specifier'), compId: owner })
+        })
+        return edges
+    }
+    if (!cache) return read()
+    if (!(buildId in cache.deps)) cache.deps[buildId] = read()
+    return cache.deps[buildId]
+}
+
 export function regionsOf(component: GR): RegionDef[] {
     const raw = parseJson<unknown>(str(component, 'regions_json'), null)
     return normalizeRegions(raw)
@@ -93,14 +210,23 @@ export function normalizeRegions(raw: unknown): RegionDef[] {
 /** Descriptor for a component. `build` overrides latest_build (release mode pins builds). */
 export function componentRef(component: GR, build?: GR | null): ComponentRef {
     const kind = (str(component, 'kind') || 'widget') as ComponentKind
-    const pinned = build === undefined ? buildOf('component', component.getUniqueValue()) : build
+    let pinnedId: string | null
+    let pinnedRef: BuildRef | null
+    if (build === undefined) {
+        const current = currentBuild(component.getUniqueValue())
+        pinnedId = current ? current.id : null
+        pinnedRef = current ? copyBuildRef(current.ref) : null
+    } else {
+        pinnedId = build ? build.getUniqueValue() : null
+        pinnedRef = buildRef(build)
+    }
     const ref: ComponentRef = {
         id: component.getUniqueValue(),
         uniqueId: str(component, 'unique_id'),
         name: str(component, 'name'),
         kind,
         serverMode: (str(component, 'server_mode') || 'none') as ServerMode,
-        build: buildRef(pinned),
+        build: pinnedRef,
     }
     if (kind === 'layout') {
         const regions = regionsOf(component)
@@ -108,7 +234,7 @@ export function componentRef(component: GR, build?: GR | null): ComponentRef {
         const defaults = parseJson<Record<string, unknown>>(str(component, 'default_options_json'), {})
         ref.defaultOptions = isPlainObject(defaults) ? defaults : {}
     }
-    const imports = pinned ? componentImports(pinned.getUniqueValue()) : []
+    const imports = pinnedId ? componentImports(pinnedId) : []
     if (imports.length) ref.imports = imports
     return ref
 }
@@ -125,39 +251,36 @@ export function componentImports(buildId: string): ComponentImport[] {
     const out: ComponentImport[] = []
     const placed: Record<string, ComponentImport> = {}
     const visiting: Record<string, boolean> = {}
-    const rootBuild = getById(T.build, buildId)
-    const rootOwner = rootBuild ? str(rootBuild, 'owner_key').replace(/^component:/, '') : ''
+    const rootOwner = buildOwner(buildId) || ''
     const visit = (bId: string, ownerId: string, depth: number) => {
         if (depth > 12 || visiting[bId]) return
         visiting[bId] = true
-        each(T.buildDep, `build=${bId}^kind=component`, (dep) => {
-            const target = getById(T.build, str(dep, 'target_build'))
-            if (!target) return
-            const compId = str(target, 'owner_key').replace(/^component:/, '')
-            const comp = getById(T.component, compId)
-            if (!comp) return
-            const current = buildOf('component', compId)
-            if (current) visit(current.getUniqueValue(), compId, depth + 1)
-            const specifier = str(dep, 'specifier')
+        for (const dep of componentDeps(bId)) {
+            const compId = dep.compId
+            const info = componentInfo(compId)
+            if (!info) continue
+            const current = currentBuild(compId)
+            if (current) visit(current.id, compId, depth + 1)
+            const specifier = dep.specifier
             const key = `${specifier}|${compId}`
             const existing = placed[key]
             if (existing) {
                 if (ownerId && existing.importers && existing.importers.indexOf(ownerId) < 0) existing.importers.push(ownerId)
-                return
+                continue
             }
             const imp: ComponentImport = {
                 specifier,
                 id: compId,
-                uniqueId: str(comp, 'unique_id'),
-                kind: (str(comp, 'kind') || 'widget') as ComponentKind,
-                build: buildRef(current),
-                name: str(comp, 'name'),
-                serverMode: (str(comp, 'server_mode') || 'none') as ServerMode,
+                uniqueId: info.uniqueId,
+                kind: info.kind,
+                build: current ? copyBuildRef(current.ref) : null,
+                name: info.name,
+                serverMode: info.serverMode,
                 importers: ownerId ? [ownerId] : [],
             }
             placed[key] = imp
             out.push(imp)
-        })
+        }
         visiting[bId] = false
     }
     visit(buildId, rootOwner, 0)

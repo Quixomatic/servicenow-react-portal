@@ -30,7 +30,7 @@ Menus belong to exactly one portal, like pages, and are never shared between por
 | `type` | `page`, `route`, `url`, `group`, `separator`, `dynamic` |
 | `label`, `icon`, `tooltip`, `badge` | Display. `icon` is a Lucide name in kebab-case (`layout-dashboard`) |
 | `page` | Page items: a page of the menu's portal (survives route renames; deleting the page deletes the item) |
-| `params_json` | Page items: `{"params": {"id": "42"}, "query": {"tab": "open"}}`. Route items: `{"portal": "<slug>"}` for a cross-portal link |
+| `params_json` | Page items: `{"params": {"id": "42"}, "query": {"tab": "open"}, "record": {"table": "incident", "query": "active=true"}}`. `params` fills route params, `query` becomes the link's `q`, `record` holds explicit record params (below). Route items: `{"portal": "<slug>"}` for a cross-portal link (and `record` for same-portal ones) |
 | `route` | Route items: a portal-relative path, optionally with a query (`orders?tab=open`, `''` = home) |
 | `url` | URL items: `http(s)://` or `mailto:` only |
 | `target` | `_self` / `_blank` |
@@ -67,6 +67,8 @@ interface NavItem {
     to?: string                       // page / route items: portal-relative path
     q?: Record<string, string>        // query
     portalSlug?: string               // route items to another portal
+    table?: string; sysId?: string    // explicit record params (params_json.record)
+    view?: string; query?: string
     href?: string                     // url items
     target?: '_self' | '_blank'
     match?: 'exact' | 'prefix'
@@ -76,6 +78,20 @@ interface NavItem {
 ```
 
 The client adds `active` (from the current path), `tint` and Link props. See [`useNavigation`](../runtime-api/layout-and-navigation.md#usenavigation).
+
+## Explicit record params
+
+A page or route item can open its page with the site page's own optional URL params, `table`, `sys_id`, `view` and `query`, instead of packing them into `q`. They go in `params_json.record`:
+
+```json
+{ "record": { "table": "incident", "query": "active=true^caller_idDYNAMIC90d1921e5f510100a9ad2572f2b477fe" }, "query": { "title": "My incidents" } }
+```
+
+- The resolved `NavItem` carries them as `table`, `sysId`, `view` and `query`, and `item.link` passes them to `<Link>`, so the URL reads `/params/page-id/list/table/incident/query/…/q/title%3DMy%20incidents`.
+- Only these four keys are kept. Cross-portal route items drop them.
+- **Active state:** an item with record params is active only while the location has exactly those values. Among items on the same page, the one with the most matching record params wins, then the one with the most matching `q` keys. An item without params is the fallback. So "My incidents" and "My requests" can both open the generic `list` page and still highlight apart, and the generic "Record list" item lights up only for other lists.
+- For "me" queries, use the platform's dynamic filter (`<field>DYNAMIC90d1921e5f510100a9ad2572f2b477fe`, "is (dynamic) Me"): the condition builder shows it as a readable chip, and AMB watches can use it. `javascript:gs.getUserID()` works in GraphQL and Table API queries too.
+- `q` `title` is a convention: `app/list-view` uses it as the list title and `app/app-header` closes the breadcrumb trail with it.
 
 ## Condition scripts
 

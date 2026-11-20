@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Title"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "sources": {
+      "type": "array",
+      "title": "Tabs (in order)",
+      "items": {
+        "type": "string",
+        "enum": [
+          "requests",
+          "incidents",
+          "approvals"
+        ]
+      }
+    },
+    "limit": {
+      "type": "integer",
+      "title": "Rows per tab",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "recordPage": {
+      "type": "string",
+      "title": "Record form page route"
+    },
+    "listPage": {
+      "type": "string",
+      "title": "List page route (View all; empty = none)"
+    },
+    "catalogPage": {
+      "type": "string",
+      "title": "Catalog page route"
+    },
+    "live": {
+      "type": "boolean",
+      "title": "Live updates"
+    }
+  }
+}

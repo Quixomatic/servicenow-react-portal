@@ -80,7 +80,7 @@ Instance inventory: 2,104 `sys_ux_lib_component` · 4,190 `sys_ux_macroponent` �
 
 (The category table above counts components only, as in the first pass; `catalog-variable` there excludes the 32 variable-type mappings.)
 
-### Coverage (v1.13.0; unchanged by the cart wave)
+### Coverage (recomputed from catalog.json: v1.15.0 + the working tree: activity, related lists, attachments, home and search)
 
 All 365 entries, including the 32 variable-type mappings (counted under `catalog-variable`):
 
@@ -88,45 +88,50 @@ All 365 entries, including the 32 variable-type mappings (counted under `catalog
 |---|---|---|---|---|
 | catalog | 29 | 11 | 1 | 17 |
 | catalog-variable | 43 | 42 | 1 | 0 |
-| data-display | 42 | 2 | 5 | 35 |
-| feedback | 15 | 4 | 9 | 2 |
-| field | 78 | 38 | 8 | 32 |
-| form | 36 | 7 | 4 | 25 |
-| layout | 52 | 28 | 7 | 17 |
-| list | 48 | 22 | 4 | 22 |
+| data-display | 42 | 4 | 4 | 34 |
+| feedback | 15 | 6 | 7 | 2 |
+| field | 78 | 40 | 6 | 32 |
+| form | 36 | 14 | 5 | 17 |
+| layout | 52 | 29 | 6 | 17 |
+| list | 48 | 25 | 2 | 21 |
 | other | 17 | 0 | 0 | 17 |
-| search | 5 | 0 | 1 | 4 |
-| **Total** | **365** | **154** | **40** | **171** |
+| search | 5 | 2 | 2 | 1 |
+| **Total** | **365** | **173** | **34** | **158** |
 
 | Usefulness | Entries | Match | Partial | None |
 |---|---|---|---|---|
-| high | 104 | 84 | 16 | 4 |
-| medium | 76 | 33 | 11 | 32 |
-| low | 185 | 37 | 13 | 135 |
+| high | 104 | 93 | 11 | 0 |
+| medium | 76 | 36 | 12 | 28 |
+| low | 185 | 44 | 11 | 130 |
 
-- **High-usefulness with no match (4):** `now-record-related-list-tab-content`, `now-record-common-attachments-connected`, `now-activity-stream-connected`, `now-activity-stream-compose-connected`. All are wave-4 form furniture (related lists, attachments, activity).
-- **High-usefulness partials (16)** cluster in three places:
-  - form presentation: form shell, sections, column layout, header;
-  - rich field types: journal, file attachment;
-  - design-system primitives that exist only inside a widget: alert, empty state, skeleton, chip, avatar, breadcrumbs, accordion, highlighted value.
+- **High-usefulness with no match (0).**
+- **High-usefulness partials (11)** cluster in three places:
+  - form presentation: form shell, header;
+  - checkbox (indeterminate), label-value, pill;
+  - design-system primitives that exist only inside a widget: alert, avatar, breadcrumbs, accordion; highlighted value is a primitive now (`app/highlighted-value`) but doesn't read the platform's colour configs.
+- **Home and search wave:** `components:empty`, `components:skeleton` (host kit) close `now-empty-state`, `now-loader-skeleton` and their low-usefulness templates; `app/search-box`, `app/search-results` close `sn-search-combobox`, `sn-search-results-container` (`sn-search-facets` and the Workspace global search typeahead are partial); `app/quick-links` closes `now-link-set`.
 - **Variable types:** 31 of 32 match. The one partial is UI page (15): it renders an `rp_component` when set, but platform UI pages are classic-only.
 - **Low-usefulness:** most are inventory rows that nobody reviewed by hand. A `none` there is expected, not a gap.
 - **Cart wave:** Next Experience has no cart UI (§7.1), so the cart closes no entry. `sn-catalog-action` stays partial: Add to cart is done, but a Cancel button and Save as draft are not.
 
 **Our current library** (details in §13):
-- **Host UI kit** (`packages/portal-host/src/components/ui`, registered as `components:<name>`): `badge`, `button`, `card`, `collapsible`, `dialog`, `dropdown-menu`, `icon` (any Lucide icon), `calendar` (date grid), `rich-text` (sanitised renderer + `sanitizeHtml`), `rich-text-editor` (TipTap, lazily loaded chunk), `popover`, `separator`, `sheet`, `sidebar`, `sonner`, `tabs`, `tooltip`.
+- **Host UI kit** (`packages/portal-host/src/components/ui`, registered as `components:<name>`): `badge`, `button`, `card`, `collapsible`, `dialog`, `dropdown-menu`, `icon` (any Lucide icon), `calendar` (date grid), `rich-text` (sanitised renderer + `sanitizeHtml`), `rich-text-editor` (TipTap, lazily loaded chunk), `popover`, `separator`, `sheet`, `sidebar`, `skeleton`, `empty` (empty state), `kbd`, `sonner`, `tabs`, `tooltip`.
 - **Primitives** (`kind = primitive`):
   - `app/field` (useField, FieldShell, form store, policies, registry);
   - 20 field primitives (since the fields pass: `app/time-field`, `app/conditions-field`, `app/table-name-field`, `app/field-name-field`, `app/html-field`), `app/combobox` and `app/field-control`;
   - `app/variable`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/requested-for-field`, `app/variable-editor`, `app/star-rating-variable` (demo custom variable);
   - `app/condition-builder`, `app/data-table` and `app/form`;
+  - related lists: `app/related-list` (one list of any record: reference, m2m and scripted relationships), `app/related-lists` (tabs / stacked / single);
   - form pieces: `app/form-section` (collapsible section), `app/form-tabs` (sections as tabs), `app/form-annotation`;
   - dialogs: `app/confirm-dialog` (confirm / alert, dialog queue, `useDialog` / `useConfirm`), `app/field-dialog` (fields spec → modal form, `showFields`).
-- **Utilities:** `app/graphql`, `app/datetime` (zones, user formats, date/time format and parse), `app/list-data`, `app/catalog`, `app/custom-variables` (custom-variable registry), `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
+  - attachments (A6): `app/attachment-dropzone`, `app/attachment-list` (list / grid / chips, image preview), `app/attachment-panel`, `app/attachment-field` (file_attachment, user_image).
+  - activity (A5): `app/activity-stream` (feed, filters, live; RecordActivity), `app/journal-composer`, `app/journal-field`.
+- **Utilities:** `app/graphql`, `app/activity` (activity stream data, putJournal, live), `app/attachments` (attachment data, uploads, validation, live), `app/datetime` (zones, user formats, date/time format and parse), `app/list-data`, `app/catalog`, `app/custom-variables` (custom-variable registry), `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
 - **Runtime:** `useRecordWatch`, `useAmbChannel`, `useAmbStatus`, `Link`/`navigate` with table/sysId/view/query params, `usePortalLocation`, embedded widgets (`$sp.getWidget`, `useEmbeddedWidget`, `<Embed>`, the `lazy` prop, embeds under layouts), `useInViewOnce`.
 - **Widgets:**
   - catalog: `app/catalog-item` (Order now and Add to cart), `app/catalog-picker`, `app/variable-editor-demo`, `app/cart` (cart and checkout), `app/cart-button` (header cart and count);
-  - lists and forms: `app/list-view`, `app/list-card`, `app/record-form`;
+  - lists and forms: `app/list-view`, `app/list-card`, `app/record-form`, `app/related-lists-card`, `app/attachments-card`;
+  - home and search: `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements` (on `utilities:app/search`, `app/search-box`, `app/highlighted-value`);
   - app shell: `app/app-header`, `app/app-sidebar`, `app/app-subheader`;
   - site: site-header, nav-sidebar, site-footer;
   - demos: field-demo, embed-demo, incident-list, record-detail, hello-card, server-clock, runtime-tests.
@@ -157,9 +162,9 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `sn-record-control-wrapper` | field | high | `app/field` | match: components:app/field |
 | `sn-record-controls-internal-field-messages` | field | high | `app/field (FieldMessages part)` | match: components:app/field |
 | `sn-record-duration` | field | high | `app/duration-field` | match: components:app/duration-field |
-| `sn-record-file-attachment` | field | high | `app/attachment-field` | partial: components:app/attachment-variable — catalog-only (uploads to the catalog draft record); not registered for file_attachment/user_image dictionary types |
+| `sn-record-file-attachment` | field | high | `app/attachment-field` | match: components:app/attachment-field (file_attachment, user_image), components:app/attachment-variable (catalog type 33) |
 | `sn-record-input-connected` | field | high | `app/string-field` | match: components:app/string-field, components:app/field-control |
-| `sn-record-journal-input` | field | high | `app/journal-field` | partial: components:app/textarea-field — journal types fall back to a plain textarea: no journal switch (work notes vs comments), no mentions, no history |
+| `sn-record-journal-input` | field | high | `app/journal-field` | match: components:app/journal-field — journal_input / journal (work notes tinted, internal badge, audience line), journal_list read-only; no mentions |
 | `sn-record-reference-connected` | field | high | `app/reference-field` | match: components:app/reference-field, components:app/list-field |
 | `now-code-editor` | field | medium | `ui/code-editor` | none |
 | `now-currency-input` | field | medium | `app/currency-field` | match: components:app/currency-field |
@@ -209,7 +214,7 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-predicate-builder` | list | high | `app/condition-builder` | match: components:app/condition-builder |
 | `now-record-list` | list | high | `app/data-table` | match: components:app/data-table |
 | `now-record-list-connected` | list | high | `app/record-list` | match: components:app/data-table, utilities:app/list-data, components:app/condition-builder |
-| `now-record-list-connected-related` | list | high | `app/related-list` | partial: components:app/data-table — RecordList supports fixedQuery / relatedListName + parent; not wired into forms (no relatedLists in the form bootstrap, no related-list tabs) |
+| `now-record-list-connected-related` | list | high | `app/related-list` | match: components:app/related-list, components:app/data-table, utilities:app/list-data |
 | `now-table` | list | high | `ui/table` | match: components:app/data-table |
 | `now-data-set` | list | medium | `ui/data-view` | none |
 | `now-dot-walk` | list | medium | `app/field-picker` | match: components:app/condition-builder |
@@ -220,21 +225,21 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-record-list-filter-panel` | list | medium | `app/record-list (filter panel part)` | match: components:app/data-table |
 | `sn-quick-filter` | list | medium | `app/quick-filter` | none |
 | `sn-record-list-column-filter-value-input` | list | medium | `app/column-filter` | none |
-| `now-activity-stream-compose-connected` | form | high | `app/journal-composer` | none |
-| `now-activity-stream-connected` | form | high | `app/activity-stream` | none |
-| `now-record-common-attachments-connected` | form | high | `app/attachments` | none |
+| `now-activity-stream-compose-connected` | form | high | `app/journal-composer` | match: components:app/journal-composer — journal switch (writable fields via field ACLs), plain text, Ctrl/⌘+Enter, putJournal (as Workspace), bound mode (form value; Post and save when the form is dirty); no mentions, rich text, email mini-composer, pop-out |
+| `now-activity-stream-connected` | form | high | `app/activity-stream` | match: components:app/activity-stream, utilities:app/activity — GlideActivity getEvents (journal, audit, attachments, emails, relations), platform filter configuration, filter chips + Fields menu, day groups, Show more, live via AMB /activity/events/<sys_id>, role=feed; no tags, filter sets, edit/delete, new-activity marker |
+| `now-record-common-attachments-connected` | form | high | `app/attachments` | match: components:app/attachment-panel, components:app/attachments-card — upload (multi, drag-drop, paste, progress, cancel), rename, delete, download / download all, image preview, live (AMB); no document-viewer preview, encryption modules or multi-select delete |
 | `now-record-common-header` | form | high | `app/record-header` | partial: components:app/form — title/number/state/read-only badges only: no highlighted values, presence, record ribbon, configurable header fields |
 | `now-record-common-uiactionbar` | form | high | `app/ui-action-bar` | match: components:app/form |
-| `now-record-form-connected` | form | high | `app/form` | partial: components:app/form, components:app/record-form — no related lists, no activity/attachments, formatters are placeholders, no form personalisation |
+| `now-record-form-connected` | form | high | `app/form` | partial: components:app/form, components:app/record-form — Missing: related lists, formatters other than activity (placeholders), form personalisation. |
 | `now-record-form-section-column-layout` | form | high | `app/form-columns` | match: components:app/form |
 | `now-record-form-section-connected` | form | high | `app/form-section` | match: components:app/form-section, components:app/form |
-| `now-record-related-list-tab-content` | form | high | `app/related-list-tabs` | none |
+| `now-record-related-list-tab-content` | form | high | `app/related-list-tabs` | match: components:app/related-lists, components:app/form-tabs, components:app/form |
 | `sn-form-data-connected` | form | high | `app/form (useForm + FormProvider)` | match: components:app/form, utilities:app/graphql |
 | `sn-form-internal-client-scripting-environment` | form | high | `app/form-runtime (g_form compatibility shim)` | match: utilities:app/gform |
 | `sn-record-watcher` | form | high | `useRecordWatch (hook)` | match: @portal/runtime useRecordWatch, @portal/runtime useAmbChannel |
-| `now-activity-combo` | form | medium | `app/activity-stream` | none |
+| `now-activity-combo` | form | medium | `app/activity-stream` | match: components:app/activity-stream (RecordActivity) — composer above the stream, stacked (no side-by-side by design) |
 | `now-record-compact` | form | medium | `app/record-card` | none |
-| `now-record-form-blob` | form | medium | `app/record-page` | partial: components:app/record-form — record page has only the form: no Details/related-list/related-item tabs, no activity side panel |
+| `now-record-form-blob` | form | medium | `app/record-page` | partial: components:app/record-form, components:app/related-lists — record page: form + related-list tabs (merged into the form tabs or below the form); no related-item tabs, no activity side panel |
 | `sn-declarative-actions-mediator` | form | medium | `app/actions (useActions)` | none |
 | `sn-record-common-quick-form` | form | medium | `app/quick-form` | none |
 | `sn-record-ribbon` | form | medium | `app/record-ribbon` | none |
@@ -262,12 +267,12 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-uxf-tab-set` | layout | medium | `app/page-tabs` | none |
 | `now-alert` | feedback | high | `ui/alert` | partial: components:app/form — inline alerts are hand-built inside RecordForm (error summary, conflict, remote change, messages); no ui/alert primitive |
 | `now-alert-list` | feedback | high | `ui/toast` | match: components:sonner |
-| `now-avatar` | feedback | high | `ui/avatar` | partial: components:app/app-sidebar — initials avatar inside the UserMenu part only; no ui/avatar |
+| `now-avatar` | feedback | high | `ui/avatar` | partial: components:app/app-sidebar, components:app/activity-stream — initials avatars inside the UserMenu and ActivityAvatar (activity entries); no ui/avatar |
 | `now-badge` | feedback | high | `ui/badge` | match: components:badge |
-| `now-empty-state` | feedback | high | `ui/empty-state` | partial: components:app/data-table — empty state internal to data-table; no ui/empty-state |
-| `now-highlighted-value` | feedback | high | `app/highlighted-value` | partial: components:badge, components:app/data-table — no sys_ux_highlighted_value_config colours; list cells use a severity-dot heuristic for 1..5 fields |
+| `now-empty-state` | feedback | high | `ui/empty-state` | match: components:empty |
+| `now-highlighted-value` | feedback | high | `app/highlighted-value` | partial: components:app/highlighted-value — label/priority heuristic tones (pill or dot); no sys_ux_highlighted_value_config colours, no popover |
 | `now-loader` | feedback | high | `ui/spinner` | match: components:app/field |
-| `now-loader-skeleton` | feedback | high | `ui/skeleton` | partial: components:app/data-table, components:app/field-control — skeleton rows/fields are internal; no ui/skeleton |
+| `now-loader-skeleton` | feedback | high | `ui/skeleton` | match: components:skeleton |
 | `now-pill` | feedback | high | `ui/chip` | partial: components:app/list-field — chips are internal to ListField; no ui/chip |
 | `now-confirmation-message` | feedback | medium | `ui/confirm-dialog` | match: components:app/confirm-dialog |
 | `now-pill-list` | feedback | medium | `ui/chip-list` | partial: components:app/list-field — see now-pill |
@@ -287,10 +292,10 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `now-visual-board` | data-display | medium | `app/kanban` | none |
 | `sn-component-timeline` | data-display | medium | `ui/timeline` | none |
 | `sn-contact-card` | data-display | medium | `app/user-card` | none |
-| `sn-component-workspace-global-search-typeahead` | search | medium | `app/search-box` | none |
-| `sn-search-combobox` | search | medium | `app/search-box` | partial: components:app/catalog-picker — catalog item live search only; no global search |
-| `sn-search-facets` | search | medium | `app/search-facets` | none |
-| `sn-search-results-container` | search | medium | `app/search-results` | none |
+| `sn-component-workspace-global-search-typeahead` | search | medium | `app/search-box` | partial: components:app/search-box — portal sources, not the Workspace global search API / search profiles |
+| `sn-search-combobox` | search | medium | `app/search-box` | match: components:app/search-box, utilities:app/search |
+| `sn-search-facets` | search | medium | `app/search-facets` | partial: components:app/search-results — source tabs with counts; no field facets / refiners |
+| `sn-search-results-container` | search | medium | `app/search-results` | match: components:app/search-results |
 
 ---
 
@@ -735,11 +740,11 @@ Then the form runtime parity phases P1–P5 from §8.
 
 | Wave | Status | Done | Missing (see `.plans/backlog.md`) |
 |---|---|---|---|
-| **1: fields** | **Done** (1 type partial) | `app/field` (useField, FieldShell, form store, layered overrides, registry), `app/combobox`, `app/field-control` (type factory with "not supported" fallback), string, textarea, number, boolean, choice (select/radio/scale), reference, list, date and datetime (typed in the user's format + calendar popover on host kit `components:calendar`), time (`glide_time`), duration, email, url, phone (E.164 with country codes), password, currency, conditions (condition builder), table name, field name; logic in `utilities:app/datetime` | Journal falls back to a textarea (HTML: `app/html-field` on the host kit's TipTap editor); `file_attachment` dictionary fields have no control; there are no field decorations |
+| **1: fields** | **Done** (1 type partial) | `app/field` (useField, FieldShell, form store, layered overrides, registry), `app/combobox`, `app/field-control` (type factory with "not supported" fallback), string, textarea, number, boolean, choice (select/radio/scale), reference, list, date and datetime (typed in the user's format + calendar popover on host kit `components:calendar`), time (`glide_time`), duration, email, url, phone (E.164 with country codes), password, currency, conditions (condition builder), table name, field name; logic in `utilities:app/datetime` | Journal: `app/journal-field` (A5; HTML: `app/html-field` on the host kit's TipTap editor); `file_attachment` / `user_image`: `app/attachment-field` (A6); there are no field decorations |
 | **2: catalog variables** | **Done** | `app/variable` (all 32 types), `useCatalogForm`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/catalog-item`, `app/catalog-picker`, `utilities:app/catalog`. Since 1.10 also catalog UI policies and client scripts (onSubmit can veto). Catalog wave 2: MRVS rows as their own g_form scope (set policies and scripts, onSubmit blocks the row, `g_service_catalog.parent`), inline row editing, row prices, Remove all; `app/requested-for-field` (delegation) for type 31 and the item level; custom variables via `rp_component` / `rp_options` (`utilities:app/custom-variables`); quantity on the combobox Select; `app/variable-editor` (a record's variables, read-only or editable) | Save as draft and order guides (backlog); dependent choices inside MRVS rows untested; the variable editor isn't a form formatter yet. **Cart wave (G2):** Add to cart, `app/cart` (lines, quantity, remove, requested for, Empty cart, one-step checkout and a review step for two-step), `app/cart-button` (header count and popover), cart hooks in `utilities:app/catalog` |
 | **3: lists** | **Done** | `app/data-table` (RecordList, DataTable, Pagination, ColumnChooser, CellEditor, PointMenu), `app/condition-builder` (+ breadcrumbs, dot-walk picker), `utilities:app/list-data` (getListLayout, inline/bulk writes, personalization), `app/list-view`, `app/list-card`, related-list mode (`fixedQuery` / `relatedListName`), live refresh | Platform list UI actions and declarative list actions; group-by; saved filters / list menu; column header filters; inline edit of dot-walked, journal and glide_list fields (HTML: done, rich-text popover); `onCellEdit` list client scripts |
-| **4: forms** | **Partial** | #24 `app/form` (useRecordForm, RecordForm, FormLayout, save via the Save UI action, conflict check, unsaved guard, cog settings with view / layout, remembered view), `app/form-section` (collapsible), `app/form-tabs` (tabs mode), `app/form-annotation`, 2–4 column splits, per-field remote-change markers; #25 UI action bar; #26 record header (banner / bar / inline); `app/record-form` widget | #24: formatters (placeholders); #26 related-list tabs; #27 activity stream and journal composer; #28 attachments |
-| **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar`, `tabs`, `dialog` in the host kit; `app/confirm-dialog`, `app/field-dialog`; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/accordion`, `ui/alert`, `ui/empty-state`, `ui/skeleton`, `ui/avatar`, `ui/chip`, `app/highlighted-value` (config colours), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
+| **4: forms** | **Partial** | #24 `app/form` (useRecordForm, RecordForm, FormLayout, save via the Save UI action, conflict check, unsaved guard, cog settings with view / layout, remembered view), `app/form-section` (collapsible), `app/form-tabs` (tabs mode), `app/form-annotation`, 2–4 column splits, per-field remote-change markers; #25 UI action bar; #26 record header (banner / bar / inline); `app/record-form` widget | #24: formatters (placeholders). **Attachments (A6, #28) done:** `utilities:app/attachments`, `app/attachment-dropzone`, `app/attachment-list`, `app/attachment-panel`, RecordForm `attachments` option (off / below / header), widget `app/attachments-card`. **Activity (A5, #27) done:** `app/activity-stream` (feed, filters, live), `app/journal-composer` (putJournal), `app/journal-field`, `utilities:app/activity`, opt-in RecordForm activity (`notes` / `below`), widget `app/activity-card` (timeline / conversation / compact variants) **Related lists (A4) done:** `app/related-list`, `app/related-lists`, form tabs / stacked sections, `app/related-lists-card` |
+| **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar`, `tabs`, `dialog`, `skeleton`, `empty`, `kbd` in the host kit; home and search: `utilities:app/search`, `app/search-box`, `app/highlighted-value`, widgets `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements`; `app/confirm-dialog`, `app/field-dialog`; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/accordion`, `ui/alert`, `ui/avatar`, `ui/chip`, `app/highlighted-value` config colours (the primitive exists; heuristic tones), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
 
 ### 12.2 Form runtime parity phases P1–P5 (§8)
 
@@ -747,16 +752,16 @@ Our forms use `GlideViewQuery_Query.uiView`, the platform's bootstrap. That's th
 
 | Phase | Item | Status | Notes |
 |---|---|---|---|
-| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **View rules are not honoured** (§12.3). Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Not yet: formatters (placeholders only), `formTabs` / related lists |
+| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **View rules are not honoured** (§12.3). Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Related lists: done (A4). Not yet: formatters (placeholders only), `formTabs` |
 | P1 | Field ACLs, dictionary read-only/mandatory | **Done** | `fieldStates` plus dictionary `canRead`/`canWrite`. The form is read-only when the view has no Save action. The server re-checks on save, because Save is a UI action |
 | P1 | Display BRs and `g_scratchpad` | **Done** | `ClientScriptingEnvironment_Globals.g_scratchpad` |
-| P2 | UI policies and actions | **Done** | Evaluated in the browser with the server's pre-evaluated terms; reverse-if-false, onLoad=false, run-scripts and last-writer-wins with scripts; catalog policies too, and MRVS rows run their set's policies. Not done: the `relatedList` action |
-| P2 | Client scripts | **Mostly done** | `utilities:app/gform` covers onLoad/onChange/onSubmit, g_form, g_user, g_scratchpad, GlideAjax, async GlideRecord, getMessage, g_modal alert/confirm and g_aw.openRecord. Since 1.12/1.13: `g_modal.alert` / `confirm` / `showFields` on `app/confirm-dialog` / `app/field-dialog`, setSectionDisplay / getSectionNames, addDecoration / removeDecoration, and `createGForm` / `attachGForm` for any form store. Gaps: sync GlideRecord / `getXMLWait`, show/hideRelatedList and enable/disableAttachments (no-ops), `onCellEdit`. MRVS row scripts run in each row's own scope (`g_service_catalog.parent` included) |
+| P2 | UI policies and actions | **Done** | Evaluated in the browser with the server's pre-evaluated terms; reverse-if-false, onLoad=false, run-scripts and last-writer-wins with scripts; catalog policies too, and MRVS rows run their set's policies. Not done: the `relatedList` action (`sys_ui_policy_rl_action`) |
+| P2 | Client scripts | **Mostly done** | `utilities:app/gform` covers onLoad/onChange/onSubmit, g_form, g_user, g_scratchpad, GlideAjax, async GlideRecord, getMessage, g_modal alert/confirm and g_aw.openRecord. Since 1.12/1.13: `g_modal.alert` / `confirm` / `showFields` on `app/confirm-dialog` / `app/field-dialog`, setSectionDisplay / getSectionNames, addDecoration / removeDecoration, and `createGForm` / `attachGForm` for any form store. Gaps: sync GlideRecord / `getXMLWait`, `onCellEdit`. show/hideRelatedList(s) now work (A4); enable/disableAttachments drive `app/attachment-panel` (A6). MRVS row scripts run in each row's own scope (`g_service_catalog.parent` included) |
 | P2 | Data policies | **Partial** | Enforced on save, because Save is the platform UI action (BRs, data policies, ACLs), and the errors map to field messages. Unverified: whether data policies flagged "Use as UI policy on client" come back in `ClientScriptingEnvironment_Policies` |
 | P3 | UI actions (form) | **Done** | Server-evaluated form buttons and the context menu; client part via the shim (`gsftSubmit` → server); server part via `/api/now/ui/ui_action`; redirects stay in the portal. **List** UI actions: not done |
 | P3 | Declarative actions / UX form actions | **Not started** | Neither forms nor lists |
 | P4 | Dependent fields and reference qualifiers | **Done** | `referenceDataRetriever` / `choiceDataRetriever` with `serializedChanges` + `encodedRecord` |
-| P4 | Related lists, activity stream/journal, attachments | **Not started** | RecordList can already run as a related list; the bootstrap doesn't request `relatedLists` |
+| P4 | Related lists, activity stream/journal, attachments | **Related lists and activity done** | `formLayout.relatedLists` in the bootstrap (Workspace's fragment); rows via `getListLayout` with relatedListName + parent + the relationship's resolved filter; reference, m2m (`m2MData`) and scripted (`REL:`) relationships; New, Add / Edit… / Remove; `g_form.show/hideRelatedList(s)`. Platform related-list UI actions wait for E1. Activity (A5): GlideActivity getEvents + putJournal, AMB /activity/events, opt-in in RecordForm. Attachments (A6): GlideAttachmentQuery_Query (permissions) + Attachment API (list, upload with progress / cancel, delete), rename via GlideRecord_Mutation, sys_attachment AMB watch; new records upload to the reserved sys_id; `g_form.enable/disableAttachments` |
 | P5 | Live record updates | **Done** | AMB record watch: a clean form refreshes silently, a dirty one shows a banner; `sys_mod_count` conflict check with Reload/Overwrite; live list refresh with row highlights. Per-field markers: a dirty form marks exactly the fields someone else changed (Use theirs / Keep mine, `applyRemoteValues` on any store); clean fields update silently. Non-admin payload filtering is untested |
 
 ### 12.3 View rules: what `uiView` actually does (verified read-only, 2026-11-19)
@@ -793,7 +798,12 @@ GraphQL from a CDP tab, admin session:
 | `components:app/combobox` | primitive | `now-select`, `now-record-typeahead`, `now-typeahead`, `sn-record-choice` |
 | `components:app/field-control` | primitive | the factory in `sn-record-input-connected` (type → control, "not supported" fallback) |
 | `components:app/string-field` | primitive | `now-input`, `sn-record-input(-connected)`, `now-record-ip-address`, `sn-record-auto-number-connected`; partial `now-color-selector` |
-| `components:app/textarea-field` | primitive | `now-textarea`; partial (fallback) `sn-record-journal-input`, `now-record-html-script`, `sn-record-code-editor` |
+| `components:app/textarea-field` | primitive | `now-textarea`; partial (fallback) `now-record-html-script`, `sn-record-code-editor` |
+| `components:app/journal-field` | primitive | `sn-record-journal-input` (journal_input, journal; journal_list read-only) |
+| `components:app/journal-composer` | primitive | `now-activity-stream-compose-connected` (journal switch, putJournal, form-bound mode) |
+| `components:app/activity-stream` | primitive | `now-activity-stream-connected`, `now-activity-combo` (RecordActivity: composer + stream, stacked), the opt-in activity of `now-record-form-connected`, `ActivityConversation` (chat style); partial `now-avatar` (ActivityAvatar) |
+| `utilities:app/activity` | utility | the activity data behind `now-activity-stream-connected` (`sn-activity-stream-queries`: getEvents, putJournal, getEmailBodies; AMB /activity/events) |
+| Widget `app/activity-card` | widget | Service Portal "Ticket conversations" (no Next Experience counterpart beyond `now-activity-combo`) |
 | `components:app/html-field` | primitive | `now-record-html-editor` (html, translated_html; record image uploads), variable type 23; HTML inline cell editor in `app/data-table` |
 | `components:app/number-field` | primitive | `now-record-number` |
 | `components:app/boolean-field` | primitive | `now-record-checkbox`, `now-toggle`; partial `now-checkbox` |
@@ -810,7 +820,13 @@ GraphQL from a CDP tab, admin session:
 | `components:app/phone-field` | primitive | `now-input-phone`, `sn-record-phone-connected` |
 | `components:app/password-field` | primitive | `now-input-password`, `sn-catalog-form-masked-variable`, variable type 25 |
 | `components:app/currency-field` | primitive | `sn-record-currency-connected`, `now-currency-input`, `sn-record-price-connected` |
-| `components:app/attachment-variable` | primitive | `sn-catalog-form-attachment-variable`, variable type 33; partial `sn-record-file-attachment` |
+| `components:app/attachment-variable` | primitive | `sn-catalog-form-attachment-variable`, variable type 33 |
+| `components:app/attachment-field` | primitive | `sn-record-file-attachment` (file_attachment, user_image) |
+| `components:app/attachment-dropzone` | primitive | drop zone part of `now-record-common-attachments-connected` |
+| `components:app/attachment-list` | primitive | `sn-form-internal-attachments-list`, `now-record-common-attachment-card`; partial `now-template-card-attachment` |
+| `components:app/attachment-panel` | primitive | `now-record-common-attachments-connected`, `sn-form-internal-attachments-header` |
+| `components:app/attachments-card` | widget | `now-record-common-attachments-connected` (placeable, Service Portal "Ticket Attachments") |
+| `utilities:app/attachments` | utility | data for `now-record-common-attachments-connected` / `sn-record-file-attachment` (GlideAttachmentQuery, Attachment API, validation, AMB, form attachment state) |
 | `components:app/variable` | primitive | `sn-catalog-form-variable`, label / rich-text label / checkbox-group variables (sanitised by `components:rich-text`), `sn-catalog-form-macro-variable` and custom variables 14/17 (`rp_component` / `rp_options`); partial 15 (UI page) |
 | `components:app/requested-for-field` | primitive | `sn-catalog-request-for` (with `app/catalog-item`), variable type 31 |
 | `components:app/variable-editor` | primitive | the variable editor section of `now-record-form-connected` (`sn-catalog-form` on a record) |
@@ -818,16 +834,18 @@ GraphQL from a CDP tab, admin session:
 | `components:app/variable-container` | primitive | `sn-catalog-form`, `sn-catalog-form-variable-section`, `sn-catalog-form-container-variable`, variable types 19/20/24 |
 | `components:app/mrvs` | primitive | `sn-catalog-form-multi-row-variable`, `sn-catalog-form-multi-row-form-modal` (row g_form scope; inline or `components:dialog`), `sc-multi-row-header-action-button`, MRVS |
 | `components:app/condition-builder` | primitive | `now-condition-builder(-connected)`, `now-predicate-builder`, `now-condition-builder-preview`, `now-filter-overview`, `now-dot-walk`, `now-filter*` (the conditions field type is `app/conditions-field` on it) |
-| `components:app/data-table` | primitive | `now-record-list(-connected)`, `now-list`, `now-table`, `now-grid`, `now-pagination(-control)`, `now-record-list-filter-panel`, `now-record-list-header`, snapshot lists; partial `now-list-cell-editor-content`, `now-record-list-connected-related`, `sn-list-selector`, `sn-list-export-modal` |
+| `components:app/data-table` | primitive | `now-record-list(-connected)`, `now-list`, `now-table`, `now-grid`, `now-pagination(-control)`, `now-record-list-filter-panel`, `now-record-list-header`, snapshot lists; partial `now-list-cell-editor-content`, `sn-list-selector`, `sn-list-export-modal` |
 | `components:app/form` | primitive | `sn-form-data-connected`, `now-record-common-uiactionbar`, `now-record-form-section-column-layout`; partial `now-record-form-connected`, `now-record-common-header`, `now-alert` |
 | `components:app/form-section` | primitive | `now-record-form-section-connected` (collapsible heading on `components:collapsible`) |
-| `components:app/form-tabs` | primitive | sections as tabs on `components:tabs` (`now-tabs` for forms) |
+| `components:app/form-tabs` | primitive | sections as tabs on `components:tabs` (`now-tabs` for forms); `extraTabs` (related lists) |
+| `components:app/related-list` | primitive | `now-record-list-connected-related`, `now-record-list-related` (one related list: reference, many-to-many, scripted; New / Add / Edit… / Remove) |
+| `components:app/related-lists` | primitive | `now-record-related-list-tab-content` (tabs, stacked, single; lazy; counts; omit-if-empty); part of `now-record-form-blob` |
 | `components:app/form-annotation` | primitive | `sn-record-annotation` |
 | `components:app/confirm-dialog` | primitive | `now-confirmation-message`, the dialog queue (`DialogOutlet`, `openDialog`), part of `sn-scripted-modal` |
 | `components:app/field-dialog` | primitive | `g_modal.showFields` modal (part of `sn-scripted-modal`) |
 | `utilities:app/graphql` | utility | form bootstrap (`uiView`), metadata, choices, reference search, UI action execute |
 | `utilities:app/list-data` | utility | `sn-record-list-data-broker` |
-| `utilities:app/gform` | utility | `sn-form-internal-client-scripting-environment`; partial `sn-scripted-modal` (showFrame), `now-message`; `createGForm` / `attachGForm` attach g_form to any form store |
+| `utilities:app/gform` | utility | `sn-form-internal-client-scripting-environment` (incl. `g_form.show/hideRelatedList(s)`); partial `sn-scripted-modal` (showFrame), `now-message`; `createGForm` / `attachGForm` attach g_form to any form store |
 | `utilities:app/catalog` | utility | catalog data for `sn-catalog-form-connected`, price, delegation (`canRequestFor`), MRVS row forms with set scripts / policies, the variable editor's data (`fetchVariableEditor`) |
 | `@portal/runtime` `useRecordWatch` / `useAmbChannel` | runtime | `sn-record-watcher` |
 | `@portal/runtime` `Link` | runtime | `now-text-link`, `sn-record-link` |
@@ -836,5 +854,12 @@ GraphQL from a CDP tab, admin session:
 | Widgets `app/catalog-item`, `app/catalog-picker` | widget | `sn-catalog-form-connected`, `sn-catalog-price`, `sn-catalog-quantity`, `sn-catalog-description`; partial `sn-catalog-action` (Order now + Add to cart; no Cancel, no Save as draft), `sn-search-combobox` |
 | Widgets `app/cart`, `app/cart-button`; cart hooks in `utilities:app/catalog` | widget / utility | no Next Experience counterpart (the cart is a portal concern, §7.1): Service Portal's `sc-shopping-cart-v2`, `sc-checkout` and the header cart, on the platform's Service Catalog cart REST API |
 | Widgets `app/list-view`, `app/list-card`, `app/record-form` | widget | page-level `now-record-list-connected`, `now-record-form-connected` / partial `now-record-form-blob` |
-| Widgets `app/app-header`, `app/app-sidebar`, `nav-sidebar`, `site-footer` | widget | partial `now-breadcrumbs`, `now-contextual-sidebar`, `now-avatar`, `now-link-set` |
+| Widget `app/related-lists-card` | widget | a record's related lists outside the form (no Next Experience counterpart: Workspace only shows them on the record page) |
+| Widgets `app/app-header`, `app/app-sidebar`, `nav-sidebar`, `site-footer` | widget | partial `now-breadcrumbs`, `now-contextual-sidebar`, `now-avatar`, `now-link-set-group` |
+| Host kit `components:empty`, `components:skeleton`, `components:kbd` | host | `now-empty-state`, `now-template-message-empty-state`, `now-loader-skeleton`, `now-loader-skeleton-custom` (kbd: no catalog entry) |
+| `utilities:app/search`, `components:app/search-box` | utility, primitive | `sn-search-combobox`; partial `sn-component-workspace-global-search-typeahead` |
+| `components:app/highlighted-value` | primitive | partial `now-highlighted-value` (heuristic tones, no config colours) |
+| Widget `app/search-results` | widget | `sn-search-results-container`; partial `sn-search-facets` (source tabs with counts) |
+| Widget `app/quick-links` | widget | `now-link-set`; partial `now-link-set-group` |
+| Widgets `app/hero-search`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/announcements` | widget | Service Portal home widgets (typeahead search, My requests / approvals, knowledge articles and categories, popular items, announcements): no Next Experience catalog entries |
 | Blocks and layouts | block/layout | `now-uxf-page*`, `now-uxf-viewport`, `now-stackable-side-by-side-panel` |

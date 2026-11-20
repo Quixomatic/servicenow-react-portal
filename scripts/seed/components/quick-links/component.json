@@ -1,0 +1,1 @@
+{ "name": "Quick Links", "kind": "widget", "tailwind": true, "defaults": { "variant": "tiles", "items": [] } }

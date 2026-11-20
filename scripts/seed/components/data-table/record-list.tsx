@@ -13,7 +13,7 @@ import {
     baseType,
     specificDay,
 } from 'utilities:app/list-data'
-import type { ListColumn, ListRow, Term } from 'utilities:app/list-data'
+import type { ListColumn, ListPage, ListRow, Term } from 'utilities:app/list-data'
 import { useTableMeta } from 'utilities:app/graphql'
 import { ConditionBuilder, FilterBreadcrumbs } from 'components:app/condition-builder'
 import { Popup, Select } from 'components:app/combobox'
@@ -106,6 +106,10 @@ export type RecordListProps = {
      * breadcrumbs, filter panel, selection bar and table stay in the list.
      */
     toolbarSlots?: { left: (node: any) => any; right: (node: any) => any }
+    /** Extra toolbar content after the built-in buttons (e.g. a related list's New / Add). */
+    toolbarActions?: any
+    /** Called with each page the list shows (count, permissions, m2m metadata), e.g. to update a tab count. */
+    onData?: (page: ListPage) => void
 }
 
 const ALL_ON: RecordListFeatures = {
@@ -316,6 +320,13 @@ export function RecordList(props: RecordListProps) {
     const effective: any = containsQuery && !infinite ? containsPaged : list
     const rows: ListRow[] = effective.rows
     const count: number = effective.count
+    // Report each settled page (count, permissions, m2m metadata) to the owner (onData).
+    const onData = useRef(props.onData)
+    onData.current = props.onData
+    const shownPage: ListPage | undefined = effective.data
+    useEffect(() => {
+        if (shownPage && !effective.isPlaceholderData && onData.current) onData.current(shownPage)
+    }, [shownPage, effective.isPlaceholderData])
 
     // Remember rows by id (selection spans pages; export and bulk edit need them).
     const seen = useRef<Map<string, ListRow>>(new Map())
@@ -600,6 +611,7 @@ export function RecordList(props: RecordListProps) {
                         <RefreshIcon spinning={effective.isFetching} />
                     </button>
                 ) : null}
+                {props.toolbarActions || null}
                     </>
                 )
                 if (toolbarSlots)

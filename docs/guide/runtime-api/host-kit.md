@@ -30,6 +30,9 @@ The host bundle ships a set of generic UI building blocks and libraries, importa
 | `components:icon` | `Icon` and helpers (below) |
 | `components:rich-text` | `RichText` (read-only, sanitised), `sanitizeHtml`, `safeUrl`, `htmlToText`, `isHtmlEmpty`, `findUnsupportedHtml` (below) |
 | `components:rich-text-editor` | `RichTextEditor`, `RichTextToolbar`, `useRichTextEditor`, `loadRichTextEngine`, `isRichTextEngineLoaded` (below) |
+| `components:skeleton` | `Skeleton`: a pulsing placeholder block, sized with classes (`h-4 w-32`, `size-9 rounded-lg`) |
+| `components:empty` | `Empty`, `EmptyHeader`, `EmptyMedia` (`variant`: default, icon), `EmptyTitle`, `EmptyDescription`, `EmptyContent`, `emptyMediaVariants`: shadcn's empty state (no data, no results, no access). Sizes with its container, not the viewport |
+| `components:kbd` | `Kbd`, `KbdGroup`: keyboard key hints (`<Kbd>/</Kbd>`, `<KbdGroup><Kbd>Ctrl</Kbd><Kbd>K</Kbd></KbdGroup>`) |
 
 `components:tabs` gets roving focus with arrow keys, Home / End, `aria-selected`, `aria-controls` / `aria-labelledby` and `data-active` on the selected tab from Base UI.
 

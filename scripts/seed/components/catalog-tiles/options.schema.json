@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "title": "Title" },
+    "description": { "type": "string", "title": "Description" },
+    "mode": { "type": "string", "title": "Items", "enum": ["popular", "items", "category"], "enumNames": ["Most requested (then the items below)", "Exactly the items below", "A catalog category"] },
+    "items": { "type": "array", "title": "Items (sc_cat_item sys_ids)", "items": { "type": "string" } },
+    "exclude": { "type": "array", "title": "Never show (sys_ids)", "items": { "type": "string" } },
+    "category": { "type": "string", "title": "Category (sc_category sys_id)" },
+    "limit": { "type": "integer", "title": "Tiles", "minimum": 1, "maximum": 24 },
+    "days": { "type": "integer", "title": "Popular over the last N days", "minimum": 1 },
+    "columns": { "type": "integer", "title": "Columns at full width", "minimum": 2, "maximum": 6 },
+    "catalogPage": { "type": "string", "title": "Catalog page route" }
+  }
+}

@@ -15,6 +15,7 @@ import type {
     ClientScript,
     ClientScripts,
     FormAnnotation,
+    RelatedListInfo,
 } from './types'
 
 /**
@@ -216,6 +217,15 @@ function parseScratchpad(v: unknown): Record<string, unknown> {
     }
 }
 
+// Related lists fragment (app/related-list wave): declared before FORM_QUERY, which embeds it.
+/**
+ * formLayout's related lists, the fragment Workspace's form data source requests
+ * (formLayoutDataSource.js): per list the target / source table, the platform's count, the
+ * server-resolved filter (scripted 'REL:' relationships included), labels and omit-if-empty.
+ */
+export const RELATED_LISTS_FIELDS = `relatedListMetadata { hasRelatedLists }
+              relatedLists(includeEmptyOmittedRelatedLists: true) { groupByField sourceTable targetTable count filter displayLabel label value relatedField omitIfEmpty }`
+
 /**
  * The record form as Workspace loads it: the view resolver (GlideViewQuery_Query.uiView) wraps
  * the form layout, the UI policies (GlideClientScriptingEnvironment_Query) and the form's UI
@@ -234,6 +244,7 @@ export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query
               sectionLayout { sysId caption captionDisplay rows { fields } }
               formatters { name }
               annotations { sysId text annotationType typeDisplayValue isPlainText }
+              ${RELATED_LISTS_FIELDS}
               recordValues { name value displayValue }
               fieldStates { name hidden mandatory readonly }
               elementsData {
@@ -266,6 +277,27 @@ export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query
     }
   }
 }`
+
+// ---- related lists (app/related-list wave) ----------------------------------------------------
+
+/** GraphQL relatedLists → RelatedListInfo[] (Workspace drops lists whose displayLabel is ''). */
+export function normalizeRelatedLists(list: any): RelatedListInfo[] {
+    return (Array.isArray(list) ? list : [])
+        .filter((r: any) => r && r.value && r.targetTable && r.displayLabel !== '')
+        .map((r: any) => ({
+            name: String(r.value),
+            table: String(r.targetTable),
+            parentTable: String(r.sourceTable || ''),
+            label: String(r.displayLabel || r.label || r.value),
+            count: Number(r.count || 0),
+            // Workspace trims trailing '^' / spaces before using it as the list's fixed query.
+            filter: String(r.filter || '').replace(/[\^\s]+$/, ''),
+            relatedField: String(r.relatedField || ''),
+            omitIfEmpty: bool(r.omitIfEmpty),
+            groupByField: String(r.groupByField || ''),
+            kind: /^REL:/i.test(String(r.value)) ? ('scripted' as const) : ('reference' as const),
+        }))
+}
 
 /** Form annotations by sys_id (the id the section rows carry in place of a field name). */
 function annotationsOf(list: any): Record<string, FormAnnotation> {
@@ -379,6 +411,9 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
         view: (U && U.view) || view || '',
         tableLabel: (sections[0] && sections[0].label) || table,
         formatters: (L.formatters || []).map((f: any) => String(f.name || '')).filter(Boolean),
+        // Related lists (app/related-list wave): none for a new record, as in Workspace.
+        relatedLists: !sysId || sysId === '-1' ? [] : normalizeRelatedLists(L.relatedLists),
+        hasRelatedLists: !!(L.relatedListMetadata && L.relatedListMetadata.hasRelatedLists),
         annotations: annotationsOf(L.annotations),
         policies: ((S && S.ClientScriptingEnvironment_Policies) || []).map(normalizePolicy),
         actions: ((A && A.formActions) || []).map(normalizeAction).sort((a: UiAction, b: UiAction) => a.order - b.order),

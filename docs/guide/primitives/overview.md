@@ -40,8 +40,12 @@ host kit         components:tabs, components:collapsible, components:popover, ut
 | Lists | `utilities:app/list-data`, `app/data-table`, `app/condition-builder`; widgets `app/list-view`, `app/list-card` | [Lists](lists.md) |
 | Forms | `app/form`, `app/form-section`, `app/form-tabs`; widget `app/record-form` | [Forms](forms.md) |
 | Form runtime | UI policies (in `app/field`), `utilities:app/gform` | [Form runtime](form-runtime.md) |
+| Activity | `utilities:app/activity`, `app/activity-stream`, `app/journal-composer`, `app/journal-field`; widget `app/activity-card` | [Activity and journals](activity.md) |
+| Related lists | `app/related-list`, `app/related-lists`; widget `app/related-lists-card` | [Related lists](related-lists.md) |
+| Attachments | `utilities:app/attachments`, `app/attachment-dropzone`, `app/attachment-list`, `app/attachment-panel`, `app/attachment-field`; widget `app/attachments-card` | [Attachments](attachments.md) |
 | Data | `utilities:app/graphql` | [GraphQL utility](graphql.md) |
 | Page chrome | `utilities:app/header-slots` | [Header slots](header-slots.md) |
+| Home and search | `utilities:app/search`, `app/search-box`, `app/highlighted-value`; widgets `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements` | [Home page and search](home-and-search.md) |
 
 > **Note:** **In progress:** `app/confirm-dialog`, `app/field-dialog` (`g_modal.showFields`), `app/form-annotation`, `app/time-field`, and condition / table-name / field-name field primitives. They're being built in the working tree.
 

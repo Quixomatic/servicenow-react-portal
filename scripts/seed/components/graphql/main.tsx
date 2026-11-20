@@ -38,6 +38,9 @@ export {
     parseAttributes,
     stableChanges,
     FORM_LAYOUT_QUERY,
+    // related lists (app/related-list wave)
+    RELATED_LISTS_FIELDS,
+    normalizeRelatedLists,
     FORM_QUERY,
     FORM_VIEWS_QUERY,
     UI_POLICY_FIELDS,
@@ -69,6 +72,7 @@ export type {
     FormSection,
     FormView,
     FormAnnotation,
+    RelatedListInfo,
     PolicyFlag,
     UiPolicy,
     ClientScript,

@@ -73,7 +73,7 @@ The page designer edits the portal default in portal settings, and a "Portal def
 | `app/standard-layout` | header, sidebar, main, footer | `header` (full, beside-sidebar); `contentPadding` |
 | `app/centered-layout` | header, main, footer | `canvas` (muted, background) |
 
-In `app/app-shell`, `subheader: banner` turns the sub-header into a hero band (its title defaults to the page title). `hidden` gives the space back to main, and [header slot](../primitives/header-slots.md) users fall back to rendering inline.
+In `app/app-shell`, `subheader: banner` turns the sub-header into a hero band (its title defaults to the page title). The banner has a full-width **`below`** [header slot](../primitives/header-slots.md) under the title, where `app/hero-search` puts the portal search. `hidden` gives the space back to main, and [header slot](../primitives/header-slots.md) users fall back to rendering inline.
 
 ## Contributions (`RegionPortal`)
 

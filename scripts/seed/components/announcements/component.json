@@ -1,0 +1,1 @@
+{ "name": "Announcements", "kind": "widget", "tailwind": true, "defaults": { "types": "widget", "limit": 3 } }

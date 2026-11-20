@@ -22,7 +22,7 @@ export const LIST_QUERY = `query rpList($table: String!, $view: String, $columns
       relatedListName: $relatedListName, parentTable: $parentTable, parentRecordSysId: $parentRecordSysId,
       runHighlightedValuesQuery: false, ignoreTotalRecordCount: false) {
       tableLabel query fixedQuery
-      metadata { dateFormat dateTimeFormat }
+      metadata { dateFormat dateTimeFormat canCreate canWrite canDelete m2MData { isM2M sourceField targetTable targetField } }
       allColumns {
         columnName
         columnData { label fullLabel internalType isChoice isFilterable isSortable isGroupable tableName excludedOperators isFirstNonRef }
@@ -131,6 +131,14 @@ export async function fetchList(args: ListArgs, signal?: AbortSignal): Promise<L
         offset,
         dateFormat: L.metadata ? L.metadata.dateFormat : undefined,
         dateTimeFormat: L.metadata ? L.metadata.dateTimeFormat : undefined,
+        // Related lists: the server-resolved fixed query, table permissions and m2m metadata.
+        fixedQuery: L.fixedQuery || '',
+        canCreate: !L.metadata || L.metadata.canCreate !== false,
+        canWrite: !L.metadata || L.metadata.canWrite !== false,
+        canDelete: !L.metadata || L.metadata.canDelete !== false,
+        m2m: L.metadata && L.metadata.m2MData && L.metadata.m2MData.isM2M
+            ? { sourceField: String(L.metadata.m2MData.sourceField || ''), targetTable: String(L.metadata.m2MData.targetTable || ''), targetField: String(L.metadata.m2MData.targetField || '') }
+            : null,
     }
 }
 

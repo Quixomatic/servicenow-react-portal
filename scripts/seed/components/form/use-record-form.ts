@@ -70,6 +70,8 @@ export type RecordForm = Form & {
     remoteChange: RemoteChange | null
     /** "Keep editing": hide the notice (the save-time sys_mod_count check still guards the write). */
     dismissRemoteChange: () => void
+    /** Open another record the way this form does (onOpenRecord, else the classic form): related list rows, New. */
+    openRecord: (table: string, sysId: string, params?: Record<string, unknown>) => void
 }
 
 export type UseRecordFormOptions = {
@@ -172,6 +174,8 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
                     // The view's elements (+ values the record shipped): not every column of the table.
                     hasField: (name: string) => name in data.meta || name in data.values,
                     sectionNames: () => data.sections.map((s) => String(s.caption || '').toLowerCase()),
+                    // g_form.show/hideRelatedList names (app/related-list wave).
+                    relatedListNames: () => (data.relatedLists || []).map((r) => r.name),
                     submit: (name?: string) => submitRef.current(name),
                     openRecord: (t, id, params) => openRecord(t, id, params),
                 },
@@ -398,6 +402,7 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
         form.reload = reload
         form.remoteChange = remoteChange
         form.dismissRemoteChange = dismissRemoteChange
+        form.openRecord = openRecord
         return form
     }, [base, boot.data, isNew, saveAction, saving, saveError, conflict, validation, scriptErrors, envState, save, submit, runAction, reload, remoteChange, dismissRemoteChange])
 }

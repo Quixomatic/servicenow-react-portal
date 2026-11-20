@@ -65,9 +65,11 @@ Field state: `setMandatory`, `isMandatory`, `setReadOnly` / `setReadonly`, `isRe
 
 Messages: `addInfoMessage`, `addErrorMessage`, `addWarningMessage`, `addFormMessage`, `clearMessages`, `showFieldMsg`, `hideFieldMsg`, `hideAllFieldMsgs`, `showErrorBox`, `hideErrorBox`.
 
-Sections and lists: `setSectionDisplay`, `isSectionVisible`, `getSectionNames`, `getRelatedListNames`, `showRelatedList(s)`, `hideRelatedList(s)` (related lists aren't rendered yet).
+Sections and lists: `setSectionDisplay`, `isSectionVisible`, `getSectionNames`, `getRelatedListNames`, `showRelatedList(s)`, `hideRelatedList(s)`. A name matches the list (`task_sla.task`), its table or a `REL:<sys_id>`; see [Related lists](related-lists.md#g_form).
 
-Submit: `save`, `submit`, `gsftSubmit`, `getActionName`, `currentAction`, `enableAttachments`, `disableAttachments`, `isLiveUpdating`.
+Submit: `save`, `submit`, `gsftSubmit`, `getActionName`, `currentAction`, `isLiveUpdating`.
+
+Attachments: `enableAttachments`, `disableAttachments`. Disabling stops new files from being added (files already attached stay listed); `app/attachment-panel` follows it. See [Attachments](attachments.md).
 
 Catalog forms accept `<name>`, `IO:<sys_id>` or the variable sys_id for every field argument. onSubmit scripts returning `false` block the save or the order.
 

@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "types": {
+      "type": "string",
+      "title": "Announcement type",
+      "enum": [
+        "widget",
+        "banner",
+        "any"
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "title": "At most",
+      "minimum": 1,
+      "maximum": 10
+    }
+  }
+}

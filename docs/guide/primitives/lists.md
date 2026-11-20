@@ -63,7 +63,8 @@ import { RecordList } from 'components:app/data-table'
 - HTML columns (`html`, `translated_html`) show their sanitised text on one line (`htmlToText` from `components:rich-text`) and edit inline in a rich-text popover (`app/html-field`; links and images are left to the form; Save or Ctrl/⌘+Enter, Esc cancels).
 - Pagination or infinite virtualized scroll; skeleton and empty states; `page` / `card` / `plain` variants.
 - Every feature can be turned off: `features={{ search, filter, breadcrumbs, columnChooser, pagination, inlineEdit, contextMenu, selection, actions, refresh, export, title }}`.
-- Related lists: `fixedQuery="task=<sys_id>"`, or `relatedListName` + `parentTable` + `parentRecordSysId`.
+- Related lists: `fixedQuery="task=<sys_id>"`, or `relatedListName` + `parentTable` + `parentRecordSysId` **plus** the relationship's `fixedQuery` (the platform doesn't filter on the name alone). Prefer [`app/related-list`](related-lists.md).
+- `toolbarActions` (extra toolbar content) and `onData(page)` (each page shown: count, `canCreate` / `canWrite` / `canDelete`, `m2m`, server `fixedQuery`).
 - URL/state sync: `state={{ filter, keywords, orderBy, page }}` + `onStateChange`.
 - `live` (or `live={{ throttleMs }}`) refetches the current page when matching records change and briefly highlights changed rows.
 
@@ -98,7 +99,7 @@ A list you can drop anywhere: `table`, `title`, `query`, `columns`, `orderBy`, `
 
 ## Not built yet
 
-List UI actions and declarative actions; related lists as tabs on forms.
+List UI actions and declarative actions. (Related lists: see [Related lists](related-lists.md).)
 
 ## Related
 
