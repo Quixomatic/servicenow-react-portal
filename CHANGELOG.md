@@ -2,6 +2,73 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.17.0] - 2026-11-20
+
+The knowledge base, a docs portal built in React Portal, a refreshed guide, form view
+resolution with Workspace view rules, and fixes from the first roleless-customer test.
+
+### Added: knowledge base
+- **Pages on `utilities:app/knowledge`:** `kb` (home), `kb/article`, `kb/category`, `kb/search`.
+  - KB cards, featured / most viewed / recently updated lists, and category trees with counts.
+  - Featured follows the KM portal convention (meta keyword `homepage`).
+- **Article reading page:**
+  - a 72ch measure with tuned typography in light and dark;
+  - a fumadocs-style sticky "On this page" with scroll-spy (a compact bar on narrow layouts);
+  - breadcrumbs, reading time, views, print / copy link / share, image zoom;
+  - attachments, related articles and "More in category".
+- **Feedback written the platform way** (`kb_feedback` as the user): Was this helpful?, star rating, flag with reason, gated by the `glide.knowman.*` properties.
+- **View counting** through `KBViewModel.increaseKBView` plus a `kb_use` row (the `kb.view` event is refused from app scope, so it isn't used).
+- **KB search:** text index, facets (KB, category, type), highlighted excerpts, sort and paging. The hero search and search results link into it, and the results page accepts `q=`.
+- **Permissions:** the platform's KB ACLs (can-read / cannot-read user criteria) apply to every read. Totals stay exact, and zero-access users get clear empty states.
+- **New generic `components:app/toc`:** fumadocs' track with curved bends, a sliding active segment over every section in view, a dot riding the track, fade masks and smooth scroll, with rail and compact variants. Plus KB primitives `kb-article-view`, `kb-toc`, `kb-feedback`, `kb-category-tree` and `kb-article-list`.
+- **Breaking:** `app/knowledge` became `utilities:app/knowledge`.
+
+### Added: docs portal
+- **`/site/docs`** renders `docs/guide` with fumadocs' docs layout and UX:
+  - a sidebar with sections, tinted icon tiles, a switcher and a collapse button;
+  - the article with breadcrumb, description and previous/next;
+  - the floating TOC (`components:app/toc`);
+  - a mobile top bar, drawer and TOC bar.
+
+  It has its own `docs` theme, starting as a copy of `sp-light`.
+- **New table `x_312987_portal_doc`** (read for logged-in users, admin writes), plus a diff-based docs step in `npm run seed` (`--docs`, `--docs-all`, `--no-docs`). Pages that leave the guide are deactivated, never deleted.
+- **`utilities:app/markdown`:** GFM straight to React elements (vendored marked lexer; no HTML strings).
+- **`utilities:app/code-highlight`:** a dependency-free highlighter.
+- **`utilities:app/docs`:** data, search, routing and heading hooks. Client-side search (Ctrl/⌘+K or `/`) with heading deep links.
+- **`rp-embed` fenced blocks** render allow-listed widgets as live examples.
+
+### Added: form view resolution
+- **Order:** URL `view` → widget option `view` (`lockView` puts it first and hides the switcher) → the user's remembered view → Workspace view rules (portal `settings.viewRuleConfigId`) → the portal's default views (`settings.formViews`) → Default.
+- **Named views are checked before they're forced.** An unknown one shows "View `x` not found, showing <view>", using the view's label.
+- **The view switcher gains Automatic** (back to rule resolution); picking Default really forces Default.
+- **Studio** Portal settings ▸ Form views: a view-rule picker and default views.
+- **Lists:** Workspace has no list view rules (documented); lists use the resolved view as given.
+- **Not yet decided:** no rules are configured on any portal yet, so forms behave as before.
+
+### Changed: docs
+- **The guide is refreshed for v1.12–v1.16:**
+  - every "In progress" marker verified and rewritten;
+  - new "What's new" and Dialogs pages, and a Seeding section in release-workflow;
+  - the catalog split into its own nav section;
+  - 0 broken links or anchors.
+
+### Fixed (roleless-customer test)
+- **Server-script errors** return a generic "The server script failed" plus a reference to anyone below designer or developer. The execution log keeps the details.
+- **Widget error placeholders and the page error view** show plain sentences and a reference to non-authors.
+- **The Diagnostics pill** shows only to admin, designer or developer roles, in mock mode, or with `?rpdiag=1`.
+- **sp demo menu groups** (Components, More) show only to Studio roles. A 404 page no longer shows a "Service desk / Home" breadcrumb.
+- **Announcements** are read server-side with Service Portal's rules (active, dates, roles), so customers can see them.
+- **Runtime Tests:** the record-touch test needs the developer role.
+- **Unreadable records** show "This record doesn't exist or you don't have access to it."
+- **Toasts** decode HTML-escaped platform messages (`&#39;`) to plain text.
+- **"RP: Validate placement"** always allows deactivating a placement, even when its component changed kind (the seed's prune was blocked).
+- **The seed** skips half-built component folders with a warning instead of failing.
+
+### Notes
+- **UX route ACL `x.312987.portal.*`** (UI Builder auto-created, requiring `canvas_user`) was switched to the `user_is_authenticated` security attribute on the instance, by hand. It isn't in Fluent yet.
+- **AMB:** the platform accepts record-watch subscriptions to unreadable records and sends metadata only (number, changed field names, who), never values. Our code never renders that metadata, and the docs are corrected.
+- **Test user** `rp.customer` is inactive. Test orders REQ0010005 and REQ0010006 were kept.
+
 ## [1.16.0] - 2026-11-20
 
 Related lists, attachments and the activity stream; a real Service Portal home with search and a

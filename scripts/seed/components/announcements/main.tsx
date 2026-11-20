@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useUser } from '@portal/runtime'
+import { useServer, useUser } from '@portal/runtime'
 import { useQuery } from 'utilities:react-query'
 import { Icon, hasIcon } from 'components:icon'
 import { cx } from 'components:app/field'
@@ -31,7 +31,8 @@ function utcMs(s: string) {
 
 /**
  * Active platform announcements (the `announcement` table Service Portal uses), read as the user
- * and filtered on the client to the current window (from / to), the user's roles and the
+ * through the Table API: only for users who can read that table (admins, by default). The
+ * Announcements widget itself uses its server script instead. Filtered on the client to the current window (from / to), the user's roles and the
  * consumer type ('widget', 'banner' or 'any').
  */
 export function useAnnouncements(options: { types?: 'widget' | 'banner' | 'any'; limit?: number } = {}) {
@@ -100,7 +101,7 @@ export function useDismissedAnnouncements() {
     useEffect(() => {
         setIds(readDismissed(typeof sessionStorage !== 'undefined' ? sessionStorage : null).concat(readDismissed(typeof localStorage !== 'undefined' ? localStorage : null)))
     }, [])
-    const dismiss = (a: Announcement) => {
+    const dismiss = (a: Pick<Announcement, 'id' | 'dismiss'>) => {
         const store = a.dismiss === 'forever' ? localStorage : sessionStorage
         try {
             store.setItem(DISMISS_KEY, JSON.stringify(readDismissed(store).concat(a.id).slice(-100)))
@@ -121,7 +122,11 @@ type Options = { types?: 'widget' | 'banner' | 'any'; limit?: number }
  * useDismissedAnnouncements.
  */
 export default function Announcements({ options = {} }: { options?: Options }) {
-    const { items } = useAnnouncements({ types: options.types || 'widget', limit: options.limit || 3 })
+    // The server script reads the announcement table with the scope's rights and applies the
+    // audience rules (most users can't read the table: useAnnouncements would get a 403 for them).
+    const { data } = useServer() as any
+    const items: Pick<Announcement, 'id' | 'title' | 'summary' | 'urgent' | 'glyph' | 'linkText' | 'linkUrl' | 'newTab' | 'dismiss'>[] =
+        data && Array.isArray(data.items) ? data.items.slice(0, options.limit || 3) : []
     const { ids, dismiss } = useDismissedAnnouncements()
     const shown = items.filter((a) => ids.indexOf(a.id) < 0)
     if (!shown.length) return null

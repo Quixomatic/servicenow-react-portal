@@ -36,7 +36,7 @@ x-312987-portal-host (createCustomElement, @servicenow/ui-core)
 
 - **TanStack Router** with memory history. The root route's loader is bootstrap (never re-runs on navigation); each page route's loader resolves the page. A portal switch builds a new router; a change in the page list or default layout rebuilds it.
 - **TanStack Query**: one `QueryClient` per browser page load, at module level, so data stays warm across host remounts (`staleTime` 30 s by default; bootstrap 5 min, page 60 s; no refetch on focus; mutations never retry).
-- **Instance init store** (`runtime/instance-init.js`): the page's on-load placements initialize in one batch; each widget subscribes to its own entry only. Embedded on-load instances queue into one initialize per microtask (deduped by id + options hash, chunked by 50).
+- **Instance init store** (`runtime/instance-init.js`): the page's on-load placements initialize in one batch; each widget subscribes to its own entry only. Embedded on-load instances queue into one initialize per microtask (deduped by id + options hash, chunked by 50). [Lazy embeds](../authoring/embedded-widgets.md#lazy-embeds) join the queue when they near the viewport (`runtime/in-view.js`: one shared `IntersectionObserver` per `rootMargin`), so embeds that scroll in together share one request.
 - **Re-render discipline**: `Region`, `WidgetSlot` and `LayoutHost` are memoized; layout options live in a separate context; `usePortal()` getters subscribe lazily. Navigation re-renders the router outlet and readers of the location, not the shell.
 
 ## Loading builds

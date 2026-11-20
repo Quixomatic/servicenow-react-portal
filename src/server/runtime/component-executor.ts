@@ -4,7 +4,7 @@ import { T } from '../lib/tables.ts'
 import { badRequest, isRPError, notFound, rpError, sanitizeError } from '../lib/errors.ts'
 import { correlationId as newCorrelationId, isPlainObject } from '../lib/util.ts'
 import { isUsableBuild } from '../registry/registry.ts'
-import { canAccessManifestPage, requirePortalAccess } from '../security/access.ts'
+import { canAccessManifestPage, hasStudioCapability, requirePortalAccess } from '../security/access.ts'
 import { currentManifest, findPortalBySlug, placementIndex, matchPage, effectiveLayoutOptions, Manifest, ManifestPage } from './portal-service.ts'
 import { logExecution } from './diagnostics.ts'
 import { createServerApi } from './server-api.ts'
@@ -140,6 +140,35 @@ interface Target {
 }
 
 const NOT_FOUND = 'Component instance not found in this portal'
+
+/**
+ * Script failures carry author details (the thrown message, line, component). Only authors see
+ * them (the same audience as the host's detailed error toasts: admin, portal admin, developer,
+ * designer); everyone else gets a generic message, and the response's correlationId is the
+ * reference into the execution log, which keeps the full message.
+ */
+const GENERIC_SCRIPT_ERROR = 'The server script failed'
+
+function canSeeScriptDetails(): boolean {
+    return hasStudioCapability('design')
+}
+
+/** True for script failures (as opposed to controlled not_found / bad_request / forbidden errors). */
+function isScriptFailure(e: unknown): boolean {
+    return !isRPError(e) || e.code === 'script_error' || e.status >= 500
+}
+
+/** The message a viewer may see for a thrown value. */
+function viewerMessage(e: unknown): string {
+    return isScriptFailure(e) && !canSeeScriptDetails() ? GENERIC_SCRIPT_ERROR : sanitizeError(e)
+}
+
+/** An error to rethrow to the viewer: script failures lose their message and details for non-authors (script messages stay). */
+function forViewer(e: unknown): unknown {
+    if (!isRPError(e) || !isScriptFailure(e) || canSeeScriptDetails()) return e
+    const messages = e.details && Array.isArray((e.details as any).messages) ? (e.details as any).messages : []
+    return rpError(e.status, e.code, GENERIC_SCRIPT_ERROR, { messages })
+}
 
 /** Layout roots: 'layout:<component sys_id>' (embeds under a layout, and the layout's own script). */
 const LAYOUT_ROOT = /^layout:([0-9a-f]{32})$/
@@ -528,7 +557,7 @@ function getWidget(prep: PreparedPortal, caller: Target, run: RunOptions, id: un
     } catch (e) {
         const status = isRPError(e) ? e.status : 500
         const code = isRPError(e) ? e.code : 'script_error'
-        return { ...model, ok: false, error: { status, code, message: sanitizeError(e) } }
+        return { ...model, ok: false, error: { status, code, message: viewerMessage(e) } }
     }
 }
 
@@ -592,8 +621,8 @@ export function execute(p: ExecuteParams): ExecuteResult {
             error: sanitizeError(e),
         })
         if (isRPError(e) && e.code === 'embed_not_imported') throw notFound(NOT_FOUND)
-        if (isRPError(e)) throw e
-        throw rpError(500, 'script_error', sanitizeError(e))
+        if (isRPError(e)) throw forViewer(e)
+        throw rpError(500, 'script_error', viewerMessage(e))
     }
 }
 
@@ -659,7 +688,7 @@ export function initialize(params: {
             const failMessages = isRPError(e) && e.details && Array.isArray((e.details as any).messages) ? (e.details as any).messages : undefined
             out[resultKey] = {
                 ok: false,
-                error: { status, code: code === 'embed_not_imported' ? 'not_found' : code, message: sanitizeError(e) },
+                error: { status, code: code === 'embed_not_imported' ? 'not_found' : code, message: viewerMessage(e) },
                 messages: failMessages && failMessages.length ? failMessages : undefined,
             }
             logExecution({

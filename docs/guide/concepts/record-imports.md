@@ -56,11 +56,11 @@ Compiled modules expose every named export (`__rpExports`) as well as the defaul
 - Recompiling a component flags every build that imports it `needs_rebuild`. The importers' current output keeps running; the flag is a prompt to recompile.
 - A new build has a new asset URL, so every portal that uses the component **directly or through imports** is reprocessed and serves the new URL.
 
-> **Note:** **In progress:** a Studio Dependencies panel (`GET /rp_studio/components/{id}/dependencies`: direct imports and importers).
+Studio's **Dependencies** panel shows a component's direct imports and its importers (`GET /rp_studio/components/{id}/dependencies`). See [Code editor](../studio/code-editor.md).
 
 ## Widget imports are embeds
 
-Importing a **widget** record is special: its default export is wrapped so each render is its own [embedded instance](../authoring/embedded-widgets.md) with its own options, server script and on-load data. Use `<X.Raw />` or a named export for presentational reuse. The compiler warns when you import a widget that has a server script.
+Importing a **widget** record is special: its default export is wrapped so each render is its own [embedded instance](../authoring/embedded-widgets.md) with its own options, server script and on-load data. Use `<X.Raw />` or a named export for presentational reuse. The compiler warns when you import a widget that has a server script. Layouts can import widgets too: those embeds are rooted at `layout:<sys_id>` and authorized against the page's effective layout. See [Layouts](layouts.md#layout-server-scripts).
 
 ## The layering rule
 
@@ -77,4 +77,5 @@ Consumers such as `app/form` import the record primitive (`components:app/form-t
 
 - [Component kinds](component-kinds.md)
 - [Builds, releases and manifests](builds-and-releases.md)
+- [Embedded widgets](../authoring/embedded-widgets.md)
 - [Compiler pipeline](../internals/compiler.md)

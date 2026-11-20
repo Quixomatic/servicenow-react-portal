@@ -2,7 +2,7 @@
 // Drag and drop is dnd-kit: palette → region (create), placements between and within regions,
 // page ↔ portal-wide; keyboard via dnd-kit's KeyboardSensor (Space, arrows, Space) and the
 // Properties panel (region, move up/down, scope, delete).
-import React, { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Allotment, LayoutPriority } from 'allotment';
 import {
 	DndContext,
@@ -42,6 +42,7 @@ import { Canvas, computeDropTarget, deepestUnderPointer } from './canvas';
 import { OptionsForm, JsonEditor } from './options-form';
 import { StyleSection, LayoutSection, ClassesField, DeviceSwitch } from './style-sections';
 import { findPlacement, siblingsOf } from './designer-store';
+import { tableApi } from '#/runtime/api';
 import { ask } from '../dialogs';
 import { ViewAsUserPicker, useViewAsUser, hiddenSets, viewAsUser } from '../view-as-user';
 
@@ -854,6 +855,93 @@ const CONTENT_WIDTH_OPTIONS = [
 	['3xl', '3xl (48rem)']
 ];
 
+const SYS_ID = /^[0-9a-f]{32}$/i;
+
+/**
+ * Form views (backlog B), stored in settings_json:
+ * - viewRuleConfigId: a sys_ux_view_rules_configuration whose Workspace view rules (sysrule_view_workspace)
+ *   pick a form's view when the URL, the widget option and the user's remembered view name none;
+ * - formViews: the candidate list after the rules ('sp,ess': the first view that exists for the table).
+ */
+function PortalFormViewSettings({ designer, portal, busy }) {
+	const settings = portal.settings || {};
+	const current = typeof settings.viewRuleConfigId === 'string' ? settings.viewRuleConfigId : '';
+	const [configs, setConfigs] = useState(null);
+	const [loadError, setLoadError] = useState('');
+	const [views, setViews] = useState(null);
+	useEffect(() => {
+		let live = true;
+		tableApi('sys_ux_view_rules_configuration', null, { sysparm_query: 'active=true^ORDERBYname', sysparm_fields: 'sys_id,name,description', sysparm_limit: 200 })
+			.then((rows) => live && setConfigs(Array.isArray(rows) ? rows : []))
+			.catch((e) => {
+				if (!live) return;
+				setConfigs([]);
+				setLoadError((e && e.message) || 'Could not load the view rule configurations');
+			});
+		return () => {
+			live = false;
+		};
+	}, []);
+	const update = (key, value) => {
+		const merged = { ...settings };
+		if (value) merged[key] = value;
+		else delete merged[key];
+		designer.updatePortal({ settings: merged });
+	};
+	const list = configs || [];
+	const known = !current || list.some((c) => c.sys_id === current);
+	const viewsValue = views === null ? (typeof settings.formViews === 'string' ? settings.formViews : '') : views;
+	return (
+		<div className="rpd-section" data-rpd-form-views="">
+			<div className="rpd-label">Form views</div>
+			<label className="rpd-field">
+				<span className="rpd-label">View rules</span>
+				<select value={current} onChange={(e) => update('viewRuleConfigId', e.target.value)} disabled={busy || configs === null} data-rpd-view-rule-config="">
+					<option value="">None (no view rules)</option>
+					{!known ? <option value={current}>Unknown configuration ({current.slice(0, 8)}…)</option> : null}
+					{list.map((c) => (
+						<option key={c.sys_id} value={c.sys_id} title={c.description || ''}>
+							{c.name}
+						</option>
+					))}
+				</select>
+			</label>
+			<div className="rpd-hint">
+				{configs === null ? 'Loading view rule configurations…' : loadError ? loadError : "Workspace view rules (sysrule_view_workspace) in this configuration pick a form's view when the URL, the widget and the user name none."}
+				{current && SYS_ID.test(current) ? (
+					<>
+						{' '}
+						<a href={`/sys_ux_view_rules_configuration.do?sys_id=${current}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', textUnderlineOffset: 2, color: 'inherit' }} data-rpd-view-rule-config-open="">
+							Open the rules
+						</a>
+					</>
+				) : null}
+			</div>
+			<label className="rpd-field">
+				<span className="rpd-label">Default views</span>
+				<input
+					value={viewsValue}
+					placeholder="e.g. sp,ess"
+					onChange={(e) => setViews(e.target.value)}
+					onBlur={() => {
+						const clean = viewsValue
+							.split(',')
+							.map((v) => v.trim())
+							.filter(Boolean)
+							.join(',');
+						if (clean !== (settings.formViews || '')) update('formViews', clean);
+						setViews(null);
+					}}
+					onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+					disabled={busy}
+					data-rpd-form-views-input=""
+				/>
+			</label>
+			<div className="rpd-hint">After the view rules: the first of these views that exists for the table, else Default.</div>
+		</div>
+	);
+}
+
 function PortalSettings({ designer, studio, state }) {
 	const design = state.design;
 	const portal = design.portal;
@@ -927,6 +1015,7 @@ function PortalSettings({ designer, studio, state }) {
 					))}
 				</select>
 			</label>
+			<PortalFormViewSettings designer={designer} portal={portal} busy={busy} />
 			<label className="rpd-field rpd-check">
 				<input type="checkbox" checked={portal.active !== false} onChange={(e) => designer.updatePortal({ active: e.target.checked })} disabled={busy} />
 				<span className="rpd-label">Active</span>

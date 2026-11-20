@@ -18,7 +18,8 @@ portal ─┬─ theme
         ├─ placement* (portal-level)          └─ parent ─▶ placement (block)
         ├─ menu* ── menu_item* ─┬─ parent ─▶ menu_item (group)
         │                       └─ page ─▶ page
-        └─ release (1) ── release_entry*  ──▶ build / component / theme / placement
+        ├─ release (1) ── release_entry*  ──▶ build / component / theme / placement
+        └─ portal_uc* / portal_uc_no* ─▶ user_criteria   (page_uc*, item_uc* likewise)
 
 component ─┬─ source_file*         theme ─┬─ source_file*
            └─ build (1) ─┬─ build_asset*  └─ build (1)
@@ -60,6 +61,10 @@ The spec's "widget instance" (shortened for the 30-character name limit). `porta
 
 `menu` (cascade), `parent` → menu_item (group of the same menu; cascade), `order`, `label`, `active`, `type` (page, route, url, group, separator, dynamic), `page` (cascade), `params_json`, `route`, `url`, `icon`, `target`, `match` (prefix, exact), `tooltip`, `collapsed`, `roles`, `condition`, `badge`, `badge_script`, `script`. Index (`menu`, `parent`, `order`). The form includes the Lucide icon-picker UI macro / formatter.
 
+### User-criteria tables
+
+Six m2m tables: `portal_uc`, `portal_uc_no`, `page_uc`, `page_uc_no`, `item_uc`, `item_uc_no`. Each has a mandatory record reference (`portal`, `page` or `menu_item`) and a mandatory `user_criteria` reference (active criteria only), both cascade delete, with a unique index on the pair. Audited. The `_no` tables are "Not available for". See [User criteria](../concepts/user-criteria.md).
+
 ## Generated tables
 
 Written only by server services (and admins). Their scope follows the owner's application (business rules), so generated records land in the same app as their source.
@@ -88,9 +93,9 @@ One per portal. `portal` (unique, cascade), `revision`, `manifest_json` (≤ 4 M
 
 Not `sys_metadata`. `correlation_id`, `portal`, `release`, `build`, `placement`, `component`, `instance` (placement id or embed composite id), `action`, `duration_ms`, `outcome` (success, error, denied), `sanitized_error`. Trimmed nightly.
 
-## In progress
+## Related lists on the classic forms
 
-> **Note:** **In progress:** six user-criteria m2m tables (`portal_uc`, `portal_uc_no`, `page_uc`, `page_uc_no`, `item_uc`, `item_uc_no`), each `sys_metadata` with a record reference and a `user_criteria` reference. See [User criteria](../concepts/user-criteria.md).
+`src/fluent/tables/related-lists.now.ts` declares the related lists on the classic forms (portal, page, menu, menu item, component, theme, build, release, placement), including the "Imports" / "Imported by" relationships between components and builds.
 
 ## Source sync exclusions
 

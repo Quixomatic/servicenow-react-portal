@@ -2,7 +2,7 @@
 title: Header slots
 description: utilities:app/header-slots — named slots inside a header widget that page widgets portal their titles and toolbars into.
 section: Primitives and utilities
-order: 8
+order: 11
 tags: [header-slots, layout, toolbar]
 ---
 
@@ -30,8 +30,8 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 
 | Export | Signature |
 |---|---|
-| `HeaderSlotOutlet` | `<HeaderSlotOutlet name className? as? />`: renders a slot (any name) |
-| `HeaderSlot` | `<HeaderSlot name fallback?="inline" \| "none">`: renders its children into the outlet |
+| `HeaderSlotOutlet` | `<HeaderSlotOutlet name className? as? />`: renders a slot (any name; `as` defaults to `div`) |
+| `HeaderSlot` | `<HeaderSlot name fallback?>`: renders its children into the outlet. `fallback` is `'inline'` (default) or `'none'` |
 | `useHeaderSlot(name)` | The outlet element or `null` (re-renders when outlets appear or go), to choose a layout up front |
 
 - A contribution is a **React portal**: state, context and events stay with the contributing widget.
@@ -40,18 +40,23 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 - Several contributions to one slot render in mount order.
 - An outlet with contributions gets `data-filled`, so the header can hide its default content with CSS: `[data-rp-hslot=left][data-filled] ~ .default { display: none }`.
 
-`app/app-header` has one outlet too, **`header-actions`**, beside the theme toggle: `app/cart-button` renders there.
+## Built-in outlets
+
+| Widget | Outlets |
+|---|---|
+| `app/app-subheader` | `left`, `center`, `right`; with `subheader: banner`, also `below`, a full-width row under the title (`app/hero-search` renders there) |
+| `app/app-header` | `header-actions`, beside the theme toggle (`app/cart-button` renders there) |
+
+A bar sub-header has no `below` outlet, so contributions to it fall back inline.
 
 ## Header slots versus `RegionPortal`
 
 `RegionPortal` targets a **layout region's** outlet (a whole region such as `header`). Header slots target places **inside a header widget**. The list view (`toolbarPlacement`) and record form (`headerSlots`, `headerPlacement`) use header slots.
-
-## Dialogs
-
-> **Note:** **In progress:** `components:app/confirm-dialog` (`confirmDialog(options)` → `Promise<boolean>`, `alertDialog`, `openDialog(render)`, `<DialogOutlet>`) and `components:app/field-dialog` (`showFieldsDialog(spec)`, the basis of `g_modal.showFields`), built on the host kit's `components:dialog`.
 
 ## Related
 
 - [Layouts](../concepts/layouts.md)
 - [Lists](lists.md)
 - [Forms](forms.md)
+- [Cart and checkout](cart.md)
+- [Home page and search](home-and-search.md)

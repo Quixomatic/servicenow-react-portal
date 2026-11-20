@@ -1,0 +1,104 @@
+{
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string",
+            "title": "Title",
+            "maxLength": 80,
+            "description": "Shown at the top of the sidebar; empty = the portal name."
+        },
+        "icon": {
+            "type": "string",
+            "title": "Title icon",
+            "maxLength": 60,
+            "description": "Lucide icon name beside the title."
+        },
+        "search": {
+            "type": "boolean",
+            "title": "Search",
+            "description": "The Search button, the Ctrl/⌘+K and / hotkeys and the search dialog."
+        },
+        "collapsible": {
+            "type": "boolean",
+            "title": "Collapsible",
+            "description": "A button that collapses the sidebar on desktop (state persists per portal)."
+        },
+        "switcher": {
+            "type": "array",
+            "title": "Section switcher",
+            "description": "The dropdown under the search (fumadocs sidebar tabs): jump to another portal or page. Leave empty to hide it.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "title": "Title"
+                    },
+                    "description": {
+                        "type": "string",
+                        "title": "Description"
+                    },
+                    "icon": {
+                        "type": "string",
+                        "title": "Icon (Lucide)"
+                    },
+                    "tint": {
+                        "type": "string",
+                        "title": "Tint",
+                        "enum": [
+                            "",
+                            "chart-1",
+                            "chart-2",
+                            "chart-3",
+                            "chart-4",
+                            "chart-5"
+                        ],
+                        "description": "Theme chart tint for the icon tile."
+                    },
+                    "portal": {
+                        "type": "string",
+                        "title": "Portal slug (empty = this portal)"
+                    },
+                    "to": {
+                        "type": "string",
+                        "title": "Page route"
+                    },
+                    "url": {
+                        "type": "string",
+                        "title": "External URL"
+                    }
+                }
+            }
+        },
+        "links": {
+            "type": "array",
+            "title": "Footer icon links",
+            "description": "Icon buttons beside the theme switch (e.g. a repository link).",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {
+                        "type": "string",
+                        "title": "Label"
+                    },
+                    "icon": {
+                        "type": "string",
+                        "title": "Icon (Lucide)"
+                    },
+                    "url": {
+                        "type": "string",
+                        "title": "URL"
+                    }
+                }
+            }
+        },
+        "tintSections": {
+            "type": "array",
+            "title": "Coloured icon sections",
+            "description": "Section slugs whose page icons get tinted tiles (chart-1…5 by position, like the sp sidebar); other sections get neutral tiles.",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}

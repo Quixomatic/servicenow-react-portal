@@ -2,7 +2,7 @@
 title: Activity and journals
 description: utilities:app/activity, app/activity-stream, app/journal-composer, app/journal-field and the app/activity-card widget — a record's activity stream, work notes and comments.
 section: Primitives and utilities
-order: 7
+order: 8
 tags: [activity, journal, work-notes, comments, amb, feed]
 ---
 
@@ -44,14 +44,14 @@ await journal.post('work_notes', 'Rebooted the server')
 
 | Hook | Returns |
 |---|---|
-| `useActivity(table, sysId, { filters?, view?, live?, enabled? })` | `entries` (filtered, newest first), `allEntries`, `filterFields`, `data`, `loading`, `fetching`, `error`, `refetch`, `liveStatus`, `arrived` (keys that arrived live) |
+| `useActivity(table, sysId, { filters?, view?, live? = true, enabled? })` | `entries` (filtered, newest first), `allEntries`, `filterFields`, `data`, `loading`, `fetching`, `error`, `refetch`, `liveStatus`, `arrived` (keys that arrived live) |
 | `useActivityFilters(table, sysId, { view?, initial? })` | `filters`, `kinds` / `journalFields` / `fields` with counts and selection, `toggleKind`, `onlyKind`, `toggleJournalField`, `toggleField`, `search` / `setSearch`, `reset`, `isDefault` |
 | `usePostJournal(table, sysId)` | `post(field, value)`, `posting`, `error`, `reset`; refetches the stream after a post |
-| `useJournalFields(table, sysId, { only? })` | The table's journal fields with `label`, `writable` (dictionary + ACL), `internal`, `help`, `maxLength` |
+| `useJournalFields(table, sysId, { only?, enabled? })` | `{ fields, loading }`: the table's journal fields with `label`, `writable` (dictionary + ACL), `internal`, `help`, `maxLength` |
 | `useEmailBody(sysId, { enabled })`, `useFullJournalEntry(sysId, { enabled })` | On-demand content |
 | `useInvalidateActivity()`, `useNow(ms)` | Refetch a stream; a ticking clock for relative times |
 
-Plain functions: `fetchActivity`, `postJournal`, `fetchEmailBody`, `fetchFullJournalEntry`, `fetchJournalAccess`, `normalizeActivity`, `normalizeEvent`, `applyActivityMessage`, `applyActivityFilters`, `defaultFiltersFrom`, `countActivity`, `groupByDay`, `dayLabel`, `relativeTime`, `formatBytes`, `initialsOf`; documents `ACTIVITY_QUERY`, `PUT_JOURNAL_MUTATION`, `EMAIL_BODY_QUERY`; keys `activityKeys`.
+Plain functions: `fetchActivity`, `postJournal`, `fetchEmailBody`, `fetchFullJournalEntry`, `fetchJournalAccess`, `normalizeActivity`, `normalizeEvent`, `normalizeUser`, `applyActivityMessage`, `kindOfEventTable`, `sortEntries`, `applyActivityFilters`, `kindOfFilterField`, `defaultFiltersFrom`, `countActivity`, `groupByDay`, `dayKey`, `dayLabel`, `relativeTime`, `formatBytes`, `initialsOf`, `isInternalJournal`; constants `ACTIVITY_KINDS`; documents `ACTIVITY_QUERY`, `PUT_JOURNAL_MUTATION`, `EMAIL_BODY_QUERY`; keys `activityKeys`.
 
 `ActivityEntry` has `kind` (`journal`, `audit`, `attachment`, `email`, `relation`, `other`), `author` (display name, initials, avatar), `createdAt` (epoch ms) and `createdAtDisplay` (the user's format and zone). It also carries the data for its kind: `field` + `content` (journal), `changes` (`{ label, oldValue, newValue }`, with `initial` on the creation entry), `attachment`, or `email`.
 
@@ -69,14 +69,18 @@ import { ActivityStream, RecordActivity } from 'components:app/activity-stream'
 | Prop | Meaning |
 |---|---|
 | `table`, `sysId`, `view` | The record (the view scopes the filter configuration) |
-| `title`, `headingLevel` | Heading (`''` hides it) |
+| `title`, `headingLevel` | Heading (default "Activity"; `''` hides it), level 2–4 (default 3) |
 | `showFilters` | Filter chips: one per journal field (Work notes, Additional comments), Field changes, Attachments, Emails…, plus a **Fields** menu for the audited fields and Reset |
 | `initialFilters`, `kinds` | Start filtered; never show other kinds |
 | `pageSize` | Entries before **Show more** (default 20) |
-| `groupByDay`, `compact`, `live`, `emptyText` | |
+| `groupByDay` (default true), `compact`, `live` (default true), `emptyText` | Presentation and live updates |
 | `renderAttachment(entry)` | Custom attachment entries |
 
-`RecordActivity` also takes `composer`, `journalFields`, `defaultJournalField` and `form`. It stacks the composer above the stream; there is no side-by-side layout.
+`RecordActivity` also takes `composer` (default true), `journalFields`, `defaultJournalField`, `composerRows` (default 3) and `form`. It stacks the composer above the stream; there is no side-by-side layout.
+
+`ActivityConversation` takes `table`, `sysId`, `kinds` (default journal + attachment), `journalFields` (default comments only), `composer`, `pageSize` (default 20, before **Show earlier**) and `maxHeight` (default `28rem`).
+
+The parts are exported for your own layouts: `ActivityFilterBar`, `ActivityEntryView`, `ActivityAvatar`, `FieldChanges`, `AttachmentBody`, `entryLabel`.
 
 - **Journal entries:** work notes have the platform's yellow tint and an "internal" lock; comments stay plain. HTML is sanitised by `components:rich-text`, and line breaks are kept. A truncated entry offers **Show the full entry**.
 - **Field changes:** label, old value (struck through) → new value. The record's creation entry lists the initial values.
@@ -108,7 +112,7 @@ Filter chips are toggle buttons (`aria-pressed`). The day headings are decorativ
 - **Plain text,** as the platform stores journals. Ctrl/⌘+Enter posts. The box clears and the stream refreshes.
 - **Bound to a form:** the text is the form's journal value. `g_form.getValue('work_notes')` sees it, `g_form.setMandatory` / UI policies apply, and a form Save posts it with the rest. When other fields are unsaved, **Post** becomes **Post and save** and runs the form's Save, so the edits and the entry land in one platform save, with no false "changed by someone else" from our own post.
 
-Props: `table`, `sysId`, `form`, `fields`, `defaultField` (else work notes when writable), `placeholder`, `rows`, `autoFocus`, `onPosted`, `label`. Also exported: `JournalSwitch`, `useComposerFields`.
+Props: `table`, `sysId`, `form`, `fields`, `defaultField` (else work notes when writable), `placeholder`, `rows` (default 3), `autoFocus`, `onPosted(field, value)`, `label` (default "Add to the activity"). Also exported: `JournalSwitch`, `useComposerFields`.
 
 ## `<JournalField>`
 
@@ -120,7 +124,7 @@ Exports: `JournalField`, `useAutoGrow(ref, value, { rows, maxRows })`, `journalT
 
 ## In record forms (opt-in)
 
-James hasn't chosen how the activity should sit next to a form, so `RecordForm` shows it only on request. The prop is `activity` (widget option `activity`):
+The presentation next to a form isn't decided yet, so `RecordForm` shows the activity only on request. The prop is `activity` (widget option `activity`):
 
 | Value | What |
 |---|---|
@@ -128,7 +132,7 @@ James hasn't chosen how the activity should sit next to a form, so `RecordForm` 
 | `notes` | The composer and stream take the place of the view's first journal input, as in the classic Notes section (the platform lists formatters without a position, so `activity.xml` never appears in the rows). The other journal inputs move into the composer. With no journal input on the view, the activity goes below the sections |
 | `below` | Under the sections; the journal inputs move into the composer |
 
-Both modes are stacked; there is no side-by-side layout. New records keep plain journal fields. Helpers: `activityElementRenderer({ form, mode, renderElement })`, `ActivityBelowForm`, `activityAnchor(bootstrap)`, `formActivityMode(value)`.
+Both modes are stacked; there is no side-by-side layout. New records keep plain journal fields. Helpers: `activityElementRenderer({ form, mode, renderElement, props? })`, `ActivityBelowForm`, `activityAnchor(bootstrap)`, `formActivityMode(value)`, `ACTIVITY_FORMATTER` (`'activity.xml'`).
 
 ## Presentations
 
@@ -145,10 +149,10 @@ The pieces compose into any presentation. The sp **Activity** page shows four, f
 |---|---|
 | `variant` | `timeline` (default), `conversation`, `compact` |
 | `table`, `sysId` | The record; each falls back to the route params, then the URL params |
-| `title`, `showRecord` | Title; number and short description, linking to `recordPage` |
+| `title`, `showRecord` | Title (default "Activity"); number and short description, linking to `recordPage` (default true) |
 | `composer`, `journalFields`, `defaultJournalField` | The composer (`journalFields: 'comments'` gives a requester-style conversation) |
 | `kinds` | Comma list of entry kinds (`journal,attachment`) |
-| `showFilters`, `pageSize`, `recordPage` | |
+| `showFilters` (default true), `pageSize` (default 10), `recordPage` (default `form`) | Presentation |
 
 Demo: sp ▸ Components ▸ **Activity** (the presentation variants above, on one test incident).
 

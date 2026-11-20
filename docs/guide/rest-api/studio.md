@@ -1,6 +1,6 @@
 ---
 title: Studio REST API
-description: The /rp_studio endpoints behind Portal Studio — catalogs, projects, saves and checks, builds, the page designer, menus, context and icons.
+description: The /rp_studio endpoints behind Portal Studio — catalogs, projects, saves and checks, dependencies, builds, the page designer, menus, View as user, context and icons.
 section: REST APIs
 order: 3
 tags: [rest, studio, design, menus]
@@ -36,10 +36,11 @@ Conventions (envelope, errors) are in [REST conventions](conventions.md).
 
 | Method | Path | Cap. | Purpose |
 |---|---|---|---|
-| GET | `/components/{id}/project` | author | `ProjectData`: owner, meta, revision, files (virtual first, then extra files), latest build |
+| GET | `/components/{id}/project` | author | `ProjectData`: owner, meta, revision, files (virtual first, then extra files), latest build, and `kindFiles` (kind → baseline files) |
 | POST | `/components/{id}/save` | author | Revision-checked save; compiles and returns the result |
 | POST | `/components/{id}/check` | author | Dry-run compile of unsaved buffers; nothing written |
 | POST | `/components` | author | Create a component with a starter, compiled on create (`201`) |
+| GET | `/components/{id}/dependencies` | any | `DependencyData`: the component records its build imports directly, and the components whose builds import it |
 | GET | `/themes/{id}/project` | design | Theme project (`theme.css`, `tokens.json`) |
 | POST | `/themes/{id}/save` | design | Revision-checked theme save |
 
@@ -65,6 +66,14 @@ Conventions (envelope, errors) are in [REST conventions](conventions.md).
 → `SaveData`: `{ revision, build: BuildSummary, files, registry: { runtimeAbiVersion } }`. Compile errors are in `build.diagnostics`, not an HTTP error.
 
 `meta` (component) accepts `name`, `namespace`, `key`, `kind`, `description`, `placeable`, `active`, `tailwind`, `clientScript`, `css`, `script`, `serverMode`, `exports`, `optionsSchema`, `defaultOptions`, `regions`, `dependencySpec`. Theme `meta`: `name`, `key`, `description`, `active`, `tokens`, `stylesheet`.
+
+### Baseline files per kind
+
+The property `x_312987_portal.studio.kind_files` (JSON: kind → virtual file names) decides which baseline files each kind has. A missing, empty or invalid value falls back to the built-in default; `main.tsx` is always included and `theme` is ignored. The property is read per request. A virtual file the kind doesn't list but whose field still has content comes back with `unused: true` and stays editable until it's emptied; giving content to an unlisted, empty file is refused with `400`. Check and the compiler apply the same rule. See [Code editor](../studio/code-editor.md#virtual-files).
+
+### Dependencies
+
+`GET /components/{id}/dependencies` → `{ component, build, imports, importedBy }`. Each entry is `{ id, uniqueId, name, kind, serverMode, active, specifier }`, plus `embeddable` on imports (a widget import renders as an embedded instance) and `needsRebuild` on importers. Host modules and packages aren't records, so they're left out.
 
 ### Check
 
@@ -114,9 +123,14 @@ Placement DTOs carry `{ id, region, order, active, scope, pageId, parentId, comp
 
 Business rules validate every write; their rejection message comes back as `400 invalid` (and is drained, so it doesn't leak as a banner on a classic page).
 
-## In progress
+## View as user
 
-> **Note:** **In progress:** `GET /components/{id}/dependencies` (direct record imports and importers, for a Studio Dependencies panel), "View as user" for user criteria, and per-kind baseline files (`kindFiles` in `ProjectData`, driven by the property `x_312987_portal.studio.kind_files`).
+| Method | Path | Cap. | Returns |
+|---|---|---|---|
+| GET | `/users?q=&limit=20` | any | `[{ id, name, userName }]`: active users whose name, user name or email contains `q`, ordered by name, for the picker (`limit` 1–50) |
+| GET | `/portals/{id}/audience?user=<sys_id>` | any | `{ user, bypass, portal, hiddenPages, hiddenItems, restrictedPages, restrictedItems }`: whether the user bypasses criteria (studio roles, admin) or passes the portal's, the page and menu-item ids their criteria hide, and the ids that carry criteria at all. `user` must be a sys_id (`400` otherwise) |
+
+Only the user-criteria layer is simulated, read-only. See [User criteria](../concepts/user-criteria.md#view-as-user-in-studio).
 
 ## Related
 

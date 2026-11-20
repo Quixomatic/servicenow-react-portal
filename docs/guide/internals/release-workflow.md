@@ -1,12 +1,14 @@
 ---
 title: Release workflow and seed
-description: Repository layout, building and installing the three deliverables, version bumps, the changelog, and the demo seed.
+description: Repository layout, building and installing the three deliverables, version bumps, the changelog, seeding the demo (npm run seed, batch mode) and the reprocess cache.
 section: Platform internals
 order: 6
 tags: [internals, release, versioning, seed, tooling]
 ---
 
 # Release workflow and seed
+
+React Portal ships three deliverables from one repository: the main scoped app, the host component and the global helper app. This page covers how they're built and installed, how a version bump keeps them in lockstep, and how the demo seed puts the demo components, portals and pages on an instance.
 
 ## Repository layout
 
@@ -31,6 +33,9 @@ tags: [internals, release, versioning, seed, tooling]
 | Host component | `cd packages/portal-host && pnpm run deploy` |
 | Global helper app | `cd packages/global-helpers && now-sdk build && now-sdk install` |
 | Compiler vendor bundles (after upgrading sucrase / tailwindcss) | `npm run vendor:compiler` |
+| Rich-text editor vendor bundle (after upgrading TipTap; the CLI's babel rejects its `@jsxImportSource` pragmas) | `cd packages/portal-host && pnpm run vendor:rte` |
+| Host local dev server | `cd packages/portal-host && pnpm run dev` |
+| Demo data | `npm run seed` (see [Seeding](#seeding)) |
 
 ## Server module paths and versions
 
@@ -64,14 +69,20 @@ Three segments only. The flow around it (`.claude/skills/version-bump`): write t
 
 After a **manifest version** change, reprocess every portal once: `new x_312987_portal.ReactPortal().reprocessAll()`.
 
-## The demo seed
+## Seeding
 
-```bash
-node scripts/seed/build-seed.mjs          # writes scripts/seed-demo.js
-now-sdk exec --file scripts/seed-demo.js  # creates / updates the demo on the instance
-```
+The demo lives in `scripts/seed/`: one folder per component in `components/<key>/`, plus `seed-template.js`, which defines the themes, portals, pages, placements and menus. Two tools turn it into `now-sdk exec` runs:
 
-Each folder in `scripts/seed/components/<key>/` is one component:
+| Tool | Use it for |
+|---|---|
+| `npm run seed` (`run-seed.mjs`) | Everyday seeding: diff against the instance, send only what changed |
+| `node scripts/seed/build-seed.mjs` | Writing `scripts/seed-demo.js` for a manual `now-sdk exec` run; `npm run version:bump` uses it too |
+
+Both share `scripts/seed/seed-lib.mjs` (loading, dependency ordering, rendering, the template hash).
+
+### Component folders
+
+Each folder in `scripts/seed/components/<key>/` becomes one `app/<key>` component:
 
 | File | Becomes |
 |---|---|
@@ -84,32 +95,75 @@ Each folder in `scripts/seed/components/<key>/` is one component:
 
 `scripts/seed/assets/<file>` is inlined as a data URI wherever the template says `__ASSET_DATA_URI:<file>__`.
 
-The builder scans each folder's client sources for record imports (`components:app/<key>`, `utilities:app/<key>`) and **orders components by dependency**, because a compile rejects an import whose target has no successful build. Cycles and missing folders fail the build. The template (`seed-template.js`) upserts themes, components, portals, pages, placements and menus by key, deactivates (never deletes) menu items and placements it no longer defines, recompiles the import graph in dependency order and reprocesses each portal.
+The tools scan each folder's client sources for record imports (`components:app/<key>`, `utilities:app/<key>`) and **order components by dependency**, because a compile rejects an import whose target has no successful build. Cycles and missing folders fail the build. The template upserts themes, components, portals, pages, placements and menus by key. It deactivates (never deletes) menu items and placements it no longer defines.
 
 > **Warning:** Keep every component folder buildable (`main.tsx` + `component.json`) at all times: `npm run version:bump` regenerates the seed and fails on a half-built folder.
 
-### `npm run seed` (diff-based)
+### `npm run seed`
 
-The everyday way to seed. `scripts/seed/run-seed.mjs` treats the **instance as the source of truth** (several agents seed it), so it keeps no local cache:
+`scripts/seed/run-seed.mjs` treats the **instance as the source of truth**, so it keeps no local cache:
 
-1. **Diff.** Read-only `now-sdk query` calls read every `app/*` component (the fields the seed writes), its `source_file` rows and its build. Both sides are normalised the way the seed's `upsert` / `sameValue` compares them (canonical JSON, booleans as `1`/`true`, CRLF → LF) and hashed. A component is selected when it's missing, a field differs, a source file is added, changed or removed, or it has no build record yet.
-2. **Components.** One `components` seed with just those components, in dependency order, split automatically into parts under the exec payload limit (budget 1300 KB; the instance rejects ~1.5 MB). Intermediate parts don't reprocess.
-3. **Portals.** The `--portals` step (themes, portals, pages, menus, placements) runs only when the template changed: a portals or full run stores the template's hash in `x_312987_portal.seed.template_hash` when it finishes, and the runner compares it with the local template (the module-root line is ignored, so a version bump alone doesn't count).
-4. **One reprocess.** Only the last exec reprocesses the portals. Nothing changed → `nothing to seed`, nothing runs.
-5. **Waiting.** Every exec carries a run id that the seed puts in its `[seed] done (...) run=<id>` syslog line (or `[seed] failed run=<id>` / `[seed] final reprocess failed run=<id>`). The runner polls syslog for it before starting the next part. An exec that times out or "did not return a script execution response" may still be running, so it's polled (up to `--wait-minutes`, default 30), never re-run.
+1. **Diff.** Read-only `now-sdk query` calls read every `app/*` component (the fields the seed writes), its `source_file` rows and its build. Both sides are normalised the way the seed's upsert compares them (canonical JSON, booleans as `1` / `true`, CRLF → LF) and hashed. A component is selected when it's missing, a field differs, a source file was added, changed or removed, or it has no build record yet.
+2. **Components.** One `components` seed with just those components, in dependency order, split automatically into parts under the exec payload limit (default budget 1300 KB; the instance rejects payloads over about 1.5 MB). Intermediate parts don't reprocess.
+3. **Portals.** The portals step (themes, portals, pages, menus, placements) runs only when the template changed. A portals or full run stores the template's hash in the property `x_312987_portal.seed.template_hash` when it finishes, and the runner compares it with the local template. The module-root line is ignored, so a version bump alone doesn't count.
+4. **One reprocess.** Only the last exec reprocesses the portals. When nothing changed, the runner prints `nothing to seed` and runs nothing.
+5. **Waiting.** Every exec carries a run id, which the seed writes into its `[seed] done (<mode>) run=<id>` syslog line (or `[seed] failed run=<id>` / `[seed] final reprocess failed run=<id>`). The runner polls syslog for that line before starting the next part, so runs never stack. An exec that times out, or reports "did not return a script execution response", may still be running: it's polled, never re-run.
+
+| Flag | Effect |
+|---|---|
+| (none) | Seed what differs, then print counts and timings |
+| `--dry-run` | Show the diff and the plan; run nothing |
+| `--only a,b` | Just these component keys (no template check unless `--portals` is also given) |
+| `--portals` | Force the portals step |
+| `--all` | Every component plus the portals step (the old full seed), auto-split |
+| `--reprocess` | Force the final reprocess even when nothing else runs |
+| `--max-kb N` | Payload budget per exec (default `1300`) |
+| `--wait-minutes N` | How long to poll for each run's done line (default `30`) |
+| `--keep` | Keep the generated exec files instead of deleting them |
 
 ```bash
-npm run seed                      # seed what differs, then print counts and timings
-npm run seed -- --dry-run         # show the diff and the plan, run nothing
-npm run seed -- --only a,b        # just these components (no template check unless --portals)
-npm run seed -- --portals         # force the portals step
-npm run seed -- --all             # every component + portals (the old full seed), auto-split
-npm run seed -- --reprocess       # force the final reprocess even when nothing else runs
+npm run seed -- --dry-run
+npm run seed -- --only cart,cart-button
 ```
 
-Builds in state `failed` are reported, not reseeded automatically (a broken component would otherwise rerun the seed every time). Instance components with no seed folder are listed, never deleted. If a part fails, earlier parts' records are written but the portals weren't reprocessed: fix the cause and rerun (add `--reprocess` if the diff is now empty).
+Builds in state `failed` are reported, not reseeded automatically (a broken component would otherwise rerun the seed every time). Instance components with no seed folder are listed as instance-only, never deleted. If a part fails, the earlier parts' records are written but the portals weren't reprocessed: fix the cause and rerun (add `--reprocess` if the diff is now empty).
 
-`build-seed.mjs` still writes `scripts/seed-demo.js` (`--only`, `--part i/n`, `--portals`) for manual runs and `npm run version:bump`; both share `scripts/seed/seed-lib.mjs`.
+### `build-seed.mjs`
+
+```bash
+node scripts/seed/build-seed.mjs                 # full seed → scripts/seed-demo.js
+node scripts/seed/build-seed.mjs --only a,b      # just these components (still reprocesses once)
+node scripts/seed/build-seed.mjs --part 1/3      # the 1st of 3 slices of the dependency order, no reprocess
+node scripts/seed/build-seed.mjs --portals       # themes, portals, pages, menus and one reprocess
+now-sdk exec --file scripts/seed-demo.js
+```
+
+A full seed is too big for one exec, so run it by hand as `--part 1/3`, `2/3`, `3/3`, then `--portals`. The builder warns when its output is over about 1.4 MB.
+
+### Batch mode
+
+Every seed runs as one batch. At the top of the script it sets two session flags, which the business rules read:
+
+| Session flag | Suppresses |
+|---|---|
+| `x_312987_portal.skip_compile` | The compile-on-save rules |
+| `x_312987_portal.skip_reprocess` | Per-write portal reprocessing (placement, page, menu and component rules, and `reprocessForOwner`) |
+
+Which rule reads which flag is listed in [Business rules](business-rules.md#batch-mode-session-flags).
+
+Inside the batch, each changed component compiles **once**, in dependency order. Placement instance CSS still compiles: the placement rule only defers the reprocess, and the seed also refreshes the CSS of every placement it wrote. Then the flags are cleared and each active portal reprocesses once, writing a new release only when the manifest hash changed. Upserts compare values ignoring platform formatting (booleans, JSON key order, CRLF), so unchanged records aren't rewritten.
+
+The `[seed] done` line reports records written, components compiled, up to date and failed, portals reprocessed, per-table write counts, each portal's release revision and problems, and per-phase timings. The same flags serve other multi-record writes: a Studio save sets `skip_compile` and compiles once at the end, and a page-designer write sets `skip_reprocess` and reprocesses once at the end.
+
+> **Warning:** When you add a business rule that runs during a seed, check whether it should honour the batch flags. An instance-CSS rule was once gated on `skip_reprocess` and silently stopped compiling.
+
+### The reprocess cache
+
+Assembling a portal's manifest looks up the same components, builds, entry assets and import edges many times. `assembleManifest` wraps the work in `withRegistryCache` (`src/server/registry/registry.ts`), which memoizes those registry lookups for one call and drops them at the end. It holds registry records only, nothing user-specific, and nested calls share the outer cache.
+
+This made reprocessing about 40 times faster (sp went from about 60 s and 55,662 queries to about 1.4 s and 546 queries) with byte-identical manifests. Every seed, Studio save and designer save benefits.
+
+> **Note:** Use it only around read-only work: a build written inside the callback isn't seen by later lookups.
 
 ## Smoke checks
 

@@ -62,47 +62,47 @@ To re-run: `node catalog-macro.cjs`, `node catalog-maps.cjs '<json list>'`, `nod
 
 Instance inventory: 2,104 `sys_ux_lib_component` · 4,190 `sys_ux_macroponent` · 521 UIB toolbox entries · 1,543 `sys_ux_event` · 43,699 `sys_ux_lib_asset` · 35 source maps fetched (5 core bundles + 30 externals) · ~5,900 source files read/indexed.
 
-`catalog.json`: **365 entries**. 333 components (199 hand-reviewed, 134 auto-inventoried with low detail, 52 marked `verified: false`) and 32 catalog variable-type mappings.
+`catalog.json`: **376 entries**. 344 components (210 hand-reviewed, 134 auto-inventoried with low detail, 52 marked `verified: false`) and 32 catalog variable-type mappings. The knowledge wave added 11 entries: the platform's knowledge components (`sn-knowledge-*`, `sn-kb-*`, the article guidance and playbook cards).
 
 | Category | Entries | High | Medium | Low |
 |---|---|---|---|---|
 | catalog | 29 | 6 | 3 | 20 |
 | catalog-variable | 11 | 5 | 5 | 1 |
-| data-display | 42 | 3 | 11 | 28 |
+| data-display | 45 | 5 | 12 | 28 |
 | feedback | 15 | 9 | 4 | 2 |
 | field | 78 | 21 | 22 | 35 |
 | form | 36 | 12 | 7 | 17 |
 | layout | 52 | 10 | 11 | 31 |
 | list | 48 | 9 | 9 | 30 |
-| other | 17 | 0 | 0 | 17 |
+| other | 25 | 0 | 2 | 23 |
 | search | 5 | 0 | 4 | 1 |
 
 
 (The category table above counts components only, as in the first pass; `catalog-variable` there excludes the 32 variable-type mappings.)
 
-### Coverage (recomputed from catalog.json: v1.15.0 + the working tree: activity, related lists, attachments, home and search)
+### Coverage (recomputed from catalog.json: v1.16.0 + the working tree: knowledge base wave)
 
-All 365 entries, including the 32 variable-type mappings (counted under `catalog-variable`):
+All 376 entries, including the 32 variable-type mappings (counted under `catalog-variable`):
 
 | Category | Entries | Match | Partial | None |
 |---|---|---|---|---|
 | catalog | 29 | 11 | 1 | 17 |
 | catalog-variable | 43 | 42 | 1 | 0 |
-| data-display | 42 | 4 | 4 | 34 |
+| data-display | 45 | 6 | 5 | 34 |
 | feedback | 15 | 6 | 7 | 2 |
 | field | 78 | 40 | 6 | 32 |
 | form | 36 | 14 | 5 | 17 |
 | layout | 52 | 29 | 6 | 17 |
 | list | 48 | 25 | 2 | 21 |
-| other | 17 | 0 | 0 | 17 |
+| other | 25 | 0 | 1 | 24 |
 | search | 5 | 2 | 2 | 1 |
-| **Total** | **365** | **173** | **34** | **158** |
+| **Total** | **376** | **175** | **36** | **165** |
 
 | Usefulness | Entries | Match | Partial | None |
 |---|---|---|---|---|
-| high | 104 | 93 | 11 | 0 |
-| medium | 76 | 36 | 12 | 28 |
-| low | 185 | 44 | 11 | 130 |
+| high | 106 | 95 | 11 | 0 |
+| medium | 79 | 36 | 14 | 29 |
+| low | 191 | 44 | 11 | 136 |
 
 - **High-usefulness with no match (0).**
 - **High-usefulness partials (11)** cluster in three places:
@@ -110,6 +110,7 @@ All 365 entries, including the 32 variable-type mappings (counted under `catalog
   - checkbox (indeterminate), label-value, pill;
   - design-system primitives that exist only inside a widget: alert, avatar, breadcrumbs, accordion; highlighted value is a primitive now (`app/highlighted-value`) but doesn't read the platform's colour configs.
 - **Home and search wave:** `components:empty`, `components:skeleton` (host kit) close `now-empty-state`, `now-loader-skeleton` and their low-usefulness templates; `app/search-box`, `app/search-results` close `sn-search-combobox`, `sn-search-results-container` (`sn-search-facets` and the Workspace global search typeahead are partial); `app/quick-links` closes `now-link-set`.
+- **Knowledge wave:** `app/kb-article` with `app/kb-article-view`, `app/kb-toc` (on the generic `app/toc`) and `app/kb-feedback` matches `sn-knowledge-detail` and `sn-knowledge-content`, and does more (reading measure, sticky TOC with scroll-spy, print). `app/kb-category-tree` is partial for `sn-kb-category-picker` (navigation, not a picker); `app/kb-article-list` is partial for `sn-guidance-link-kb-card`. The comment thread (`sn-knowledge-discussion-wrapper`), Social Q&A, templates, translation requests and agent article guidance stay open.
 - **Variable types:** 31 of 32 match. The one partial is UI page (15): it renders an `rp_component` when set, but platform UI pages are classic-only.
 - **Low-usefulness:** most are inventory rows that nobody reviewed by hand. A `none` there is expected, not a gap.
 - **Cart wave:** Next Experience has no cart UI (§7.1), so the cart closes no entry. `sn-catalog-action` stays partial: Add to cart is done, but a Cancel button and Save as draft are not.
@@ -126,12 +127,14 @@ All 365 entries, including the 32 variable-type mappings (counted under `catalog
   - dialogs: `app/confirm-dialog` (confirm / alert, dialog queue, `useDialog` / `useConfirm`), `app/field-dialog` (fields spec → modal form, `showFields`).
   - attachments (A6): `app/attachment-dropzone`, `app/attachment-list` (list / grid / chips, image preview), `app/attachment-panel`, `app/attachment-field` (file_attachment, user_image).
   - activity (A5): `app/activity-stream` (feed, filters, live; RecordActivity), `app/journal-composer`, `app/journal-field`.
-- **Utilities:** `app/graphql`, `app/activity` (activity stream data, putJournal, live), `app/attachments` (attachment data, uploads, validation, live), `app/datetime` (zones, user formats, date/time format and parse), `app/list-data`, `app/catalog`, `app/custom-variables` (custom-variable registry), `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
+  - knowledge (K): `app/kb-article-view`, `app/kb-toc`, `app/kb-feedback`, `app/kb-category-tree`, `app/kb-article-list`; generic `app/toc` (fumadocs-style On this page).
+- **Utilities:** `app/knowledge` (KB data, permissions, TOC, feedback, view counting), `app/graphql`, `app/activity` (activity stream data, putJournal, live), `app/attachments` (attachment data, uploads, validation, live), `app/datetime` (zones, user formats, date/time format and parse), `app/list-data`, `app/catalog`, `app/custom-variables` (custom-variable registry), `app/gform`, `app/header-slots`, `react-query`, `react-table`, `react-virtual`.
 - **Runtime:** `useRecordWatch`, `useAmbChannel`, `useAmbStatus`, `Link`/`navigate` with table/sysId/view/query params, `usePortalLocation`, embedded widgets (`$sp.getWidget`, `useEmbeddedWidget`, `<Embed>`, the `lazy` prop, embeds under layouts), `useInViewOnce`.
 - **Widgets:**
   - catalog: `app/catalog-item` (Order now and Add to cart), `app/catalog-picker`, `app/variable-editor-demo`, `app/cart` (cart and checkout), `app/cart-button` (header cart and count);
   - lists and forms: `app/list-view`, `app/list-card`, `app/record-form`, `app/related-lists-card`, `app/attachments-card`;
-  - home and search: `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements` (on `utilities:app/search`, `app/search-box`, `app/highlighted-value`);
+  - home and search: `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/catalog-tiles`, `app/quick-links`, `app/announcements` (on `utilities:app/search`, `app/search-box`, `app/highlighted-value`);
+  - knowledge: `app/kb-home`, `app/kb-article`, `app/kb-category`, `app/kb-search` (`app/knowledge` became the `utilities:app/knowledge` utility);
   - app shell: `app/app-header`, `app/app-sidebar`, `app/app-subheader`;
   - site: site-header, nav-sidebar, site-footer;
   - demos: field-demo, embed-demo, incident-list, record-detail, hello-card, server-clock, runtime-tests.
@@ -296,6 +299,11 @@ Refreshed for v1.13.0. Low-usefulness rows and the 32 variable-type mappings are
 | `sn-search-combobox` | search | medium | `app/search-box` | match: components:app/search-box, utilities:app/search |
 | `sn-search-facets` | search | medium | `app/search-facets` | partial: components:app/search-results — source tabs with counts; no field facets / refiners |
 | `sn-search-results-container` | search | medium | `app/search-results` | match: components:app/search-results |
+| `sn-knowledge-detail` | data-display | high | `app/kb-article-view` | match (better): components:app/kb-article + app/kb-article-view, app/kb-toc, app/kb-feedback |
+| `sn-knowledge-content` | data-display | high | `app/kb-article-view` | match (better): KbArticleBody (sanitised, heading ids, table frames, image zoom) |
+| `sn-guidance-link-kb-card` | data-display | medium | `app/kb-article-list` | partial: KbArticleRow, featured cards in app/kb-home |
+| `sn-kb-category-picker` | other | medium | `app/kb-category-tree` | partial: navigation tree with counts; no picker mode |
+| `sn-knowledge-discussion-wrapper` | other | medium | `app/kb-comments` | none (backlog K: comments) |
 
 ---
 
@@ -744,7 +752,7 @@ Then the form runtime parity phases P1–P5 from §8.
 | **2: catalog variables** | **Done** | `app/variable` (all 32 types), `useCatalogForm`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/catalog-item`, `app/catalog-picker`, `utilities:app/catalog`. Since 1.10 also catalog UI policies and client scripts (onSubmit can veto). Catalog wave 2: MRVS rows as their own g_form scope (set policies and scripts, onSubmit blocks the row, `g_service_catalog.parent`), inline row editing, row prices, Remove all; `app/requested-for-field` (delegation) for type 31 and the item level; custom variables via `rp_component` / `rp_options` (`utilities:app/custom-variables`); quantity on the combobox Select; `app/variable-editor` (a record's variables, read-only or editable) | Save as draft and order guides (backlog); dependent choices inside MRVS rows untested; the variable editor isn't a form formatter yet. **Cart wave (G2):** Add to cart, `app/cart` (lines, quantity, remove, requested for, Empty cart, one-step checkout and a review step for two-step), `app/cart-button` (header count and popover), cart hooks in `utilities:app/catalog` |
 | **3: lists** | **Done** | `app/data-table` (RecordList, DataTable, Pagination, ColumnChooser, CellEditor, PointMenu), `app/condition-builder` (+ breadcrumbs, dot-walk picker), `utilities:app/list-data` (getListLayout, inline/bulk writes, personalization), `app/list-view`, `app/list-card`, related-list mode (`fixedQuery` / `relatedListName`), live refresh | Platform list UI actions and declarative list actions; group-by; saved filters / list menu; column header filters; inline edit of dot-walked, journal and glide_list fields (HTML: done, rich-text popover); `onCellEdit` list client scripts |
 | **4: forms** | **Partial** | #24 `app/form` (useRecordForm, RecordForm, FormLayout, save via the Save UI action, conflict check, unsaved guard, cog settings with view / layout, remembered view), `app/form-section` (collapsible), `app/form-tabs` (tabs mode), `app/form-annotation`, 2–4 column splits, per-field remote-change markers; #25 UI action bar; #26 record header (banner / bar / inline); `app/record-form` widget | #24: formatters (placeholders). **Attachments (A6, #28) done:** `utilities:app/attachments`, `app/attachment-dropzone`, `app/attachment-list`, `app/attachment-panel`, RecordForm `attachments` option (off / below / header), widget `app/attachments-card`. **Activity (A5, #27) done:** `app/activity-stream` (feed, filters, live), `app/journal-composer` (putJournal), `app/journal-field`, `utilities:app/activity`, opt-in RecordForm activity (`notes` / `below`), widget `app/activity-card` (timeline / conversation / compact variants) **Related lists (A4) done:** `app/related-list`, `app/related-lists`, form tabs / stacked sections, `app/related-lists-card` |
-| **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar`, `tabs`, `dialog`, `skeleton`, `empty`, `kbd` in the host kit; home and search: `utilities:app/search`, `app/search-box`, `app/highlighted-value`, widgets `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements`; `app/confirm-dialog`, `app/field-dialog`; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/accordion`, `ui/alert`, `ui/avatar`, `ui/chip`, `app/highlighted-value` config colours (the primitive exists; heuristic tones), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
+| **5: the rest** | **Partial** | `sheet`, `tooltip`, `collapsible`, `icon`, `sidebar`, `tabs`, `dialog`, `skeleton`, `empty`, `kbd` in the host kit; home and search: `utilities:app/search`, `app/search-box`, `app/highlighted-value`, widgets `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/catalog-tiles`, `app/quick-links`, `app/announcements`; knowledge (K): `utilities:app/knowledge`, `app/kb-home`, `app/kb-article`, `app/kb-category`, `app/kb-search` on `app/kb-article-view`, `app/kb-toc` / `app/toc`, `app/kb-feedback`, `app/kb-category-tree`, `app/kb-article-list`; `app/confirm-dialog`, `app/field-dialog`; `useRecordWatch` / `useAmbChannel`; Spinner (in `app/field`) | `ui/accordion`, `ui/alert`, `ui/avatar`, `ui/chip`, `app/highlighted-value` config colours (the primitive exists; heuristic tones), `ui/label-value`, `ui/stepper`, `ui/breadcrumbs`, `ui/resizable`, `ui/tree`, `ui/rich-text` as standalone primitives. Several exist privately inside widgets (data-table empty state and skeletons, list-field chips, app-header breadcrumbs, user-menu avatar) |
 
 ### 12.2 Form runtime parity phases P1–P5 (§8)
 
@@ -752,7 +760,7 @@ Our forms use `GlideViewQuery_Query.uiView`, the platform's bootstrap. That's th
 
 | Phase | Item | Status | Notes |
 |---|---|---|---|
-| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **View rules are not honoured** (§12.3). Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Related lists: done (A4). Not yet: formatters (placeholders only), `formTabs` |
+| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **Workspace view rules are honoured** via the portal's `viewRuleConfigId` (§12.3); classic `sysrule_view` rules are not, by design. Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Related lists: done (A4). Not yet: formatters (placeholders only), `formTabs` |
 | P1 | Field ACLs, dictionary read-only/mandatory | **Done** | `fieldStates` plus dictionary `canRead`/`canWrite`. The form is read-only when the view has no Save action. The server re-checks on save, because Save is a UI action |
 | P1 | Display BRs and `g_scratchpad` | **Done** | `ClientScriptingEnvironment_Globals.g_scratchpad` |
 | P2 | UI policies and actions | **Done** | Evaluated in the browser with the server's pre-evaluated terms; reverse-if-false, onLoad=false, run-scripts and last-writer-wins with scripts; catalog policies too, and MRVS rows run their set's policies. Not done: the `relatedList` action (`sys_ui_policy_rl_action`) |
@@ -787,6 +795,14 @@ GraphQL from a CDP tab, admin session:
   - a mistyped view silently becomes Default.
 
   The recommendation is in `.plans/backlog.md` (item "View rules").
+
+**Done (2026-11-20, backlog B).** Resolution order: URL `view` → widget option `view` (`lockView` puts it first) → remembered view (`x_312987_portal.form.<table>.view`) → Workspace view rules of the portal's `settings.viewRuleConfigId` → the portal's candidate list `settings.formViews` → Default.
+- Steps 1–3 are forced, but only after a no-layout existence check (`checkFormViews`: aliased `uiView(views: "<name>", sysId: "-1")`, which also works for new records, where `availableViews` is empty). An unknown URL or option view falls through and shows a "View `x` not found" notice.
+- Steps 4–6 are `uiView(viewRuleConfigId, views)`.
+- `default` / `Default view` force the Default view over the rules: an unknown forced name resolves to Default and still skips the rules (verified).
+- The switcher has an Automatic choice.
+- Rules join a configuration through `sys_ux_m2m_workspace_view_rule_ux_view_rule_config`; `experience_restricted=true` limits a rule to its configurations.
+- **Lists:** `GlideListLayout_Query.getListLayout` rejects `viewRuleConfigId` ("Unknown field argument"), so there are no Workspace list view rules. An unknown list view silently gives the Default list layout (`incident`: `ess` gives 3 columns, `nope_xyz` gives the 11 Default columns).
 
 ---
 
@@ -861,5 +877,7 @@ GraphQL from a CDP tab, admin session:
 | `components:app/highlighted-value` | primitive | partial `now-highlighted-value` (heuristic tones, no config colours) |
 | Widget `app/search-results` | widget | `sn-search-results-container`; partial `sn-search-facets` (source tabs with counts) |
 | Widget `app/quick-links` | widget | `now-link-set`; partial `now-link-set-group` |
-| Widgets `app/hero-search`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/announcements` | widget | Service Portal home widgets (typeahead search, My requests / approvals, knowledge articles and categories, popular items, announcements): no Next Experience catalog entries |
+| `utilities:app/knowledge`; primitives `app/kb-article-view`, `app/kb-toc`, `app/kb-feedback`, `app/kb-category-tree`, `app/kb-article-list`; widgets `app/kb-home`, `app/kb-article`, `app/kb-category`, `app/kb-search` | utility, primitive, widget | `sn-knowledge-detail`, `sn-knowledge-content` (better: reading layout, scroll-spy TOC, print / share, platform-native views and feedback); partial `sn-kb-category-picker`, `sn-guidance-link-kb-card` |
+| `components:app/toc` | primitive | no catalog entry: fumadocs-style On this page (track, sliding active segment, compact bar), shared by the KB and docs pages |
+| Widgets `app/hero-search`, `app/my-items`, `app/kb-articles`, `app/catalog-tiles`, `app/announcements` | widget | Service Portal home widgets (typeahead search, My requests / approvals, knowledge articles and categories, popular items, announcements): no Next Experience catalog entries |
 | Blocks and layouts | block/layout | `now-uxf-page*`, `now-uxf-viewport`, `now-stackable-side-by-side-panel` |

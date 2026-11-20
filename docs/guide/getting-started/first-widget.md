@@ -14,7 +14,7 @@ This walk-through builds a small widget that lists the current user's open incid
 
 ## 1. Create the component
 
-Open Studio (`/x/312987/portal/studio`) and choose **New component** in the title bar. Give it a name (`My Incidents`) and the kind **Widget**.
+Open Studio (`/x/312987/portal/studio`) and choose **New component** in the title bar. Give it a name (`My Incidents`) and the kind **Widget**. The dialog shows the files each kind gets: a widget has `main.tsx`, `styles.css`, `server.js`, `options.schema.json` and `options.defaults.json`. See [Component kinds](../concepts/component-kinds.md#baseline-files-per-kind).
 
 The server creates the record with a starter `main.tsx` and compiles it straight away (`POST /rp_studio/components`). The name becomes the key (`my-incidents`) and the unique id is `app/my-incidents` (namespace `app` by default).
 
@@ -119,8 +119,9 @@ Switch to the **Pages** activity, pick a portal and a page, find **My Incidents*
 3. The release of every portal that uses the component was reprocessed.
 4. On page load the host fetched the build through `/api/x_312987_portal/rp/assets/{build}/index.js/raw?v=<hash>`, imported it from a Blob URL, and ran the on-load script in one `POST /instances/initialize`.
 
-## Next
+## Related
 
 - [Client script](../authoring/client-script.md) and [Styling](../authoring/styling.md)
 - [Server calls (`useServer`)](../runtime-api/server-calls.md)
 - [`$sp` reference](../server-api/sp-api.md)
+- [Component kinds](../concepts/component-kinds.md)

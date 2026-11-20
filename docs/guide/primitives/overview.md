@@ -17,37 +17,44 @@ They bind to **live platform metadata** through the platform's own APIs, mostly 
 ## The stack
 
 ```text
-widgets          app/record-form   app/list-view   app/list-card   app/catalog-item   app/catalog-picker   app/field-demo
-                        │                │                                 │
-primitives       app/form ─ app/form-section ─ app/form-tabs      app/data-table ─ app/condition-builder     app/variable ─ app/mrvs ─ app/variable-container ─ app/attachment-variable
-                        │                                                │                                   │
-                 app/field-control → app/string-field, app/reference-field, app/date-field … (15 field primitives) → app/combobox
-                        │
-                 app/field  (useField, FieldShell, FormProvider, form store, field registry, UI policy engine)
-                        │
-utilities        app/graphql (transport + data hooks)   app/list-data (lists + encoded queries)   app/catalog   app/gform (g_form shim)   app/header-slots
-                        │
-host kit         components:tabs, components:collapsible, components:popover, utilities:react-query, utilities:react-table, utilities:react-virtual …
+widgets      record-form  list-view  list-card  related-lists-card  attachments-card  activity-card
+             catalog-item  catalog-picker  cart  cart-button  variable-editor-demo
+             hero-search  search-results  my-items  quick-links  catalog-tiles  kb-articles  knowledge
+                  │
+primitives   form ─ form-section ─ form-tabs ─ form-annotation      related-list(s)   attachment-*   activity-stream
+             confirm-dialog ─ field-dialog                          data-table ─ condition-builder
+             variable ─ mrvs ─ variable-container ─ requested-for-field ─ variable-editor
+             search-box  highlighted-value
+                  │
+             field-control → string-field, reference-field, date-field … (22 field primitives) → combobox
+                  │
+             field  (useField, FieldShell, FormProvider, form store, field registry, UI policy engine)
+                  │
+utilities    graphql  list-data  catalog  gform  attachments  activity  search  datetime  header-slots
+                  │
+host kit     components:dialog, tabs, collapsible, popover, calendar, rich-text(-editor) …
+             utilities:react-query, react-table, react-virtual …
 ```
+
+Every name above `host kit` is a record under the `app` namespace (`components:app/<key>` or `utilities:app/<key>`).
 
 ## Catalogue
 
 | Area | Records | Page |
 |---|---|---|
-| Fields | `app/field`, `app/field-control`, `app/combobox`, `app/string-field`, `app/textarea-field`, `app/number-field`, `app/boolean-field`, `app/choice-field`, `app/reference-field`, `app/list-field`, `app/date-field`, `app/datetime-field`, `app/email-field`, `app/url-field`, `app/phone-field`, `app/password-field`, `app/currency-field`, `app/duration-field` | [Fields](fields.md) |
+| Fields | `app/field`, `app/field-control`, `app/combobox`, `app/string-field`, `app/textarea-field`, `app/number-field`, `app/boolean-field`, `app/choice-field`, `app/reference-field`, `app/list-field`, `app/date-field`, `app/datetime-field`, `app/time-field`, `app/email-field`, `app/url-field`, `app/phone-field`, `app/password-field`, `app/currency-field`, `app/duration-field`, `app/conditions-field`, `app/table-name-field`, `app/field-name-field`, `app/html-field`; `utilities:app/datetime` | [Fields](fields.md) |
 | Catalog | `utilities:app/catalog`, `utilities:app/custom-variables`, `app/variable`, `app/variable-container`, `app/mrvs`, `app/attachment-variable`, `app/requested-for-field`, `app/variable-editor`, `app/star-rating-variable` (demo custom variable); widgets `app/catalog-item`, `app/catalog-picker`, `app/variable-editor-demo` | [Catalog variables](catalog-variables.md) |
 | Cart | cart hooks in `utilities:app/catalog` (`useCart`, `useAddToCart`, `useCheckout`…); widgets `app/cart`, `app/cart-button` | [Cart and checkout](cart.md) |
 | Lists | `utilities:app/list-data`, `app/data-table`, `app/condition-builder`; widgets `app/list-view`, `app/list-card` | [Lists](lists.md) |
-| Forms | `app/form`, `app/form-section`, `app/form-tabs`; widget `app/record-form` | [Forms](forms.md) |
+| Forms | `app/form`, `app/form-section`, `app/form-tabs`, `app/form-annotation`; widget `app/record-form` | [Forms](forms.md) |
 | Form runtime | UI policies (in `app/field`), `utilities:app/gform` | [Form runtime](form-runtime.md) |
+| Dialogs | `app/confirm-dialog`, `app/field-dialog` | [Dialogs](dialogs.md) |
 | Activity | `utilities:app/activity`, `app/activity-stream`, `app/journal-composer`, `app/journal-field`; widget `app/activity-card` | [Activity and journals](activity.md) |
 | Related lists | `app/related-list`, `app/related-lists`; widget `app/related-lists-card` | [Related lists](related-lists.md) |
 | Attachments | `utilities:app/attachments`, `app/attachment-dropzone`, `app/attachment-list`, `app/attachment-panel`, `app/attachment-field`; widget `app/attachments-card` | [Attachments](attachments.md) |
 | Data | `utilities:app/graphql` | [GraphQL utility](graphql.md) |
 | Page chrome | `utilities:app/header-slots` | [Header slots](header-slots.md) |
 | Home and search | `utilities:app/search`, `app/search-box`, `app/highlighted-value`; widgets `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements` | [Home page and search](home-and-search.md) |
-
-> **Note:** **In progress:** `app/confirm-dialog`, `app/field-dialog` (`g_modal.showFields`), `app/form-annotation`, `app/time-field`, and condition / table-name / field-name field primitives. They're being built in the working tree.
 
 ## Design principles
 
@@ -64,3 +71,4 @@ host kit         components:tabs, components:collapsible, components:popover, ut
 
 - [Record imports and the layering rule](../concepts/record-imports.md)
 - [Demo portals](../getting-started/demo-portals.md)
+- [Host kit](../runtime-api/host-kit.md)

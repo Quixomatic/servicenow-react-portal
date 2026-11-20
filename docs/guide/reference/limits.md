@@ -8,6 +8,10 @@ tags: [reference, limits]
 
 # Limits
 
+Every size, count, depth and time limit, with where it's enforced. Limits backed by a system property can be changed on the instance; the rest are fixed in code or by field length.
+
+## All limits
+
 | Limit | Value | Where |
 |---|---|---|
 | Source file size | 1 MiB | property `x_312987_portal.source.max_file_bytes` |
@@ -36,6 +40,8 @@ tags: [reference, limits]
 | Request context (URL params) | 50 keys, 4,000 characters a value, 20 values a list, 16 KB | executor |
 | Property names per `/properties` call | 100 | runtime API |
 | Message keys per `/messages` call | 300 | runtime API |
+| Users per View-as search | 50 (default 20) | studio API |
+| Icon names per `/icons` search | 3,000 (default 200) | studio API |
 | Correlation id | 64 characters | REST adapter |
 | Sanitized error message | 500 characters | REST adapter |
 | Import-graph walk depth | 12 | registry, release service |
@@ -48,3 +54,9 @@ tags: [reference, limits]
 | AMB channel release delay | 1 s after the last hook unmounts | host |
 | AMB subscribe retries | 2 s, 8 s, 32 s (non-403) | host |
 | Record watch throttle | `useRecord` 250 ms, `useTableQuery` 1000 ms (default) | host |
+
+## Related
+
+- [REST conventions](../rest-api/conventions.md)
+- [Runtime REST API](../rest-api/runtime.md)
+- [Embedded widgets](../authoring/embedded-widgets.md)

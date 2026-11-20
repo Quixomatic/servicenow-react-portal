@@ -2,7 +2,7 @@
 title: GraphQL utility
 description: utilities:app/graphql — the GraphQL transport, fetchers and TanStack Query hooks for metadata, forms, choices, references and record values.
 section: Primitives and utilities
-order: 7
+order: 10
 tags: [graphql, data, hooks, metadata]
 ---
 
@@ -15,9 +15,9 @@ tags: [graphql, data, hooks, metadata]
 | Export | Signature |
 |---|---|
 | `graphql(query, variables?, { operationName?, signal?, allowPartial? })` | `POST /api/now/graphql` with `X-UserToken`. Throws `GraphQLError` on errors (unless `allowPartial`) |
-| `restGet(url)` | Same-origin JSON GET (Table / UI APIs) |
+| `restGet(url, signal?)` | Same-origin JSON GET (Table / UI APIs) |
 | `gql` | Identity template tag for documents |
-| `authHeaders()`, `safeName(s)`, `GRAPHQL_ENDPOINT`, `GraphQLError` | Helpers |
+| `authHeaders(json = true)`, `safeName(name, what?)` (throws on anything but a plain table or field name), `GRAPHQL_ENDPOINT`, `GraphQLError` | Helpers |
 
 ```ts
 import { graphql, gql } from 'utilities:app/graphql'
@@ -33,16 +33,16 @@ const data = await graphql(gql`
 
 | Fetcher | Platform call |
 |---|---|
-| `fetchTableMeta(table)` | `GET /api/now/ui/meta/{table}`: every column's metadata (label, type, choices, reference, max length…) |
-| `fetchFormBootstrap(table, sysId, view?)` | `GlideViewQuery_Query.uiView`: form layout, values, states, UI policies, UI actions |
-| `fetchFormViews(table)` | The table's form views |
+| `fetchTableMeta(table, signal?)` | `GET /api/now/ui/meta/{table}`: every column's metadata (label, type, choices, reference, max length…) |
+| `fetchFormBootstrap(table, sysId, view?, signal?, query?)` | `GlideViewQuery_Query.uiView` → `GlideLayout_Query.formLayout`: form layout, values, states, UI policies, UI actions, client scripts and related lists. `query` presets a new record's values |
+| `fetchFormViews(table, sysId = '-1')` | `GlideViewQuery_Query.uiView.availableViews`: `{ current, views }` |
 | `executeUiAction({ actionSysId, table, sysId, encodedRecord, fields })` | `POST /api/now/ui/ui_action/{id}` (the form Save) |
 | `fetchChoices({ table, field, changes })` | `GlideLayout_Query.choiceDataRetriever` (dependent choices from unsaved values) |
 | `searchReference({ table, field, term, changes, encodedRecord })` | `GlideLayout_Query.referenceDataRetriever` (the server applies the reference qualifier against the unsaved form) |
 | `fetchRecordValues(table, { sysId }, fields)` | `GlideRecord_Query.<table>` |
-| `fetchDisplayValue(table, sysId, displayField)` | One display value |
+| `fetchDisplayValue(table, sysId, displayField = 'name')` | One display value |
 
-Also exported: `normalizePolicy`, `normalizeClientScripts`, `CLIENT_SCRIPT_FIELDS`, `UiActionError`, `parseAttributes`, `stableChanges`, and the documents (`FORM_LAYOUT_QUERY`, `FORM_QUERY`, `FORM_VIEWS_QUERY`, `UI_POLICY_FIELDS`, `CHOICES_QUERY`, `REFERENCE_QUERY`).
+Also exported: `normalizePolicy`, `normalizeClientScripts`, `normalizeRelatedLists`, `CLIENT_SCRIPT_FIELDS`, `UiActionError`, `parseAttributes`, `stableChanges`, and the documents (`FORM_LAYOUT_QUERY`, `RELATED_LISTS_FIELDS`, `FORM_QUERY`, `FORM_VIEWS_QUERY`, `UI_POLICY_FIELDS`, `CHOICES_QUERY`, `REFERENCE_QUERY`).
 
 ## Hooks
 
@@ -50,16 +50,16 @@ TanStack Query hooks on the host's page cache:
 
 | Hook | What |
 |---|---|
-| `useGraphQL(query, variables?, options?)` | Any query |
+| `useGraphQL(query, variables?, { enabled?, staleTime?, select?, keepPrevious?, …graphql options })` | Any query, keyed by document + variables |
 | `useTableMeta(table, { enabled? })` / `useFieldMeta(table, field, { enabled? })` | Dictionary metadata, cached 10 minutes |
 | `useFormBootstrap(table, sysId, { view?, query?, enabled? })` | The form bootstrap |
 | `useFormViews(table, sysId, { enabled? })` | Form views |
-| `useChoices({ … })` | Choices with unsaved dependent values |
-| `useReferenceSearch({ … })` | Reference search |
+| `useChoices({ table, field, sysId, dependsOn, dependentValue, changes, encodedRecord, staticChoices, serverEvaluated, enabled })` | Choices with unsaved dependent values |
+| `useReferenceSearch({ table, field, term, sysId, changes, encodedRecord, limit, debounceMs, enabled })` | Reference search |
 | `useRecordValues(table, sysId, fields, { enabled? })` / `useReferenceDisplay(table, sysId, displayField = 'name', { enabled? })` | Record values / a reference's display value |
 | `useDebouncedValue(value, ms = 200)` | Debounce |
 | `useGraphQLClient()` | The client for imperative calls |
-| `gqlKeys` | Query-key factory (for invalidation) |
+| `gqlKeys` | Query-key factory (for invalidation); everything lives under `['rp-gql', …]` |
 
 Record reads through these hooks are invalidated by [record watches](../runtime-api/live-updates.md) on the same table.
 

@@ -47,7 +47,7 @@ export async function fetchRelatedLists(table: string, sysId: string, view = '',
     const U = data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView
     const L = U && U.glideLayoutItem && U.glideLayoutItem._query && U.glideLayoutItem._query.GlideLayout_Query && U.glideLayoutItem._query.GlideLayout_Query.formLayout
     if (!L) throw new Error(`No related lists for ${table}`)
-    if (L.isValidRecord === false || L.canReadRecord === false) throw new Error(L.lastErrorMessage || `Record ${table}/${sysId} not found or not readable`)
+    if (L.isValidRecord === false || L.canReadRecord === false) throw new Error("This record doesn't exist or you don't have access to it.")
     return { view: (U && U.view) || view, lists: normalizeRelatedLists(L.relatedLists), hasRelatedLists: !!(L.relatedListMetadata && L.relatedListMetadata.hasRelatedLists) }
 }
 

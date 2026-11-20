@@ -1,0 +1,14 @@
+{
+    "name": "Docs Layout",
+    "kind": "layout",
+    "tailwind": false,
+    "regions": [
+        { "name": "header", "acceptsContributions": true },
+        { "name": "sidebar", "acceptsContributions": true },
+        { "name": "tocbar", "acceptsContributions": true },
+        { "name": "main", "acceptsContributions": false },
+        { "name": "toc", "acceptsContributions": true },
+        { "name": "footer", "acceptsContributions": true }
+    ],
+    "defaults": { "layoutWidth": "97rem", "sidebarWidth": "268px", "tocWidth": "268px" }
+}

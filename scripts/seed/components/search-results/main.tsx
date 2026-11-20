@@ -16,6 +16,8 @@ type Options = {
     sources?: string[] | string
     catalogPage?: string
     kbPage?: string
+    /** Knowledge search page (app/kb-search): the knowledge results link to it ("Search in Knowledge"). */
+    kbSearchPage?: string
     recordPage?: string
     /** Results per page in a source tab ("Load more" adds as many). */
     pageSize?: number
@@ -125,11 +127,12 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
     const loc = (usePortalLocation() as any) || {}
     const navigate = useNavigate()
     const qp = (loc.qParams || {}) as Record<string, string>
-    const term = String(qp.term || '').trim()
+    // term=… (our links); q=… too (Service Portal's search page takes ?q=, and hand-typed links use it).
+    const term = String(qp.term || qp.q || '').trim()
     const sources = normalizeSources(options.sources)
     const tab = sources.indexOf(qp.source as SearchSourceId) >= 0 ? (qp.source as SearchSourceId) : 'all'
     const page = options.resultsPage || String(loc.page || 'search')
-    const targets: SearchTargets = { catalogPage: options.catalogPage || 'catalog', kbPage: options.kbPage || 'kb', recordPage: options.recordPage || 'form' }
+    const targets: SearchTargets = { catalogPage: options.catalogPage || 'catalog', kbPage: options.kbPage || 'kb', recordPage: options.recordPage || 'form', kbSearchPage: options.kbSearchPage || '' }
     const all = useSearch(term, { sources, limit: options.perSource || 4, targets })
     const go = (t: string, source?: string) => navigate(page, { q: source && source !== 'all' ? { term: t, source } : { term: t } })
     const totalAll = all.groups.reduce((n, g) => n + g.total, 0)
@@ -195,7 +198,12 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
                                                 {g.label}
                                                 <span className="font-normal text-muted-foreground tabular-nums">{g.total.toLocaleString()}</span>
                                             </h2>
-                                            {g.total > g.hits.length ? (
+                                            {g.id === 'knowledge' && targets.kbSearchPage ? (
+                                                <Button variant="ghost" size="sm" className="text-muted-foreground" render={<Link to={targets.kbSearchPage} q={{ term }} />}>
+                                                    Search in Knowledge
+                                                    <Icon name="arrow-right" />
+                                                </Button>
+                                            ) : g.total > g.hits.length ? (
                                                 <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => go(term, g.id)}>
                                                     See all
                                                     <Icon name="arrow-right" />
@@ -214,7 +222,22 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
                             </div>
                         )
                     ) : (
-                        <SourceTab key={tab + '|' + term} source={tab} term={term} pageSize={options.pageSize || 10} targets={targets} />
+                        <>
+                            {tab === 'knowledge' && targets.kbSearchPage ? (
+                                <Link
+                                    to={targets.kbSearchPage}
+                                    q={{ term }}
+                                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-sm text-foreground no-underline transition-colors hover:border-primary/40 hover:bg-primary/5"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <Icon name="book-open" className="size-4 text-muted-foreground" />
+                                        Filter by knowledge base and category, and sort, in Knowledge search
+                                    </span>
+                                    <Icon name="arrow-right" className="size-4 shrink-0 text-muted-foreground" />
+                                </Link>
+                            ) : null}
+                            <SourceTab key={tab + '|' + term} source={tab} term={term} pageSize={options.pageSize || 10} targets={targets} />
+                        </>
                     )}
                 </>
             )}

@@ -2,7 +2,7 @@
 // loads the component folders, orders them by record-import dependency, and renders a seed script
 // from seed-template.js.
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join, relative, sep, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -13,8 +13,20 @@ const walk = (d) => readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirect
 /** Every component folder, keyed by folder name, in dependency order (imports before importers). */
 export function loadComponents() {
     const components = {}
+    // Keys asked for explicitly with --only (build-seed / run-seed): a half-built folder among them
+    // stays a hard error; any other half-built folder (another agent mid-edit) is skipped loudly.
+    const onlyAt = process.argv.findIndex((a) => a === '--only' || a.startsWith('--only='))
+    const onlyArg = onlyAt < 0 ? '' : process.argv[onlyAt].includes('=') ? process.argv[onlyAt].split('=')[1] : process.argv[onlyAt + 1] || ''
+    const requested = new Set(onlyArg.split(',').map((s) => s.trim()).filter(Boolean))
     for (const key of readdirSync(root).sort()) {
         const dir = join(root, key)
+        if (!statSync(dir).isDirectory()) continue
+        const missingFile = !existsSync(join(dir, 'component.json')) ? 'component.json' : !existsSync(join(dir, 'main.tsx')) && !existsSync(join(dir, 'main.jsx')) ? 'main.tsx' : ''
+        if (missingFile) {
+            if (requested.has(key)) throw new Error(`${key}: no ${missingFile}`)
+            console.warn(`WARNING: skipping ${key}: no ${missingFile}`)
+            continue
+        }
         const c = { meta: JSON.parse(readFileSync(join(dir, 'component.json'), 'utf8')), clientScript: '', css: '', serverScript: '', extraFiles: [] }
         for (const f of walk(dir).sort()) {
             const rel = relative(dir, f).split(sep).join('/')

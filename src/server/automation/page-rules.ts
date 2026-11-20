@@ -46,6 +46,10 @@ export function validatePage(current: any, previous: any): void {
  * parent in the same owner, no cycles, bounded nesting.
  */
 export function validatePlacement(current: any, previous: any): void {
+    // Deactivating an existing placement is always allowed, even when its component has since
+    // changed kind (e.g. a widget that became a utility): the seed's prune and admins must be able
+    // to switch off a placement that would no longer validate.
+    if (previous && str(current, 'active') !== 'true' && current.active.changes()) return
     const pageId = str(current, 'page')
     let portalId = str(current, 'portal')
     if (pageId) {

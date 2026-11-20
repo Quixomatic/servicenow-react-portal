@@ -17,7 +17,7 @@ The host bundle ships a set of generic UI building blocks and libraries, importa
 | Specifier | Exports |
 |---|---|
 | `components:button` | `Button` (`variant`: default, outline, secondary, ghost, destructive, link; `size`: default, xs, sm, lg, icon, icon-xs, icon-sm, icon-lg; `render`), `buttonVariants` |
-| `components:badge` | `Badge`, `badgeVariants` |
+| `components:badge` | `Badge` (`variant`: default, secondary, destructive, outline, ghost, link), `badgeVariants` |
 | `components:card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter` |
 | `components:dropdown-menu` | `DropdownMenu`, `…Trigger`, `…Content`, `…Group`, `…Label`, `…Item`, `…Sub`, `…SubTrigger`, `…SubContent`, `…CheckboxItem`, `…RadioGroup`, `…RadioItem`, `…Separator`, `…Shortcut`, `…Portal` |
 | `components:popover` | `Popover`, `PopoverTrigger`, `PopoverContent`, `PopoverHeader`, `PopoverTitle`, `PopoverDescription` |
@@ -25,18 +25,42 @@ The host bundle ships a set of generic UI building blocks and libraries, importa
 | `components:separator` | `Separator` |
 | `components:sheet` | `Sheet`, `SheetTrigger`, `SheetClose`, `SheetContent` (`side`, `showCloseButton`), `SheetHeader`, `SheetFooter`, `SheetTitle`, `SheetDescription` |
 | `components:collapsible` | `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` (alias `CollapsiblePanel`) |
-| `components:tabs` | `Tabs` (`value` / `defaultValue` / `onValueChange`, `orientation`), `TabsList` (`variant`: default, line), `TabsTrigger` (`value`, `disabled`), `TabsContent` / `TabsPanel` (`value`, `keepMounted`) |
+| `components:dialog` | `Dialog`, `DialogTrigger`, `DialogContent` (`showCloseButton`), `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose`, `DialogOverlay`, `DialogPortal` (below) |
+| `components:calendar` | `Calendar`, `weekStartFor`, `parseYmd`, `toYmd` (below) |
+| `components:tabs` | `Tabs` (`value` / `defaultValue` / `onValueChange`, `orientation`), `TabsList` (`variant`: default, line), `TabsTrigger` (`value`, `disabled`), `TabsContent` / `TabsPanel` (`value`, `keepMounted`), `tabsListVariants` |
 | `components:sidebar` | shadcn's Sidebar, wired to `useSidebar()` (below) |
 | `components:icon` | `Icon` and helpers (below) |
 | `components:rich-text` | `RichText` (read-only, sanitised), `sanitizeHtml`, `safeUrl`, `htmlToText`, `isHtmlEmpty`, `findUnsupportedHtml` (below) |
-| `components:rich-text-editor` | `RichTextEditor`, `RichTextToolbar`, `useRichTextEditor`, `loadRichTextEngine`, `isRichTextEngineLoaded` (below) |
+| `components:rich-text-editor` | `RichTextEditor`, `RichTextToolbar`, `useRichTextEditor`, `loadRichTextEngine`, `isRichTextEngineLoaded`, plus `sanitizeHtml` and `findUnsupportedHtml` re-exported (below) |
 | `components:skeleton` | `Skeleton`: a pulsing placeholder block, sized with classes (`h-4 w-32`, `size-9 rounded-lg`) |
 | `components:empty` | `Empty`, `EmptyHeader`, `EmptyMedia` (`variant`: default, icon), `EmptyTitle`, `EmptyDescription`, `EmptyContent`, `emptyMediaVariants`: shadcn's empty state (no data, no results, no access). Sizes with its container, not the viewport |
 | `components:kbd` | `Kbd`, `KbdGroup`: keyboard key hints (`<Kbd>/</Kbd>`, `<KbdGroup><Kbd>Ctrl</Kbd><Kbd>K</Kbd></KbdGroup>`) |
 
 `components:tabs` gets roving focus with arrow keys, Home / End, `aria-selected`, `aria-controls` / `aria-labelledby` and `data-active` on the selected tab from Base UI.
 
-> **Note:** **In progress:** `components:dialog` (`Dialog`, `DialogTrigger`, `DialogContent` with `showCloseButton`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose`, `DialogOverlay`, `DialogPortal`: modal focus trap, Escape / outside-click dismissal, focus return) and `components:calendar` (`Calendar` with `'YYYY-MM-DD'` values, `min` / `max` / `isDisabled`, locale-aware week start, a WAI-ARIA date grid; plus `weekStartFor`, `parseYmd`, `toYmd`). Both are registered in the working tree but not released yet.
+### Dialog and calendar
+
+`components:dialog` is shadcn's Dialog on Base UI, rendered in the overlay layer inside the shadow root. Base UI supplies the modal focus trap, Escape and outside-click dismissal, focus return to the trigger, `aria-modal` and the title / description wiring. For confirmations and form dialogs, use the record primitives in [Dialogs](../primitives/dialogs.md) instead of building your own.
+
+```tsx
+<Dialog open={open} onOpenChange={setOpen}>
+    <DialogContent>
+        <DialogHeader>
+            <DialogTitle>Share</DialogTitle>
+            <DialogDescription>Anyone with the link can view.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
+        </DialogFooter>
+    </DialogContent>
+</Dialog>
+```
+
+`components:calendar` is a date grid with no date library. Values are `'YYYY-MM-DD'` strings and the math is in UTC, so the user's time zone never shifts a day. Month and weekday names come from `Intl` in `locale`, and the week start from the locale unless `weekStartsOn` says otherwise.
+
+- Props: `value`, `onSelect(ymd)`, `defaultMonth` (`'YYYY-MM'`), `onMonthChange(ym)`, `min`, `max`, `isDisabled(ymd)`, `locale`, `weekStartsOn`, `today`, `autoFocus`, `footer`.
+- Keyboard (WAI-ARIA date grid): arrows move a day or a week, Home / End go to the start or end of the week, PageUp / PageDown change the month (Shift: the year), Enter / Space pick. The caption button switches to a month grid, then a year grid; Escape goes back one level.
+- It's pure UI: no time zones and no glide values. `app/date-field` and `app/datetime-field` wrap it for ServiceNow values; see [Fields](../primitives/fields.md).
 
 ### Base UI's `render` prop
 
@@ -71,7 +95,7 @@ import { Icon } from 'components:icon'
 
 | Export | Meaning |
 |---|---|
-| `Icon` | `<Icon name fallback? {...svgProps} />` |
+| `Icon` | `<Icon name label? fallback? {...svgProps} />`: decorative (`aria-hidden`) unless `label` is given, which makes it `role="img"` with that `aria-label` |
 | `getIcon(name)` | Component or `null` (a sprite-backed component for non-curated names) |
 | `hasIcon(name)` | `true` / `false`, or `undefined` until the sprite has loaded |
 | `loadIcons()` | `Promise` that loads the sprite |
@@ -104,8 +128,7 @@ import { RichText, sanitizeHtml } from 'components:rich-text'
 |---|---|
 | Tags | Allow-list: text and inline formatting, headings, paragraphs, lists, quotes, code, `hr`, tables, `img`, `a`. Unknown tags are unwrapped (their text stays); `script`, `style`, `iframe`, `object`, `embed`, `svg`, `math`, form controls, media, `template` are removed with their content; comments are removed |
 | Attributes | Per-tag allow-list (`href`, `src`, `alt`, `title`, `width` / `height`, `colspan` / `rowspan`, `start`…). Every `on*` handler, `class`, `id`, `data-*`, `aria-*` is dropped; `style` keeps `text-align` only |
-| URLs | `href`: http(s), mailto, tel or relative. `img src`: http(s), relative, or base64 raster `data:image/…` (`allowDataImages: false` refuses those). `javascript:`, `vbscript:`, other `data:`, `file:`, `blob:` are dropped, including obfuscated forms such as `java
-script:`. Relative platform URLs (`sys_attachment.do?…`) become root-relative |
+| URLs | `href`: http(s), mailto, tel or relative. `img src`: http(s), relative, or base64 raster `data:image/…` (`allowDataImages: false` refuses those). `javascript:`, `vbscript:`, other `data:`, `file:`, `blob:` are dropped, including obfuscated forms (whitespace or control characters inside the scheme). Relative platform URLs (`sys_attachment.do?…`) become root-relative |
 | Links | Always `rel="noopener noreferrer"`; `target="_blank"` only on absolute http(s) links (`linkTarget: 'keep'` or `'none'` to change that) |
 
 `htmlToText(html, { newlines? })` gives plain text (lists, counters, list cells); `isHtmlEmpty(html)` is true for `''`, `<p></p>`, `<p><br></p>`, `&nbsp;`; `safeUrl(url, 'href' | 'src')` is the URL rule alone.

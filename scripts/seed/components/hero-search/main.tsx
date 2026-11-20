@@ -12,6 +12,8 @@ type Options = {
     resultsPage?: string
     catalogPage?: string
     kbPage?: string
+    /** Knowledge search page: the dropdown's knowledge "See all" opens it. */
+    kbSearchPage?: string
     recordPage?: string
     /** Popular searches: chips under the box and in the empty dropdown. */
     suggestions?: string[]
@@ -37,7 +39,7 @@ export default function HeroSearch({ options = {} }: { options?: Options }) {
                 placeholder={options.placeholder || 'Search for help, services and your requests'}
                 sources={normalizeSources(options.sources)}
                 resultsPage={resultsPage}
-                targets={{ catalogPage: options.catalogPage || 'catalog', kbPage: options.kbPage || 'kb', recordPage: options.recordPage || 'form' }}
+                targets={{ catalogPage: options.catalogPage || 'catalog', kbPage: options.kbPage || 'kb', recordPage: options.recordPage || 'form', kbSearchPage: options.kbSearchPage || '' } as any}
                 suggestions={suggestions}
                 aria-label="Search the portal"
             />

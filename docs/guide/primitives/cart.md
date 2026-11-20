@@ -1,8 +1,8 @@
 ---
 title: Cart and checkout
 description: Add to cart, the cart widget, the header cart button and one-step (or two-step) checkout on the platform's Service Catalog cart API — utilities:app/catalog cart hooks, app/cart, app/cart-button.
-section: Primitives and utilities
-order: 4
+section: Service Catalog
+order: 2
 tags: [catalog, cart, checkout, add-to-cart, requested-for, header-slots]
 ---
 
@@ -11,6 +11,8 @@ tags: [catalog, cart, checkout, add-to-cart, requested-for, header-slots]
 The cart uses the platform's own **Service Catalog REST API** (`/api/sn_sc/servicecatalog/...`, backed by `sn_sc.CartJS`). It's the same cart as Service Portal and Employee Center, so a line added here shows in their carts and the other way round.
 
 ## Data: `utilities:app/catalog` (cart.ts)
+
+Paths are relative to `/api/sn_sc/servicecatalog` unless they name the Table API.
 
 | Fetcher | Platform call |
 |---|---|
@@ -23,17 +25,18 @@ The cart uses the platform's own **Service Catalog REST API** (`/api/sn_sc/servi
 | `submitCartOrder()` | `POST /cart/submit_order`: places a reviewed order (two-step) |
 | `fetchCartRequestedFor(cartId)` / `setCartRequestedFor(cartId, userId)` | Table API on `sc_cart.requested_for`, which is what `CartJS.setRequestedFor` writes. The REST API has no call for it |
 | `canRequestForAll(itemIds, userId, names?)` | The delegation check for every item in the cart; the message names the items that fail |
-| `fetchItemOrderOptions(itemId)` | Table API `sc_cat_item`: `no_cart` / `no_cart_v2` (hide Add to cart), `no_order_now`, `no_order` (hide both), `no_save_as_draft` |
-| `cartErrorMessage(error)` | Turns platform errors into plain messages (empty cart, missing mandatory details, invalid quantity, security constraints, stale line, expired session, network) |
+| `fetchItemOrderOptions(itemId)` | Table API `sc_cat_item`: `no_cart` / `no_cart_v2` (hide Add to cart), `no_order_now`, `no_order` (hide both), `no_save_as_draft`. Answers `{ addToCart, orderNow, saveAsDraft, known }` |
+| `cartErrorMessage(error)` | Turns platform errors into plain messages (empty cart, missing mandatory details, invalid quantity, security constraints, stale line, expired session, network). Failed calls throw `CartError` |
+| `parseCart(response)` | The `GET /cart` response as `CartData` |
 
 | Hook | What |
 |---|---|
-| `useCart({ live? })` | The cart (`CartData`: `lines`, `count`, `totalQuantity`, `subtotal`, `recurring`, `cartId`). `live` also watches the cart's `sc_cart_item` rows over AMB (`useRecordWatch`) |
-| `useCartCount({ live? })` | Number of lines |
+| `useCart({ live?, enabled? })` | The cart (`CartData`: `lines`, `count`, `totalQuantity`, `subtotal`, `recurring`, `cartId`). `live` also watches the cart's `sc_cart_item` rows over AMB (`useRecordWatch`) |
+| `useCartCount({ live? })` | Number of lines (0 while loading) |
 | `useAddToCart()`, `useUpdateCartItem()`, `useRemoveCartItem()` (optimistic), `useEmptyCart()` | Mutations; each refreshes the shared cart |
-| `useCheckout()` | `{ checkout, submit, pending }` |
+| `useCheckout()` | `{ checkout, submit, pending }`: two mutations (`checkoutCart`, `submitCartOrder`) that resolve a `CheckoutResult`, and whether either is running |
 | `useCartRequestedFor(cartId)`, `useSetCartRequestedFor()` | The cart's requested for |
-| `useItemOrderOptions(itemId)` | Which order buttons an item allows |
+| `useItemOrderOptions(itemId, { enabled? })` | Which order buttons an item allows |
 
 Every cart hook shares one query key (`CART_KEY`), so the header badge, the popover and the cart page change together after any mutation. Mount one `live` cart per page; the header button does.
 
@@ -65,28 +68,29 @@ Every cart hook shares one query key (`CART_KEY`), so the header badge, the popo
   - If the platform answers a checkout with a summary (two-step on, property not exposed), the review step shows and Place order calls `submit_order`.
 - **Exports:** `Cart`, `CartLineItem`, `CartVariables`, `CartTotals`, `CheckoutDone`, `formatCartValue`.
 
-Options: `title`, `catalogPage`, `recordPage`, `review` (`auto` | `always`).
+Options: `title` (default "Your cart"), `catalogPage` (default `catalog`; `''` = no item links), `recordPage` (default `form`), `review` (`auto` | `always`, default `auto`).
 
 ## `components:app/cart-button` (widget)
 
 The header cart icon:
+
 - a count badge with the number of lines;
 - a popover listing the first lines (quantity and price), the subtotal and **View cart**, or **Browse the catalog** when the cart is empty;
 - count changes are announced politely to screen readers.
 
-Placed portal-level in the `header` region, it renders into `app/app-header`'s **`header-actions`** [header slot](header-slots.md), beside the theme toggle. `placement: 'inline'` renders it where it's placed instead, for other headers. `<CartButton />` is exported for any toolbar.
+Placed portal-level in the `header` region, it renders into `app/app-header`'s **`header-actions`** [header slot](header-slots.md), beside the theme toggle. `placement: 'inline'` (default `slot`) renders it where it's placed instead, for other headers. `<CartButton />` is exported for any toolbar.
 
-Options: `cartPage`, `catalogPage`, `maxLines`, `live`, `placement`.
+Options: `cartPage` (default `cart`), `catalogPage` (default `catalog`), `maxLines` (default 4), `live` (default true), `placement` (`slot` | `inline`).
 
 ## Demo
 
 The `sp` and `app` portals have a `cart` page and the header cart button. Add items from the `catalog` page.
 
-## Not built
+## Not built yet
 
 - **Save as draft:** the platform has `POST /items/{id}/save_catalog_item` (lines go to the `draft_items` cart), but there's no REST call to list or resume drafts. Building it needs a drafts list and editing an item from its cart line.
 - **Editing a line's variables** (Service Portal's "edit=cart"), delivery address and special instructions.
-- Wishlists and order guides (`.plans/backlog.md` G3).
+- Wishlists and order guides.
 
 ## Related
 

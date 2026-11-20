@@ -187,7 +187,10 @@ export function useNavigation(key) {
 		leaves.all.forEach((item, i) => {
 			if (!item.tint) item.tint = TINTS[i % TINTS.length];
 		});
-		const active = findActive(leaves.routes, current || resolvePath(portal, ''), loc);
+		// No resolved page while the URL names one (a 404, or a page the user can't see): nothing is
+		// active, rather than falling back to the home item.
+		const unresolved = !current && loc && loc.page;
+		const active = unresolved ? null : findActive(leaves.routes, current || resolvePath(portal, ''), loc);
 		const activePath = active ? pathTo(items, active, []) || [active] : [];
 		activePath.forEach((item) => {
 			item.active = true;

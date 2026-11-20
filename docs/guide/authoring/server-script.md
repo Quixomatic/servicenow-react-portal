@@ -8,7 +8,7 @@ tags: [server, script, sp, input, data]
 
 # Server script (`server.js`)
 
-A widget's server script is its `script` field (virtual file **`server.js`**). It's written like a Service Portal server script: an IIFE that fills `data`.
+A component's server script is its `script` field (virtual file **`server.js`**). It's written like a Service Portal server script: an IIFE that fills `data`. Widgets and layouts have one by default; which kinds get `server.js` is set by `x_312987_portal.studio.kind_files` (see [Code editor](../studio/code-editor.md#virtual-files)). A layout's script runs under the root `layout:<sys_id>`, and only for the page's effective layout.
 
 ```js
 (function () {

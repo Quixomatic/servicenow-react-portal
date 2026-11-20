@@ -5,6 +5,7 @@ import type {
     FormBootstrap,
     FormChanges,
     FormView,
+    FormViewResolution,
     ReferenceItem,
     ReferenceSearchResult,
     FieldValue,
@@ -231,9 +232,9 @@ export const RELATED_LISTS_FIELDS = `relatedListMetadata { hasRelatedLists }
  * the form layout, the UI policies (GlideClientScriptingEnvironment_Query) and the form's UI
  * actions (GlideUIAction_Query), all evaluated for the resolved view ("$$parent.viewName$$").
  */
-export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query: String, $forcedViewName: String) {
+export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query: String, $forcedViewName: String, $views: String, $viewRuleConfigId: String) {
   GlideViewQuery_Query {
-    uiView(table: $table, views: "", sysId: $sysId, query: $query, forcedViewName: $forcedViewName) {
+    uiView(table: $table, views: $views, sysId: $sysId, query: $query, forcedViewName: $forcedViewName, viewRuleConfigId: $viewRuleConfigId) {
       view
       glideLayoutItem(table: $table, sysId: $sysId, query: $query) {
         _query {
@@ -370,14 +371,19 @@ function normalizeAction(a: any): UiAction {
  * never refetch a new record in the background. `query` (encoded, e.g. 'incident=<id>') presets a
  * new record's values, as Workspace's openRecord(table, '-1', { query }) does.
  */
-export async function fetchFormBootstrap(table: string, sysId: string, view = '', signal?: AbortSignal, query = ''): Promise<FormBootstrap> {
+export async function fetchFormBootstrap(table: string, sysId: string, view = '', signal?: AbortSignal, query = '', resolution: FormViewResolution = {}): Promise<FormBootstrap> {
     safeName(table, 'table')
-    const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: view || '' }, { signal, allowPartial: true })
+    // View resolution (uiView): a forced view beats Workspace view rules (viewRuleConfigId), which beat
+    // the candidate list (views). Without a forced view the rules and candidates decide.
+    const forcedView = forcedViewName(view)
+    const views = forcedView ? '' : cleanViewList(resolution.views)
+    const viewRuleConfigId = forcedView ? '' : sysIdOrEmpty(resolution.viewRuleConfigId)
+    const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: forcedView, views, viewRuleConfigId }, { signal, allowPartial: true })
     const U = data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView
     const Q = (U && U.glideLayoutItem && U.glideLayoutItem._query) || {}
     const L = Q.GlideLayout_Query && Q.GlideLayout_Query.formLayout
     if (!L) throw new Error(`No form layout for ${table}`)
-    if (L.isValidRecord === false || L.canReadRecord === false) throw new Error(L.lastErrorMessage || `Record ${table}/${sysId} not found or not readable`)
+    if (L.isValidRecord === false || L.canReadRecord === false) throw new Error("This record doesn't exist or you don't have access to it.")
     const values: Record<string, FieldValue> = {}
     for (const v of L.recordValues || []) values[v.name] = { value: v.value == null ? '' : String(v.value), displayValue: v.displayValue == null ? '' : String(v.displayValue) }
     const states: FormBootstrap['states'] = {}
@@ -409,6 +415,7 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
         meta,
         sections,
         view: (U && U.view) || view || '',
+        requested: { forcedView, views, viewRuleConfigId },
         tableLabel: (sections[0] && sections[0].label) || table,
         formatters: (L.formatters || []).map((f: any) => String(f.name || '')).filter(Boolean),
         // Related lists (app/related-list wave): none for a new record, as in Workspace.
@@ -431,6 +438,59 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
 }
 
 // ---- form views (GlideViewQuery_Query.uiView.availableViews) --------------------------------
+
+/** True for the names that mean the Default view ('', 'default', 'Default view'). */
+export function isDefaultViewName(view: string | undefined | null): boolean {
+    const v = String(view || '').trim().toLowerCase()
+    return v === '' || v === 'default' || v === 'default view'
+}
+
+/**
+ * The forcedViewName for a requested view: '' for none. Any Default spelling forces the Default view
+ * ('default': an unknown name, which uiView resolves to Default while still skipping rules).
+ */
+function forcedViewName(view: string | undefined): string {
+    const v = String(view || '').trim()
+    if (!v) return ''
+    return isDefaultViewName(v) ? 'default' : v
+}
+
+/** 'sp, ess' → 'sp,ess' (view names only). */
+function cleanViewList(list: string | undefined): string {
+    return String(list || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => /^[A-Za-z0-9_.-]+$/.test(v))
+        .join(',')
+}
+
+const sysIdOrEmpty = (id: string | undefined) => (/^[0-9a-f]{32}$/i.test(String(id || '').trim()) ? String(id).trim().toLowerCase() : '')
+
+/**
+ * Which of these view names exist for the table (one request, no layout, reserves nothing).
+ * Uses uiView's candidate list one name at a time: a name that doesn't exist for the table
+ * resolves to 'Default view'. Default spellings always exist. → { [name]: exists }
+ */
+export async function checkFormViews(table: string, names: string[], signal?: AbortSignal): Promise<Record<string, boolean>> {
+    safeName(table, 'table')
+    const out: Record<string, boolean> = {}
+    const ask = Array.from(new Set(names.map((n) => String(n || '').trim()).filter(Boolean)))
+    const check: string[] = []
+    for (const n of ask) {
+        if (isDefaultViewName(n)) out[n] = true
+        else if (!/^[A-Za-z0-9_.-]+$/.test(n)) out[n] = false
+        else check.push(n)
+    }
+    if (!check.length) return out
+    const fields = check.map((n, i) => `v${i}: uiView(table: $table, views: ${JSON.stringify(n)}, sysId: "-1", query: "") { view }`).join(' ')
+    const data = await graphql(`query rpCheckViews($table: String!) { GlideViewQuery_Query { ${fields} } }`, { table }, { signal })
+    const Q = (data && data.GlideViewQuery_Query) || {}
+    check.forEach((n, i) => {
+        const got = Q['v' + i] && Q['v' + i].view
+        out[n] = !!got && String(got).toLowerCase() === n.toLowerCase()
+    })
+    return out
+}
 
 export const FORM_VIEWS_QUERY = `query rpFormViews($table: String!, $sysId: String!) {
   GlideViewQuery_Query { uiView(table: $table, views: "", sysId: $sysId, query: "") { view availableViews { name label } } }

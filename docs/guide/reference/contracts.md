@@ -105,7 +105,7 @@ interface ServerMessage { type: 'info' | 'error' | 'warning' | 'success'; messag
 
 ```ts
 interface EmbedModel { $embed: 1; component: string; key: string; ok: boolean; data?; options: Record<string, unknown>; token: string | null; build: string | null; error?; messages?: ServerMessage[] }
-interface EmbedDescriptor { id: string; placement: string; path: string[]; keys?: string[]; options?: Record<string, unknown>; token?: string | null }
+interface EmbedDescriptor { id: string; placement: string /* placement sys_id, or 'layout:<component sys_id>' */; path: string[]; keys?: string[]; options?: Record<string, unknown>; token?: string | null }
 interface EmbedRequest { path: string[]; keys?: string[]; options?: Record<string, unknown>; token?: string | null }
 ```
 
@@ -116,6 +116,7 @@ interface NavItem {
     id: string; type: NavItemType; label: string
     icon?: string; badge?: string; tooltip?: string
     to?: string; q?: Record<string, string>; portalSlug?: string
+    table?: string; sysId?: string; view?: string; query?: string   // explicit record params (params_json.record)
     href?: string; target?: '_self' | '_blank'; match?: 'exact' | 'prefix'
     open?: boolean; children: NavItem[]
 }
@@ -124,7 +125,7 @@ interface MenuDto { id; portalId; key; name; description; active: boolean; items
 interface MenuItemDto {
     id; menuId; parentId: string | null; order: number; type: NavItemType; label; active: boolean
     pageId: string | null; page: { id; route; title } | null
-    params: { params?: Record<string, string>; query?: Record<string, string> } | null
+    params: { params?: Record<string, string>; query?: Record<string, string>; record?: { table?; sys_id?; view?; query? }; portal?: string } | null
     route; url; icon; target: '' | '_self' | '_blank'; match: 'exact' | 'prefix'; tooltip; collapsed: boolean
     roles: string[]; condition; badge; badgeScript; script; children: MenuItemDto[]
 }
@@ -133,12 +134,12 @@ interface MenuItemDto {
 ## Studio
 
 ```ts
-interface SourceFileDto { id?; path: string; target: SourceTarget; content: string; encoding?: 'utf8' | 'base64'; mimeType?; hash?; revision?: number; deleted?: boolean; virtual?: boolean }
+interface SourceFileDto { id?; path: string; target: SourceTarget; content: string; encoding?: 'utf8' | 'base64'; mimeType?; hash?; revision?: number; deleted?: boolean; virtual?: boolean; unused?: boolean /* virtual file the kind doesn't list, kept for its content */ }
 const VIRTUAL_FILES = {
     component: { 'main.tsx': 'client_script', 'styles.css': 'css', 'server.js': 'script', 'options.schema.json': 'options_schema_json', 'options.defaults.json': 'default_options_json', 'regions.json': 'regions_json' },
     theme: { 'theme.css': 'stylesheet', 'tokens.json': 'tokens_json' },
 }
-interface ProjectData { owner: { type: 'component' | 'theme'; id; uniqueId; name }; meta: ComponentMetaDto & { tokens?; stylesheet? }; revision: number; files: SourceFileDto[]; latestBuild: BuildSummary | null }
+interface ProjectData { owner: { type: 'component' | 'theme'; id; uniqueId; name }; meta: ComponentMetaDto & { tokens?; stylesheet? }; revision: number; files: SourceFileDto[]; latestBuild: BuildSummary | null; kindFiles?: Record<string, string[]> }
 interface SaveRequest { expectedRevision: number; files?: SourceFileDto[]; meta?: ComponentMetaDto & { tokens?; stylesheet? } }
 interface SaveData { revision: number; build: BuildSummary; files: SourceFileDto[]; registry: { runtimeAbiVersion: string } }
 interface BuildSummary { id; state: BuildState; builtRevision: number; pendingRevision: number; inputHash: string; upToDate?: boolean; needsRebuild?: boolean; diagnostics?: unknown }
@@ -146,8 +147,6 @@ interface CheckData { ok: boolean; diagnostics: { errors: Diag[]; warnings: Diag
 interface CompleteBuildRequest { revision: number; success: boolean; compilerVersion?; runtimeAbiVersion?; assets?: BuildAssetDto[]; dependencies?: BuildDependencyDto[]; diagnostics?: unknown }
 interface ReleaseSummary { id; portal; revision: number; manifestHash; processedAt; problems: string[] }
 ```
-
-> **Note:** **In progress** in the working tree: `EmbedDescriptor.placement` also accepts `'layout:<component sys_id>'`; `SourceFileDto.unused` and `ProjectData.kindFiles` (per-kind baseline files).
 
 ## Related
 

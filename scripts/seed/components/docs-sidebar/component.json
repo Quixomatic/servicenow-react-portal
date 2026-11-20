@@ -1,0 +1,14 @@
+{
+    "name": "Docs Sidebar",
+    "kind": "widget",
+    "tailwind": true,
+    "defaults": {
+        "title": "",
+        "icon": "book-open",
+        "search": true,
+        "collapsible": true,
+        "switcher": [],
+        "links": [],
+        "tintSections": []
+    }
+}

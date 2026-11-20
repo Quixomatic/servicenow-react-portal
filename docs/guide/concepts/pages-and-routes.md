@@ -40,7 +40,7 @@ Segments are static (`[A-Za-z0-9._~-]+`), a param (`:name`, `[A-Za-z_][A-Za-z0-9
 
 ### Matching
 
-The server resolves a path against every active page of the release manifest and the most specific route wins. A static segment scores 100, a param 10 and a splat 1, and the home route (`''`) matches only the empty path. An empty path resolves to the portal's home route first. No match answers `404 page_not_found`.
+The server resolves a path against every active page of the release manifest and the most specific route wins. A static segment scores 100, a param 10 and a splat 1, and the home route (`''`) matches only the empty path. An empty path resolves to the portal's home route first. No match answers `404 page_not_found`. The best match is chosen before access is checked, so a page the user can't open answers `404` too; a less specific page never takes its place.
 
 In the browser, the host builds one TanStack Router route per bootstrap page (`orders/:id` → `orders/$id`, `docs/*` → `docs/$`), plus `/` and a catch-all. Each route's loader calls `POST /pages/resolve`, so the server's answer is authoritative.
 
@@ -53,7 +53,7 @@ In the browser, the host builds one TanStack Router route per bootstrap page (`o
 
 A page is visible when it's active and the user holds one of `access_config_json.roles` (or the list is empty). Studio users bypass the check. Inaccessible pages are left out of bootstrap's `pages` list, resolve as `404`, drop out of menus (page items), and their placements can't be executed.
 
-> **Note:** **In progress:** user criteria on pages. See [User criteria](user-criteria.md).
+Pages can also carry **Available for** / **Not available for** user criteria, ANDed with the roles. A page the criteria hide behaves exactly like a page the roles hide. See [User criteria](user-criteria.md).
 
 ## Navigation between pages
 
@@ -66,3 +66,5 @@ Portal-level placements stay mounted while you navigate. Page placements are key
 - [Layouts](layouts.md)
 - [Placements and blocks](placements-and-blocks.md)
 - [Menus](menus.md)
+- [Content width](content-width.md)
+- [User criteria](user-criteria.md)

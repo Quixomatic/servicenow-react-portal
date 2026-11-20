@@ -1,1 +1,1 @@
-{ "name": "Announcements", "kind": "widget", "tailwind": true, "defaults": { "types": "widget", "limit": 3 } }
+{ "name": "Announcements", "kind": "widget", "tailwind": true, "serverMode": "on-load", "defaults": { "types": "widget", "limit": 3 } }

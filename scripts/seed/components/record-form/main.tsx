@@ -7,7 +7,7 @@ import { useGraphQL, useDebouncedValue, useTableMeta, safeName } from 'utilities
 import { IconPlus, IconSearch, useFormMeta } from 'components:app/field'
 import { Combobox } from 'components:app/combobox'
 import type { ComboItem } from 'components:app/combobox'
-import { RecordForm, useRecordForm, useRememberedView } from 'components:app/form'
+import { RecordForm, useRecordForm, useResolvedFormView } from 'components:app/form'
 import { confirmDialog, DialogOutlet } from 'components:app/confirm-dialog'
 import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 
@@ -24,13 +24,21 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
  * slot, the UI actions, view switcher and New to the right (the picker shows only with no record open)
  * (headerPlacement: 'auto' | 'header' | 'inline'). `listPage` adds a back button to a list page.
  *
- * Options: { table, sysId, view, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity }
+ * Options: { table, sysId, view, lockView, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity }
+ *
+ * The form's view (useResolvedFormView, backlog B): the URL `view` param, then the `view` option
+ * (with `lockView` the option comes first), then the user's remembered view, each only when it exists
+ * for the table (an unknown URL / option view shows a "not found" notice); otherwise automatic: the
+ * portal's Workspace view rules (settings.viewRuleConfigId), its candidate list (settings.formViews),
+ * then Default. The view switcher writes the URL and the remembered view; "Automatic" clears both.
  * presentation: 'stacked' (default) | 'tabs', the default only: the user's toggle on the form wins.
  */
 type Options = {
     table?: string
     sysId?: string
     view?: string
+    /** The `view` option beats the URL's view param (a page built for one view); hides the view switcher. */
+    lockView?: boolean
     picker?: boolean
     showViews?: boolean
     pickerQuery?: string
@@ -73,17 +81,20 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
     const rawTable = pick(options.table, route.table, loc.table, query.table, 'incident')
     const table = NAME.test(rawTable) ? rawTable : 'incident'
     const sysId = pick(options.sysId, route.sys_id, route.sysId, loc.sysId, query.sys_id)
-    const urlView = pick(options.view, route.view, loc.mode === 'studio' ? '' : loc.view, query.view)
-    // The view the user last chose for this table (our preference, never <table>.view), when the
-    // options / route / URL name none. The form waits for it so it loads once, in the right view.
-    const [savedView, setSavedView, viewReady] = useRememberedView(table)
-    const view = urlView || savedView || ''
+    // View resolution: URL → option (lockView: option → URL) → remembered → automatic (rules → portal
+    // candidates → Default). Explicit names are checked first, so an unknown one falls through.
+    const urlView = pick(route.view, loc.mode === 'studio' ? '' : loc.view, query.view)
+    const optionView = pick(options.view)
+    const lockView = !!options.lockView && !!optionView
+    const resolved = useResolvedFormView({ table, urlView, optionView, lockView })
+    const view = resolved.view
     // Encoded query presetting a new record (g_aw.openRecord(table, '-1', { query })).
     const presetQuery = pick(typeof loc.query === 'string' ? loc.query : '', query.query)
     const page = String(loc.page || '')
     const go = (next: { sysId?: string; view?: string; table?: string; query?: string }) => {
         const id = next.sysId !== undefined ? next.sysId : sysId
-        const v = next.view !== undefined ? next.view : view
+        // Only the URL's own view travels with navigation (never the remembered or automatic one).
+        const v = next.view !== undefined ? next.view : urlView
         navigate(page, {
             table: next.table || table,
             sysId: id || undefined,
@@ -169,14 +180,16 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     <div className="flex min-w-0 items-center gap-2">{back}<h1 className="m-0 truncate text-sm font-medium">{portal && portal.page ? portal.page.title || portal.page.name : ''}</h1></div>
                 </HeaderSlot>
             ) : null}
-            {sysId && !urlView && !viewReady ? null : sysId ? (
+            {sysId && !resolved.ready ? null : sysId ? (
                 <FormFor
                     key={`${table}|${sysId}|${view}|${presetQuery}`}
                     table={table}
                     sysId={sysId}
                     view={view}
                     query={presetQuery}
-                    showViews={options.showViews !== false}
+                    showViews={options.showViews !== false && !lockView}
+                    viewPinned={resolved.source !== 'auto'}
+                    missingView={resolved.missing}
                     headerSlots={headerSlots}
                     presentation={options.presentation === 'tabs' ? 'tabs' : options.presentation === 'stacked' ? 'stacked' : undefined}
                     attachments={options.attachments === 'below' || options.attachments === 'header' ? options.attachments : undefined}
@@ -186,7 +199,8 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     onViewChange={(v) => {
                         confirmDiscard(dirty).then((ok) => {
                             if (!ok) return
-                            setSavedView(v)
+                            // '' = Automatic (forget the remembered view), 'default' = force Default.
+                            resolved.setRemembered(v)
                             go({ view: v })
                         })
                     }}
@@ -208,6 +222,8 @@ function FormFor(props: {
     view: string
     query: string
     showViews: boolean
+    viewPinned?: boolean
+    missingView?: string
     headerSlots?: { left?: (node: any) => any; right?: (node: any) => any }
     headerActions?: any
     presentation?: 'stacked' | 'tabs'
@@ -232,7 +248,7 @@ function FormFor(props: {
     const meta = useFormMeta(form)
     const { onDirty } = props
     useEffect(() => onDirty(meta.isDirty), [meta.isDirty, onDirty])
-    return <RecordForm form={form} showViews={props.showViews} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} presentation={props.presentation} attachments={props.attachments} relatedLists={props.relatedLists} activity={props.activity} />
+    return <RecordForm form={form} showViews={props.showViews} viewPinned={props.viewPinned} missingView={props.missingView} onViewChange={props.onViewChange} headerSlots={props.headerSlots} headerActions={props.headerActions} presentation={props.presentation} attachments={props.attachments} relatedLists={props.relatedLists} activity={props.activity} />
 }
 
 /** Columns the picker searches and shows, when the table has them (first = label). */

@@ -9,6 +9,10 @@
                 {
                     "title": "Introduction",
                     "path": "index.md"
+                },
+                {
+                    "title": "What's new",
+                    "path": "whats-new.md"
                 }
             ]
         },
@@ -179,18 +183,6 @@
                     "path": "primitives/fields.md"
                 },
                 {
-                    "title": "Catalog variables",
-                    "path": "primitives/catalog-variables.md"
-                },
-                {
-                    "title": "Cart and checkout",
-                    "path": "primitives/cart.md"
-                },
-                {
-                    "title": "Lists",
-                    "path": "primitives/lists.md"
-                },
-                {
                     "title": "Forms",
                     "path": "primitives/forms.md"
                 },
@@ -199,8 +191,8 @@
                     "path": "primitives/form-runtime.md"
                 },
                 {
-                    "title": "Activity and journals",
-                    "path": "primitives/activity.md"
+                    "title": "Dialogs",
+                    "path": "primitives/dialogs.md"
                 },
                 {
                     "title": "Related lists",
@@ -209,6 +201,14 @@
                 {
                     "title": "Attachments",
                     "path": "primitives/attachments.md"
+                },
+                {
+                    "title": "Activity and journals",
+                    "path": "primitives/activity.md"
+                },
+                {
+                    "title": "Lists",
+                    "path": "primitives/lists.md"
                 },
                 {
                     "title": "GraphQL utility",
@@ -221,6 +221,24 @@
                 {
                     "title": "Home page and search",
                     "path": "primitives/home-and-search.md"
+                },
+                {
+                    "title": "Knowledge base",
+                    "path": "primitives/knowledge.md"
+                }
+            ]
+        },
+        {
+            "title": "Service Catalog",
+            "slug": "catalog",
+            "pages": [
+                {
+                    "title": "Catalog variables",
+                    "path": "primitives/catalog-variables.md"
+                },
+                {
+                    "title": "Cart and checkout",
+                    "path": "primitives/cart.md"
                 }
             ]
         },

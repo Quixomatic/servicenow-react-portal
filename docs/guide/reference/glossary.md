@@ -8,6 +8,10 @@ tags: [reference, glossary]
 
 # Glossary
 
+The terms used across this guide, with the closest Service Portal equivalent where there is one.
+
+## Terms
+
 | Term | Meaning | Service Portal equivalent |
 |---|---|---|
 | **Block** | A component (`kind = block`) with drop zones that structures a page: grid, columns, section | Container / row / column |
@@ -46,3 +50,9 @@ tags: [reference, glossary]
 | **Utility** | A code-only record component (`kind = utility`), imported as `utilities:<ns>/<key>` | Script include (client side) |
 | **Virtual file** | A record field shown as a file in Studio: `main.tsx`, `styles.css`, `server.js`… | |
 | **Widget** | A placeable component with an optional server script | Widget |
+
+## Related
+
+- [Limits](limits.md)
+- [Contracts](contracts.md)
+- [Troubleshooting and FAQ](troubleshooting.md)

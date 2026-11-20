@@ -8,6 +8,8 @@ tags: [useTheme, dark-mode]
 
 # Theme
 
+`useTheme()` reads and sets the light, dark or system color mode. The theme record's tokens decide the colors; this hook only decides which set applies.
+
 ## `useTheme()`
 
 ```ts

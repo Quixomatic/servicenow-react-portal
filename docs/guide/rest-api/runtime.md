@@ -73,12 +73,14 @@ Base path `/api/x_312987_portal/rp`. Any authenticated user may call it (REST AC
 
 - Each instance succeeds or fails independently (`ok: false` with `error`).
 - At most 100 entries per request, 50 of them embed descriptors.
+- A string entry is a placement sys_id, or `layout:<component sys_id>` for the effective layout's own server script.
+- An embed descriptor's `placement` is its root: a placement sys_id, or `layout:<component sys_id>` for an embed under the layout. A layout root must be the effective layout of `page` (the page's override, else the portal default); any other layout answers `not_found`.
 - `page` gives route params to the scripts; `context` the URL params.
 - Embed descriptors are authorized against the root placement's import chain; an unimported widget answers `not_found`. See [Embedded widgets](../authoring/embedded-widgets.md).
 
 ## Execute
 
-`POST /instances/{instance}/execute`, where `{instance}` is a placement sys_id (for embeds, the **root** placement):
+`POST /instances/{instance}/execute`, where `{instance}` is a placement sys_id or `layout:<component sys_id>` (for embeds, the **root**):
 
 ```json
 { "portal": "sp", "page": "incidents", "action": "get", "input": { "q": "abc" }, "context": { "params": {} }, "embed": { "path": ["app/server-clock"], "keys": ["utc"], "options": {}, "token": null } }
@@ -89,12 +91,12 @@ Base path `/api/x_312987_portal/rp`. Any authenticated user may call it (REST AC
 | `action` | `initialize`, `get` (default), `update` |
 | `input` | The script's `input` |
 | `data` | Accepted for compatibility but **ignored**: scripts start from empty `data` |
-| `context` | `{ params, recordId }`, validated (strings, ≤ 50 keys, ≤ 16 KB) |
+| `context` | `{ params, recordId }`, validated: string values (or lists of up to 20), ≤ 50 keys, ≤ 4,000 characters a value, ≤ 16 KB in all; anything else is dropped |
 | `embed` | Run an embedded instance below the root placement |
 
 → envelope with `data` (the script's data), `options` (effective options) and `meta.build`, `meta.release`, `meta.messages`, `meta.embed`.
 
-Errors: `400` (no server script, bad embed), `404` (instance not in this portal, page not accessible, embed not imported), `409 no_build`, `500 script_error`.
+Errors: `400` (no server script, bad embed), `404` (instance not in this portal, page not accessible, embed not imported, layout root that isn't the effective layout), `409 no_build`, `500 script_error`.
 
 ## Assets
 

@@ -2,7 +2,7 @@
 title: Related lists
 description: app/related-list (one related list of any record), app/related-lists (all of a record's lists as tabs, sections or one list), the record form integration, g_form.show/hideRelatedList, and the app/related-lists-card widget.
 section: Primitives and utilities
-order: 7
+order: 6
 tags: [related-lists, m2m, relationships, forms, lists]
 ---
 
@@ -24,7 +24,8 @@ A record's related lists are the ones its form view lists (`sys_ui_related_list`
 | A list's rows | `GlideListLayout_Query.getListLayout(table, relatedListName, parentTable, parentRecordSysId, fixedQuery = filter)`: the relationship's own list layout (the parent column is dropped), `metadata.m2MData { isM2M sourceField targetTable targetField }` and `metadata { canCreate canDelete }` |
 | m2m Add / Edit… / Remove | Table API rows on the m2m table (`POST` / `DELETE /api/now/table/<m2m>`): ACLs, business rules and audit apply |
 
-What the platform does (verified on dev189813):
+What the platform does (verified on a live instance):
+
 - `filter` is the server-resolved query for every kind. For a scripted relationship it is the script's result, e.g. `parent_id=<id>^parent_table=kb_knowledge_base`, or `sys_idIN-1` when it matches nothing.
 - `relatedListName` + parent alone do **not** filter reference lists: `getListLayout` returns the whole table. So the list always passes `filter` as the fixed query, as Workspace does.
 - Scripted relationships have no `displayLabel`, so the label falls back to `label`.
@@ -60,13 +61,14 @@ One related list, on `app/data-table`'s `RecordList` in related mode, with count
 | Export | What |
 |---|---|
 | `fetchRelatedLists(table, sysId, view?)` | The record's lists (`{ view, lists, hasRelatedLists }`) |
-| `useRelatedLists(table, sysId, view?, { initial?, enabled? })` | Cached per record + view; `initial` (a bootstrap's lists) skips the first request |
-| `useRelatedList(table, sysId, name, view?)` | One list; a `<table>.<field>` name works even when the list isn't on the view |
+| `useRelatedLists(table, sysId, view?, { initial?, enabled?, staleTime? })` | Cached per record + view; `initial` (a bootstrap's lists) skips the first request |
+| `useRelatedList(table, sysId, name, view?, options?)` | One list; a `<table>.<field>` name works even when the list isn't on the view (`syntheticList(parentTable, parentSysId, name)` builds it) |
 | `useRelatedListsRefresh()` | `(table?, sysId?, listTable?)`: refetch counts (and rows) |
-| `useRelatedListActions({ list, parentSysId, page, open })` | `canNew` / `newRecord`, `canAdd` / `add`, `canEdit` / `edit`, `canRemove` / `remove(rows)` |
+| `useRelatedListActions({ list, parentSysId, page, open, enabled?, readOnly?, onChanged? })` | `canNew` / `newRecord`, `canAdd` / `add`, `canEdit` / `edit`, `canRemove` / `remove(rows)` |
 | `useRecordOpener(recordPage?, onOpenRecord?)` | How widgets open records |
 | `relatedListKind(list, page?)`, `newRecordQuery(list, parentSysId)` | `reference` / `many-to-many` / `scripted`; the New preset |
 | `fetchM2MLinks`, `addM2MLinks`, `removeM2MRows` | m2m rows through the Table API |
+| `relatedKeys`, `RELATED_LISTS_QUERY` | The query keys and the GraphQL document |
 
 `RelatedListInfo` (from `utilities:app/graphql`): `{ name, table, parentTable, label, count, filter, relatedField, omitIfEmpty, groupByField, kind: 'reference' | 'scripted' }`. Many-to-many is known only once the list call answers (`ListPage.m2m`).
 
@@ -84,7 +86,8 @@ import { RelatedLists } from 'components:app/related-lists'
 - **Stacked**: collapsible sections with counts, closed by default. A list loads once its section is open **and** on screen. Open sections are remembered per user and table in `x_312987_portal.related.<table>.open`.
 - **Single**: one list (`name`, else the first).
 - `omitIfEmpty` is honoured against the freshest count. Counts follow each list's own count once it loads, and refetch after New / Add / Remove.
-- Filters: `include` / `exclude` (names), `isShown(name)` (e.g. the `g_form` state below).
+- Filters: `include` (names, in that order) / `exclude` (names), `isShown(name)` (e.g. the `g_form` state below).
+- Other props: `view`, `lists` (lists already loaded, such as a form bootstrap's: no first request), `heading`, `recordPage`, `onOpenRecord`, `actions`, `readOnly`, `live`, `pageSize`, `value` / `onValueChange` (the selected tab, controlled), `emptyText` (default: render nothing when there are no lists).
 
 Exports: `RelatedLists`, `useVisibleRelatedLists(options)`, `useRelatedListTabs(options)` (tab descriptors with lazy `render()` for a strip you own), `useOpenRelatedLists(table)`, `RelatedCount`, `relatedTabValue(name)` (`rl:<name>`).
 
@@ -113,12 +116,12 @@ A record's related lists anywhere on a page. The record comes from the options, 
 | Option | Meaning |
 |---|---|
 | `table`, `sysId`, `view` | The parent record and its form view |
-| `layout` | `tabs`, `stacked`, `single` |
+| `layout` | `tabs` (default), `stacked`, `single` |
 | `name` | The list for `single` |
 | `include`, `exclude` | Comma-separated list names |
 | `title` | Card heading (default "Related lists") |
 | `recordPage` | Page that opens records (default `form`) |
-| `actions`, `liveUpdates`, `pageSize` | Behaviour |
+| `actions` (default true), `liveUpdates` (default false), `pageSize` (default 10) | Behaviour |
 
 On sp, the **Lists** page shows INC0000060's lists as tabs and the Service Desk group's lists stacked.
 

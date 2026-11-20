@@ -53,6 +53,10 @@ export type SearchTargets = {
     kbPage?: string
     /** Portal page of the record form (opened with table + sys_id). */
     recordPage?: string
+    /** Knowledge search page (app/kb-search, q term=…): the knowledge group's "See all" opens it. */
+    kbSearchPage?: string
+    /** Limit the knowledge source to one knowledge base (sys_id). */
+    kb?: string
 }
 
 export type SearchSourceDef = {
@@ -209,7 +213,10 @@ export function knowledgeHit(r: any, t: SearchTargets): SearchHit {
 }
 
 async function searchKnowledge(term: string, limit: number, offset: number, t: SearchTargets, signal?: AbortSignal): Promise<SearchPage> {
-    const q = `${textCondition(term)}^workflow_state=published^active=true`
+    const kb = t.kb && /^[0-9a-f]{32}$/.test(t.kb) ? '^kb_knowledge_base=' + t.kb : ''
+    const d = new Date()
+    const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+    const q = `${textCondition(term)}^workflow_state=published^active=true^valid_toISEMPTY^ORvalid_to>=${today}${kb}`
     const url = `/api/now/table/kb_knowledge?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${KB_FIELDS}&sysparm_display_value=all&sysparm_exclude_reference_link=true&sysparm_limit=${limit}&sysparm_offset=${offset}`
     const r = await getWithTotal(url, signal)
     return { hits: r.result.map((row) => knowledgeHit(row, t)), total: r.total }

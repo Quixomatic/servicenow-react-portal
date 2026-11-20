@@ -8,6 +8,8 @@ tags: [Region, RegionPortal, useBlock, useLayout, useNavigation, useSidebar]
 
 # Layout and navigation
 
+Layouts and blocks render their regions with `<Region>`, widgets contribute into them with `<RegionPortal>`, and headers, sidebars and footers read the portal's menus with `useNavigation()`. This page covers those pieces plus the shared sidebar state and the overlay container.
+
 ## `<Region>`
 
 ```tsx
@@ -73,6 +75,7 @@ type NavItem = {
     to?: string; href?: string; target?: '_self' | '_blank'
     match?: 'exact' | 'prefix'
     portalSlug?: string; recordId?: string; q?: Record<string, string>
+    table?: string; sysId?: string; view?: string; query?: string   // explicit record params
     active: boolean
     open?: boolean                   // groups
     children: NavItem[]
@@ -89,7 +92,7 @@ type NavItem = {
 
 Other keys without a menu record are empty (`'none'`).
 
-**Active state:** the route item whose path equals the current path, else the one whose path is the longest prefix of it (`orders` is active on `orders/42`); `match: 'exact'` items are only active on their own path. At most one leaf is active, and its ancestor groups are active and open.
+**Active state:** the route item whose path equals the current path, else the one whose path is the longest prefix of it (`orders` is active on `orders/42`); `match: 'exact'` items are only active on their own path. An item's explicit record params (`table`, `sysId`, `view`, `query`) must all equal the location's, so two items on one page (an incident list and a request list) highlight apart; among items on the same path, the one with the most matching record params, then matching `q` keys, wins. At most one leaf is active, and its ancestor groups are active and open.
 
 Spread `item.link` on `<Link>` and `item.attrs` on any other element that renders an item (URL anchors, group triggers), so Studio's Menus preview can select it:
 

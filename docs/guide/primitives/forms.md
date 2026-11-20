@@ -2,7 +2,7 @@
 title: Forms
 description: Record forms on the platform's form runtime — app/form (useRecordForm, RecordForm, FormLayout), sections, tabs, preferences, and the app/record-form widget.
 section: Primitives and utilities
-order: 5
+order: 3
 tags: [forms, record-form, sections, tabs, save]
 ---
 
@@ -21,7 +21,7 @@ tags: [forms, record-form, sections, tabs, save]
 ## `useRecordForm(options)`
 
 ```ts
-useRecordForm({ table, sysId, view?, onSaved?, onOpenRecord? }): RecordFormModel
+useRecordForm({ table, sysId, view?, views?, viewRuleConfigId?, onSaved?, onOpenRecord? }): RecordFormModel
 ```
 
 A [form store](fields.md#the-form-store) plus the bootstrap, UI policies, the client-script environment and `save()`. `SAVE_ACTIONS` lists the action names treated as Save (`sysverb_ws_save`, `sysverb_update`, `sysverb_insert`, `sysverb_ws_insert`).
@@ -29,6 +29,31 @@ A [form store](fields.md#the-form-store) plus the bootstrap, UI policies, the cl
 - **Conflict check:** if the record changed since it loaded, a "Changed by someone else" prompt offers Reload or Overwrite.
 - **Live:** a clean form refreshes silently when the record changes; a dirty one shows a banner.
 - **Unsaved changes:** a guard warns before leaving.
+- **View:** `view` is forced (it beats view rules). With no `view`, the platform resolves it: the Workspace view rules of `viewRuleConfigId`, then the candidate list `views`, then Default. Both default to the portal's settings (`settings.viewRuleConfigId`, `settings.formViews`). See [Form view resolution](#form-view-resolution).
+
+## Form view resolution
+
+Which view a form shows. The first step that applies wins:
+
+1. the URL `view` param (user intent: deep links and the view switcher write it);
+2. the widget / page option `view` (author intent). With the widget option `lockView: true`, the option comes before the URL and the view switcher is hidden;
+3. the user's remembered view for the table (`x_312987_portal.form.<table>.view`, set by the switcher);
+4. **Workspace view rules** (`sysrule_view_workspace`) linked to the portal's `settings.viewRuleConfigId` (a `sys_ux_view_rules_configuration`);
+5. the portal's candidate list `settings.formViews` (e.g. `"sp,ess"`; the first view that exists for the table);
+6. the Default view.
+
+How it works:
+- Steps 1–3 go to `uiView` as `forcedViewName`, and only when the view exists for the table. One request checks the named views first (`checkFormViews`: aliased `uiView(views: "<name>")` calls with no layout, so new records work too).
+- An unknown view falls through to the next step. If it came from the URL or the option, the form shows a small notice: "View `x` not found, showing <view>". On its own the platform would silently show Default.
+- Steps 4–6 are the platform's own resolution: `uiView(viewRuleConfigId, views)`. Rules beat the candidate list, and a forced view beats both. Workspace rules apply **only** when a config id is passed; classic `sysrule_view` rules are never applied by `uiView`, so React Portal doesn't evaluate them.
+- `default` / `Default view` name the Default view explicitly; this beats the rules.
+- The switcher (cog ▸ View) lists the table's views plus **Automatic**. Picking a view writes the URL `view` param and the remembered view. Automatic clears both and goes back to steps 4–6. Its label shows "(auto)" when the view was resolved automatically.
+- The form card carries `data-rp-form-view` (the view shown) and `data-rp-view-pinned` (an explicit view, or automatic).
+- Admins manage the rules in the platform's own UI: the View Rules related list of the `sys_ux_view_rules_configuration`. A rule should set **Experience restricted** so it applies only through its configuration.
+
+Reusable exports: `useResolvedFormView({ table, urlView, optionView, lockView, remember? })` → `{ ready, view, source: 'url' | 'option' | 'remembered' | 'auto', missing, remembered, setRemembered }`; `usePortalViewSettings()` → `{ viewRuleConfigId, formViews }`; `utilities:app/graphql` `checkFormViews` / `useFormViewCheck` / `isDefaultViewName`.
+
+**Lists:** `getListLayout` has no `viewRuleConfigId` argument (the server rejects it as an unknown argument), so Workspace view rules don't exist for list layouts. A list uses the view it is given (`app/list-view`: option, route, then URL), and an unknown list view silently gives the Default list layout. Related lists on a form use the form's resolved view.
 
 ## `<RecordForm>`
 
@@ -44,6 +69,7 @@ import { RecordForm } from 'components:app/form'
 | `table`, `sysId`, `view` | The record and form view (`sysId = -1` = new record) |
 | `onSaved`, `onOpenRecord` | Callbacks |
 | `showViews`, `onViewChange` | The form-view switcher |
+| `viewPinned`, `missingView` | View resolution: `viewPinned` (true or false) adds **Automatic** to the switcher (`onViewChange('')`; Default → `'default'`); `missingView` shows the not-found notice |
 | `fieldLayout` | `vertical` or `horizontal` |
 | `hideFormatters`, `hideActions` | Hide formatter placeholders / the UI action bar |
 | `headerActions` | Extra header content on the right (e.g. a "New" button) |
@@ -62,6 +88,13 @@ What it renders: the header (unsaved indicator, table label, number, state badge
 - An untitled first section (e.g. incident's main fields) always stays on top: never collapsible, never a tab.
 - A section hidden by `g_form.setSectionDisplay`, or whose fields are all hidden, disappears in both modes.
 - The cog menu has **View ▸** and **Layout ▸** (Stacked / Tabs). The user's layout choice is stored in `x_312987_portal.form.presentation`. Platform preferences (`tabbed.forms`, `workspace.layout.*`) are never read or written.
+
+### Layout details
+
+- **Split rows:** `.begin_split` / `.split` / `.end_split` arrive resolved as columns, so rows can have 2, 3 or 4 columns.
+- **Annotations** (`sys_ui_annotation`) render with `app/form-annotation`: info, warning and success callouts, plain text, line separators and line breaks, from the annotation type. HTML is sanitised unless the annotation is plain text.
+- **Changed by someone else:** when the record changes while the form is open, fields with no unsaved edit take the new value silently; a field you're editing shows a marker with **Use theirs** / **Keep mine** (`applyRemoteValues(store, values)` in `components:app/field`).
+- **Decorations:** `g_form.addDecoration(name, icon, title, color?)` / `removeDecoration` show icons after the label (platform icon names map to Lucide).
 
 ### Related lists
 
@@ -85,7 +118,7 @@ Both are lazy: a list loads only when shown. `g_form.showRelatedList` / `hideRel
 
 ## Lower-level exports
 
-`FormLayout` (`bootstrap`, `readOnly`), `FormSection`, `FormElement`, `SectionRows`, `useVisibleSections`, `sectionName`, `sectionElements`, `sectionOfField`, `isFormatter`, `isSplitMarker`; preferences `useOwnPreference`, `useCollapsedSections(table)`, `usePresentationPreference()`, `formPreferenceName`; `notify(notifications)`.
+`FormLayout` (`bootstrap`, `readOnly`), `FormSection`, `FormElement`, `SectionRows`, `useVisibleSections`, `sectionName`, `sectionElements`, `sectionOfField`, `isFormatter`, `isSplitMarker`; preferences `useOwnPreference`, `useCollapsedSections(table)`, `usePresentationPreference()`, `useRememberedView(table)`, `formPreferenceName`; `useFormTabState` (from `components:app/form-tabs`); `notify(notifications)`.
 
 ## `app/record-form` widget
 
@@ -93,7 +126,9 @@ A form page widget, like Service Portal's form widget: one generic `form` page s
 
 | Option | Meaning |
 |---|---|
-| `table`, `sysId`, `view` | The record; each falls back to the route params, then the URL params (`sys_id=-1` = new) |
+| `table`, `sysId` | The record; each falls back to the route params, then the URL params (`sys_id=-1` = new) |
+| `view` | The page's view. The URL `view` param beats it, unless `lockView` is set ([Form view resolution](#form-view-resolution)) |
+| `lockView` | The `view` option beats the URL; hides the view switcher |
 | `picker` | Demo convenience: search the table's records and a "New" button (shown only when no record is open) |
 | `pickerQuery` | Filter for the picker |
 | `showViews` | The form-view switcher |
@@ -108,7 +143,7 @@ It navigates with explicit `table` / `sys-id` / `view` URL params.
 
 ## Not built yet
 
-View rules (classic and Workspace view rules are ignored), annotations (**in progress**), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), highlighted values and form personalization.
+Classic view rules (`sysrule_view`; by design, see [Form view resolution](#form-view-resolution)), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), highlighted values and form personalization.
 
 ## Related
 

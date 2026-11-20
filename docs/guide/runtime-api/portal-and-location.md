@@ -8,6 +8,8 @@ tags: [usePortal, usePortalLocation, Link, navigate, url-params]
 
 # Portal and location
 
+These hooks tell a widget which portal and page it's on, read the URL's record params, and move between pages. The platform owns the URL, so navigation always goes through `<Link>` or `useNavigate()`.
+
 ## `usePortal()`
 
 ```ts

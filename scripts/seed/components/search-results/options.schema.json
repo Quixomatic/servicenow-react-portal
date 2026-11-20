@@ -27,6 +27,10 @@
       "type": "string",
       "title": "Knowledge page route"
     },
+    "kbSearchPage": {
+      "type": "string",
+      "title": "Knowledge search page route (knowledge results link to it)"
+    },
     "recordPage": {
       "type": "string",
       "title": "Record form page route"

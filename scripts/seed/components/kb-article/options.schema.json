@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "knowledgeBases": { "type": "array", "title": "Knowledge bases (sys_ids, empty = all the user can read)", "items": { "type": "string" } },
+    "showToc": { "type": "boolean", "title": "On this page (table of contents)" },
+    "attachments": { "type": "string", "title": "Attachments", "enum": ["auto", "always", "never"], "description": "auto: when the article's Display attachments is on" },
+    "showFeedback": { "type": "boolean", "title": "Was this helpful? / rating / flag" },
+    "showRelated": { "type": "boolean", "title": "Related articles" },
+    "showMoreInCategory": { "type": "boolean", "title": "More in this category" },
+    "relatedLimit": { "type": "integer", "title": "Articles per list", "minimum": 1, "maximum": 10 },
+    "countViews": { "type": "boolean", "title": "Count views (kb_use, view count)" },
+    "homePage": { "type": "string", "title": "Knowledge home page route" },
+    "categoryPage": { "type": "string", "title": "Category page route" },
+    "searchPage": { "type": "string", "title": "Knowledge search page route" },
+    "articlePage": { "type": "string", "title": "Article page route" }
+  }
+}

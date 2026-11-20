@@ -36,12 +36,23 @@ Build-relevant component fields (advance `source_revision`): `client_script`, `c
 | RP: Compile component on save | component | 500 | Compiles into the build |
 | RP: Compile theme on save | theme | 500 | Writes `theme.css` |
 | RP: Compile owner on source file change | source_file | 500 | Recompiles the owner (insert, update, delete) |
-| RP: Compile placement instance CSS | placement | 900 | Compiles `instance_css`, then reprocesses |
+| RP: Compile placement instance CSS | placement | 900 | Compiles `instance_css` when its inputs change (`classes`, `style_tokens_json`, `layout_json`, `options_json`, `component`), then reprocesses the portal if the CSS changed |
 | RP: Reprocess release (portal / page / placement / theme / component / menu / menu item) | each | 1000 | Reprocesses the affected portal(s); the component rule fires only when name, kind, active, server mode, regions, default options or placeable change |
 
-Compiles stand down while the session flag `x_312987_portal.skip_compile` is set (a Studio save compiles once itself). Reprocess rules stand down while `x_312987_portal.skip_reprocess` is set (the designer and menus editor reprocess once per operation). Flags are cleared through the global helper app, else blanked (scoped `GlideSession` has no `clearClientData`).
+A successful compile also flags importers `needs_rebuild` and reprocesses every portal using the component directly, as a layout, or through imports. A reprocess writes the release only when the manifest hash changed.
 
-A successful compile also flags importers `needs_rebuild` and reprocesses every portal using the component directly, as a layout, or through imports.
+## Batch mode (session flags)
+
+Two session client-data flags let a multi-record write compile and reprocess once instead of once per record:
+
+| Flag | Read by | Set by |
+|---|---|---|
+| `x_312987_portal.skip_compile` | The three compile-on-save rules | A Studio save (it compiles once itself at the end), the seed |
+| `x_312987_portal.skip_reprocess` | Every reprocess rule, `reprocessForOwner` (so a compile inside the batch doesn't rebuild every portal that uses the component), and the instance CSS rule's reprocess step | The page designer and Menus editor (one reprocess per operation), the seed |
+
+The instance CSS rule always compiles the placement's CSS, even inside a batch; only its portal reprocess is deferred. The seed sets both flags, compiles each changed component once in dependency order, and reprocesses each portal once at the end (see [Release workflow](release-workflow.md#seeding)).
+
+Flags are cleared through the global helper app, else blanked (scoped `GlideSession` has no `clearClientData`).
 
 ## Scheduled job
 
@@ -62,12 +73,12 @@ A successful compile also flags importers `needs_rebuild` and reprocesses every 
 | `x_312987_portal.build.max_bytes` | `5242880` | Max total size of one build's assets |
 | `x_312987_portal.source.max_file_bytes` | `1048576` | Max size of one source file |
 | `x_312987_portal.max_files_per_owner` | `200` | Max files in one save |
+| `x_312987_portal.studio.kind_files` | JSON (kind → files) | Which baseline files each component kind has; applies to Studio, saves, checks, the compiler and server scripts. See [Code editor](../studio/code-editor.md#virtual-files) |
 | `x_312987_portal.public.welcome` | demo text | Demo public property |
 | `x_312987_portal.embed_secret` | generated | Embed signing secret; created at runtime, not in Fluent |
+| `x_312987_portal.seed.template_hash` | written by the seed | Hash of the last seeded portal template; `npm run seed` skips the portals step while it matches. Not in Fluent. See [Release workflow](release-workflow.md#seeding) |
 
-All but the demo property and the secret are admin read/write.
-
-> **Note:** **In progress:** `x_312987_portal.studio.kind_files` (which baseline files each component kind has).
+All but the demo property, the secret and the seed marker are admin read/write.
 
 ## Script Include and application menu
 

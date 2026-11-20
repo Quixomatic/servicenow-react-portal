@@ -7,6 +7,7 @@ import { useForm, attachPolicies, applyRemoteValues } from 'components:app/field
 import type { Form, ValidationResult } from 'components:app/field'
 import { startScriptEnvironment, scriptUserFrom } from 'utilities:app/gform'
 import type { ScriptEnvironment, ScriptError } from 'utilities:app/gform'
+import { usePortalViewSettings } from './view-resolution'
 
 /** Names of the form's Save action, Workspace first, then the classic verbs. */
 export const SAVE_ACTIONS = ['sysverb_ws_save', 'sysverb_update', 'sysverb_insert', 'sysverb_ws_insert']
@@ -78,7 +79,12 @@ export type UseRecordFormOptions = {
     table: string
     /** sys_id, or '-1' / '' for a new record (the platform reserves a number on load). */
     sysId?: string
+    /** A view to force (beats rules). '' = automatic: Workspace view rules → candidate list → Default. */
     view?: string
+    /** Automatic resolution: candidate view list ('sp,ess'). Default: the portal's settings.formViews. */
+    views?: string
+    /** Automatic resolution: a sys_ux_view_rules_configuration sys_id. Default: the portal's settings.viewRuleConfigId. */
+    viewRuleConfigId?: string
     /** Encoded query presetting a new record's values (g_aw.openRecord(table, '-1', { query })). */
     query?: string
     /** Show business-rule messages (session notifications) as toasts. Default true. */
@@ -126,8 +132,13 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
     const sysId = options.sysId && options.sysId !== '-1' ? options.sysId : '-1'
     const isNew = sysId === '-1'
     const query = isNew ? options.query || '' : ''
-    const boot = useFormBootstrap(table, sysId, { view, query })
-    const base = useForm({ table, sysId, view, query })
+    // View resolution without a forced view: the portal's Workspace view rules, then its candidate list.
+    const portalViews = usePortalViewSettings()
+    const views = options.views !== undefined ? options.views : portalViews.formViews
+    const viewRuleConfigId = options.viewRuleConfigId !== undefined ? options.viewRuleConfigId : portalViews.viewRuleConfigId
+    // Same options for both: they share one bootstrap query (one request, one reserved number).
+    const boot = useFormBootstrap(table, sysId, { view, query, views, viewRuleConfigId })
+    const base = useForm({ table, sysId, view, query, views, viewRuleConfigId })
     const qc = useQueryClient()
     const user = useUser() as any
     const baseRef = useRef(base)

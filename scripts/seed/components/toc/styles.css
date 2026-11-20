@@ -1,0 +1,66 @@
+/* components:app/toc: fumadocs-style "On this page". A thin track that bends for nested headings, a
+   primary segment that slides (clip-path) over every section in view, a dot riding the track
+   (offset-path), muted items that brighten when active, and a scroll area with faded edges. */
+.rp-toc-scroll {
+    position: relative;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    padding: 0.75rem 0;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+.rp-toc-scroll::-webkit-scrollbar { display: none; }
+.rp-toc-list { position: relative; }
+.rp-toc-items { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.rp-toc-track { position: absolute; top: 0; left: 0; pointer-events: none; }
+.rp-toc-track svg { position: absolute; top: 0; left: 0; overflow: visible; }
+.rp-toc-track .rp-toc-base { stroke: color-mix(in oklch, var(--foreground) 12%, transparent); }
+.rp-toc-track .rp-toc-fill { stroke: var(--primary); }
+.rp-toc-active-svg {
+    clip-path: polygon(0 var(--rp-toc-top, 0), 100% var(--rp-toc-top, 0), 100% var(--rp-toc-bottom, 0), 0 var(--rp-toc-bottom, 0));
+    transition: clip-path 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rp-toc-thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* Centred on the path: offset-anchor centre, no margin, border-box (a margin would shift it). */
+    box-sizing: border-box;
+    width: 5px;
+    height: 5px;
+    margin: 0;
+    border-radius: 9999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 18%, transparent);
+    offset-rotate: 0deg;
+    offset-anchor: 50% 50%;
+    transform-origin: 50% 50%;
+    offset-distance: var(--rp-toc-dist, 0px);
+    opacity: var(--rp-toc-thumb, 0);
+    transition: offset-distance 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
+}
+.rp-toc-link {
+    position: relative;
+    display: block;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+    padding-right: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    outline: none;
+    border-radius: 0.25rem;
+    transition: color 0.2s;
+}
+.rp-toc-link:hover { color: var(--foreground); }
+.rp-toc-link[data-active="true"] { color: var(--primary); }
+.rp-toc-link:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--ring) 60%, transparent); }
+.rp-toc-items > li:first-child > .rp-toc-link { padding-top: 0; }
+.rp-toc-items > li:last-child > .rp-toc-link { padding-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+    .rp-toc-active-svg, .rp-toc-thumb { transition: none; }
+}

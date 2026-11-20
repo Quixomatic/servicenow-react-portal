@@ -28,6 +28,7 @@ ServiceNow behaviours that shaped React Portal. Each one has bitten at least onc
 | The evaluator only runs scripts of a stored record | Menu conditions load the item record and evaluate the manifest's condition text on it in memory |
 | `globalThis` is sealed | Bundles must expose exports as locals |
 | Promise callbacks run when the **outermost** script finishes | Compiles triggered inside an exec or seed script finish at its end; log inside `then()` |
+| Every record write fires its business rules: a seed of many records compiled and reprocessed once per write | Batch mode: the seed sets `x_312987_portal.skip_compile` and `skip_reprocess`, compiles once per component and reprocesses each portal once. See [Business rules](business-rules.md#batch-mode-session-flags) |
 | `GlideSession.clearClientData` doesn't exist in scope | `putClientData(key, '')`, or the global helper |
 | `gs.getImpersonatingUserName()`, `gs.print`, `gs.flushMessages()`, `gs.getPreference()` are blocked | The [global helper app](global-helper-app.md) proxies what's needed |
 | Inside scripted REST, global `gs.getInfoMessages()` reads empty; the scoped read sees the queue | Drain = scoped read, then the helper's flush |
@@ -46,6 +47,8 @@ ServiceNow behaviours that shaped React Portal. Each one has bitten at least onc
 | A global Script Include with `callerAccess: 'tracking'` refuses scoped callers | Leave caller access unset; adopt the cross-scope privilege in Fluent |
 | Global apps need `packageResolverVersion: "2.0.0"` | Set explicitly in the helper app's `now.config.json` |
 | The project-local SDK couldn't decrypt the stored credentials | Use the global `now-sdk` binary |
+| `now-sdk exec` payloads over about 1.5 MB fail | `npm run seed` splits component payloads into parts (default budget 1300 KB, `--max-kb`) |
+| An exec that times out or returns no script execution response may still be running | The seed polls the syslog for each run's `[seed] done … run=<id>` line and never re-runs, so runs don't stack |
 
 ## UI Builder and Next Experience
 
@@ -66,7 +69,7 @@ ServiceNow behaviours that shaped React Portal. Each one has bitten at least onc
 |---|---|
 | Same-named cascade layers merge across `<style>` sheets; a later sheet's `.hidden` beat an earlier `sm:block` | Variants move to `@layer rp-variants` (compiler v5) |
 | Adopted stylesheets sort after every `<style>` | The framework CSS is a `<style>` in the framework slot |
-| Unlayered CSS beats every layered utility | `styles.css` and instance CSS are unlayered on purpose |
+| Unlayered CSS beats every layered utility | `styles.css` and the instance rules (style tokens, grid, `x-css-var`) are unlayered on purpose; a placement's extra Tailwind classes are layered like any other utilities |
 | next-themes and Sonner target `<html>` / `<head>` | `useTheme` puts `.dark` on the host; Sonner's CSS ships in the framework CSS |
 
 ## Related

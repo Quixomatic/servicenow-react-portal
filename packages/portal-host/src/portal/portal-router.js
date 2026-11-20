@@ -25,7 +25,7 @@ import { useNavigate } from '#/runtime/navigation';
 import { createInstanceInitStore, onLoadIds } from '#/runtime/instance-init';
 import { loadCss } from '#/runtime/loader';
 import { useThemeStyles } from '#/runtime/theme';
-import { LayoutHost, PagePlacements, createOutletStore, mainRegionOf, prefetchBuilds } from '#/runtime/widgets';
+import { LayoutHost, PagePlacements, canSeeErrorDetails, createOutletStore, mainRegionOf, prefetchBuilds } from '#/runtime/widgets';
 import { searchParamsToObject, toSearchParams, safeDecode, requestContextOf } from '#/runtime/location';
 import { leafData } from '#/runtime/page-state';
 import { useDiagCounter } from '#/runtime/diag-hooks';
@@ -369,11 +369,21 @@ function contentMax(width) {
 
 function PageErrorView({ error }) {
 	const navigate = useNavigate();
+	const portal = useContext(PortalContext);
+	const notFound = !!error && error.status === 404;
+	// Authors see the raw error; everyone else a plain sentence (plus the reference for failures).
+	const detailed = canSeeErrorDetails(portal);
+	const ref = error && error.correlationId ? `Reference ${error.correlationId}` : '';
+	const description = detailed
+		? String((error && error.message) || error)
+		: notFound
+			? "This page doesn't exist, or it isn't available to you."
+			: `Something went wrong while loading this page.${ref ? ' ' + ref : ''}`;
 	return (
 		<Card data-rp-page-error="">
 			<CardHeader>
-				<CardTitle>{error && error.status === 404 ? 'Page not found' : 'Page could not load'}</CardTitle>
-				<CardDescription className="font-mono break-all">{String((error && error.message) || error)}</CardDescription>
+				<CardTitle>{notFound ? 'Page not found' : 'Page could not load'}</CardTitle>
+				<CardDescription className={detailed ? 'font-mono break-all' : 'break-words'}>{description}</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Button variant="outline" size="sm" onClick={() => navigate('')}>

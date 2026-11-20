@@ -1,6 +1,6 @@
 ---
 title: Embedded widgets
-description: Rendering one widget inside another by importing it, $sp.getWidget, getWidget, Embed, .Raw, identity, options and trust.
+description: Rendering one widget inside another by importing it, $sp.getWidget, getWidget, Embed, .Raw, identity, lazy embeds, layout roots, options and trust.
 section: Authoring components
 order: 6
 tags: [embeds, widgets, getWidget, security]
@@ -49,9 +49,10 @@ Importing a **widget** record (`components:<ns>/<key>`) gives you an embeddable 
 | `embedKey` | `[A-Za-z0-9_-]{1,64}`, stable within the parent instance. Optional for a single embed; give one per row in lists |
 | `model` | An `EmbedModel` from `$sp.getWidget` / `getWidget()`: seeds the instance with no request, and keeps its signed options on later calls |
 | `fallback` | `(error, retry) => ReactNode` instead of the default crash placeholder |
+| `lazy` | `true` or `{ rootMargin, height }`: defer initialize until the embed nears the viewport. See [Lazy embeds](#lazy-embeds) |
 | anything else | Client-only React props (callbacks, `children`, refs), passed to the child and **never sent to the server** |
 
-Repeats without a key get `key-2`, `key-3`… in mount order (with a console warning). A duplicate explicit key renders a placeholder.
+Without `embedKey` the key is the widget's own key (`server-clock` for `app/server-clock`); repeats get `server-clock-2`, `server-clock-3`… in mount order (with a console warning). A duplicate explicit key renders a placeholder.
 
 ### 2. `$sp.getWidget` in the parent's server script
 
@@ -83,11 +84,29 @@ Its server script sees `component.embedded = true`, `component.key`, `component.
 
 ## Identity
 
-An embed's id is `<placement>~<key>[~<key>…]`: the root is always a placement sys_id, followed by one key per nesting level. At most **4** levels below a placement.
+An embed's id is `<root>~<key>[~<key>…]`: the root is a placement sys_id (or `layout:<component sys_id>` for [embeds under a layout](#embeds-under-layouts)), followed by one key per nesting level. At most **4** levels below the root.
 
 Client-declared on-load embeds initialize in **one batched request per render wave** (deduped by id + options, up to 50 descriptors per request). Server-built models arrive with the parent's data and need no request.
 
 Embeds render inside `<div style="display:contents" data-rp-embed data-rp-component data-rp-embed-root data-rp-embed-depth>`, with no `data-rp-placement`: the page designer treats them as part of their placement (read-only markers on the canvas, rows in the outline, an Embeds section in the properties panel). Live embeds are listed on `globalThis.__REACT_PORTAL__.embeds` (with an `rp-embeds-change` window event).
+
+## Lazy embeds
+
+The `lazy` prop defers an embed's initialize until it comes near the viewport:
+
+```tsx
+<ServerClock lazy embedKey="below" />
+<ServerClock lazy={{ rootMargin: '400px', height: 240 }} embedKey="far-below" />
+```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `rootMargin` | `'200px'` | How close to the viewport the placeholder must come (an `IntersectionObserver` margin) |
+| `height` | `'10rem'` | Minimum height of the pulsing placeholder; a number means pixels |
+
+Until then the embed renders a placeholder (`aria-busy`, `data-rp-lazy`) and makes no request. Embeds that scroll into view together share one batched initialize. `lazy` is ignored for a server-built `model`, which has nothing to fetch. Without `IntersectionObserver` the embed loads at once.
+
+The same building block is exported as `useInViewOnce({ rootMargin?, disabled? }) => [ref, inView]` from `@portal/runtime`, for any component that wants to defer work until it's scrolled into view. `inView` turns true once and stays true.
 
 ## Options and trust
 
@@ -107,12 +126,15 @@ The token is bound to (root placement, embed path, options, user, expiry), lasts
 
 The server only runs widgets the placed component's build **really imports**, checked step by step along the import chain against the sealed manifest's direct import edges. Anything else is a **404** (indistinguishable from a missing placement). Limits per request: depth 4, 50 embed descriptors per initialize, 20 `$sp.getWidget` calls per instance run.
 
+## Embeds under layouts
+
+A layout can embed widgets too. Their root is `layout:<component sys_id>` instead of a placement id, and the server authorizes it against the **page's effective layout**: a layout that isn't the current page's layout answers 404. Everything else matches placement embeds: the same import-edge walk, option filtering, signed tokens and limits. Layouts can have their own server script. The sp `embeds/layout` page is the test page.
+
 ## Where embeds don't have a server
 
-- Studio's single-component **Preview** (no placement): server calls reject with `no_server`.
-- Widgets rendered by a **layout** (the layout has no placement id).
+Studio's single-component **Preview** has no placement, so server calls reject with `no_server`.
 
-> **Note:** **In progress:** embeds under layouts (a `layout:<component sys_id>` root authorized against the page's effective layout), lazy embeds (a `lazy` prop that defers initialize until the embed nears the viewport), and a Studio Dependencies panel.
+> **Note:** The Studio **Dependencies** panel lists a component's imports (widgets marked embeddable) and what uses it. See [Code editor](../studio/code-editor.md).
 
 ## Related
 

@@ -11,7 +11,7 @@ tags: [internals, compiler, sucrase, tailwind]
 React Portal compiles components **on the instance**, in the platform's JavaScript engine, with no WebAssembly. The compiler (`src/server/compiler/compiler.ts`) is pure: no GlideRecord, so the same code could run in a browser or in Node. The build service (`src/server/build/build-service.ts`) wraps it with records.
 
 ```text
-compilerInputs(owner)          main.tsx (client_script) + styles.css (css) + extra client/style files
+compilerInputs(owner)          main.tsx (client_script) + styles.css (css, if the kind has it) + extra client/style files
       │
       ▼
 link()                         walk the import graph from main.tsx; Sucrase each reachable file once
@@ -31,6 +31,10 @@ index.js + index.css           CSS = Tailwind utilities, then styles.css, then i
 resolveRecordImports()         components:<ns>/<key> / utilities:<ns>/<key> → target builds (build_dep)
 applyCompileResult()           assets, deps, server script, snapshots replaced together; reprocess
 ```
+
+## Inputs per kind
+
+`compilerInputs()` (`src/server/source/project-files.ts`) feeds the compiler only the baseline files the component's kind lists in `x_312987_portal.studio.kind_files`, plus any listed-elsewhere field that still holds legacy content. With the defaults, primitives compile `main.tsx` and `styles.css`, and utilities compile `main.tsx` only. Extra `client` and `style` files are fed for every kind. The same rule picks the server script (`serverScriptOf()`): a kind that doesn't list `server.js` and has an empty `script` field has nothing to run. See [Code editor](../studio/code-editor.md#virtual-files).
 
 ## Version
 
@@ -61,7 +65,7 @@ Dependencies are recorded as `relative`, `host` or `component` (record imports, 
 
 ## Record imports
 
-After a successful link, the build service resolves each record import to its component's build and fails the compile if the target doesn't exist, is the component itself, is the wrong kind for the prefix (`components:` → primitive/widget/block; `utilities:` → utility), or has no usable build. Widget imports with a server script add a **warning** that the default export renders as an embedded instance.
+After a successful link, the build service resolves each record import to its component's build and fails the compile if the target doesn't exist, is the component itself, is the wrong kind for the prefix (`components:` → primitive/widget/block; `utilities:` → utility), or has no usable build. Widget imports whose `server_mode` isn't `none` add a **warning** that the default export renders as an embedded instance.
 
 ## Tailwind
 

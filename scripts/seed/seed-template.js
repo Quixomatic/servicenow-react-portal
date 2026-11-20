@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.16.0/src/server/'
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.17.0/src/server/'
     var releases = require(ROOT + 'release/release-service.ts')
     var T = 'x_312987_portal_'
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
@@ -224,6 +224,50 @@
             },
             stylesheet: ':host { font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; --rp-noise: url("__ASSET_DATA_URI:noisy-light.png__"); }\n' +
                 ':host(.dark) { --rp-noise: url("__ASSET_DATA_URI:noisy-dark.jpg__"); }',
+        },
+        // The docs portal's own theme: starts as a copy of sp-light (blue primary, sidebar tints, chart-1…5
+        // icon tiles, system-ui), so it sits in line with the Service Portal and can diverge later.
+        docs: {
+            name: 'Docs',
+            tokens: {
+                light: {
+                    background: 'oklch(0.99 0.003 260)', foreground: 'oklch(0.21 0.02 260)',
+                    card: 'oklch(1 0 0)', 'card-foreground': 'oklch(0.21 0.02 260)',
+                    popover: 'oklch(1 0 0)', 'popover-foreground': 'oklch(0.21 0.02 260)',
+                    primary: 'oklch(0.55 0.2 260)', 'primary-foreground': 'oklch(0.98 0 0)',
+                    secondary: 'oklch(0.95 0.015 260)', 'secondary-foreground': 'oklch(0.25 0.03 260)',
+                    muted: 'oklch(0.96 0.01 260)', 'muted-foreground': 'oklch(0.5 0.03 260)',
+                    accent: 'oklch(0.95 0.02 260)', 'accent-foreground': 'oklch(0.25 0.03 260)',
+                    destructive: 'oklch(0.58 0.22 27)', border: 'oklch(0.9 0.01 260)', input: 'oklch(0.9 0.01 260)',
+                    ring: 'oklch(0.55 0.2 260)', radius: '0.5rem',
+                    // App shell: a faintly blue sidebar canvas around the white main card; icon-tile
+                    // tints stay in sp's blue family.
+                    'chart-1': 'oklch(0.55 0.2 260)', 'chart-2': 'oklch(0.58 0.12 220)', 'chart-3': 'oklch(0.55 0.17 290)',
+                    'chart-4': 'oklch(0.64 0.15 60)', 'chart-5': 'oklch(0.57 0.12 165)',
+                    sidebar: 'oklch(0.97 0.01 260)', 'sidebar-foreground': 'oklch(0.25 0.03 260)',
+                    'sidebar-primary': 'oklch(0.55 0.2 260)', 'sidebar-primary-foreground': 'oklch(0.98 0 0)',
+                    'sidebar-accent': 'oklch(0.55 0.2 260 / 0.08)', 'sidebar-accent-foreground': 'oklch(0.21 0.02 260)',
+                    'sidebar-border': 'oklch(0.9 0.012 260)', 'sidebar-ring': 'oklch(0.55 0.2 260)',
+                },
+                dark: {
+                    background: 'oklch(0.17 0.02 260)', foreground: 'oklch(0.95 0.01 260)',
+                    card: 'oklch(0.21 0.025 260)', 'card-foreground': 'oklch(0.95 0.01 260)',
+                    popover: 'oklch(0.21 0.025 260)', 'popover-foreground': 'oklch(0.95 0.01 260)',
+                    primary: 'oklch(0.68 0.17 260)', 'primary-foreground': 'oklch(0.17 0.02 260)',
+                    secondary: 'oklch(0.27 0.03 260)', 'secondary-foreground': 'oklch(0.95 0.01 260)',
+                    muted: 'oklch(0.25 0.025 260)', 'muted-foreground': 'oklch(0.7 0.03 260)',
+                    accent: 'oklch(0.28 0.04 260)', 'accent-foreground': 'oklch(0.95 0.01 260)',
+                    destructive: 'oklch(0.65 0.2 25)', border: 'oklch(1 0 0 / 12%)', input: 'oklch(1 0 0 / 15%)',
+                    ring: 'oklch(0.68 0.17 260)', radius: '0.5rem',
+                    'chart-1': 'oklch(0.72 0.15 260)', 'chart-2': 'oklch(0.76 0.11 220)', 'chart-3': 'oklch(0.74 0.14 290)',
+                    'chart-4': 'oklch(0.8 0.13 70)', 'chart-5': 'oklch(0.76 0.12 165)',
+                    sidebar: 'oklch(0.14 0.018 260)', 'sidebar-foreground': 'oklch(0.93 0.01 260)',
+                    'sidebar-primary': 'oklch(0.68 0.17 260)', 'sidebar-primary-foreground': 'oklch(0.17 0.02 260)',
+                    'sidebar-accent': 'oklch(1 0 0 / 0.06)', 'sidebar-accent-foreground': 'oklch(0.95 0.01 260)',
+                    'sidebar-border': 'oklch(1 0 0 / 10%)', 'sidebar-ring': 'oklch(0.68 0.17 260)',
+                },
+            },
+            stylesheet: ':host { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
         },
     }
     var themeIds = {}
@@ -587,6 +631,8 @@
     // Home page and "My …" menu items: the platform's dynamic filter option "Me", the OOB "Report
     // Outage" record producer, and menu conditions that hide My tasks / My surveys for users who have none.
     var ME = 'DYNAMIC90d1921e5f510100a9ad2572f2b477fe'
+    // Menu groups only authors see (gs.hasRole is true for admin too).
+    var STUDIO_ROLES = 'x_312987_portal.developer,x_312987_portal.designer,x_312987_portal.publisher,x_312987_portal.admin'
     var REPORT_ISSUE = '38c1fc840a0a0b2700285921c2bf5fc8'
     var COND_HAS_TASKS = "var ga = new GlideAggregate('task'); ga.addQuery('active', true); ga.addQuery('assigned_to', gs.getUserID()); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0"
     var COND_HAS_SURVEYS = "var ga = new GlideAggregate('asmt_assessment_instance'); ga.addQuery('user', gs.getUserID()); ga.addQuery('state', 'IN', 'ready,wip'); ga.addAggregate('COUNT'); ga.query(); return ga.next() && parseInt(ga.getAggregate('COUNT'), 10) > 0"
@@ -596,7 +642,9 @@
         // App shell (like the Dashboard portal) in sp's own look: a plain sidebar-coloured canvas
         // (no texture), the full-height icon-collapsible sidebar with the header band beside it, and
         // an inset main card whose sub-header takes the pages' titles and toolbars (header slots).
-        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' }, exposedProperties: ['glide.sc.checkout.twostep', 'com.glide.attachment.max_size', 'glide.attachment.extensions'] },
+        // KB wave: the glide.knowman.* properties utilities:app/knowledge reads (feedback options and
+        // their roles, actionable feedback, the featured keyword, show_only_populated).
+        settings: { contentWidth: '6xl', layoutOptions: { texture: 'plain', contentPadding: 'md' }, exposedProperties: ['glide.sc.checkout.twostep', 'com.glide.attachment.max_size', 'glide.attachment.extensions', 'glide.knowman.default_keyword', 'glide.knowman.show_rating_options', 'glide.knowman.show_rating_options.roles', 'glide.knowman.show_yn_rating', 'glide.knowman.show_yn_rating.roles', 'glide.knowman.show_star_rating', 'glide.knowman.show_star_rating.roles', 'glide.knowman.show_flag', 'glide.knowman.show_flag.roles', 'glide.knowman.feedback.enable_actionable_feedback_for_flag', 'glide.knowman.feedback.enable_actionable_feedback_for_helpful', 'glide.knowman.show_only_populated'] },
         nav: [{ label: 'Home', to: '', icon: 'house' }, { label: 'Incidents', to: 'incidents', icon: 'ticket' }, { label: 'Record list', to: 'list', icon: 'table-2' }, { label: 'Lists', to: 'lists', icon: 'list' }, { label: 'Orders', to: 'orders', icon: 'shopping-cart' }, { label: 'Tests', to: 'tests', icon: 'flask-conical' }, { label: 'Embeds', to: 'embeds', icon: 'layers' }, { label: 'Layouts', to: 'layouts', icon: 'layout-grid' }, { label: 'Fields', to: 'fields', icon: 'text-cursor-input' }, { label: 'Catalog', to: 'catalog', icon: 'store' }, { label: 'Form', to: 'form', icon: 'file-text' }, { label: 'About', to: 'about', icon: 'info' }],
         // Menu records (navigation_json above stays one release as the fallback).
         menus: [
@@ -614,7 +662,8 @@
                     { page: 'kb', label: 'Knowledge', icon: 'book-open' },
                     { page: 'catalog', label: 'Catalog', icon: 'store' },
                 ] },
-                { label: 'Components', children: [
+                // Demo groups are for authors only (roleless customer test): customers see Service desk.
+                { label: 'Components', roles: STUDIO_ROLES, children: [
                     { page: 'list', label: 'Record list', icon: 'table-2', tooltip: 'Any table: ?table=&query=&view=' },
                     { page: 'form', label: 'Record form', icon: 'file-text', tooltip: 'Any record: ?table=&sys_id=&view=' },
                     { page: 'incidents', label: 'Incidents', icon: 'ticket' },
@@ -629,7 +678,7 @@
                     // Attachments (A6): presentation variants of one record's attachments.
                     { page: 'attachments', label: 'Attachments', icon: 'paperclip' },
                 ] },
-                { label: 'More', children: [
+                { label: 'More', roles: STUDIO_ROLES, children: [
                     { page: 'tests', label: 'Runtime Tests', icon: 'flask-conical' },
                     { page: 'about', label: 'About', icon: 'info' },
                     // User criteria demo: the page item drops for users the page's criteria exclude; the
@@ -667,7 +716,7 @@
             // "below" slot), announcements, quick links, my items + knowledge side by side, popular
             // catalog items and a get-help band. prune: the old demo cards are deactivated.
             { route: 'home', name: 'Home', prune: true, layoutOptions: { subheader: 'banner', subheaderTitle: 'How can we help?', subheaderSubtitle: 'Search for answers, request something, or check on your requests.', subheaderIcon: 'life-buoy' }, widgets: [
-                { c: 'hero-search', options: { placement: 'banner', placeholder: 'Search for help, services and your requests', suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'] } },
+                { c: 'hero-search', options: { placement: 'banner', placeholder: 'Search for help, services and your requests', suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'], kbPage: 'kb/article', kbSearchPage: 'kb/search' } },
                 { c: 'announcements', options: { types: 'widget', limit: 2 } },
                 { c: 'quick-links', options: { variant: 'tiles', columns: 4, items: [
                     { label: 'Report an issue', description: 'Something broken? Let the service desk know.', icon: 'triangle-alert', tint: 'chart-4', to: 'catalog', q: { item: REPORT_ISSUE } },
@@ -677,7 +726,7 @@
                 ] } },
                 { c: 'grid', options: { columns: 'repeat(12, minmax(0, 1fr))', gap: '1.5rem', itemSpan: 6 }, children: { items: [
                     { c: 'my-items', layout: { colSpan: 7, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'My active items', limit: 5, recordPage: 'form', listPage: 'list', live: true } },
-                    { c: 'kb-articles', layout: { colSpan: 5, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'Knowledge', limit: 5, kbPage: 'kb', categoriesLimit: 6, compact: true } },
+                    { c: 'kb-articles', layout: { colSpan: 5, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } }, options: { title: 'Knowledge', limit: 5, kbPage: 'kb', articlePage: 'kb/article', categoryPage: 'kb/category', categoriesLimit: 6, compact: true } },
                 ] } },
                 { c: 'catalog-tiles', options: { title: 'Popular requests', description: 'What people around you order most.', mode: 'popular', limit: 8, columns: 4, catalogPage: 'catalog', items: ['73b1bafa9752cd1021983d1e6253afb5', 'c3b9cbf29716cd1021983d1e6253afad', '774906834fbb4200086eeed18110c737', '3022c182d52d3904c602d97466d5a6b1', '729166dc47d20950f53d37d2846d434a', '4a17d6a3ff133100ba13ffffffffffe7', '54c9ead947dec110f53d37d2846d43ea'], exclude: ['2f600ac0935d86d0df2f76718bba1077'] } },
                 { c: 'quick-links', options: { variant: 'cta', title: "Can't find what you need?", description: 'Search the knowledge base or tell the service desk. We usually answer within a business day.', items: [
@@ -687,11 +736,27 @@
             ] },
             // Portal search results (app/search-results): q term=…&source=… (the hero search's Enter).
             { route: 'search', name: 'Search', widgets: [
-                { c: 'search-results', options: { resultsPage: 'search', catalogPage: 'catalog', kbPage: 'kb', recordPage: 'form', pageSize: 10, suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'] } },
+                { c: 'search-results', options: { resultsPage: 'search', catalogPage: 'catalog', kbPage: 'kb/article', kbSearchPage: 'kb/search', recordPage: 'form', pageSize: 10, suggestions: ['Reset password', 'Laptop', 'VPN', 'Email'] } },
             ] },
-            // Knowledge (app/knowledge): browse topics and most viewed articles; ?sys_id= shows one article.
-            { route: 'kb', name: 'Knowledge', widgets: [
-                { c: 'knowledge', options: { listLimit: 20, showRelated: true, resultsPage: 'search' } },
+            // Knowledge (KB wave): four pages on utilities:app/knowledge. The primary menu's Knowledge item
+            // (page kb, prefix match) stays active on all of them. kb: the banner sub-header with a
+            // knowledge-only hero search, then app/kb-home (KB cards, featured / most viewed / recently
+            // updated, category trees). Old kb links with a sys_id or q category are forwarded.
+            { route: 'kb', name: 'Knowledge', prune: true, layoutOptions: { subheader: 'banner', subheaderTitle: 'Knowledge', subheaderSubtitle: 'How-to guides, answers and policies from the service desk.', subheaderIcon: 'book-open' }, widgets: [
+                { c: 'hero-search', options: { placement: 'banner', sources: ['knowledge'], placeholder: 'Search knowledge articles', resultsPage: 'kb/search', kbPage: 'kb/article', kbSearchPage: 'kb/search', suggestions: ['Outlook', 'VPN', 'Windows', 'Spam'] } },
+                { c: 'kb-home', options: { showSearch: false, limit: 6, articlePage: 'kb/article', categoryPage: 'kb/category', searchPage: 'kb/search' } },
+            ] },
+            // One article (sys_id): reading layout, "On this page", attachments, feedback, related; counts the view.
+            { route: 'kb/article', name: 'Knowledge article', widgets: [
+                { c: 'kb-article', options: { homePage: 'kb', categoryPage: 'kb/category', searchPage: 'kb/search', articlePage: 'kb/article' } },
+            ] },
+            // A knowledge base or category (q kb=…&category=…&sort=…&page=…).
+            { route: 'kb/category', name: 'Knowledge category', widgets: [
+                { c: 'kb-category', options: { pageSize: 15, homePage: 'kb', articlePage: 'kb/article', searchPage: 'kb/search' } },
+            ] },
+            // KB search with facets (q term=…&kb=…&category=…&type=…&sort=…&page=…).
+            { route: 'kb/search', name: 'Knowledge search', widgets: [
+                { c: 'kb-search', options: { pageSize: 10, homePage: 'kb', articlePage: 'kb/article', categoryPage: 'kb/category', suggestions: ['Outlook', 'VPN', 'Windows', 'Spam'] } },
             ] },
             { route: 'orders', name: 'Orders', widgets: [
                 { c: 'hello-card', options: { title: 'Orders', body: 'Pick an order. Each opens the orders/:id route.', links: [{ label: 'Order 42', to: 'orders/42' }, { label: 'Order 43', to: 'orders/43' }, { label: 'Order 44 (with q)', to: 'orders/44', q: 'view=summary&tab=2' }] } },
@@ -993,6 +1058,32 @@
                     { c: 'hello-card', options: { title: 'Three', body: 'span 4' } },
                 ] } },
             ] },
+        ],
+    })
+
+    // Docs (ChannelGuide's fumadocs docs layout and UX, in its own docs theme, a copy of sp-light): docs/guide rendered from x_312987_portal_doc (the docs
+    // step of `npm run seed`). Two pages: the home page 'index' (the Introduction) and '*', which takes
+    // every other doc path (…/site/docs/params/page-id/concepts%2Flayouts). The layout does the framing.
+    seedPortal({
+        slug: 'docs', name: 'React Portal Docs', theme: 'docs', home: 'index', layout: 'docs-layout',
+        settings: { contentWidth: 'full' },
+        portalWidgets: [
+            { c: 'docs-sidebar', region: 'sidebar', options: {
+                title: 'React Portal', icon: 'book-open', search: true, collapsible: true,
+                switcher: [
+                    { title: 'Documentation', description: 'Guides & reference', icon: 'book-text', tint: 'chart-1' },
+                    { title: 'Service Portal', description: 'The sp demo portal', icon: 'life-buoy', tint: 'chart-2', portal: 'sp' },
+                    { title: 'Dashboard', description: 'The app shell demo', icon: 'layout-dashboard', tint: 'chart-3', portal: 'app' },
+                    { title: 'CRM', description: 'Another theme and layout', icon: 'building-2', tint: 'chart-4', portal: 'crm' },
+                ],
+                tintSections: ['introduction', 'getting-started', 'concepts', 'authoring', 'runtime-api', 'server-api', 'primitives', 'rest-api', 'studio', 'security', 'internals', 'reference'],
+                links: [{ label: 'Source on GitHub', icon: 'code-xml', url: 'https://github.com/Quixomatic/servicenow-react-portal' }],
+            } },
+            { c: 'docs-header', region: 'header', options: { title: 'React Portal', icon: 'book-open', search: true } },
+        ],
+        pages: [
+            { route: 'index', name: 'Introduction', widgets: [{ c: 'docs-page', options: { breadcrumb: true, tocDepth: 3, prevNext: true } }] },
+            { route: '*', name: 'Docs page', widgets: [{ c: 'docs-page', options: { breadcrumb: true, tocDepth: 3, prevNext: true } }] },
         ],
     })
 

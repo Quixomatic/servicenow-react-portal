@@ -1,0 +1,161 @@
+/* Docs prose: a port of fumadocs' typography plugin (@fumadocs/tailwind/typography, DEFAULT +
+   rounded tables) onto the theme tokens. Unlayered, so it beats Tailwind utilities: every rule is
+   scoped with :not(:where(.not-prose, .not-prose *)) so components inside (code blocks, buttons)
+   keep their own styles. */
+.rp-docs-prose {
+    --rp-docs-prose-body: color-mix(in oklab, var(--foreground) 90%, transparent);
+    color: var(--rp-docs-prose-body);
+    font-size: 1rem;
+    line-height: 1.75rem;
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+.rp-docs-prose > :first-child { margin-top: 0; }
+.rp-docs-prose > :last-child { margin-bottom: 0; }
+
+.rp-docs-prose :where(p):not(:where(.not-prose, .not-prose *)) { margin: 1.25em 0; }
+.rp-docs-prose :where(strong):not(:where(.not-prose, .not-prose *)) { color: var(--foreground); font-weight: 500; }
+.rp-docs-prose :where(h1, h2, h3, h4, h5, h6):not(:where(.not-prose, .not-prose *)) { color: var(--foreground); scroll-margin-top: 5rem; }
+.rp-docs-prose :where(h1):not(:where(.not-prose, .not-prose *)) { font-size: 1.875rem; font-weight: 800; margin: 0 0 0.888em; line-height: 1.11; }
+.rp-docs-prose :where(h2):not(:where(.not-prose, .not-prose *)) { font-size: 1.5em; font-weight: 600; margin: 2em 0 1em; line-height: 1.333; }
+.rp-docs-prose :where(h3):not(:where(.not-prose, .not-prose *)) { font-size: 1.25em; font-weight: 600; margin: 1.6em 0 0.6em; line-height: 1.6; }
+.rp-docs-prose :where(h4):not(:where(.not-prose, .not-prose *)) { font-size: 1em; font-weight: 600; margin: 1.5em 0 0.5em; line-height: 1.5; }
+.rp-docs-prose :where(h2 + *, h3 + *, h4 + *, hr + *):not(:where(.not-prose, .not-prose *)) { margin-top: 0; }
+
+/* Heading anchors (fumadocs Heading): the text links to itself, a copy-link button shows on hover. */
+.rp-docs-prose .rp-docs-heading { display: flex; flex-direction: row; align-items: center; gap: 0.25rem; }
+.rp-docs-prose .rp-docs-heading > a[data-card] { color: inherit; text-decoration: none; font-weight: inherit; }
+
+.rp-docs-prose :where(a:not([data-card])):not(:where(.not-prose, .not-prose *)) {
+    color: var(--foreground);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 3.5px;
+    text-decoration-color: var(--primary);
+    text-decoration-thickness: 1.5px;
+    transition: opacity 0.2s;
+    cursor: pointer;
+}
+.rp-docs-prose :where(a:not([data-card])):not(:where(.not-prose, .not-prose *)):hover { opacity: 0.8; }
+
+.rp-docs-prose :where(ul):not(:where(.not-prose, .not-prose *)) { list-style: disc; padding-inline-start: 1rem; margin: 1.25em 0; }
+.rp-docs-prose :where(ol):not(:where(.not-prose, .not-prose *)) { list-style: decimal; padding-inline-start: 1.625em; margin: 1.25em 0; }
+.rp-docs-prose :where(li):not(:where(.not-prose, .not-prose *)) { margin: 0.5em 0; }
+.rp-docs-prose :where(ol > li):not(:where(.not-prose, .not-prose *)) { padding-inline-start: 0.375em; }
+.rp-docs-prose :where(ul > li)::marker { color: var(--muted-foreground); }
+.rp-docs-prose :where(ol > li)::marker { color: var(--muted-foreground); font-weight: 400; }
+/* Nested lists get a clear indent (ChannelGuide's prose-enhanced). */
+.rp-docs-prose :where(ul, ol) :where(ul, ol):not(:where(.not-prose, .not-prose *)) { padding-inline-start: 2.75rem; margin: 0.375rem 0 0.75em; }
+.rp-docs-prose :where(li > p):not(:where(.not-prose, .not-prose *)) { margin: 0.75em 0; }
+.rp-docs-prose :where(li[data-task]) { list-style: none; margin-inline-start: -1rem; }
+.rp-docs-prose :where(li[data-task]) input { margin-inline-end: 0.5rem; vertical-align: middle; }
+
+.rp-docs-prose :where(hr):not(:where(.not-prose, .not-prose *)) { border: 0; border-top: 1px solid var(--border); margin: 3em 0; }
+.rp-docs-prose :where(blockquote):not(:where(.not-prose, .not-prose *)) {
+    margin: 1.6em 0;
+    padding-inline-start: 1em;
+    border-inline-start: 0.25rem solid var(--border);
+    font-style: italic;
+    font-weight: 500;
+    color: var(--foreground);
+}
+.rp-docs-prose :where(img):not(:where(.not-prose, .not-prose *)) { margin: 2em 0; max-width: 100%; border-radius: var(--radius); }
+.rp-docs-prose :where(kbd):not(:where(.not-prose, .not-prose *)) {
+    font-size: 0.875em; border-radius: 5px; padding: 0.1875em 0.375em; font-weight: 500; font-family: inherit;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 50%, transparent), 0 3px 0 color-mix(in oklab, var(--primary) 50%, transparent);
+}
+
+/* Inline code. */
+.rp-docs-prose :where(code):not(:where(.not-prose, .not-prose *, pre *)) {
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 400;
+    background: var(--muted);
+    color: var(--foreground);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    overflow-wrap: break-word; /* not anywhere: table columns keep room for a whole code span */
+}
+.rp-docs-prose :where(a code, h2 code, h3 code, h4 code, th code) { color: inherit; }
+.rp-docs-prose :where(h2 code):not(:where(.not-prose *)) { font-size: 0.875em; }
+.rp-docs-prose :where(h3 code):not(:where(.not-prose *)) { font-size: 0.9em; }
+
+/* Tables: fumadocs' rounded table, in a scroll wrapper so wide tables never widen the page. */
+.rp-docs-prose .rp-docs-table { margin: 2em 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border-radius: var(--radius); }
+.rp-docs-prose .rp-docs-table:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.rp-docs-prose .rp-docs-table table {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-size: 0.875em;
+    line-height: 1.714;
+    margin: 0;
+}
+.rp-docs-prose .rp-docs-table :where(th, td) { text-align: start; padding: 0.625rem; border-inline-start: 1px solid var(--border); vertical-align: top; }
+.rp-docs-prose .rp-docs-table :where(th) { background: var(--muted); color: var(--foreground); font-weight: 600; vertical-align: bottom; }
+.rp-docs-prose .rp-docs-table :where(th:first-child, td:first-child) { border-inline-start: none; }
+.rp-docs-prose .rp-docs-table :where(thead th, tbody tr:not(:last-child) td) { border-bottom: 1px solid var(--border); }
+/* Phones: a table with 3+ columns keeps a readable width and scrolls sideways in its wrapper. */
+@container rp-page (max-width: 639px) {
+    .rp-docs-prose .rp-docs-table:has(th:nth-child(3)) table { min-width: 36rem; }
+    .rp-docs-prose .rp-docs-table:has(th:nth-child(2)):not(:has(th:nth-child(3))) table { min-width: 26rem; }
+}
+
+/* Code blocks (fumadocs CodeBlock). */
+.rp-docs-code {
+    position: relative;
+    margin: 1rem 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    overflow: hidden;
+    font-size: 0.875rem;
+}
+.rp-docs-code__title { display: flex; align-items: center; gap: 0.5rem; height: 2.375rem; padding: 0 1rem; border-bottom: 1px solid var(--border); color: var(--muted-foreground); }
+.rp-docs-code__copy { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2; backdrop-filter: blur(16px); }
+.rp-docs-code__viewport { font-size: 0.8125rem; line-height: 1.7; padding: 0.875rem 0; overflow: auto; max-height: 600px; }
+.rp-docs-code__viewport:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.rp-docs-code pre { margin: 0; min-width: 100%; width: max-content; padding: 0 2.5rem 0 1rem; background: transparent; }
+.rp-docs-code__title + .rp-docs-code__viewport pre { padding-right: 1rem; }
+.rp-docs-code code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: inherit; white-space: pre; background: none; border: 0; padding: 0; }
+
+/* Callouts (fumadocs Callout). */
+.rp-docs-callout {
+    --callout: oklch(62.3% 0.214 259.815);
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    padding: 0.75rem 0.75rem 0.75rem 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    background: var(--card);
+    color: var(--card-foreground);
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+.rp-docs-callout[data-type="warning"] { --callout: oklch(76.9% 0.188 70.08); }
+.rp-docs-callout[data-type="error"] { --callout: oklch(63.7% 0.237 25.331); }
+.rp-docs-callout[data-type="success"] { --callout: oklch(72.3% 0.219 149.579); }
+.rp-docs-callout[data-type="idea"] { --callout: oklch(70.5% 0.209 60.849); }
+.rp-docs-callout__bar { width: 2px; flex: none; border-radius: 2px; background: color-mix(in oklab, var(--callout) 50%, transparent); }
+.rp-docs-callout__icon { width: 1.25rem; height: 1.25rem; flex: none; margin-inline-end: -0.125rem; fill: var(--callout); color: var(--card); }
+.rp-docs-callout[data-type="idea"] .rp-docs-callout__icon { color: var(--callout); }
+.rp-docs-prose .rp-docs-callout__title { margin: 0; font-weight: 500; color: var(--card-foreground); }
+.rp-docs-callout__body { color: var(--muted-foreground); min-width: 0; }
+.rp-docs-prose .rp-docs-callout__body :where(p, ul, ol) { margin: 0.5em 0; }
+.rp-docs-prose .rp-docs-callout__body > :first-child { margin-top: 0; }
+.rp-docs-prose .rp-docs-callout__body > :last-child { margin-bottom: 0; }
+.rp-docs-prose .rp-docs-callout__body :where(strong) { color: var(--card-foreground); }
+
+/* rp-embed live examples. */
+.rp-docs-embed { margin: 1.25rem 0; padding: 0.75rem; border: 1px dashed var(--border); border-radius: calc(var(--radius) + 4px); }
+.rp-docs-embed__label { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.625rem; font-size: 0.75rem; color: var(--muted-foreground); }
+.rp-docs-embed__label code { font-size: 0.75rem; }

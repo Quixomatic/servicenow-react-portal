@@ -4,7 +4,7 @@ import { DialogOutlet } from 'components:app/confirm-dialog'
 import { Card, CardHeader, CardContent } from 'components:card'
 import { Button } from 'components:button'
 import { Badge } from 'components:badge'
-import { useFormViews } from 'utilities:app/graphql'
+import { useFormViews, useGraphQL, isDefaultViewName } from 'utilities:app/graphql'
 import { FormProvider, useFormMeta, cx, Spinner, IconAlert, IconChevronDown } from 'components:app/field'
 import type { FieldLayout, ValidationResult } from 'components:app/field'
 import { sanitizeHtml } from 'components:app/variable'
@@ -87,6 +87,15 @@ export type RecordFormProps = {
      * (under the sections). In both, the view's journal inputs move into the composer.
      */
     activity?: 'off' | 'notes' | 'below'
+    /**
+     * View resolution (backlog B). `viewPinned`: the shown view was chosen explicitly (URL, option or
+     * remembered) rather than resolved automatically (view rules → portal candidates → Default). When
+     * set (true or false), the switcher offers "Automatic", which calls onViewChange(''), and picking
+     * Default calls onViewChange('default'); undefined keeps the old switcher (Default → '').
+     */
+    viewPinned?: boolean
+    /** A requested view that doesn't exist for the table: a small "View `x` not found" notice. */
+    missingView?: string
 }
 
 /** A record form with header, view switcher, sections, dirty tracking and save. */
@@ -236,15 +245,27 @@ function FormSettingsMenu(props: {
     view: string
     showViews?: boolean
     onViewChange?: (v: string) => void
+    viewPinned?: boolean
     presentation: FormPresentation
     onPresentationChange: (p: FormPresentation) => void
     canTab: boolean
 }) {
     const views = useFormViews(props.table, props.showViews ? props.sysId : '-1')
     const list = (views.data && views.data.views) || []
-    const items = list.length ? list.map((v) => ({ value: v.name, label: v.label })) : [{ value: props.view, label: props.view || 'Default view' }]
+    // The Default view's name is '' in availableViews but 'Default view' in uiView.view: one value for both.
+    const items = list.length ? list.map((v) => ({ value: v.name || 'Default view', label: v.label || 'Default view' })) : [{ value: props.view || 'Default view', label: props.view || 'Default view' }]
     if (items.every((i) => i.value !== props.view)) items.unshift({ value: props.view, label: props.view })
-    const currentView = (items.find((i) => i.value === props.view) || { label: props.view || 'Default view' }).label
+    const viewLabel = (items.find((i) => i.value === props.view) || { label: props.view || 'Default view' }).label
+    // Automatic resolution (view rules → portal candidates → Default) as its own choice.
+    const auto = props.viewPinned !== undefined
+    const AUTO = '__rp_auto__'
+    const currentView = auto && !props.viewPinned ? `${viewLabel} (auto)` : viewLabel
+    const radioValue = auto && !props.viewPinned ? AUTO : props.view
+    const choose = (v: string) => {
+        if (!props.onViewChange) return
+        if (auto) props.onViewChange(v === AUTO ? '' : v === 'Default view' ? 'default' : String(v))
+        else props.onViewChange(v === 'Default view' ? '' : String(v))
+    }
     if (!props.canTab && !props.showViews) return null
     const value = (text: string) => <span className="ml-auto max-w-32 truncate pl-3 text-xs text-muted-foreground">{text}</span>
     return (
@@ -259,7 +280,12 @@ function FormSettingsMenu(props: {
                             <Icon name="eye" aria-hidden="true" /> View {value(currentView)}
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent side="left" className="max-w-[min(18rem,calc(100vw-1rem))] min-w-48">
-                            <DropdownMenuRadioGroup value={props.view} onValueChange={(v: string) => props.onViewChange && props.onViewChange(v === 'Default view' ? '' : String(v))}>
+                            <DropdownMenuRadioGroup value={radioValue} onValueChange={(v: string) => choose(v)}>
+                                {auto ? (
+                                    <DropdownMenuRadioItem value={AUTO} closeOnClick data-rp-view-option="" title="View rules and the portal's default views decide">
+                                        Automatic
+                                    </DropdownMenuRadioItem>
+                                ) : null}
                                 {items.map((i) => (
                                     <DropdownMenuRadioItem key={i.value} value={i.value} closeOnClick data-rp-view-option={i.value}>
                                         {i.label}
@@ -289,6 +315,14 @@ function FormSettingsMenu(props: {
             </DropdownMenuContent>
         </DropdownMenu>
     )
+}
+
+/** A form view's title by name (sys_ui_view.title), e.g. 'sow_new_record' → 'Service Operations Workspace New Record'. '' = none. */
+function useViewLabel(name: string): string {
+    const ok = !!name && /^[A-Za-z0-9_.-]+$/.test(name)
+    const q = useGraphQL(`query rpViewLabel($q: String) { GlideRecord_Query { sys_ui_view(queryConditions: $q, pagination: { limit: 1 }) { _results { title { displayValue } } } } }`, { q: `name=${name}` }, { enabled: ok, staleTime: 10 * 60_000 })
+    const rows = q.data && q.data.GlideRecord_Query && q.data.GlideRecord_Query.sys_ui_view && q.data.GlideRecord_Query.sys_ui_view._results
+    return ok && rows && rows[0] && rows[0].title ? String(rows[0].title.displayValue || '') : ''
 }
 
 function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
@@ -400,6 +434,13 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     const save = async (opts?: { force?: boolean }) => handle(await form.save(opts))
     const run = async (action: UiAction) => handle(await form.runAction(action))
 
+    // View resolution: the view asked for but not shown (the caller's check, or a forced view the
+    // platform didn't find and replaced with Default), and the shown view's label for the notice.
+    const forced = (boot && boot.requested && boot.requested.forcedView) || ''
+    const shownView = (boot && boot.view) || ''
+    const missingView = props.missingView || (forced && forced !== 'default' && forced.toLowerCase() !== shownView.toLowerCase() ? forced : '')
+    const shownViewLabel = useViewLabel(missingView && !isDefaultViewName(shownView) ? shownView : '') || (isDefaultViewName(shownView) ? 'Default view' : shownView)
+
     if (!boot) {
         if (form.status.error)
             return (
@@ -419,7 +460,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     }
 
     const dirtyCount = meta.dirtyFields.length
-    const canSave = !form.readOnly && (form.isNew || dirtyCount > 0) && !form.saving
+    const canSave =!form.readOnly && (form.isNew || dirtyCount > 0) && !form.saving
     saveShortcut.current = () => {
         if (canSave) save()
     }
@@ -479,6 +520,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             view={boot.view}
             showViews={props.showViews}
             onViewChange={props.onViewChange}
+            viewPinned={props.viewPinned}
             presentation={presentation}
             onPresentationChange={setUserPresentation}
             canTab={tabsPossible}
@@ -503,7 +545,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             : null
     const relatedMerged = !!relatedConfig && relatedMode !== 'stacked' && presentation === 'tabs' && tabsPossible
     return (
-        <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`}>
+        <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`} data-rp-form-view={boot.view} data-rp-view-pinned={props.viewPinned === undefined ? undefined : String(props.viewPinned)}>
             {/* g_modal (client scripts, UI actions) dialogs; only the page's first outlet renders. */}
             <DialogOutlet />
             {slots ? (
@@ -557,6 +599,14 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
                         }}
                         className="flex flex-col gap-6 pb-4"
                     >
+                        {missingView ? (
+                            <p role="status" className="-mb-2 flex items-center gap-2 text-xs text-muted-foreground" data-rp-view-missing={missingView}>
+                                <Icon name="eye-off" aria-hidden="true" className="size-3.5 shrink-0" />
+                                <span>
+                                    View <code className="rounded bg-muted px-1 py-0.5 font-mono">{missingView}</code> not found, showing {shownViewLabel}.
+                                </span>
+                            </p>
+                        ) : null}
                         {errors.length ? (
                             <div
                                 ref={summary}

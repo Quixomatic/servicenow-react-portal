@@ -34,7 +34,8 @@ The host exposes the effective width as the CSS custom property **`--rp-content-
 ```
 
 - `app/standard-layout` and `app/app-shell` centre their main content and cap it at `--rp-content-max`.
-- `app/centered-layout` uses it as its column width when set, else its own 760px.
+- `app/centered-layout` uses it as its column width (`min(var(--rp-content-max, 760px), 100%)`). The 760px fallback only applies where the property isn't set, such as outside the host.
+- `app/app-subheader` caps its banner content at the same width, so the banner title lines up with the page content.
 - For `full`, the property is set to `none`.
 
 The page designer's canvas applies the same wrapper, so pages preview at their real width.
@@ -43,3 +44,4 @@ The page designer's canvas applies the same wrapper, so pages preview at their r
 
 - [Layouts](layouts.md)
 - [Pages and routes](pages-and-routes.md)
+- [Portals](portals.md#settings-settings_json)

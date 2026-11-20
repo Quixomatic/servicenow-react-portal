@@ -41,15 +41,15 @@ type RecordWatchEvent = {
 }
 ```
 
-`status` is `'idle' | 'subscribing' | 'subscribed' | 'denied' | 'error'`. `denied` means 403: the user may not watch that table.
+`status` is `'idle' | 'subscribing' | 'subscribed' | 'denied' | 'error'`. `denied` means the platform answered 403. In practice record-watch subscriptions are accepted for any table and query, even ones the user can't read (see the rules below).
 
 ## `useAmbChannel(channel, onMessage, options?)`
 
 ```ts
-useAmbChannel(channel: string, onMessage: (msg) => void, options?: { enabled?: boolean; graphQLSubscription?: boolean }): { status, error?, connection }
+useAmbChannel(channel: string, onMessage: (msg) => void, options?: { enabled?: boolean; graphQLSubscription?: string }): { status, error?, connection }
 ```
 
-Any AMB channel, e.g. a GraphQL subscription's `/rw/graphql/…`.
+Any AMB channel, e.g. a GraphQL subscription's `/rw/graphql/…`. For a GraphQL subscription, pass the serialized subscription as `graphQLSubscription`; it's sent with the subscribe request.
 
 ## `useAmbStatus()`
 
@@ -59,7 +59,7 @@ useAmbStatus(): { connection: 'connecting' | 'open' | 'broken' | 'closed' | 'una
 
 ## Rules of thumb
 
-- **A message is a signal, not data.** Re-read through the Table API or GraphQL (ACL-enforced) and render that. `event.record` is the raw server payload; whether the platform filters it per user ACL is unverified.
+- **A message is a signal, not data.** Re-read through the Table API or GraphQL (ACL-enforced) and render that. Never render `event.displayValue`, `event.fromUser`, `event.record` or `event.raw`: a user watching a record it can't read still receives the record's display value (e.g. its number), the changed field names and who changed it, though no field values.
 - **One connection.** The hooks use `window.amb.getClient()`, else `window.g_ambClient`: no second WebSocket and no bundled client. Without one, `connection` is `'unavailable'` and the hooks do nothing.
 - **Shared channels.** Identical watches share one subscription (reference-counted). A channel is released about 1 s after its last hook unmounts, so StrictMode double mounts and route changes don't churn subscriptions. Non-403 subscribe failures retry at 2, 8 and 32 s.
 - **Reconnects.** Reconnect and short-gap redelivery are the client's job. After a reconnect every watched table is refreshed once.
@@ -67,7 +67,7 @@ useAmbStatus(): { connection: 'connecting' | 'open' | 'broken' | 'closed' | 'una
 - **Cost.** The server evaluates every watch on every write to that table. Avoid broad watches on hot tables.
 - **Studio.** The designer canvas runs with live updates off.
 
-> **Warning:** AMB filtering for non-admin users is untested. Treat watch events as hints and always re-read through ACL-enforced APIs.
+> **Warning:** Tested with a roleless user (2026-11-20): field values are filtered per ACL, but metadata (display value, sys_id, changed field names, `from_user`) reaches any subscriber, even for records it can't read. Treat watch events as hints and always re-read through ACL-enforced APIs.
 
 ## Where it's used
 

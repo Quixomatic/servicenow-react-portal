@@ -8,6 +8,8 @@ import { Button } from '#/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
 import DiagnosticsPanel from './diagnostics-panel';
 import { PortalRouterHost, bootstrapQuery, toRouterPath } from './portal-router';
+import { isMock } from '#/runtime/api';
+import { canSeeErrorDetails } from '#/runtime/widgets';
 
 // The page frame is the `rp-page` size container: instance CSS (placement.css) answers its
 // tablet/mobile container queries, so in the designer the device-width frame renders exactly.
@@ -39,10 +41,31 @@ const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
 			<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="">
 				{!portalSlug ? <NoPortal /> : target ? <PortalBoot key={portalSlug} slug={portalSlug} target={target} /> : null}
 			</div>
-			<DiagnosticsPanel hostId={hostId} target={target} />
+			<DiagnosticsGate slug={portalSlug} hostId={hostId} target={target} />
 		</div>
 	);
 });
+
+/**
+ * The diagnostics pill is for authors: admin and studio roles (the same audience as detailed error
+ * toasts), mock mode, or an explicit `?rpdiag=1`. Customers never see it. The bootstrap query is
+ * shared with PortalBoot, so this adds no request.
+ */
+function DiagnosticsGate({ slug, hostId, target }) {
+	const boot = useQuery({ ...bootstrapQuery(slug || ''), enabled: !!slug });
+	if (!showDiagnostics(boot.data)) return null;
+	return <DiagnosticsPanel hostId={hostId} target={target} />;
+}
+
+function showDiagnostics(bootData) {
+	if (isMock()) return true;
+	try {
+		if (new URLSearchParams(window.location.search).get('rpdiag') === '1') return true;
+	} catch (e) {
+		/* no location */
+	}
+	return !!bootData && canSeeErrorDetails(bootData);
+}
 
 export default PortalApp;
 

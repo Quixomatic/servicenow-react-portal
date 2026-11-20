@@ -1,0 +1,1 @@
+{ "name": "Docs Page", "kind": "widget", "tailwind": true, "defaults": { "breadcrumb": true, "tocDepth": 3, "prevNext": true, "editUrl": "", "editLabel": "Edit on GitHub" } }

@@ -29,7 +29,7 @@
     },
     "kbPage": {
       "type": "string",
-      "title": "Knowledge page route"
+      "title": "Knowledge home page route"
     },
     "showCategories": {
       "type": "boolean",
@@ -44,6 +44,14 @@
     "compact": {
       "type": "boolean",
       "title": "One-line titles"
+    },
+    "articlePage": {
+      "type": "string",
+      "title": "Article page route"
+    },
+    "categoryPage": {
+      "type": "string",
+      "title": "Category page route"
     }
   }
 }

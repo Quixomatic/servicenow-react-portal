@@ -20,7 +20,7 @@ gs.info(JSON.stringify(rp.bootstrap('sp').portal))
 | `bootstrap(slug)` | The bootstrap payload for a portal slug, access-checked for the current user |
 | `resolvePage(slug, path?)` | The page manifest for a portal-relative path |
 | `assembleManifest(portalId)` | The live-assembled manifest for a portal sys_id (what a reprocess would store), or `null` |
-| `execute(slug, instanceId, action?, input?, data?)` | Runs a placement's server script (`action`: `initialize`, `get` (default), `update`). Returns `{ data, options, buildId, release, durationMs, messages }` |
+| `execute(slug, instanceId, action?, input?, data?)` | Runs a placement's server script (`action`: `initialize`, `get` (default), `update`). `data` is accepted but ignored, as over REST: scripts start from empty `data`. Returns `{ data, options, buildId, release, durationMs, messages }` |
 | `process(portalId)` | Force-reprocess one portal's release; returns its summary |
 | `reprocessAll()` | Reprocess every portal (run once after a manifest version bump). Returns the count |
 | `compile(type, id, force?)` | Compile a component or theme now (`type`: `component` \| `theme`). Returns a **Promise** of the build summary |

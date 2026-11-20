@@ -2,7 +2,7 @@
 title: Lists
 description: list-data (the platform's list GraphQL and encoded queries as data), data-table (RecordList, DataTable), condition-builder, and the list widgets.
 section: Primitives and utilities
-order: 4
+order: 9
 tags: [lists, data-table, condition-builder, encoded-query]
 ---
 
@@ -28,20 +28,23 @@ Hooks (page cache): `useList`, `useInfiniteList`, `useCrumbs`, `useFilterFields`
 ```ts
 type ListArgs = {
     table: string
-    columns?: string[]
+    columns?: string | string[] // comma-separated or an array; empty = the view's list layout
     query?: string            // the user's filter
     fixedQuery?: string       // always applied, hidden
     orderBy?: { field: string; desc: boolean }[]
     keywords?: string
-    limit?: number; offset?: number
+    limit?: number
+    offset?: number
     view?: string
-    relatedListName?: string; parentTable?: string; parentRecordSysId?: string
+    relatedListName?: string  // e.g. 'task_sla.task', with its parent:
+    parentTable?: string
+    parentRecordSysId?: string
 }
 ```
 
 ### Encoded queries as data
 
-`parseQuery` / `serializeQuery` / `serializeFilter` / `serializeOrder` turn encoded queries into a model and back: AND/OR, `^NQ` (new query), `ORDERBY`, keywords and relative dates. Helpers: `andTerm`, `removeTerm`, `flattenTerms`, `termToString`, `baseType`, `operatorsFor(type, isChoice, excluded)`, `findOperator`, `OPERATORS_BY_TYPE`, `DATE_PRESETS`, `specificDay`.
+`parseQuery` / `serializeQuery` / `serializeFilter` / `serializeOrder` turn encoded queries into a model and back: AND/OR, `^NQ` (new query), `ORDERBY`, keywords and relative dates. Helpers: `andTerm`, `removeTerm`, `flattenTerms`, `termToString`, `baseType`, `operatorsFor(type, isChoice, excluded)`, `findOperator`, `OPERATORS_BY_TYPE`, `DATE_PRESETS`, `specificDay`, `dateGenerate`, `parseRelative`, `formatRelative`, `describeTerm`, `emptyQuery`, `parseTerm`, `KEYWORD_FIELD`.
 
 ## `components:app/data-table`
 
@@ -64,7 +67,8 @@ import { RecordList } from 'components:app/data-table'
 - Pagination or infinite virtualized scroll; skeleton and empty states; `page` / `card` / `plain` variants.
 - Every feature can be turned off: `features={{ search, filter, breadcrumbs, columnChooser, pagination, inlineEdit, contextMenu, selection, actions, refresh, export, title }}`.
 - Related lists: `fixedQuery="task=<sys_id>"`, or `relatedListName` + `parentTable` + `parentRecordSysId` **plus** the relationship's `fixedQuery` (the platform doesn't filter on the name alone). Prefer [`app/related-list`](related-lists.md).
-- `toolbarActions` (extra toolbar content) and `onData(page)` (each page shown: count, `canCreate` / `canWrite` / `canDelete`, `m2m`, server `fixedQuery`).
+- `actions` (`{ id, label, requiresSelection?, destructive?, run(ctx) }[]`), `onRowOpen(row, table)` (default: the classic form in a new tab), `height` (`'fill'`, `'auto'` or a CSS length), `pageSizes`, `wrap`, and `persist` (`user`, `local`, `none`; `prefKey={false}` remembers nothing).
+- `toolbarSlots={{ left, right }}` renders the toolbar elsewhere (for example into [header slots](header-slots.md)); `toolbarActions` (extra toolbar content) and `onData(page)` (each page shown: count, `canCreate` / `canWrite` / `canDelete`, `m2m`, server `fixedQuery`).
 - URL/state sync: `state={{ filter, keywords, orderBy, page }}` + `onStateChange`.
 - `live` (or `live={{ throttleMs }}`) refetches the current page when matching records change and briefly highlights changed rows.
 
@@ -84,9 +88,9 @@ A full-bleed page list. Its state lives in the URL (filter, sort, page) and rows
 
 | Option | Meaning |
 |---|---|
-| `table` | Empty: the URL's `table` param (else `incident`) |
+| `table` | Empty: the page's route param, else the URL's `table` param, else `incident` |
 | `title`, `query`, `fixedQuery`, `columns`, `orderBy`, `view` | List definition (`columns`: comma-separated, dot-walks allowed; empty = the list view's layout) |
-| `pageSize`, `pagination` (`pages`, `scroll`), `density` (`compact`, `normal`, `comfortable`), `searchMode` (`keywords`, `contains`) | Behaviour |
+| `pageSize` (default 50), `pagination` (`pages`, `scroll`), `density` (`compact`, `normal`, `comfortable`), `searchMode` (`keywords`, `contains`) | Behaviour |
 | `recordPage` | Portal page opened with `table` + `sys_id` (default `form`); empty = the classic form in a new tab |
 | `toolbarPlacement` | `auto`, `header` (into the sub-header's [header slots](header-slots.md)), `inline` |
 | `syncUrl` | Keep filter, sort and page in the URL (default true) |
@@ -95,7 +99,7 @@ A full-bleed page list. Its state lives in the URL (filter, sort, page) and rows
 
 ### `app/list-card`
 
-A list you can drop anywhere: `table`, `title`, `query`, `columns`, `orderBy`, `pageSize`, `height`, `pagination`, `density`, `parentField` + `parentSysId` (related list), `recordPage`, `liveUpdates`, `hide` (features to turn off).
+A list you can drop anywhere: `table` (default `incident`), `title`, `query`, `columns`, `orderBy`, `pageSize` (default 10), `height`, `pagination`, `density` (default `compact`), `parentField` + `parentSysId` (related list), `recordPage`, `liveUpdates`, `hide` (features to turn off).
 
 ## Not built yet
 

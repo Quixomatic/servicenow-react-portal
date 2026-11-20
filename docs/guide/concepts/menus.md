@@ -49,12 +49,15 @@ The classic menu-item form has a Lucide **icon picker** formatter, using the ful
 The release manifest stores active menus and items **unfiltered**. Bootstrap (`menus`) and `$sp.getMenu()` resolve them for the current user:
 
 1. Items the user lacks `roles` for are dropped.
-2. `dynamic` items are dropped (phase 2).
-3. The `condition` runs; a false result, an error or a syntax error hides the item.
-4. Page items whose page the user can't open are dropped; their route is filled from the page's pattern and `params` (an item missing a required route param is dropped).
-5. Groups with no visible non-separator children are dropped.
-6. Leading, trailing and doubled separators are removed.
-7. Nesting stops at depth 4.
+2. Items whose own [user criteria](user-criteria.md) exclude the user are dropped.
+3. `dynamic` items are dropped (phase 2).
+4. The `condition` runs; a false result, an error or a syntax error hides the item.
+5. Page items whose page the user can't open (roles or the page's user criteria) are dropped; their route is filled from the page's pattern and `params` (an item missing a required route param is dropped).
+6. Groups with no visible non-separator children are dropped.
+7. Leading, trailing and doubled separators are removed.
+8. Nesting stops at depth 4.
+
+Studio users and admins bypass the user-criteria and page checks, but not item `roles` or conditions.
 
 The result is a `NavItem[]` tree:
 
@@ -111,13 +114,17 @@ For the `primary` key only, when the portal has no `primary` menu record, `useNa
 
 ## Editing menus
 
-- **Studio → Menus** activity: live preview through the portal's real widgets, "View as" a role, drag-and-drop tree, item form with icon picker, undo/redo. See [Menus activity](../studio/menus.md).
-- The classic lists and forms (React Portal → Menus / Menu Items).
+- **Studio → Menus** activity: live preview through the portal's real widgets, "View as" a role or a [user](user-criteria.md#view-as-user-in-studio), drag-and-drop tree, item form with icon picker, undo/redo. See [Menus activity](../studio/menus.md).
+- The classic lists and forms (React Portal → Menus / Menu Items). A menu item's form has the **Available for** / **Not available for** [user criteria](user-criteria.md) related lists.
 - Studio API: `/rp_studio/portals/{id}/menus`, `/menus`, `/menu-items`. See [Studio REST API](../rest-api/studio.md#menus).
 
-> **Note:** **In progress:** user criteria on menu items. See [User criteria](user-criteria.md).
+## Demo menus
+
+The sp `primary` menu has three groups. **Service desk** holds Home, then My requests, My incidents, My approvals, My tasks and My surveys: each opens the generic `list` page with `params_json.record` (a table and a "Me" query) and a `title`. My tasks and My surveys carry a condition, so they only show for users who have some. Knowledge and Catalog close the group. **Components** and **More** list the demo pages. See [Demo portals](../getting-started/demo-portals.md).
 
 ## Related
 
 - [Layout and navigation hooks](../runtime-api/layout-and-navigation.md)
 - [`$sp` menus](../server-api/sp-api.md#menus)
+- [User criteria](user-criteria.md)
+- [Menus activity](../studio/menus.md)

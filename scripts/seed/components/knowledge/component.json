@@ -1,1 +1,1 @@
-{ "name": "Knowledge", "kind": "widget", "tailwind": true, "defaults": { "listLimit": 20, "showRelated": true } }
+{ "name": "Knowledge", "kind": "utility", "tailwind": false }

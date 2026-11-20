@@ -1,6 +1,6 @@
 ---
 title: Page designer
-description: The Pages activity — portal settings, pages, outline, a live canvas, palette, properties, blocks, styling, drag and drop, undo.
+description: The Pages activity — portal settings, pages, outline, a live canvas, View as user, palette, properties, blocks, styling, drag and drop, undo.
 section: Studio
 order: 3
 tags: [studio, designer, drag-and-drop, blocks]
@@ -32,6 +32,16 @@ The **Pages** activity lays out pages on a live canvas that renders the **real p
 - Device widths: desktop, **tablet (820px)** and **mobile (390px)**. Instance CSS uses container queries on the page frame, so responsive styling renders exactly.
 - A design overlay measures the runtime's markers (`data-rp-region`, `data-rp-placement`, `data-rp-zone`, `data-rp-embed`) and draws drop zones, outlines, labels and drag handles. It shields the live widgets from clicks unless **interact** mode is on.
 - Embedded widgets show as read-only markers: never selectable or draggable.
+
+## View as user
+
+The canvas toolbar's **View as user** picker previews what the portal's [user criteria](../concepts/user-criteria.md) hide from a chosen user. Pick a user (search by name, user name or email) and Studio asks the server for its verdicts (`GET /rp_studio/portals/{id}/audience?user=<sys_id>`, which evaluates the criteria with `UserCriteriaLoader`):
+
+- the toolbar shows a summary: how many pages and menu items are hidden, "nothing hidden", "can't open this portal", or "bypasses criteria" for admins and studio users;
+- hidden pages are marked in the Pages list;
+- on a hidden page, a banner above the canvas says the user can't see it (the page answers page-not-found and its menu items drop).
+
+Only the user-criteria layer is simulated; role checks aren't. The chosen user is shared with the [Menus activity](menus.md) for the Studio session and isn't saved. The canvas itself still renders as you.
 
 ## Palette and properties
 

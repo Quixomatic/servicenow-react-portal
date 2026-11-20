@@ -15,6 +15,7 @@ A **theme** (`x_312987_portal_theme`) is the always-loaded styling of a portal: 
 | Field | Studio file | Meaning |
 |---|---|---|
 | `name`, `key` | | `key` is derived from the name when empty (unique) |
+| `description` | | Free text |
 | `tokens_json` | `tokens.json` | CSS custom properties without the leading `--` |
 | `stylesheet` | `theme.css` | Base CSS for the portal, served as written |
 | `active` | | Inactive themes aren't applied |
@@ -52,7 +53,7 @@ Mode is a **user** preference, not a theme setting. `useTheme()` exposes the nex
 
 ## Changing a theme
 
-Saving a theme reprocesses every portal that uses it (`RP: Reprocess release (theme)`). The token sheet updates on the next bootstrap; a theme swap replaces both sheets without a flash when they're cached.
+`RP: Normalize theme` checks the key (`^[a-z][a-z0-9-]{0,79}$`) and the shape of `tokens_json` (an object, or `light` / `dark` objects), and advances `source_revision` when the tokens or the stylesheet change. `RP: Compile theme on save` then rebuilds `theme.css`. Saving a theme reprocesses every portal that uses it (`RP: Reprocess release (theme)`). The token sheet updates on the next bootstrap; a theme swap replaces both sheets without a flash when they're cached.
 
 ## Related
 

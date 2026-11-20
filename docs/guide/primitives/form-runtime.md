@@ -2,7 +2,7 @@
 title: Form runtime
 description: UI policies evaluated in the browser, and the g_form compatibility layer that runs existing client scripts unchanged.
 section: Primitives and utilities
-order: 6
+order: 4
 tags: [ui-policies, g_form, client-scripts, glideajax]
 ---
 
@@ -28,13 +28,17 @@ Only legacy scripts receive it: client scripts (onLoad, onChange, onSubmit), UI 
 
 | Export | What |
 |---|---|
-| `startScriptEnvironment({ host, scripts, scratchpad, user, policies, onError, catalog? })` | Binds onChange scripts, runs onLoad (then onChange with `isLoading`), hooks UI policy run scripts. Returns `{ env, stop }` |
-| `useClientScripts({ …, enabled?, runKey? })` | The same as a React hook (re-runs when `runKey` changes) |
-| `createScriptEnvironment(options)` | The environment alone (`g_form`, `g_user`, `runOnSubmit`…) |
+| `startScriptEnvironment({ host, scripts, scratchpad, user, policies, onError, catalog?, serviceCatalog? })` | Binds onChange scripts, runs onLoad (then onChange with `isLoading`), hooks UI policy run scripts. Returns `{ env, stop }` |
+| `useClientScripts({ …, enabled?, runKey? })` | The same as a React hook, with the runtime's user (re-runs when `runKey` changes, stops on unmount). Returns `{ env, errors }` |
+| `createScriptEnvironment(options)` | The environment alone: `g_form`, `g_user`, `g_scratchpad`, `errors`, `runOnLoad`, `attachOnChange`, `runOnSubmit(actionName?)`, `runPolicyScript`, `runClientAction(action)`, `currentAction()` |
 | `compileScript(script, exports)` | The sandbox |
 | `createGlideAjaxClass`, `createGlideRecordClass` | The `GlideAjax` / `GlideRecord` shims |
 | `scriptUserFrom(user)` | A `g_user` from the runtime's user |
+| `createGForm(store, options)` | `g_form`, `g_user`, `GlideAjax` and `g_modal` on **any** form store (a widget's own `createFormStore`, a catalog form, a field dialog), without starting scripts. Options: `user` (required), `table`, `sysId`, `isNew`, `view`, `resolve`, `submit`, `openRecord`, `hasField`, `sectionNames`, `relatedListNames`, `catalog`, `serviceCatalog`, plus `scripts`, `scratchpad`, `onError` |
+| `attachGForm(store, options)` | `createGForm` plus the script lifecycle (onLoad, onChange, policy run scripts; pass `policies`); returns `{ env, stop }` |
+| `hostFor(store, options)` | The `ScriptHost` `createGForm` builds for a store |
 | `catalogParent(store, resolve?)` | A `g_service_catalog.parent` over any form store (pass it as `serviceCatalog.parent` to `attachGForm` / `createGForm`) |
+| `isRelatedListShown`, `matchRelatedLists`, `setRelatedListDisplay`, `setAllRelatedListsDisplay` | The related-list display flags behind `g_form.showRelatedList` and the like |
 
 Order follows the classic form: onLoad client scripts, then UI policies (their scripts replay for the current results).
 
@@ -50,12 +54,10 @@ Like Workspace, every script is compiled with `new Function` in a scope where `w
 | `GlideAjax` | Through `/xmlhttp.do` |
 | `GlideRecord` | Async only (callback queries) |
 | `getMessage`, `getMessages`, `g_i18n` | Translated messages |
-| `g_modal` | `alert(title, message?)`, `confirm(title, message?)` (Promise); `showFields` rejects (not supported yet) |
+| `g_modal` | `alert`, `confirm`, `showFields` and `showFrame` on real dialogs; see [Dialogs](dialogs.md#g_modal-in-client-scripts) |
 | `g_aw` | `openRecord` opens the record in the portal; `closeRecord`, `setTabLabel` are no-ops |
 | `g_service_catalog` | `openCatalogItem`, `isOrderGuide()`; in MRVS rows, `parent` (the item form: `getValue`, `getDisplayValue`, `setValue`, `hasField`) |
 | `g_navigation`, `gsftSubmit`, `NOW` | Compatibility shims |
-
-> **Note:** **In progress:** `g_modal.showFields` on a real dialog (`app/field-dialog`).
 
 ### `g_form` methods
 
@@ -67,7 +69,7 @@ Messages: `addInfoMessage`, `addErrorMessage`, `addWarningMessage`, `addFormMess
 
 Sections and lists: `setSectionDisplay`, `isSectionVisible`, `getSectionNames`, `getRelatedListNames`, `showRelatedList(s)`, `hideRelatedList(s)`. A name matches the list (`task_sla.task`), its table or a `REL:<sys_id>`; see [Related lists](related-lists.md#g_form).
 
-Submit: `save`, `submit`, `gsftSubmit`, `getActionName`, `currentAction`, `isLiveUpdating`.
+Submit: `save`, `submit(actionName?)`, `getActionName`, `isLiveUpdating`. The global `gsftSubmit(control, form, actionName)` calls `g_form.submit(actionName)`.
 
 Attachments: `enableAttachments`, `disableAttachments`. Disabling stops new files from being added (files already attached stay listed); `app/attachment-panel` follows it. See [Attachments](attachments.md).
 

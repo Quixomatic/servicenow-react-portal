@@ -19,6 +19,9 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { here, loadComponents, loadTemplate, templateHash, renderSeed, newRunId, bytes } from './seed-lib.mjs'
+// Docs step (docs/guide → x_312987_portal_doc): diff by content_hash, before the component parts.
+// Skipped with --no-docs, and on --only runs unless --docs is given; --docs adds it (diff-based) to an --only run; --docs-all rewrites every page.
+import { loadDocs, renderDocsSeed } from './docs-lib.mjs'
 
 const repoRoot = join(here, '..', '..')
 const argv = process.argv.slice(2)
@@ -279,6 +282,71 @@ function printDone(message) {
     if (m && Number(m[1]) > 0) log('   WARNING: compiles failed; see the "[seed] compiles" syslog line')
 }
 
+/* ---------------- Docs ---------------- */
+
+/**
+ * Docs steps: rows of docs/guide whose content_hash differs from the instance (or are missing or
+ * inactive there), and instance pages that left the guide (deactivated, never deleted). Split under
+ * the exec budget. Returns [] when skipped, unchanged, or the doc table isn't installed yet.
+ */
+async function planDocs() {
+    if (flag('--no-docs') || (onlyKeys && !flag('--docs') && !flag('--docs-all'))) return []
+    // Never fatal for the rest of the seed: a broken docs tree only skips the docs step.
+    let loaded
+    try {
+        loaded = loadDocs()
+    } catch (e) {
+        log(`\nDocs: skipped, docs/guide couldn't be loaded: ${String(e.message).slice(0, 200)}`)
+        return []
+    }
+    const { docs, unlisted, missing } = loaded
+    if (missing.length) log(`\nDocs: _nav.json lists missing files (skipped): ${missing.join(', ')}`)
+    let remote
+    try {
+        remote = await query(T + 'doc', 'pathISNOTEMPTY', ['path', 'content_hash', 'active'], 200)
+    } catch (e) {
+        log(`\nDocs: skipped, x_312987_portal_doc isn't readable (install the app first?): ${String(e.message).slice(0, 160)}`)
+        return []
+    }
+    const byPath = {}
+    for (const r of remote) byPath[r.path] = r
+    const changed = Object.keys(docs).filter((p) => {
+        const r = byPath[p]
+        return flag('--docs-all') || !r || r.content_hash !== docs[p].content_hash || !(r.active === 'true' || r.active === '1')
+    })
+    const deactivate = remote.filter((r) => !docs[r.path] && (r.active === 'true' || r.active === '1')).map((r) => r.path)
+    log(`\nDocs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the instance → ${changed.length} to write, ${deactivate.length} to deactivate`)
+    if (unlisted.length) log(`  Not in _nav.json (not seeded): ${unlisted.join(', ')}`)
+    if (changed.length && changed.length <= 12) log(`  ${changed.join(', ')}`)
+    if (!changed.length && !deactivate.length) return []
+    const base = bytes(renderDocsSeed({ rows: [], deactivate, runId: 'x'.repeat(40) }))
+    const parts = []
+    let cur = []
+    let size = base
+    for (const p of changed) {
+        const s = bytes(JSON.stringify(docs[p])) + 8
+        if (cur.length && size + s > MAX_BYTES) {
+            parts.push(cur)
+            cur = []
+            size = base
+        }
+        cur.push(p)
+        size += s
+    }
+    if (cur.length || !parts.length) parts.push(cur)
+    return parts.map((paths, i) => {
+        const runId = newRunId('rs-docs') + (i ? '-' + (i + 1) : '')
+        const dea = i === 0 ? deactivate : []
+        return {
+            mode: `docs ${paths.length} pages${dea.length ? ', ' + dea.length + ' deactivated' : ''}`,
+            keys: [],
+            reprocess: false,
+            runId,
+            script: renderDocsSeed({ rows: paths.map((p) => docs[p]), deactivate: dea, runId }),
+        }
+    })
+}
+
 /* ---------------- Main ---------------- */
 
 async function main() {
@@ -314,6 +382,8 @@ async function main() {
     const steps = parts.map((p) => ({ mode: 'components', keys: p }))
     if (portals) steps.push({ mode: 'portals', keys: [] })
     if (!steps.length && FORCE_REPROCESS) steps.push({ mode: 'components', keys: [] })
+    // Docs: their own exec(s), first, never reprocessing (docs aren't in any manifest).
+    const docSteps = await planDocs()
     steps.forEach((s, i) => {
         s.reprocess = i === steps.length - 1
         s.runId = newRunId('rs')
@@ -323,6 +393,7 @@ async function main() {
         s.script = renderSeed({ mode: s.mode, components: comps, reprocess: s.reprocess, runId: s.runId, template })
         if (bytes(s.script) > MAX_BYTES + 100 * 1024) throw new Error(`step ${i + 1} renders to ${(bytes(s.script) / 1024).toFixed(0)} KB, over budget`)
     })
+    steps.unshift(...docSteps)
 
     if (!steps.length) {
         log('\nnothing to seed')

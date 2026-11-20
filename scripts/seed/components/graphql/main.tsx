@@ -9,6 +9,9 @@
  * Fetchers (plain async, usable outside React)
  *   fetchTableMeta(table)                      GET  /api/now/ui/meta/{table}     every column's FieldMeta
  *   fetchFormBootstrap(table, sysId, view?)    GlideViewQuery_Query.uiView → formLayout + UI policies + UI actions
+ *     (…, signal?, query?, { views?, viewRuleConfigId? })  view resolution when no view is forced:
+ *     Workspace view rules (sys_ux_view_rules_configuration) beat the candidate list ('sp,ess')
+ *   checkFormViews(table, names)               which view names exist for the table (no layout)
  *   fetchFormViews(table)                      the table's form views
  *   executeUiAction({ actionSysId, table, sysId, encodedRecord, fields })  POST /api/now/ui/ui_action/{id} (form Save)
  *   fetchChoices({ table, field, changes })    GlideLayout_Query.choiceDataRetriever
@@ -17,7 +20,7 @@
  *   fetchDisplayValue(table, sysId, displayField)
  *
  * Hooks (TanStack Query, the host's page cache)
- *   useGraphQL, useTableMeta, useFieldMeta, useFormBootstrap, useFormViews, useChoices, useReferenceSearch,
+ *   useGraphQL, useTableMeta, useFieldMeta, useFormBootstrap, useFormViews, useFormViewCheck, useChoices, useReferenceSearch,
  *   useRecordValues, useReferenceDisplay, useDebouncedValue, useGraphQLClient, gqlKeys
  */
 export { graphql, gql, restGet, authHeaders, safeName, GraphQLError, GRAPHQL_ENDPOINT } from './client'
@@ -26,6 +29,8 @@ export {
     fetchTableMeta,
     fetchFormBootstrap,
     fetchFormViews,
+    checkFormViews,
+    isDefaultViewName,
     executeUiAction,
     normalizePolicy,
     normalizeClientScripts,
@@ -53,6 +58,7 @@ export {
     useFieldMeta,
     useFormBootstrap,
     useFormViews,
+    useFormViewCheck,
     useChoices,
     useReferenceSearch,
     useRecordValues,
@@ -71,6 +77,7 @@ export type {
     FormBootstrap,
     FormSection,
     FormView,
+    FormViewResolution,
     FormAnnotation,
     RelatedListInfo,
     PolicyFlag,

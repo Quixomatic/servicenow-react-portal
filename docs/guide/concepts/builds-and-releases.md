@@ -84,7 +84,9 @@ A portal's release reprocesses when any of its inputs change:
 | `RP: Reprocess release (menu)`, `(menu item)` | menu / item insert / update / delete |
 | A successful compile | every portal using the component directly, as a layout, or through imports (transitively) |
 
-The page designer and the menus editor set the session flag `x_312987_portal.skip_reprocess` while a multi-record write runs, then reprocess the portal once at the end.
+The page designer and the menus editor set the session flag `x_312987_portal.skip_reprocess` while a multi-record write runs, then reprocess the portal once at the end. The demo seed sets both `skip_compile` and `skip_reprocess` for its whole run, compiles each changed component once in dependency order, and reprocesses each active portal once at the end. Compile-triggered reprocessing respects the flag too; placement instance CSS still compiles inside a batch.
+
+A reprocess assembles the manifest inside `withRegistryCache` (`registry/registry.ts`): component, build and import-edge lookups are memoized for that one assembly and dropped when it ends. Widgets share primitives, so their import trees would otherwise query the same records many times. The cache holds only registry records, nothing user-specific, and the manifest is the same with or without it.
 
 ## What the runtime serves
 

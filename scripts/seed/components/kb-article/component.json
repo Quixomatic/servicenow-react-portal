@@ -1,0 +1,1 @@
+{ "name": "Knowledge Article", "kind": "widget", "tailwind": true, "serverMode": "on-demand", "defaults": { "homePage": "kb", "categoryPage": "kb/category", "searchPage": "kb/search", "articlePage": "kb/article", "showToc": true, "attachments": "auto", "showFeedback": true, "showRelated": true, "showMoreInCategory": true, "relatedLimit": 5, "countViews": true } }

@@ -16,7 +16,7 @@ Attachments are built in layers, so the look can change without touching the log
 | Building blocks | `components:app/attachment-dropzone`, `components:app/attachment-list` | A drop zone that is also a button; a list / grid / chips with every part exported |
 | Composed | `components:app/attachment-panel` | Drop zone + upload queue + list for one record |
 | Field | `components:app/attachment-field` | `file_attachment` and `user_image` dictionary types (registered in `app/field-control`) |
-| Widget | `components:app/attachments-card` | A placeable "Ticket attachments" card |
+| Widget | `components:app/attachments-card` | A placeable attachments card, in the style of Service Portal's "Ticket Attachments" |
 
 > **Note:** The final presentation isn't decided yet. The sp page **Attachments** (`/attachments`) shows the same record as a list, as compact chips and as a thumbnail grid, plus the record form's header toggle.
 
@@ -48,7 +48,7 @@ Opening a new record (`sys_id = -1`) makes the form bootstrap **reserve** the re
 useAttachments(table, sysId, { live? = true, enabled? })
   → { attachments, permissions, count, isLoading, error, liveStatus, refresh, …query }
 
-useAttachmentPermissions(table, sysId, { form?, readOnly?, extensions?, maxBytes?, multiple? })
+useAttachmentPermissions(table, sysId, { form?, readOnly?, extensions?, maxBytes?, multiple?, live? })
   → { canCreate, canUpload, reason, rules, permissions, loading }
 
 useUploadAttachments(table, sysId, { rules?, concurrency? = 3, clearDoneAfter? = 2000, onUploaded?, onRejected?, onError? })
@@ -57,10 +57,10 @@ useUploadAttachments(table, sysId, { rules?, concurrency? = 3, clearDoneAfter? =
 
 useDeleteAttachment(table, sysId)   // mutate(attachment | sysId), optimistic
 useRenameAttachment(table, sysId)   // mutate({ sysId, fileName }), optimistic
-useAttachmentLimits()               // { maxBytes, extensions } from exposed properties
+useAttachmentLimits()               // { maxBytes, extensions } from exposed properties (null / [] when not exposed)
 
 useRecordAttachments(table, sysId, options)   // all of the above for one record: build your own presentation on it
-useFileDrop({ onFiles, disabled?, multiple?, extensions? })  → { dragging, open, rootProps, inputProps }
+useFileDrop({ onFiles, disabled?, multiple?, extensions? })  → { dragging, open, rootProps, inputProps, inputRef }
 usePasteFiles(ref | 'window', onFiles, enabled?)
 ```
 
@@ -88,10 +88,12 @@ Where the rules come from:
 
 | Group | Exports |
 |---|---|
-| Calls | `fetchAttachments`, `fetchAttachment`, `uploadAttachment({ file, table, sysId, fileName?, onProgress?, signal? })`, `deleteAttachment`, `renameAttachment` |
+| Calls | `fetchAttachments`, `fetchAttachment`, `uploadAttachment({ file, table, sysId, fileName?, onProgress?, signal? })` (a cancelled upload rejects with `UploadAbortedError`), `deleteAttachment`, `renameAttachment`, `attachmentFromRest` |
+| Queries | `ATTACHMENTS_QUERY`, `RENAME_ATTACHMENT_MUTATION`, `attachmentKeys` |
 | URLs | `attachmentUrl`, `downloadAllUrl` |
 | File types | `fileKind(name, contentType)`, `fileIconName` / `FILE_KIND_ICONS` (Lucide names for `components:icon`), `isPreviewableImage`, `formatBytes`, `fileExtension`, `fileBaseName`, `withExtensionOf` |
-| Validation | `describeRules`, `parseExtensions`, `acceptAttribute`, `filesFromTransfer`, `namePastedFile`, `isAttachableSysId` |
+| Validation | `validateFiles`, `describeRules`, `parseExtensions`, `acceptAttribute`, `filesFromTransfer`, `namePastedFile`, `isAttachableSysId` |
+| Form flag | `setFormAttachmentsEnabled`, `formAttachmentsEnabled`, `useFormAttachmentsEnabled`, `subscribeFormAttachments`, `rootFormStore` |
 | Constants | `USER_IMAGE_EXTENSIONS`, `FIELD_ATTACHMENT_PREFIX` (`ZZ_YY`) |
 
 ## Building blocks
@@ -109,11 +111,12 @@ Where the rules come from:
 - Drag and drop works on it.
 - Paste (Ctrl/⌘+V) works while it has focus. With `paste="window"`, paste works anywhere except text fields and editors.
 - `disabled` + `disabledReason` show why files can't be added.
+- Other props: `label` (default "Drop files here or browse"), `hint`, `multiple`, `extensions` (the picker's `accept`; validation still runs in `validateFiles`), `busy`.
 
 ### `app/attachment-list`
 
 ```tsx
-<AttachmentList attachments={list} layout="list" | "grid" | "chips"
+<AttachmentList attachments={list} layout="grid"   // 'list' (default), 'grid' or 'chips'
     onDelete={att.remove} onRename={att.rename} pending={att.pending}
     renderItem={(a, ctx) => <MyRow a={a} onDownload={ctx.href} onDelete={ctx.remove} />} />
 <UploadQueue uploads={up.uploads} onCancel={up.cancel} onRetry={up.retry} onDismiss={up.dismiss} />
@@ -150,11 +153,12 @@ The activity stream reuses the icons and thumbnails.
 | `table`, `sysId`, `form` | The record (default: the surrounding form; its reserved sys_id when new) |
 | `layout` | `list`, `grid`, `chips` |
 | `dropzone` | `area`, `compact`, `button` (in the header), `none` |
-| `title`, `headingLevel`, `headerActions`, `bare` | Presentation |
+| `title` (default "Attachments"; `null` hides the header row), `headingLevel` (default 3), `headerActions`, `bare` | Presentation |
 | `readOnly`, `extensions`, `maxBytes` | Narrow what the platform allows |
 | `paste` | `true` (focus inside the panel), `'window'`, `false` |
-| `downloadAll` | "Download all" (zip) with two or more files |
+| `downloadAll` | "Download all" (zip) with two or more files (default true) |
 | `renderItem`, `emptyText`, `showMeta` | List presentation |
+| `live`, `onUploaded` | AMB refresh; a callback per finished upload |
 
 - The whole panel is a drop target.
 - Rejected files are listed in an alert.
@@ -173,6 +177,7 @@ The activity stream reuses the icons and thumbnails.
 - Replace, Rename (file fields only) and Remove (clears the value; it's saved with the record).
 - `user_image` shows an image preview.
 - Read-only fields show the file as a link, or the image.
+- Props: `kind` (`file` | `image`; default from the dictionary type), `extensions` and `maxBytes` (narrow the rules), `target` (`{ table, sysId }`, where the file uploads).
 
 ## Forms
 
@@ -191,10 +196,10 @@ A record's attachments as a page widget. The record comes from the options, else
 | Option | Meaning |
 |---|---|
 | `table`, `sysId` | The record (empty: from the page) |
-| `title` | Heading ('' hides it) |
-| `layout` | `list`, `grid`, `chips` |
+| `title` | Heading (default "Attachments"; '' hides it) |
+| `layout` | `list` (default), `grid`, `chips` |
 | `dropzone` | `area`, `compact`, `button`, `none` (default: button for chips, area otherwise) |
-| `downloadAll` | Zip download link |
+| `downloadAll` | Zip download link (default true) |
 | `emptyText` | Text with no files |
 
 Presentation options only: what users may do follows the platform's ACLs.

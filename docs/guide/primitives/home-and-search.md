@@ -2,7 +2,7 @@
 title: Home page and search
 description: The portal search (typeahead, results page, platform search APIs), my items, knowledge, catalog tiles, quick links and announcements, and how the sp home page composes them.
 section: Primitives and utilities
-order: 10
+order: 12
 tags: [home, search, typeahead, knowledge, catalog, approvals, announcements]
 ---
 
@@ -11,7 +11,7 @@ tags: [home, search, typeahead, knowledge, catalog, approvals, announcements]
 The Service Portal home (`sp` portal, page `home`) is built from small reusable records, not one home widget. Every piece also works on its own on any page, and its logic is exported for other widgets.
 
 ```text
-widgets      app/hero-search  app/search-results  app/my-items  app/kb-articles  app/knowledge  app/catalog-tiles  app/quick-links  app/announcements
+widgets      app/hero-search  app/search-results  app/my-items  app/kb-articles  app/catalog-tiles  app/quick-links  app/announcements
                    │                 │                                │
 primitives   app/search-box ─────────┘   app/highlighted-value        │
                    │                                                  │
@@ -33,7 +33,8 @@ Search uses the platform's own search, as the user, so ACLs, catalog user criter
 
 A term shaped like a record number (`INC0010001`, `RITM0010003`, `KB0000028`) matches `numberSTARTSWITH` instead of the text index.
 
-**Why not the other search APIs?** Checked read-only on dev189813:
+**Why not the other search APIs?** Checked read-only on a live instance:
+
 
 - **AI Search** is off (`glide.ais.enabled = false`).
 - The **Knowledge REST API** (`/api/sn_km_api/knowledge/…`) isn't installed (400).
@@ -46,14 +47,14 @@ The sources above answer in about 100 ms each and run in parallel. Swapping a so
 | Export | What |
 |---|---|
 | `useSearch(term, { sources?, limit?, targets?, enabled?, menus? })` | Typeahead over several sources: `{ groups, hits, isFetching, ready, term }`. Remote sources need 2+ characters. Each source is cached per term in the page query cache and keeps its previous hits while the next term loads. Debounce the term yourself (`useDebouncedValue` from `utilities:app/graphql`) |
-| `useSearchSource(source, term, { pageSize?, targets? })` | One source with paging (TanStack infinite query of `{ hits, total }`), for "Load more" |
-| `usePageEntries(menus?)` | Searchable destinations: menu items (with their group label), then pages no menu item opens |
-| `useRecentSearches(max?)` | `{ items, add, remove, clear }`, stored in `localStorage` under `x_312987_portal.search.recent.<user>` and synced across tabs |
+| `useSearchSource(source, term, { pageSize?, targets?, enabled?, menus? })` | One source with paging (TanStack infinite query of `{ hits, total }`), for "Load more" |
+| `usePageEntries(menus = ['primary', 'account'])` | Searchable destinations: menu items (with their group label), then pages no menu item opens |
+| `useRecentSearches(max = 6)` | `{ items, add, remove, clear }`, stored in `localStorage` under `x_312987_portal.search.recent.<user>` and synced across tabs |
 | `searchSource`, `searchPages` | The plain fetchers |
 | `hitLinkProps`, `openHit`, `resultsLinkProps` | Link props and navigation for hits and the results page (`q` `term=…&source=…`) |
 | `Highlight` | Wraps the term's words in `<mark>` |
-| `SEARCH_SOURCES`, `DEFAULT_SOURCES`, `normalizeSources`, `ME_DYNAMIC` | Source definitions and the "Me" dynamic filter |
-| `catalogHit`, `knowledgeHit`, `requestHit`, `incidentHit`, `catalogIcon`, `pictureUrl`, `cleanText`, `textCondition`, `getWithTotal` | Mappers and helpers (`getWithTotal` reads `X-Total-Count`) |
+| `SEARCH_SOURCES`, `DEFAULT_SOURCES`, `normalizeSources`, `ME_DYNAMIC`, `SEARCH_KEY` | Source definitions, the "Me" dynamic filter, and the query-key prefix |
+| `catalogHit`, `knowledgeHit`, `requestHit`, `incidentHit`, `catalogIcon`, `pictureUrl`, `cleanText`, `textCondition`, `queryTerm`, `getWithTotal` | Mappers and helpers (`getWithTotal` reads `X-Total-Count`) |
 
 A hit is `{ id, source, title, subtitle?, meta?, state?, number?, icon?, image?, link: { to, q?, table?, sysId?, query?, href? } }`. `targets` (`{ catalogPage, kbPage, recordPage }`) decides where hits open.
 
@@ -82,12 +83,12 @@ Also exported: `SearchHitRow` (one result row with highlight, number, state pill
 
 ## `components:app/highlighted-value`
 
-A status-like value as a pill or dot (`now-highlighted-value`): `<HighlightedValue label="In Progress" />`. `toneFor(label, { field, value })` derives the tone:
+A status-like value as a pill or dot (`now-highlighted-value`): `<HighlightedValue label="In Progress" />`. Props: `label`, `value`, `field`, `tone` (overrides the derived one), `variant` (`pill` default, or `dot`), `size` (`sm`, `default`), `title`, `className`. `toneFor(label, { field, value })` derives the tone:
 
 - priority, urgency, impact and severity go by value;
 - everything else goes by keywords in the label: rejected → danger; closed or cancelled → neutral; resolved, approved or complete → success; on hold, waiting, pending or requested → warning; in progress or work → progress; new or open → info.
 
-Tones use theme tokens where they exist (primary, destructive, muted), plus emerald, amber and sky with dark variants. Exports: `HighlightedValue`, `toneFor`, `TONE_PILL`, `TONE_DOT`. The platform's `sys_ux_highlighted_value_config` colours aren't read yet.
+Tones use theme tokens where they exist (primary, destructive, muted), plus emerald, amber and sky with dark variants. Exports: `HighlightedValue`, `toneFor`, `TONE_PILL`, `TONE_DOT`; type `HighlightTone` (`neutral`, `info`, `progress`, `warning`, `success`, `danger`). The platform's `sys_ux_highlighted_value_config` colours aren't read yet.
 
 ## Widgets
 
@@ -95,11 +96,10 @@ Tones use theme tokens where they exist (primary, destructive, muted), plus emer
 |---|---|---|
 | `app/hero-search` | `placement` (`banner`: into the app sub-header banner's `below` slot, inline when the layout has none; `inline`), `placeholder`, `sources`, `resultsPage`, `catalogPage`, `kbPage`, `recordPage`, `suggestions` (chips under the box and in the dropdown), `showChips` | |
 | `app/search-results` | `resultsPage`, `sources`, `catalogPage`, `kbPage`, `recordPage`, `pageSize` (10), `perSource` (4), `suggestions` | |
-| `app/my-items` | `title`, `description`, `sources` (`requests`, `incidents`, `approvals`), `limit` (5), `recordPage`, `listPage`, `catalogPage`, `live` | `useMyItems(kind, { limit, live })`, `MY_ITEM_KINDS`, `relativeTime` |
-| `app/kb-articles` | `title`, `modes` (`popular`, `recent`, `featured`), `limit`, `knowledgeBase`, `kbPage`, `showCategories`, `categoriesLimit` | `useKbArticles(mode, …)`, `useKbCategories`, `ArticleRow` |
-| `app/knowledge` | `knowledgeBase`, `listLimit`, `showRelated`, `resultsPage` | `useKbArticle(sysId)` |
-| `app/catalog-tiles` | `title`, `description`, `mode` (`popular`, `items`, `category`), `items`, `exclude`, `category`, `limit`, `days`, `columns`, `catalogPage` | `useCatalogItemsById`, `useCategoryItems`, `CatalogTile` |
-| `app/quick-links` | `variant` (`tiles`, `cta`, `list`), `title`, `description`, `items`, `menu` (take the items from a portal menu), `columns` | `useRecordCount(table, query)` |
+| `app/my-items` | `title`, `description`, `sources` (`requests`, `incidents`, `approvals`), `limit` (5), `recordPage`, `listPage`, `catalogPage`, `live` | `useMyItems(kind, { limit, live, enabled })`, `MY_ITEM_KINDS`, `relativeTime` |
+| `app/kb-articles` | `title`, `modes` (`popular`, `recent`, `featured`), `limit` (6), `knowledgeBase`, `kbPage` (KB home), `articlePage`, `categoryPage`, `showCategories`, `categoriesLimit`, `compact` | `topCategories`; data from `utilities:app/knowledge`, rows from `app/kb-article-list` |
+| `app/catalog-tiles` | `title`, `description`, `mode` (`popular`, `items`, `category`), `items`, `exclude`, `category`, `limit` (8), `days` (365), `columns`, `catalogPage` | `useCatalogItemsById`, `useCategoryItems`, `CatalogTile` |
+| `app/quick-links` | `variant` (`tiles`, `cta`, `list`), `title`, `description`, `items`, `menu` (take the items from a portal menu), `columns` | `useRecordCount(table, query, { enabled? })` |
 | `app/announcements` | `types` (`widget`, `banner`, `any`), `limit` | `useAnnouncements`, `useDismissedAnnouncements` |
 
 Behaviour notes:
@@ -109,10 +109,7 @@ Behaviour notes:
   - Rows open the record form page. "View all" opens the list page with the same "Me" query the menu uses, so the menu item highlights.
   - Each kind watches its filter over AMB (`useRecordWatch`, with the user's sys_id as a literal) and refetches when a matching record changes.
   - The list keeps a full page's height, so switching tabs never makes the card jump.
-- **Knowledge:**
-  - Without a `sys_id` URL param, the page browses: knowledge search, topics with article counts (`q` `category=<sys_id>`) and most-viewed articles.
-  - With one, it shows the article: breadcrumb, number, author, updated, views, the body through `components:rich-text` (sanitised), and "More in <topic>". Wiki-type articles show their source text.
-  - Viewing doesn't write view counts (read-only).
+- **Knowledge:** the KB pages (home, article, category, search) are described in [Knowledge base](knowledge.md). Knowledge hits open `kb/article`; the knowledge group's **See all** opens `kb/search` when the targets name `kbSearchPage` (the `kbSearchPage` option on `app/hero-search` and `app/search-results`). `targets.kb` limits the knowledge source to one KB; the source skips expired articles. The results page reads `q=…` as well as `term=…`.
 - **Catalog tiles:**
   - `popular` counts requests per item over the last `days` (365) in the widget's server script. Those are aggregate counts with scope rights, never record data.
   - Each item is then loaded through the catalog API as the user, so user criteria decide what shows. `items` fill up to `limit`; `exclude` hides items.
@@ -134,7 +131,7 @@ Seeded in `scripts/seed/seed-template.js` (`prune: true` deactivates the old dem
 5. `app/catalog-tiles`: most requested, filled with featured items.
 6. `app/quick-links` `cta`: "Can't find what you need?".
 
-Pages added with it: `search` (`app/search-results`) and `kb` (`app/knowledge`). The primary menu's **Service desk** group lists Home, My requests, My incidents, My approvals, My tasks and My surveys (the last two only for users who have some: a menu condition), Knowledge and Catalog. The "My …" items open the generic `list` page with explicit record params and a title (see [Menus: explicit record params](../concepts/menus.md#explicit-record-params)). The generic Record list and Record form moved to the Components group.
+Pages added with it: `search` (`app/search-results`) and `kb` (since the knowledge wave: `app/kb-home`, plus `kb/article`, `kb/category` and `kb/search`). The primary menu's **Service desk** group lists Home, My requests, My incidents, My approvals, My tasks and My surveys (the last two only for users who have some: a menu condition), Knowledge and Catalog. The "My …" items open the generic `list` page with explicit record params and a title (see [Menus: explicit record params](../concepts/menus.md#explicit-record-params)). The generic Record list and Record form moved to the Components group.
 
 ## Related
 

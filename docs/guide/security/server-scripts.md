@@ -8,12 +8,14 @@ tags: [security, executor, server-script]
 
 # Server scripts
 
+Component server scripts run on the instance for any user who can open the portal, so the executor decides what may run, runs it in a contained way, and treats everything the client sends as untrusted. This page covers those rules; for writing scripts see [Server script](../authoring/server-script.md).
+
 ## What runs
 
 The executor (`src/server/runtime/component-executor.ts`) only runs a script that is:
 
-1. part of the portal's **release manifest** (a placement of this portal, or an embed authorized along the import chain);
-2. on a page the user can access (portal-level placements are on every page);
+1. part of the portal's **release manifest** (a placement of this portal, the effective layout of the request's page through a `layout:<sys_id>` root, or an embed authorized along the import chain);
+2. on a page the user can access, by roles and [user criteria](../concepts/user-criteria.md) (portal-level placements are on every page);
 3. from a **usable build**: the server script copied into the build at compile time, never the live `script` field. Client and server versions always match, and an edit takes effect only after a successful compile.
 
 A placement not in the manifest, on an inaccessible page, or an unimported embed answers `404`.
@@ -21,7 +23,7 @@ A placement not in the manifest, on an inaccessible page, or an unimported embed
 ## How it runs
 
 - Through `GlideScopedEvaluator` in the **`x_312987_portal` scope**, with that scope's rights (`putVariable` for `input`, `data`, `options`, `component`, `context`, `$sp`, `$rp`; `getVariable('data')` afterwards).
-- The compiled script wraps the author's code in `try/catch` into `__rpError`, because the evaluator swallows errors. Failures surface as `500 script_error` with the line.
+- The compiled script wraps the author's code in `try/catch` into `__rpError`, because the evaluator swallows errors. Failures surface as `500 script_error`: with the message and line for authors (admin, React Portal admin, developer, designer), and as a generic "The server script failed" plus the correlation id for everyone else. Messages the script added (`gs.addErrorMessage` & co.) still reach every user.
 - `data` starts **empty on every action** and the client's data is ignored, so a client can't smuggle state into a script through `data`.
 - After the script, `data` is round-tripped through JSON: only plain data leaves the server.
 
@@ -48,7 +50,7 @@ Treat everything from the client as untrusted:
 |---|---|
 | Instances per initialize | 100 |
 | Embed descriptors per initialize | 50 |
-| Embed depth below a placement | 4 |
+| Embed depth below a placement or layout root | 4 |
 | `$sp.getWidget` calls per run | 20 |
 | Embed options | 16 KB JSON |
 

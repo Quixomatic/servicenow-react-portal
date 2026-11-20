@@ -55,7 +55,7 @@ State precedence: explicit props → script overrides (`g_form.setMandatory`…)
 
 ## `useField(name | props)`
 
-Returns everything a control needs: `value`, `displayValue`, `originalValue`, `staged`, `dirty`, `touched`, `state` (`{ mandatory, readOnly, visible, disabled }`), `missing` (mandatory, writable and empty), `messages`, `error`, `invalid`, `loading`, `bound`, `meta`, `label`, `placeholder`, `hint`, `maxLength`, `setValue(value, displayValue?)`, `stage(value)`, `blur()`, `ids` (`input`, `label`, `hint`, `messages`), `describedBy`, and `lookup` (`{ sysId, encodedRecord, getChanges }` for reference and choice lookups against the unsaved form).
+Returns everything a control needs: `value`, `displayValue`, `originalValue`, `staged`, `dirty`, `touched`, `state` (`{ mandatory, readOnly, visible, disabled }`), `missing` (mandatory, writable and empty), `messages`, `error`, `invalid`, `loading`, `bound`, `meta`, `label`, `placeholder`, `hint`, `maxLength`, `dependentValue`, `autoFocus`, `setValue(value, displayValue?)`, `stage(value)`, `blur()`, `ids` (`input`, `label`, `hint`, `messages`), `describedBy`, `lookup` (`{ sysId, encodedRecord, getChanges }` for reference and choice lookups against the unsaved form), `decorations` (from `g_form.addDecoration`), and `remote` with `acceptRemote()` / `dismissRemote()` (someone else saved a different value while this field was being edited).
 
 ## `<FieldShell field={f}>`
 
@@ -68,7 +68,7 @@ export function SlugField(props) {
     const f = useField(props)
     return (
         <FieldShell field={f}>
-            <input {...controlA11y(f)} className={controlClass} value={f.staged ?? f.value}
+            <input {...controlA11y(f)} className={controlClass({ invalid: f.invalid })} value={f.staged ?? f.value}
                 onChange={(e) => f.stage(e.target.value)} onBlur={() => f.setValue(f.staged ?? f.value)} />
         </FieldShell>
     )
@@ -88,11 +88,13 @@ Required-field errors appear after Validate/Submit, or after the user clears a v
 | Policies | `setPolicyLayer(layer)` |
 | Messages | `showFieldMessage(name, text, kind?)`, `hideFieldMessage`, `addInfoMessage`, `addErrorMessage`, `clearMessages` |
 | Sections | `setSectionDisplay`, `getSectionDisplay`, `clearSectionDisplay` |
+| Decorations | `addDecoration(name, icon, title, color?)`, `removeDecoration(name, icon?, title?)` |
+| Remote changes | `setRemoteValue(name, value, displayValue?)`, `acceptRemote(name)`, `dismissRemote(name)`; `applyRemoteValues(store, values)` merges a re-read (untouched fields take the new value, edited fields get the marker) |
 | Lifecycle | `load({ values, server, meta, table, sysId, encodedRecord, replace })`, `mergeMeta`, `reset(name?)`, `commit()` |
 | Queries | `isDirty(name?)`, `getDirtyFields()`, `serialize(all?)`, `validate(isRequired?)` |
 | Events | `onChange(name \| '*', listener)`, `subscribe`, `registerField`, `registeredFields` |
 
-Hooks: `useForm`, `useFormContext`, `useFormValue(name)`, `useFormMeta`.
+Hooks: `useForm({ table, sysId, view, query, values, bootstrap })`, `useFormContext`, `useFormValue(name)`, `useFormMeta`. The form `useForm` returns is the store plus `status` (`{ isLoading, error, isFetching, loaded }`) and `refetch()` (re-reads the record and keeps unsaved edits).
 
 ## Field registry
 
@@ -100,7 +102,7 @@ Hooks: `useForm`, `useFormContext`, `useFormValue(name)`, `useFormMeta`.
 
 | Primitive | Dictionary types |
 |---|---|
-| `app/string-field` | string, sys_class_name, table_name, field_name, GUID, domain_id, ip_address, color, translated_field, user_input |
+| `app/string-field` | string, sys_class_name, GUID, domain_id, ip_address, color, translated_field, user_input |
 | `app/textarea-field` | multi_two_lines, translated_text, script, script_plain, wiki_text |
 | `app/journal-field` | journal_input, journal (work notes tinted and badged internal; the value is the new entry, posted by the form save); journal_list read-only. See [Activity and journals](activity.md) |
 | `app/html-field` | html, translated_html, catalog variable type 23 (rich-text editor on `components:rich-text-editor`; read-only through `components:rich-text`) |
@@ -109,14 +111,18 @@ Hooks: `useForm`, `useFormContext`, `useFormValue(name)`, `useFormMeta`.
 | `app/choice-field` | choice (select, radio or scale; dependent values) |
 | `app/reference-field` | reference, requested_for (recent picks, search, extra columns, server-applied qualifier) |
 | `app/date-field`, `app/datetime-field` | glide_date; glide_date_time, due_date, calendar_date_time (user's ServiceNow time zone, DST aware) |
+| `app/time-field` | glide_time |
 | `app/email-field`, `app/url-field`, `app/phone-field` | email; url; ph_number, phone_number_e164 |
 | `app/password-field` | password, password2, masked (show/hide, confirm) |
 | `app/currency-field` | currency, price, currency2 |
 | `app/duration-field` | glide_duration, timer |
 | `app/list-field` | glide_list (chips) |
+| `app/conditions-field` | conditions (the condition builder) |
+| `app/table-name-field` | table_name |
+| `app/field-name-field` | field_name |
 | `app/attachment-field` | file_attachment, user_image (single file on `ZZ_YY<table>`; see [Attachments](attachments.md)) |
 
-`<FieldControl name …/>` resolves the type from metadata and renders the matching primitive. `app/combobox` supplies an accessible editable combobox, a select-only `Select` and a `Listbox`, with popups in the top layer so they escape clipped cards.
+`<FieldControl name …/>` resolves the type from metadata and renders the matching primitive. Portals can override a type or a dictionary attribute with `registerFieldType` / `registerFieldAttribute`. An unknown type renders read-only, labelled "field type not supported", as Workspace does. `app/combobox` supplies an accessible editable combobox, a select-only `Select` and a `Listbox`, with popups in the top layer so they escape clipped cards.
 
 ## HTML fields
 
@@ -128,7 +134,24 @@ Hooks: `useForm`, `useFormContext`, `useFormValue(name)`, `useFormMeta`.
 - **Inline images:** in a bound record form (not a catalog variable), pasted, dropped or uploaded images become attachments of that record (`uploadAttachment` from [`utilities:app/attachments`](attachments.md), `src="/sys_attachment.do?sys_id=…"`), as the platform's HTML editor does. New records use the sys_id the form reserved. Catalog variables are URL-only. `imageUpload={false}` turns uploads off; `uploadImage(file)` supplies your own uploader.
 - Extra props: `minHeight`, `maxHeight`, `toolbarHide`. Exports: `HtmlField`, `uploadRecordImage({ file, table, sysId })`, `imageUploadTarget(field)`, `MAX_INLINE_IMAGE_BYTES`.
 
-> **Note:** Not built yet: a real journal field. Attachment and image fields (`file_attachment`, `user_image`) are `app/attachment-field`. HTML fields no longer fall back to a textarea. **In progress:** a time field, and condition, table-name and field-name fields.
+## Dates and times
+
+`app/date-field` (`glide_date`, value `'YYYY-MM-DD'`) and `app/datetime-field` take typed entry in the user's ServiceNow format, parsed leniently (any separator, two-digit years, month names, ISO, "today" / "tomorrow" / "yesterday"), plus a calendar popover on the host kit's [`components:calendar`](../runtime-api/host-kit.md#dialog-and-calendar). Alt+↓ or the button opens it; Escape closes it and focus returns to the button. The date-time popover adds Today, a time box, the zone and Done.
+
+- `min` / `max` come from props, else the dictionary attributes `min` / `max` (`'YYYY-MM-DD'` or `'today'`). `format` overrides the user's pattern.
+- `app/time-field` (`glide_time`) accepts `'9'`, `'930'`, `'9:30 pm'`, `'noon'` and the like, with a suggestion list every `step` minutes (default 30). It keeps the value shape it was given: `'HH:mm:ss'` wall time, or the platform's stored `'1970-01-01 HH:mm:ss'` UTC value.
+- **`utilities:app/datetime`** holds the logic with no UI, for any widget: zones (`zonedParts`, `parseGlideDateTime`, `formatGlideDateTime`, `useUserTimeZone`), the user's formats (`useUserFormats`, `useLocale`), dates (`formatDate`, `parseDate`, `addDays`, `addMonths`, `weekStartFor`, `isValidYmd`), times (`parseTime`, `formatTime`, `timeValueToSeconds`, `secondsToTimeValue`) and date-times (`parseDateTime`, `wallOf`).
+
+## Conditions, tables and fields
+
+- **`app/conditions-field`** renders `app/condition-builder` live and commits the encoded query on every complete edit. The table comes from `conditionsTable`, else the dictionary attributes `table` / `staticDependent`, else the dependent field's value (as `sys_ui_policy.conditions` depends on `table`). Props: `dotWalk`, `allowOr`, `allowNewQuery`.
+- **`app/table-name-field`** searches `sys_db_object` by label and name. `baseTable` (or the attribute `base_table`) limits it to a table and its children. Also exports `searchTables`, `useTableSearch`, `useTableInfo`, `extendsQuery`.
+- **`app/field-name-field`** picks a column with the condition builder's field picker. The table comes from `fieldTable`, the attribute `table` or the dependent value; `dotWalk` (or `tree_picker=true`) allows paths such as `caller_id.email`, and `types` limits the columns.
+
+## Phone and currency
+
+- **Phone:** `ph_number` is a tel input with loose validation. `phone_number_e164` (or `e164`) adds a country picker (typeahead on name or calling code): the value is E.164 (`'+18588649999'`), the display value is formatted. Typing `+44…` picks the country. Read-only renders a `tel:` link.
+- **Currency:** the currency code picker is the combobox `Select`.
 
 ## Data behind fields
 

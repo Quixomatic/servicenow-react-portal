@@ -1,0 +1,7 @@
+.rp-kbc { container-type: inline-size; container-name: rp-kbc; }
+.rp-kbc-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; align-items: start; }
+.rp-kbc-side { display: none; }
+@container rp-kbc (min-width: 860px) {
+    .rp-kbc-grid { grid-template-columns: 16rem minmax(0, 1fr); }
+    .rp-kbc-side { display: block; position: sticky; top: 1.25rem; }
+}

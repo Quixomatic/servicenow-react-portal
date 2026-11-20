@@ -12,11 +12,12 @@ An embedded widget has no placement record, so every request for one must prove 
 
 ## 1. Import-chain authorization
 
-A request names a **root placement** and an **embed path** (component unique ids, outermost first). The server walks the path against the sealed manifest: each step must be a **widget** that the previous component's build imports **directly** (a `build_dep` edge, recorded in the manifest as `ComponentImport.importers`), with a usable build.
+A request names a **root** and an **embed path** (component unique ids, outermost first). The root is a placement sys_id, or `layout:<component sys_id>` for embeds under a layout; a layout root must be the effective layout of the request's page (one the user can access), else `404`. The server then walks the path against the sealed manifest: each step must be a **widget** that the previous component's build imports **directly** (a `build_dep` edge, recorded in the manifest as `ComponentImport.importers`), with a usable build.
 
 - A request can't skip an intermediate component or reach a widget that's merely somewhere in the tree.
 - Anything else answers `404` (`embed_not_imported` internally, logged as `denied`), indistinguishable from a missing placement.
-- Depth is capped at 4 below a placement, enforced by host and server independently.
+- Depth is capped at 4 below the root, enforced by host and server independently.
+- The root's page must pass the portal and page checks, user criteria included: placements, embeds and layout roots on a hidden page are refused like missing ones.
 
 ## 2. Client option filtering
 
@@ -35,7 +36,7 @@ Dropped keys are reported in `meta.embed.dropped`.
 
 | Property | Value |
 |---|---|
-| Bound to | root placement, embed path, canonical options JSON, user sys_id, expiry |
+| Bound to | root (placement or layout root), embed path, canonical options JSON, user sys_id, expiry |
 | Lifetime | 12 hours |
 | Format | `v2.<exp>.<sig>` |
 | Construction | HMAC-style nesting with SHA-256 (`inner = sha256('i:' + secret + '\n' + payload)`, `sig = sha256('o:' + secret + '\n' + inner)`, `payload = 'rp-embed/2|' + root + '|' + path.join('>') + '|' + canonicalJson(options) + '|' + userId + '|' + exp`); the outer hash over a fixed-length digest rules out length extension. Scoped code has no HMAC primitive (`GlideCertificateEncryption` is blocked in scope) |

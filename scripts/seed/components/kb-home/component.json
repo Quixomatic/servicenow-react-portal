@@ -1,0 +1,1 @@
+{ "name": "Knowledge Home", "kind": "widget", "tailwind": true, "defaults": { "showSearch": true, "showBases": true, "showFeatured": true, "showPopular": true, "showRecent": true, "showCategories": true, "limit": 6, "articlePage": "kb/article", "categoryPage": "kb/category", "searchPage": "kb/search" } }

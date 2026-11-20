@@ -145,6 +145,8 @@ export interface FormBootstrap {
     sections: FormSection[]
     /** The view the server resolved ('Default view', 'ess', …). */
     view: string
+    /** What the request asked for (view resolution): the forced view, the candidate list, the rule config. */
+    requested?: { forcedView: string; views: string; viewRuleConfigId: string }
     /** Table label (the first section's display caption). */
     tableLabel: string
     /** Formatter element names in this view (activity.xml, …). */
@@ -201,6 +203,14 @@ export type ClientScript = { name: string; sysId: string; script: string; type: 
 export type ClientScripts = { onLoad: ClientScript[]; onChange: ClientScript[]; onSubmit: ClientScript[]; messages: Record<string, string> }
 
 export type FormView = { name: string; label: string }
+
+/**
+ * How a form's view is resolved when no view is forced (GlideViewQuery_Query.uiView):
+ * - viewRuleConfigId: a sys_ux_view_rules_configuration; its Workspace view rules (sysrule_view_workspace) apply;
+ * - views: an ordered candidate list ('sp,ess'); the first view that exists for the table wins.
+ * Rules beat `views`; a forced view beats both.
+ */
+export type FormViewResolution = { views?: string; viewRuleConfigId?: string }
 
 /** A form annotation (sys_ui_annotation): type is the display value ('Info Box Blue', 'Line Separator', …). */
 export type FormAnnotation = { sysId: string; text: string; type: string; typeId: string; isPlainText: boolean }

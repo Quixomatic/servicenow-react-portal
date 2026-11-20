@@ -1,0 +1,100 @@
+/* Article reading typography: a comfortable measure, generous line height and clear rhythm for
+   headings, lists, tables, code and images, in theme tokens (light and dark). Layered over the host
+   kit's .rp-prose (components layer): these rules are unlayered, so they win, and they only target
+   the article body's descendants. */
+.rp-kb-prose {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: color-mix(in oklch, var(--foreground) 92%, var(--muted-foreground));
+    max-width: 72ch;
+    font-feature-settings: "kern", "liga", "calt";
+    text-rendering: optimizeLegibility;
+}
+.rp-kb-prose :where(p, ul, ol, blockquote, pre, figure, dl, [data-kb-table]) { margin: 0 0 1.15em; }
+.rp-kb-prose :where(h1, h2, h3, h4, h5, h6) {
+    color: var(--foreground);
+    font-weight: 650;
+    letter-spacing: -0.012em;
+    scroll-margin-top: 1.25rem;
+    text-wrap: balance;
+}
+.rp-kb-prose :where(h1, h2, h3, h4, h5, h6):focus { outline: none; }
+.rp-kb-prose :where(h1, h2, h3, h4, h5, h6):focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: 2px; }
+.rp-kb-prose h1 { font-size: 1.6rem; line-height: 1.25; margin: 2.2em 0 0.7em; }
+.rp-kb-prose h2 { font-size: 1.35rem; line-height: 1.3; margin: 2em 0 0.65em; padding-top: 0.15em; }
+.rp-kb-prose h3 { font-size: 1.125rem; line-height: 1.4; margin: 1.7em 0 0.5em; }
+.rp-kb-prose :where(h4, h5, h6) { font-size: 1rem; line-height: 1.5; margin: 1.5em 0 0.4em; }
+.rp-kb-prose > :first-child,
+.rp-kb-prose > :where(div, section):first-child > :first-child,
+.rp-kb-prose > :where(div, section):first-child > :where(div, section):first-child > :first-child { margin-top: 0 !important; }
+.rp-kb-prose > :last-child,
+.rp-kb-prose > :where(div, section):last-child > :last-child { margin-bottom: 0 !important; }
+.rp-kb-prose :where(ul, ol) { padding-inline-start: 1.6em; }
+.rp-kb-prose :where(li) { margin: 0.25em 0; padding-inline-start: 0.15em; }
+.rp-kb-prose :where(li > p) { margin: 0 0 0.4em; }
+.rp-kb-prose :where(li > p:last-child) { margin-bottom: 0; }
+.rp-kb-prose :where(li)::marker { color: var(--muted-foreground); }
+.rp-kb-prose :where(ol > li)::marker { font-variant-numeric: tabular-nums; font-weight: 500; }
+.rp-kb-prose :where(li > ul, li > ol) { margin: 0.3em 0; }
+.rp-kb-prose :where(a) { color: var(--primary); text-decoration-color: color-mix(in oklch, var(--primary) 40%, transparent); text-underline-offset: 3px; }
+.rp-kb-prose :where(a:hover) { text-decoration-color: currentColor; }
+.rp-kb-prose :where(strong, b) { color: var(--foreground); font-weight: 650; }
+.rp-kb-prose :where(blockquote) {
+    border-inline-start: 3px solid color-mix(in oklch, var(--primary) 55%, var(--border));
+    background: color-mix(in oklch, var(--muted) 60%, transparent);
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding: 0.75em 1em;
+    color: var(--foreground);
+}
+.rp-kb-prose :where(blockquote > :last-child) { margin-bottom: 0; }
+.rp-kb-prose :where(code) { font-size: 0.875em; padding: 0.12em 0.35em; border-radius: 0.3rem; background: var(--muted); border: 1px solid color-mix(in oklch, var(--border) 70%, transparent); }
+.rp-kb-prose :where(pre) {
+    font-size: 0.85rem;
+    line-height: 1.65;
+    padding: 0.9em 1.1em;
+    border-radius: 0.6rem;
+    border: 1px solid var(--border);
+    background: color-mix(in oklch, var(--muted) 75%, var(--background));
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 4;
+}
+.rp-kb-prose :where(pre code) { border: 0; background: none; padding: 0; font-size: inherit; }
+.rp-kb-prose :where(hr) { border: 0; border-top: 1px solid var(--border); margin: 2.25em 0; }
+.rp-kb-prose :where(img) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1.5em auto;
+    border-radius: 0.6rem;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    cursor: zoom-in;
+}
+.rp-kb-prose :where(p > img:only-child) { margin: 0.5em auto; }
+.rp-kb-prose [data-kb-table] {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+}
+.rp-kb-prose :where([data-kb-table] table) { display: table; width: 100%; margin: 0; border-collapse: collapse; font-size: 0.9rem; line-height: 1.55; }
+.rp-kb-prose :where([data-kb-table] th, [data-kb-table] td) { border: 0; border-bottom: 1px solid var(--border); padding: 0.6em 0.85em; text-align: start; vertical-align: top; }
+.rp-kb-prose :where([data-kb-table] tr > :not(:last-child)) { border-inline-end: 1px solid color-mix(in oklch, var(--border) 60%, transparent); }
+.rp-kb-prose :where([data-kb-table] tr:last-child > *) { border-bottom: 0; }
+.rp-kb-prose :where([data-kb-table] th, [data-kb-table] thead td) { background: var(--muted); color: var(--foreground); font-weight: 600; }
+.rp-kb-prose :where([data-kb-table] tbody tr:nth-child(even)) { background: color-mix(in oklch, var(--muted) 35%, transparent); }
+.rp-kb-prose :where([data-kb-table] p) { margin: 0; }
+.rp-kb-prose :where(mark) { background: color-mix(in oklch, var(--primary) 18%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+.rp-kb-prose :where(table) { max-width: 100%; }
+/* Legacy KB HTML often carries fixed widths and font tags: never let them widen the column. */
+.rp-kb-prose :where(div, span, p, td, th) { max-width: 100%; }
+.rp-kb-prose :where(font) { font: inherit; color: inherit; }
+
+/* Wiki articles (source text). */
+.rp-kb-wiki { font: 0.875rem/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+
+@media (max-width: 640px) {
+    .rp-kb-prose { font-size: 0.975rem; line-height: 1.7; }
+    .rp-kb-prose h1 { font-size: 1.4rem; }
+    .rp-kb-prose h2 { font-size: 1.22rem; }
+}

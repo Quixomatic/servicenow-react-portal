@@ -26,6 +26,9 @@ export type UseFormOptions = {
     view?: string
     /** Encoded query presetting a new record's values ('incident=<sys_id>'). */
     query?: string
+    /** View resolution when no view is forced: candidate list ('sp,ess') and Workspace view-rule config sys_id. */
+    views?: string
+    viewRuleConfigId?: string
     /** Initial values when not bootstrapping (or for a new, local-only form). */
     values?: Record<string, ValueInput>
     /** Load the record from the platform (default: when table and sysId are given). */
@@ -46,7 +49,7 @@ export function useForm(options: UseFormOptions = {}): Form {
     const { table, sysId, view, values } = options
     const [store] = useState(() => createFormStore({ table, sysId, values }))
     const doBootstrap = options.bootstrap ?? !!(table && sysId)
-    const boot = useFormBootstrap(table, sysId, { view, enabled: doBootstrap, query: options.query })
+    const boot = useFormBootstrap(table, sysId, { view, enabled: doBootstrap, query: options.query, views: options.views, viewRuleConfigId: options.viewRuleConfigId })
     const tableMeta = useTableMeta(table)
 
     useEffect(() => {

@@ -25,7 +25,10 @@
     // Record watch test: touch the dedicated demo incident INC0020831 (safe to change) so the
     // client's useRecordWatch sees server-side writes arrive over AMB. Two updates: mark its
     // short_description, then put it back (the value ends unchanged; sys_mod_count moves on).
-    if (input.rwTouch) {
+    // Scope rights (a plain GlideRecord write), so only authors may trigger it: the Tests page is
+    // open to every portal user. gs.hasRole is true for admin too.
+    if (input.rwTouch && !gs.hasRole('x_312987_portal.developer')) data.rwTouched = 'denied'
+    else if (input.rwTouch) {
         var rw = new GlideRecord('incident')
         if (rw.get('34f4b59b83e05310e8fbc9a6feaad3e4')) {
             var base = String(rw.getValue('short_description') || '').replace(/ \[rt [^\]]*\]$/, '')

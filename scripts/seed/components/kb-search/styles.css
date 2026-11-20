@@ -1,0 +1,9 @@
+.rp-kbs { container-type: inline-size; container-name: rp-kbs; }
+.rp-kbs-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.rp-kbs-facets { display: none; }
+.rp-kbs-filters { display: block; }
+@container rp-kbs (min-width: 860px) {
+    .rp-kbs-grid { grid-template-columns: 15rem minmax(0, 1fr); gap: 2rem; }
+    .rp-kbs-facets { display: block; position: sticky; top: 1.25rem; }
+    .rp-kbs-filters { display: none; }
+}

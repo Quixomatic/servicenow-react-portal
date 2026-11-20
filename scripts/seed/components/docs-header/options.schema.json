@@ -1,0 +1,8 @@
+{
+    "type": "object",
+    "properties": {
+        "title": { "type": "string", "title": "Title", "maxLength": 80, "description": "Empty = the portal name." },
+        "icon": { "type": "string", "title": "Title icon", "maxLength": 60, "description": "Lucide icon name beside the title." },
+        "search": { "type": "boolean", "title": "Search button", "description": "Opens the docs search (the dialog lives in app/docs-sidebar)." }
+    }
+}

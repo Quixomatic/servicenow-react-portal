@@ -1,0 +1,15 @@
+/* fumadocs DocsPage container: centred article, max 900px; padding grows at md and xl (frame widths). */
+.rp-docs-page { display: flex; justify-content: center; width: 100%; min-width: 0; }
+.rp-docs-page__article { display: flex; flex-direction: column; gap: 1rem; min-width: 0; width: 100%; max-width: 900px; padding: 1.5rem 1rem; box-sizing: border-box; }
+.rp-docs-page__title { margin: 0; font-size: 1.75rem; line-height: 1.5; font-weight: 600; color: var(--foreground); letter-spacing: normal; }
+.rp-docs-page__description { margin: 0 0 2rem; font-size: 1.125rem; line-height: 1.75rem; color: var(--muted-foreground); }
+@container rp-page (min-width: 768px) {
+    .rp-docs-page__article { padding: 2rem 1.5rem 1.5rem; }
+}
+@container rp-page (min-width: 1280px) {
+    .rp-docs-page__article { padding: 3.5rem 2rem 1.5rem; }
+}
+/* Narrow content column: previous / next stack (fumadocs @max-lg:col-span-full). */
+@container rp-page (max-width: 639px) {
+    .rp-docs-page__prevnext { grid-template-columns: minmax(0, 1fr); }
+}

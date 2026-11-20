@@ -373,7 +373,7 @@ export function SearchBox(props: SearchBoxProps) {
                                         <span id={`${listId}-g-${g.id}`} className="text-xs font-medium text-muted-foreground">
                                             {g.label}
                                         </span>
-                                        {resultsPage && g.total > g.hits.length ? (
+                                        {(resultsPage || (g.id === 'knowledge' && props.targets && props.targets.kbSearchPage)) && g.total > g.hits.length ? (
                                             <button
                                                 type="button"
                                                 tabIndex={-1}
@@ -382,7 +382,9 @@ export function SearchBox(props: SearchBoxProps) {
                                                 onClick={() => {
                                                     recent.add(typed)
                                                     setOpen(false)
-                                                    navigate(resultsPage, { q: { term: typed, source: g.id } })
+                                                    // The knowledge group opens the KB search page when the targets name one.
+                                                    if (g.id === 'knowledge' && props.targets && props.targets.kbSearchPage) navigate(props.targets.kbSearchPage, { q: { term: typed } })
+                                                    else navigate(resultsPage, { q: { term: typed, source: g.id } })
                                                 }}
                                             >
                                                 See all {g.total.toLocaleString()}

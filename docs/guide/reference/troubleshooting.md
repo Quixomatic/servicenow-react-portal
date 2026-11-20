@@ -8,6 +8,8 @@ tags: [reference, troubleshooting, faq]
 
 # Troubleshooting and FAQ
 
+Common symptoms, grouped by area, with the cause and the fix. Error codes are listed in [REST conventions](../rest-api/conventions.md#codes).
+
 ## Widgets
 
 **"Widget app/x failed: No build: nothing compiled for this component yet"**
@@ -37,7 +39,7 @@ The Tailwind extractor only sees full class names in source. Write `bg-primary`,
 ## Server calls
 
 **`500 script_error … (line N)`**
-The server script threw at line N. Developers see the message in the toast; others see a reference id: look it up in the Execution Log by correlation id.
+The server script threw at line N. Developers, designers and admins see the message in the toast; everyone else sees "Something went wrong" with a reference id (the server sends them only `The server script failed`). Look the reference up in the Execution Log by correlation id.
 
 **`400 This component has no server script`**
 The component's server mode is `none`. Set `on-load` or `on-demand`.

@@ -10,11 +10,27 @@ import { useDiagCounter } from './diag-hooks';
 import { toast } from 'sonner';
 import { setServerMessageSink } from './api';
 
+/**
+ * Platform messages (gs.add*Message, errors) arrive HTML-escaped ("&#39;", "&amp;") and sometimes
+ * with markup. Toasts show plain text: decode entities and drop tags with an inert DOMParser
+ * document (nothing is rendered as HTML, nothing runs), then tidy whitespace.
+ */
+export function messageText(value) {
+	const raw = String(value == null ? '' : value);
+	if (!/[&<]/.test(raw)) return raw.trim();
+	try {
+		const doc = new DOMParser().parseFromString(raw.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
+		return (doc.body.textContent || '').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+	} catch (e) {
+		return raw;
+	}
+}
+
 // Server-script messages → toasts coloured by type.
 setServerMessageSink((messages) =>
 	messages.forEach((m) => {
 		const show = (m && toast[m.type]) || toast;
-		show(String((m && m.message) || ''));
+		show(messageText(m && m.message));
 	})
 );
 import { EMPTY_LIST, leafData } from './page-state';
@@ -74,7 +90,7 @@ export function reportServerError(error, { portal, label, key }) {
 		toasted.add(key);
 	}
 	const { title, description } = describeServerError(error, label, canSeeErrorDetails(portal));
-	toast.error(title, description ? { description } : undefined);
+	toast.error(messageText(title), description ? { description: messageText(description) } : undefined);
 	console.error(`[react-portal] ${label} server error`, error);
 }
 
@@ -91,6 +107,22 @@ export function ServerErrorBanner({ error, label }) {
 }
 
 export function WidgetPlaceholder({ label, error, onRetry }) {
+	const portal = useContext(PortalContext);
+	// Crash and load errors (stack-ish messages, component ids) are for authors only. Studio's
+	// preview has no bootstrapped user, so it keeps the details.
+	const detailed = !portal || !portal.user || canSeeErrorDetails(portal);
+	if (!detailed) {
+		return (
+			<div className="border-border bg-muted/40 text-muted-foreground rounded-lg border border-dashed p-3 text-xs" data-rp-placeholder="">
+				<div className="font-semibold">This section couldn't be displayed.</div>
+				{onRetry ? (
+					<button type="button" className="mt-2 underline" onClick={onRetry}>
+						Try again
+					</button>
+				) : null}
+			</div>
+		);
+	}
 	return (
 		<div className="border-destructive/40 bg-destructive/5 text-destructive rounded-lg border border-dashed p-3 text-xs" data-rp-placeholder="">
 			<div className="font-semibold">Widget {label} failed</div>

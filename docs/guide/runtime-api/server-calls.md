@@ -49,7 +49,7 @@ useServer(options?: { pinned?: Record<string, unknown>; toastErrors?: boolean })
 
 | Field | Meaning |
 |---|---|
-| `instanceId` | The placement sys_id, or `<placement>~<key>…` for an embedded instance |
+| `instanceId` | The placement sys_id, `<placement>~<key>…` for an embedded instance, or `layout:<component sys_id>` for a layout |
 | `options` | Effective options (from the initialize result when present, else the placement's) |
 | `data` | `on-load`: the batch initialize result, then whatever the last `update`/`refresh` returned. `on-demand`: `undefined` until an `update`/`refresh` |
 | `pending` | `on-load` only: true until the page's initialize result arrives |
@@ -61,7 +61,7 @@ useServer(options?: { pinned?: Record<string, unknown>; toastErrors?: boolean })
 |---|---|---|
 | `server.get(input?)` | `get` | None: the promise resolves with the server's data |
 | `server.update(input?)` | `update` | The server's data **replaces** local data |
-| `server.refresh()` | `initialize` | Re-runs the initialize path and replaces local data |
+| `server.refresh()` | `initialize` | Re-runs the initialize path (with pinned and staged inputs) and replaces local data |
 
 > **Warning:** The widget's `data` is **never sent** to the server; the script always starts from an empty `data`. Put what it needs in `input`.
 
@@ -94,7 +94,7 @@ A failed action **toasts automatically** and the promise still rejects.
 
 On-load failures (the page's initialize) show a **banner above the widget** instead, toasted once per placement and message.
 
-The error object carries `status`, `code`, `details` (for `script_error`: `{ component, instance, line, messages }`) and `correlationId`.
+The error object carries `status`, `code`, `details` and `correlationId`. For `script_error`, authors (developer, designer, admin) get the script's message and `details: { component, instance, line, messages }`; the server sends everyone else `The server script failed` and `details: { messages }`. See [REST conventions](../rest-api/conventions.md#errors).
 
 ## Server messages
 
@@ -106,7 +106,7 @@ The page loads every `on-load` placement's data in **one** `POST /instances/init
 
 ## In embedded instances
 
-Inside an embedded widget the hook works unchanged; calls go to the root placement with an `embed` body. Where an embed has no server (Studio preview, under a layout), calls reject with `400 no_server`.
+Inside an embedded widget the hook works unchanged; calls go to the root (the placement, or `layout:<component sys_id>` for an embed under a layout) with an `embed` body. Where an embed has no server, as in Studio's single-component preview, calls reject with `400 no_server`.
 
 ## Related
 

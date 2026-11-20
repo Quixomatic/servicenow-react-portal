@@ -1,0 +1,11 @@
+{
+    "type": "object",
+    "properties": {
+        "path": { "type": "string", "title": "Doc path", "description": "Show this doc (e.g. concepts/layouts) instead of the one in the URL. Empty = the page route (the docs portal's '*' page; '' is index)." },
+        "breadcrumb": { "type": "boolean", "title": "Breadcrumb", "description": "Section › page above the title." },
+        "tocDepth": { "type": "integer", "title": "Table of contents depth", "minimum": 2, "maximum": 4, "description": "Deepest heading level listed in \"On this page\"." },
+        "prevNext": { "type": "boolean", "title": "Previous / next links", "description": "Cards to the neighbouring pages in nav order." },
+        "editUrl": { "type": "string", "title": "Edit link URL", "format": "url", "description": "Template for an \"Edit on GitHub\" button; {source} = repository path (docs/guide/…md), {path} = doc path. Empty hides it." },
+        "editLabel": { "type": "string", "title": "Edit link label", "maxLength": 60 }
+    }
+}

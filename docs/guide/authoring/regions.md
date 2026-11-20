@@ -8,7 +8,7 @@ tags: [regions, layout, block, drop-zones]
 
 # Regions (`regions.json`)
 
-`regions.json` (the `regions_json` field) appears in Studio for **layouts** and **blocks** only. It declares where placements can go.
+`regions.json` (the `regions_json` field) appears in Studio for **layouts** and **blocks** (the default of `x_312987_portal.studio.kind_files`; see [Code editor](../studio/code-editor.md#virtual-files)). It declares where placements can go.
 
 ## Layouts
 

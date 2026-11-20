@@ -71,6 +71,8 @@ A failure returns the matching HTTP status and:
 
 Unexpected exceptions become `500 internal_error` with a generic message; the real error goes to the system log with the correlation id. Messages are sanitized (no stack traces, no script locations, ≤ 500 characters).
 
+Server-script failures (`script_error` and other 5xx from a script) keep their message and details only for authors: users with the `design` capability (developer, designer, admin). Everyone else gets `The server script failed` with `details: { messages }`; the execution log keeps the full message under the correlation id.
+
 ### Codes
 
 | Status | Code | When |
@@ -87,7 +89,7 @@ Unexpected exceptions become `500 internal_error` with a generic message; the re
 | 409 | `no_build` | The component has no usable build |
 | 409 | `wrong_scope` | Studio write while the application picker isn't on React Portal (`details: { currentApp, app }`) |
 | 409 | `has_children` | Deleting a block or menu group with children without `?mode=lift\|cascade` |
-| 500 | `script_error` | A server script threw (`details: { component, instance, line, messages }`) |
+| 500 | `script_error` | A server script threw (`details: { component, instance, line, messages }` for authors, `{ messages }` for everyone else) |
 | 500 | `internal_error` | Anything unexpected |
 
 ## The `/api` file-extension rule

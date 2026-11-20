@@ -26,6 +26,7 @@ Widgets, layouts, blocks, primitives and utilities import the runtime from **`@p
 | `useRecord`, `useTableQuery` | hooks | [Table data](table-data.md) |
 | `useRecordWatch`, `useAmbChannel`, `useAmbStatus` | hooks | [Live updates](live-updates.md) |
 | `Embed`, `useEmbeddedWidget`, `useGetWidget` | component, hooks | [Embedded widgets](../authoring/embedded-widgets.md) |
+| `useInViewOnce` | hook | [Embedded widgets: lazy embeds](../authoring/embedded-widgets.md#lazy-embeds) |
 | `RUNTIME_ABI`, `RUNTIME_EXPORTS` | constants | |
 
 ## Beyond `@portal/runtime`

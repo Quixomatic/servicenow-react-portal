@@ -76,12 +76,14 @@ export default function Stack() {
 
 | Block | Drop zones | Notable options |
 |---|---|---|
-| `app/section` | `content` | `paddingY`, `maxWidth`, `gap` |
-| `app/container` | | width and padding |
-| `app/grid` | `items` | `columns`, `rows`, `gap`, `itemSpan` (tablet 6, mobile 12), `alignItems`, `justifyItems`, `autoFlow`, `subgrid` (none, columns, rows, both) |
-| `app/columns` | `col-1`…`col-n` from `tracks` | `tracks` (`[{ size: "minmax(0, 1fr)" }, …]`), `gap`, `align`; presets ½+½, ⅓+⅔, ⅔+⅓, ⅓×3, ¼×4, sidebar + main |
-| `app/stack` | | |
-| `app/split` | | |
+| `app/section` | `content` | `paddingY` (default 2rem), `maxWidth` (default none), `gap` |
+| `app/container` | `content` | `maxWidth` (default 72rem, with presets), `paddingX` (default 1rem), `gap` |
+| `app/grid` | `items` | `columns` (default 12 tracks, with presets), `rows`, `gap`, `itemSpan` (default 4; tablet 6, mobile 12), `alignItems`, `justifyItems`, `autoFlow`, `subgrid` (none, columns, rows, both) |
+| `app/columns` | `col-1`…`col-n` from `tracks` | `tracks` (`[{ size: "minmax(0, 1fr)" }, …]`; default ⅓ + ⅔, one column on mobile), `gap`, `align`; presets ½+½, ⅓+⅔, ⅔+⅓, ⅓×3, ¼×4, sidebar + main |
+| `app/stack` | `items` | `direction` (column, row, and their reverses), `gap`, `align`, `justify`, `wrap` |
+| `app/split` | `start`, `end` | `template` (default two equal panes, one on mobile), `gap`, `divider` |
+
+Every block option above except `subgrid` and `divider` maps to a CSS custom property through `x-css-var` (for example `--rp-grid-cols`), so it can differ per breakpoint.
 
 ## Instance styling
 
@@ -119,3 +121,4 @@ The designer's delete (`DELETE /rp_studio/placements/{id}?mode=lift|cascade`) re
 - [Page designer](../studio/page-designer.md)
 - [Options (`x-css-var`)](../authoring/options.md)
 - [Layout and navigation hooks (`useBlock`)](../runtime-api/layout-and-navigation.md#useblock)
+- [Layouts](layouts.md)

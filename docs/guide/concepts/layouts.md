@@ -49,7 +49,13 @@ export default function Layout({ options }: { options: { contentPadding?: string
 
 A `<Region>` renders, in order: the region's **portal-level** placements (stable keys, so they stay mounted across navigation), then the **page's** placements (the main region through the router's outlet, other regions from the current page's data), then an outlet that `RegionPortal` contributions render into.
 
-> **Note:** Layouts get `{ regions, options }` as props, not `instanceId`. They have no server script and aren't executed.
+> **Note:** Layouts get `{ regions, options }` as props, not `instanceId`.
+
+## Layout server scripts
+
+A layout can have its own server script (`server.js` is one of the layout kind's baseline files). It runs as the instance `layout:<component sys_id>`, authorized against the request's **effective** layout: the matched page's `layout_override`, else the portal's default layout. Any other layout id answers `404`. The script's `options` are the effective layout options. An `on-load` layout script initializes once per mount, in the same batched request as the page's widgets, and the layout reads it with `useServer()`.
+
+Widgets a layout imports render as [embedded instances](../authoring/embedded-widgets.md) under the same `layout:<sys_id>` root. The sp page `embeds/layout` uses `app/embed-test-layout` to exercise both.
 
 ## Layout options
 
@@ -69,11 +75,18 @@ The page designer edits the portal default in portal settings, and a "Portal def
 
 | Layout | Regions | Options |
 |---|---|---|
-| `app/app-shell` | sidebar, header, subheader, main, footer | `texture` (noise, plain); `contentPadding` (none, sm, md, lg); `subheader` (bar, banner, hidden); `subheaderTitle`, `subheaderSubtitle`, `subheaderIcon` (Lucide name), `subheaderTint` (primary, chart-1…5, none) |
-| `app/standard-layout` | header, sidebar, main, footer | `header` (full, beside-sidebar); `contentPadding` |
-| `app/centered-layout` | header, main, footer | `canvas` (muted, background) |
+| `app/app-shell` | sidebar, header, subheader, main, footer | `texture` (noise, plain; default noise); `contentPadding` (none, sm, md, lg; default md); `subheader` (bar, banner, hidden; default bar); `subheaderTitle`, `subheaderSubtitle`, `subheaderIcon` (Lucide name), `subheaderTint` (primary, chart-1…5, none; default primary) |
+| `app/standard-layout` | header, sidebar, main, footer | `header` (full, beside-sidebar; default full); `contentPadding` (default md) |
+| `app/centered-layout` | header, main, footer | `canvas` (muted, background; default muted) |
+| `app/embed-test-layout` | header, main, footer | None. A test layout with an on-load server script, used only by sp `embeds/layout` |
 
-In `app/app-shell`, `subheader: banner` turns the sub-header into a hero band (its title defaults to the page title). The banner has a full-width **`below`** [header slot](../primitives/header-slots.md) under the title, where `app/hero-search` puts the portal search. `hidden` gives the space back to main, and [header slot](../primitives/header-slots.md) users fall back to rendering inline.
+In `app/app-shell`, the `subheader` options are read by the `app/app-subheader` widget in the `subheader` region (through `useLayout().options`); the layout itself only switches a data attribute:
+
+- `bar`: a 40px bar with the page title, the active menu item's badge and the `left` / `center` / `right` [header slots](../primitives/header-slots.md).
+- `banner`: a hero band with a large title (`subheaderTitle`, default the page title), `subheaderSubtitle`, an optional `subheaderIcon` and a `subheaderTint`. It has the same slots plus a full-width **`below`** slot under the title, where `app/hero-search` puts the portal search (the sp home page).
+- `hidden`: the sub-header renders nothing and main reclaims the space. Header slot users fall back to rendering inline.
+
+Set it portal-wide in `settings.layoutOptions` or per page. Switching never remounts widgets.
 
 ## Contributions (`RegionPortal`)
 
@@ -102,3 +115,5 @@ If a layout can't load or crashes, the host shows a placeholder and stacks the r
 - [Placements and blocks](placements-and-blocks.md)
 - [Layout and navigation hooks](../runtime-api/layout-and-navigation.md)
 - [Regions (`regions.json`)](../authoring/regions.md)
+- [Header slots](../primitives/header-slots.md)
+- [Content width](content-width.md)

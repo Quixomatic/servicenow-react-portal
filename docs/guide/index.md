@@ -44,16 +44,17 @@ Everything flows one way: **records → compile → release manifest → host re
 
 ## What's in the box
 
-- **Backend** (`src/fluent`, `src/server`): 14 tables, ACLs and roles, two scripted REST APIs (`rp` runtime, `rp_studio` authoring), business rules for validation, compiling and reprocessing, the compiler, the component executor (`$sp`), embeds, menus and security.
+- **Backend** (`src/fluent`, `src/server`): 20 tables (14 for content and builds, 6 for user criteria), ACLs and roles, two scripted REST APIs (`rp` runtime, `rp_studio` authoring), business rules for validation, compiling and reprocessing, the compiler, the component executor (`$sp`), embeds, menus and security.
 - **Host** (`packages/portal-host`): the `x-312987-portal-host` Next Experience component. It holds the portal runtime (`@portal/runtime`), the host kit (shadcn/ui components such as `components:button`), and Portal Studio (code editor, page designer, menus editor) as a separate chunk.
 - **Global helper app** (`packages/global-helpers`): a small global-scope app that proxies the session APIs scoped code can't call. See [Global helper app](internals/global-helper-app.md).
-- **Primitives** (seed records): fields, catalog variables, lists, forms with the platform's form runtime, GraphQL data hooks and more, all built as `kind = primitive` or `utility` component records. See [Primitives overview](primitives/overview.md).
+- **Primitives** (seed records): fields, forms with the platform's form runtime, dialogs, related lists, attachments, activity, lists, catalog variables, cart and checkout, search, and GraphQL data hooks, all built as `kind = primitive` or `utility` component records. See [Primitives overview](primitives/overview.md).
 
 ## Where to go next
 
+- Coming from an earlier release: [What's new](whats-new.md).
 - New to React Portal: [UI Builder setup](getting-started/ui-builder-setup.md), then [Your first widget](getting-started/first-widget.md).
 - Writing widgets: [Authoring components](authoring/client-script.md) and the [Runtime API](runtime-api/overview.md).
 - Building portals: [Portals](concepts/portals.md), [Pages and routes](concepts/pages-and-routes.md), [Page designer](studio/page-designer.md).
 - Changing the platform: [Platform internals](internals/data-model.md).
 
-> **Note:** This guide documents the code in the repository. Where a feature is still being built, the page says **In progress**.
+> **Note:** This guide documents the code in the repository. For what changed in each release, see [What's new](whats-new.md).

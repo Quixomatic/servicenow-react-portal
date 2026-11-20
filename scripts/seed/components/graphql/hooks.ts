@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from 'utilities:react-query'
 import { graphql } from './client'
 import type { GraphQLOptions } from './client'
-import { fetchChoices, fetchDisplayValue, fetchFormBootstrap, fetchFormViews, fetchRecordValues, fetchTableMeta, searchReference, stableChanges } from './documents'
-import type { Choice, FieldMeta, FormBootstrap, FormChanges, FormView, FieldValue, ReferenceSearchResult } from './types'
+import { checkFormViews, fetchChoices, fetchDisplayValue, fetchFormBootstrap, fetchFormViews, fetchRecordValues, fetchTableMeta, searchReference, stableChanges } from './documents'
+import type { Choice, FieldMeta, FormBootstrap, FormChanges, FormView, FormViewResolution, FieldValue, ReferenceSearchResult } from './types'
 
 /** Query keys: everything this utility caches lives under ['rp-gql', …]. */
 export const gqlKeys = {
@@ -12,6 +12,7 @@ export const gqlKeys = {
     tableMeta: (table: string) => ['rp-gql', 'table-meta', table] as const,
     form: (table: string, sysId: string, view: string, query = '') => (query ? (['rp-gql', 'form', table, sysId, view, query] as const) : (['rp-gql', 'form', table, sysId, view] as const)),
     formViews: (table: string) => ['rp-gql', 'form-views', table] as const,
+    viewCheck: (table: string, names: string) => ['rp-gql', 'view-check', table, names] as const,
     choices: (table: string, field: string, sysId: string, changes: string) => ['rp-gql', 'choices', table, field, sysId, changes] as const,
     reference: (table: string, field: string, sysId: string, term: string, changes: string, limit: number) =>
         ['rp-gql', 'reference', table, field, sysId, term, changes, limit] as const,
@@ -71,13 +72,18 @@ export function useFieldMeta(table: string | undefined, field: string | undefine
 }
 
 /** Form bootstrap (formLayout): values, display values, server states, metadata, encodedRecord. */
-export function useFormBootstrap(table: string | undefined, sysId: string | undefined, options: { view?: string; enabled?: boolean; query?: string } = {}) {
+export function useFormBootstrap(table: string | undefined, sysId: string | undefined, options: { view?: string; enabled?: boolean; query?: string } & FormViewResolution = {}) {
     const view = options.view || ''
     const query = options.query || ''
     const isNew = !sysId || sysId === '-1'
+    // View resolution (no forced view): the candidate list and the Workspace view-rule config are part
+    // of the key; a forced view ignores both. useForm and useRecordForm must pass the same options.
+    const views = view ? '' : options.views || ''
+    const viewRuleConfigId = view ? '' : options.viewRuleConfigId || ''
+    const viewKey = views || viewRuleConfigId ? `${view}|${views}|${viewRuleConfigId}` : view
     return useQuery<FormBootstrap>({
-        queryKey: gqlKeys.form(table || '', sysId || '-1', view, query),
-        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormBootstrap(table as string, sysId || '-1', view, signal, query),
+        queryKey: gqlKeys.form(table || '', sysId || '-1', viewKey, query),
+        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormBootstrap(table as string, sysId || '-1', view, signal, query, { views, viewRuleConfigId }),
         enabled: !!table && options.enabled !== false,
         // A new record's bootstrap reserves a number: never refetch it behind the user's back
         // (no staleness, no mount / focus / reconnect refetch).
@@ -100,6 +106,21 @@ export function useFormViews(table: string | undefined, sysId: string | undefine
         queryKey: gqlKeys.formViews(table || ''),
         queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormViews(table as string, sysId as string, signal),
         enabled: !!table && real && options.enabled !== false,
+        staleTime: 10 * MINUTE,
+    })
+}
+
+/**
+ * Which of these view names exist for a table: { [name]: exists } (cached 10 minutes; one request;
+ * no layout, reserves nothing, works for new records too). Default spellings ('', 'default',
+ * 'Default view') always exist.
+ */
+export function useFormViewCheck(table: string | undefined, names: string[], options: { enabled?: boolean } = {}) {
+    const list = Array.from(new Set(names.map((n) => String(n || '').trim()).filter(Boolean))).sort()
+    return useQuery<Record<string, boolean>>({
+        queryKey: gqlKeys.viewCheck(table || '', list.join(',')),
+        queryFn: ({ signal }: { signal: AbortSignal }) => checkFormViews(table as string, list, signal),
+        enabled: !!table && list.length > 0 && options.enabled !== false,
         staleTime: 10 * MINUTE,
     })
 }

@@ -33,14 +33,16 @@ A **portal** is one site: `sp`, `crm`, `app`. It's a record in `x_312987_portal_
 | `contentWidth` | `full` \| `7xl` \| `6xl` \| `5xl` \| `4xl` \| `3xl` | Default [content width](content-width.md) for pages set to "Portal default". Unset means `7xl` |
 | `layoutOptions` | object | Portal-wide [layout options](layouts.md#layout-options), applied when a page uses the portal's default layout |
 | `exposedProperties` | string[] | System property names widgets may read with `useProperty` (besides `x_312987_portal.public.*`). See [Data access](../security/data-access.md#system-properties) |
+| `viewRuleConfigId` | sys_id | A `sys_ux_view_rules_configuration`: its Workspace view rules (`sysrule_view_workspace`) choose a form's view when the URL, the widget option and the user's remembered view name none. Set it in Studio's portal settings (Form views ▸ View rules). See [Form view resolution](../primitives/forms.md#form-view-resolution) |
+| `formViews` | string | Comma-separated candidate views after the rules (`"sp,ess"`): the first one that exists for the table wins, else Default |
 
 The whole `settings` object reaches widgets as `usePortal().portal.settings` and server scripts as `$sp.getPortal().settings`. `$sp.getValue(name)` falls back to a portal setting when the widget has no option of that name, as in Service Portal. Custom keys are allowed.
 
 ## Audience and access
 
-A user can open a portal when they're logged in, the portal is active, and they hold one of its `roles` (or `roles` is empty). Users with any React Portal studio role (developer, designer, publisher, admin) bypass these checks. A portal the user can't open answers `404 portal_not_found`, so its existence doesn't leak.
+A user can open a portal when they're logged in, the portal is active, they hold one of its `roles` (or `roles` is empty), and the portal's [user criteria](user-criteria.md) allow them. Platform admins and users with any React Portal studio role (developer, designer, publisher, admin) bypass these checks. A request without a session answers `401 unauthenticated`. A portal the user can't open answers `404 portal_not_found`, so its existence doesn't leak. The check covers bootstrap, page resolve, server calls, properties and asset downloads.
 
-> **Note:** **In progress:** [user criteria](user-criteria.md) ("Available for" / "Not available for") on portals, pages and menu items, ANDed with the role checks.
+Pages and menu items can carry their own user criteria too, ANDed with their role checks.
 
 ## Portal-wide placements
 
@@ -55,3 +57,5 @@ The `RP: Normalize portal` business rule lower-cases and checks the slug, valida
 - [Pages and routes](pages-and-routes.md)
 - [Layouts](layouts.md)
 - [Builds, releases and manifests](builds-and-releases.md)
+- [Menus](menus.md)
+- [User criteria](user-criteria.md)

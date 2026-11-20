@@ -1,0 +1,8 @@
+{
+    "type": "object",
+    "properties": {
+        "layoutWidth": { "type": "string", "title": "Layout width", "description": "Max width of sidebar + content + table of contents (CSS length). Default 97rem, as fumadocs." },
+        "sidebarWidth": { "type": "string", "title": "Sidebar width", "description": "CSS length. Default 268px." },
+        "tocWidth": { "type": "string", "title": "Table of contents width", "description": "CSS length. Default 268px." }
+    }
+}
