@@ -1,0 +1,4 @@
+{
+    "//": "ES modules for Node: scripts/seed/docs-lib.mjs imports docs-text.ts directly (native type stripping).",
+    "type": "module"
+}

@@ -147,6 +147,8 @@ export interface FormBootstrap {
     view: string
     /** What the request asked for (view resolution): the forced view, the candidate list, the rule config. */
     requested?: { forcedView: string; views: string; viewRuleConfigId: string }
+    /** Portal view rules: how the view was chosen (only with FormViewResolution.rules). */
+    resolution?: ViewResolutionInfo
     /** Table label (the first section's display caption). */
     tableLabel: string
     /** Formatter element names in this view (activity.xml, …). */
@@ -210,7 +212,39 @@ export type FormView = { name: string; label: string }
  * - views: an ordered candidate list ('sp,ess'); the first view that exists for the table wins.
  * Rules beat `views`; a forced view beats both.
  */
-export type FormViewResolution = { views?: string; viewRuleConfigId?: string }
+export type FormViewResolution = { views?: string; viewRuleConfigId?: string; rules?: ViewRuleInputs }
+
+/**
+ * Portal view rules (x_312987_portal_view_rule): the inputs of the server resolution. With `rules`,
+ * the form resolves its view in the same request (page rules → portal rules force the view; else
+ * the URL view, the option (lockView: option first), the remembered view; else uiView decides).
+ */
+export type ViewRuleInputs = {
+    /** Portal sys_id (or slug). */
+    portal: string
+    page?: string
+    urlView?: string
+    optionView?: string
+    lockView?: boolean
+    /** false: ignore the remembered view. */
+    remember?: boolean
+    /** The remembered view the client knows ('' = none); undefined / null = the server reads the preference. */
+    remembered?: string | null
+}
+
+/** How the view was chosen. source 'rule' = forced by a portal view rule (the switcher is locked). */
+export type ViewResolutionInfo = {
+    view: string
+    source: 'rule' | 'url' | 'option' | 'remembered' | 'auto'
+    ruleId: string
+    ruleName: string
+    /** A URL / option view that doesn't exist for the table. */
+    missing: string
+    /** Why (studio users only). */
+    reason: string
+    /** 'answer' = the one-request path; 'api' = resolve, then the form (two calls). */
+    via: 'answer' | 'api'
+}
 
 /** A form annotation (sys_ui_annotation): type is the display value ('Info Box Blue', 'Line Separator', …). */
 export type FormAnnotation = { sysId: string; text: string; type: string; typeId: string; isPlainText: boolean }

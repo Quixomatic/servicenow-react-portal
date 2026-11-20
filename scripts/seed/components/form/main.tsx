@@ -1,7 +1,9 @@
 /**
  * components:app/form: record forms on the platform's own form runtime.
  *
- *   useRecordForm({ table, sysId, view, onSaved })   FormStore + bootstrap + UI policies + save()
+ *   useRecordForm({ table, sysId, view, onSaved, viewRules?, forceView? })   FormStore + bootstrap + UI policies + save();
+ *                                                    portal view rules resolve in the same request
+ *                                                    (form.resolution: source 'rule' = forced by a rule)
  *   <RecordForm table sysId view showViews onViewChange onSaved headerActions />
  *                                                    header (label, number, state), view switcher,
  *                                                    sections, dirty tracking, Save / Discard
@@ -10,7 +12,8 @@
  *                                                    by g_form.setSectionDisplay or with every field
  *                                                    hidden disappear)
  *   useCollapsedSections(table) / usePresentationPreference()   per-user state in x_312987_portal.form.*
- *   useResolvedFormView({ table, urlView, optionView, lockView })   the view to force, its source, a missing name
+ *   useViewRulesContext()                            { portal, page } the view rules are evaluated for
+ *   useResolvedFormView({ table, urlView, optionView, lockView })   v1.17 client-side resolution (no portal rules)
  *   usePortalViewSettings()                          the portal's viewRuleConfigId + formViews (settings_json)
  *   SAVE_ACTIONS, notify(notifications)
  *
@@ -27,8 +30,8 @@ export { RecordForm } from './record-form'
 export type { RecordFormProps } from './record-form'
 export { FormLayout, FormSection, FormElement, SectionRows, isFormatter, isSplitMarker, sectionName, sectionElements, sectionOfField, useVisibleSections } from './layout'
 export { useOwnPreference, useCollapsedSections, usePresentationPreference, useRememberedView, formPreferenceName } from './preferences'
-// View resolution (backlog B): URL → option (lockView flips) → remembered → Workspace view rules → portal candidates → Default.
-export { useResolvedFormView, usePortalViewSettings } from './view-resolution'
+// View resolution: page rules → portal rules (force) → URL → option (lockView flips) → remembered → Workspace view rules → portal candidates → Default.
+export { useResolvedFormView, usePortalViewSettings, useViewRulesContext } from './view-resolution'
 export type { ResolvedFormView, FormViewSource } from './view-resolution'
 // formPreferenceName.view(table): the remembered form view (x_312987_portal.form.<table>.view).
 export type { FormPresentation } from './preferences'

@@ -2,6 +2,72 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.19.0] - 2026-11-20
+
+Portal view rules, a docs editor in Portal Studio, Studio deep links, and loading skeletons for
+portals and Studio.
+
+### Added: portal view rules
+- **Rule tables keyed to a portal or page:**
+  - `x_312987_portal_view_rule`, with user-criteria links `x_312987_portal_vrule_uc` / `_uc_no`;
+  - a rule matches on table (exact, as in Workspace), condition, roles, user criteria and an optional script;
+  - a rule applies to forms, lists or both;
+  - the view is stored as a name plus a `sys_ui_view` reference, kept in sync by "RP: Sync view rule view".
+- **Rules force the view.** Order: page rules, then portal rules, then (only when no rule matched) URL, widget option, remembered view, the Workspace fallback (`viewRuleConfigId`), the portal's default views, Default. A forced view shows the switcher locked, with a tooltip naming the rule. `settings.viewRulesFrom` lets a portal use another portal's portal rules.
+- **One request per form.** The remote table `x_312987_portal_view_answer` computes the winning view, and the form chains it into the platform's `uiView` through `_query` / `$$parent` in the same GraphQL request. The old view-existence pre-request is gone.
+- **Scripted GraphQL API `x312987Portal.viewRules`** (`resolve`, `explain`). It's the fallback path and serves Studio's test panel. Its gate is `user_is_authenticated`, so roleless users work.
+- **Security:** unreadable records never match a rule. Conditions are evaluated as the system after an ACL access check. Rule ids and reasons go to Studio roles only.
+- **Studio "View rules" activity** (`app/view-rules-editor`): page and portal rules in evaluation order, with reorder, activate and Repair. A condition builder bound to the rule's table with a "New records only" shortcut; a view picker limited to the table's views; roles and user criteria in one place. A Test panel shows the resulting view and each rule's verdict, including View as user.
+- **Lists honour list rules.** No demo rules are seeded.
+- Docs: `concepts/view-rules.md`; catalog §12.4.
+
+### Added: Studio docs editor
+- **"Docs" activity in Portal Studio** for the docs portal's pages:
+  - a page tree: create, rename, move and reorder, deactivate (no deletes);
+  - **Visual** (default) and **Markdown** modes, with the last choice remembered;
+  - the real docs renderer as a live preview;
+  - a frontmatter form with the icon picker;
+  - a link picker and broken-link warnings;
+  - Ctrl+S, conflict detection, and an unsaved prompt.
+- **Visual mode keeps Markdown as written.** It's TipTap, converted through the renderer's own parser. Untouched blocks keep their exact bytes; anything it can't model stays an editable "Markdown block". All 71 guide pages round-trip byte-identical.
+- **Source of truth:** the repo stays canonical.
+  - New fields `origin` and `seed_hash` on `x_312987_portal_doc`. "Edited in Studio" means `content_hash ≠ seed_hash`.
+  - The seed keeps pages edited in Studio and reports conflicts; `--docs-force` overwrites them.
+  - New `npm run docs:pull` writes Studio edits back to `docs/guide` (pages, `_nav.json`, icons) and checks that the hashes match.
+- **Shared analysis code** (`src/server/docs/docs-text.ts`) is used by both the seed and the server, so their hashes are identical.
+- **Studio API:** `GET/POST /docs`, `GET/PATCH /docs/{id}`, `POST /docs/order`.
+- The rich-text chunk gains tables and `createMarkdownEditor`. New pinned dependencies: `@codemirror/lang-markdown` 6.5.2 and `@tiptap/extension-table` 3.34.0.
+
+### Added: Studio deep links
+- **Every Studio location has a URL:** `/x/312987/portal/studio/params/view/<code|pages|menus|view-rules|docs>/id/<target>/q/<encoded keys>`.
+  - Readable ids: `app/form`, `theme:<key>`, `sp:/kb`, `sp:primary`, a portal slug, a docs path. Sys_ids work too.
+  - Covers a component file and line; a page, placement and device; portal settings; a menu, item and preview; a portal's view rules and one rule; a docs page and anchor.
+  - Old `/params/id/<sys_id>` links are rewritten to the readable form. Unknown targets show an error and correct the URL.
+- **The URL follows what you open.** Switching activity or target adds a history entry; file, selection, device and preview changes replace it. Back and Forward walk Studio, and unsaved code asks first.
+- **Copy link:** in every title bar and on Ctrl+Alt+L, plus Copy Link to File / Line in editor tab and explorer menus.
+- **`registerStudioLocation()`** lets each activity declare its URL state; View rules and Docs use it.
+- **`PORTAL_NAVIGATE` gains `replace`** (boolean). The studio page's script-mode Link to destination handler maps it to `redirect`; setup steps are in `getting-started/ui-builder-setup.md`. Without a handler, Studio writes its own history entries.
+
+### Added: loading skeletons
+- **Portals** show one full-size app-shell skeleton (sidebar rail, header, sub-header, content cards) from the host's first frame until the layout renders, then fade out (≤150 ms, none under reduced motion). It replaces the blank frame and the small pulse box, follows light/dark, and drops the rail on mobile.
+- **Portal Studio** shows a skeleton of itself (title bar, activity bar, explorer, editor, panel, status bar) while its chunk loads, instead of the 60vh "Loading the editor…" box.
+- **"Portal could not load", "No portal selected" and "Studio failed to load"** now fill the host.
+
+### Fixed
+- **Back to the bare portal URL** (`/site/sp`) kept showing the previous page. The host now treats a URL-absent `page-id` as home.
+- **Docs tables at phone width** cut off their right columns. Inline code now wraps at dots and slashes, never mid-word, in the docs renderer and the Visual editor.
+- **Studio's `.rps input` CSS** no longer leaks into hosted widgets and component previews.
+- **`npm run seed`** gains `--help`, and unknown flags now exit without running.
+
+### Internal
+- Root `.prettierrc.json` and `.prettierignore` (semicolons, single quotes, 4 spaces, 120 columns); Prettier 3.6.1 pinned; `npm run format` / `format:check`. The repo-wide formatting pass comes in its own commit.
+
+### Notes
+- Runtime Tests: 33/33.
+- **Test data:**
+  - three inactive TEST view rules on sp (`6c29362b…`, `d029362b…`, `7e9a7aaf…`);
+  - an inactive Studio docs page "TEST docs editor" (`bc24872f…`).
+
 ## [1.18.0] - 2026-11-20
 
 Quick utilities: TurboForge's tfQuickUtils ported into React Portal, ACL-safe by default.

@@ -24,6 +24,7 @@ import { PREVIEW_TAB, languageOf, useStudio, virtualLabel } from './store';
 import * as L from './layout';
 import { switchToReactPortal, useScope } from './scope';
 import { DependenciesSection, EmbeddedByBadge } from './dependencies';
+import { CopyLinkButton } from './deep-link/copy-link';
 
 // ---- switching with unsaved changes ---------------------------------------------------------
 
@@ -73,6 +74,7 @@ function DesignerTitlebar({ studio, designer }) {
 					<CircleCheck size={12} /> saved
 				</span>
 			)}
+			<CopyLinkButton />
 			<button className="rps-tbtn" title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}`} onClick={cycle} data-rps-theme={theme}>
 				{theme === 'system' ? <Monitor size={15} /> : resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
 			</button>
@@ -103,6 +105,7 @@ function MenusTitlebar({ menus }) {
 					<CircleCheck size={12} /> saved
 				</span>
 			)}
+			<CopyLinkButton />
 			<button className="rps-tbtn" title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}`} onClick={cycle} data-rps-theme={theme}>
 				{theme === 'system' ? <Monitor size={15} /> : resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
 			</button>
@@ -161,6 +164,7 @@ function ComponentTitlebar({ studio }) {
 			<button className="rps-tbtn" aria-pressed={propertiesOpen} disabled={!owner} title="Properties" onClick={() => studio.set((s) => ({ propertiesOpen: !s.propertiesOpen }))} data-rps-props-toggle="">
 				<Settings2 size={15} />
 			</button>
+			<CopyLinkButton />
 			<button className="rps-tbtn" title={`Theme: ${theme}${theme === 'system' ? ` (${resolvedTheme})` : ''}. Click for ${theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'}`} onClick={cycle} data-rps-theme={theme}>
 				{theme === 'system' ? <Monitor size={15} /> : resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
 			</button>

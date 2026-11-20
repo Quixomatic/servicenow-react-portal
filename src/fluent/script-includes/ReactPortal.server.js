@@ -11,13 +11,23 @@
  */
 var ReactPortal = Class.create()
 
-ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.18.0/src/server/'
+ReactPortal.MODULE_ROOT = 'x_312987_portal/x-312987-react-portal/1.19.0/src/server/'
 
 ReactPortal.prototype = {
     initialize: function () {},
 
     _mod: function (path) {
         return require(ReactPortal.MODULE_ROOT + path + '.ts')
+    },
+
+    /** Remote table x_312987_portal_view_answer: one row with the view resolution (view rules). */
+    viewAnswer: function (v_table, v_query) {
+        this._mod('views/view-rules-api').executeViewAnswer(v_table, v_query)
+    },
+
+    /** View resolution for the current user ({ kind, table, sysId, query, portal, page, urlView, optionView, lockView }). */
+    resolveView: function (input) {
+        return this._mod('views/view-rules').resolveView(input || {})
     },
 
     /** Bootstrap payload for a portal slug (access-checked for the current user). */

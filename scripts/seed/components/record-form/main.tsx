@@ -7,7 +7,7 @@ import { useGraphQL, useDebouncedValue, useTableMeta, safeName } from 'utilities
 import { IconPlus, IconSearch, useFormMeta } from 'components:app/field'
 import { Combobox } from 'components:app/combobox'
 import type { ComboItem } from 'components:app/combobox'
-import { RecordForm, useRecordForm, useResolvedFormView } from 'components:app/form'
+import { RecordForm, useRecordForm, useRememberedView } from 'components:app/form'
 import { confirmDialog, DialogOutlet } from 'components:app/confirm-dialog'
 import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 
@@ -26,11 +26,13 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
  *
  * Options: { table, sysId, view, lockView, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity }
  *
- * The form's view (useResolvedFormView, backlog B): the URL `view` param, then the `view` option
- * (with `lockView` the option comes first), then the user's remembered view, each only when it exists
- * for the table (an unknown URL / option view shows a "not found" notice); otherwise automatic: the
- * portal's Workspace view rules (settings.viewRuleConfigId), its candidate list (settings.formViews),
- * then Default. The view switcher writes the URL and the remembered view; "Automatic" clears both.
+ * The form's view, resolved on the server in the form's own request (one GraphQL call): page rules,
+ * then portal rules (x_312987_portal_view_rule; they FORCE the view and lock the switcher), then the
+ * URL `view` param, the `view` option (`lockView`: the option first) and the user's remembered view,
+ * each only when it exists for the table (an unknown URL / option view shows a "not found" notice);
+ * otherwise the platform decides: the portal's Workspace view rules (settings.viewRuleConfigId), its
+ * candidate list (settings.formViews), then Default. The switcher writes the URL and the remembered
+ * view; "Automatic" clears both.
  * presentation: 'stacked' (default) | 'tabs', the default only: the user's toggle on the form wins.
  */
 type Options = {
@@ -81,13 +83,15 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
     const rawTable = pick(options.table, route.table, loc.table, query.table, 'incident')
     const table = NAME.test(rawTable) ? rawTable : 'incident'
     const sysId = pick(options.sysId, route.sys_id, route.sysId, loc.sysId, query.sys_id)
-    // View resolution: URL → option (lockView: option → URL) → remembered → automatic (rules → portal
-    // candidates → Default). Explicit names are checked first, so an unknown one falls through.
+    // View resolution, on the server in the form's own request: page rules → portal rules (they force
+    // the view) → URL → option (lockView: option → URL) → remembered → Workspace rules / default views.
     const urlView = pick(route.view, loc.mode === 'studio' ? '' : loc.view, query.view)
     const optionView = pick(options.view)
     const lockView = !!options.lockView && !!optionView
-    const resolved = useResolvedFormView({ table, urlView, optionView, lockView })
-    const view = resolved.view
+    const [, setRemembered] = useRememberedView(table)
+    // The view the user just picked in the switcher ('' = Automatic), sent along so the server doesn't
+    // read a preference whose write may still be in flight. undefined = the server reads it.
+    const [picked, setPicked] = useState<string | undefined>(undefined)
     // Encoded query presetting a new record (g_aw.openRecord(table, '-1', { query })).
     const presetQuery = pick(typeof loc.query === 'string' ? loc.query : '', query.query)
     const page = String(loc.page || '')
@@ -180,16 +184,15 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     <div className="flex min-w-0 items-center gap-2">{back}<h1 className="m-0 truncate text-sm font-medium">{portal && portal.page ? portal.page.title || portal.page.name : ''}</h1></div>
                 </HeaderSlot>
             ) : null}
-            {sysId && !resolved.ready ? null : sysId ? (
+            {sysId ? (
                 <FormFor
-                    key={`${table}|${sysId}|${view}|${presetQuery}`}
+                    key={`${table}|${sysId}|${urlView}|${optionView}|${lockView ? 1 : 0}|${presetQuery}|${picked === undefined ? '~' : picked}`}
                     table={table}
                     sysId={sysId}
-                    view={view}
+                    view={optionView}
+                    viewRules={{ urlView, lockView, remembered: picked }}
                     query={presetQuery}
                     showViews={options.showViews !== false && !lockView}
-                    viewPinned={resolved.source !== 'auto'}
-                    missingView={resolved.missing}
                     headerSlots={headerSlots}
                     presentation={options.presentation === 'tabs' ? 'tabs' : options.presentation === 'stacked' ? 'stacked' : undefined}
                     attachments={options.attachments === 'below' || options.attachments === 'header' ? options.attachments : undefined}
@@ -200,7 +203,8 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                         confirmDiscard(dirty).then((ok) => {
                             if (!ok) return
                             // '' = Automatic (forget the remembered view), 'default' = force Default.
-                            resolved.setRemembered(v)
+                            setRemembered(v)
+                            setPicked(v)
                             go({ view: v })
                         })
                     }}
@@ -220,6 +224,7 @@ function FormFor(props: {
     table: string
     sysId: string
     view: string
+    viewRules: { urlView: string; lockView: boolean; remembered?: string }
     query: string
     showViews: boolean
     viewPinned?: boolean
@@ -239,6 +244,7 @@ function FormFor(props: {
         table: props.table,
         sysId: props.sysId,
         view: props.view,
+        viewRules: props.viewRules,
         query: props.query,
         onSaved: (result, info) => {
             if (info.isNew && result.sysId) props.onCreated(result.sysId)

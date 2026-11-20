@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "portal": {
+      "type": "string",
+      "title": "Portal",
+      "description": "The portal (sys_id or slug) whose view rules to edit"
+    }
+  }
+}

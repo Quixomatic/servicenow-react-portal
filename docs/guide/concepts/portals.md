@@ -33,7 +33,8 @@ A **portal** is one site: `sp`, `crm`, `app`. It's a record in `x_312987_portal_
 | `contentWidth` | `full` \| `7xl` \| `6xl` \| `5xl` \| `4xl` \| `3xl` | Default [content width](content-width.md) for pages set to "Portal default". Unset means `7xl` |
 | `layoutOptions` | object | Portal-wide [layout options](layouts.md#layout-options), applied when a page uses the portal's default layout |
 | `exposedProperties` | string[] | System property names widgets may read with `useProperty` (besides `x_312987_portal.public.*`). See [Data access](../security/data-access.md#system-properties) |
-| `viewRuleConfigId` | sys_id | A `sys_ux_view_rules_configuration`: its Workspace view rules (`sysrule_view_workspace`) choose a form's view when the URL, the widget option and the user's remembered view name none. Set it in Studio's portal settings (Form views ▸ View rules). See [Form view resolution](../primitives/forms.md#form-view-resolution) |
+| `viewRulesFrom` | sys_id or slug | Use **another portal's** portal view rules (page rules stay this portal's own). Empty = this portal's rules. Set in Studio ▸ View rules or the portal settings. See [View rules](view-rules.md#sharing-rules-between-portals) |
+| `viewRuleConfigId` | sys_id | Workspace rules fallback: a `sys_ux_view_rules_configuration` whose Workspace view rules (`sysrule_view_workspace`) choose a form's view when no portal view rule, URL, widget option or remembered view applies. See [Form view resolution](../primitives/forms.md#form-view-resolution) |
 | `formViews` | string | Comma-separated candidate views after the rules (`"sp,ess"`): the first one that exists for the table wins, else Default |
 
 The whole `settings` object reaches widgets as `usePortal().portal.settings` and server scripts as `$sp.getPortal().settings`. `$sp.getValue(name)` falls back to a portal setting when the widget has no option of that name, as in Service Portal. Custom keys are allowed.

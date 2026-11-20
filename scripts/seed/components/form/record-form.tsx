@@ -96,6 +96,9 @@ export type RecordFormProps = {
     viewPinned?: boolean
     /** A requested view that doesn't exist for the table: a small "View `x` not found" notice. */
     missingView?: string
+    /** Forwarded to useRecordForm when the form builds its own model (no `form`). */
+    viewRules?: UseRecordFormOptions['viewRules']
+    forceView?: boolean
 }
 
 /** A record form with header, view switcher, sections, dirty tracking and save. */
@@ -105,7 +108,7 @@ export function RecordForm(props: RecordFormProps) {
 }
 
 function OwnRecordForm(props: RecordFormProps) {
-    const form = useRecordForm({ table: props.table || '', sysId: props.sysId, view: props.view, onSaved: props.onSaved, onOpenRecord: props.onOpenRecord })
+    const form = useRecordForm({ table: props.table || '', sysId: props.sysId, view: props.view, onSaved: props.onSaved, onOpenRecord: props.onOpenRecord, viewRules: props.viewRules, forceView: props.forceView })
     return <RecordFormView {...props} form={form} />
 }
 
@@ -246,10 +249,13 @@ function FormSettingsMenu(props: {
     showViews?: boolean
     onViewChange?: (v: string) => void
     viewPinned?: boolean
+    /** A portal view rule forced the view: the switcher shows it locked (the rule's name in the tooltip). */
+    lockedBy?: string
     presentation: FormPresentation
     onPresentationChange: (p: FormPresentation) => void
     canTab: boolean
 }) {
+    const locked = props.lockedBy !== undefined
     const views = useFormViews(props.table, props.showViews ? props.sysId : '-1')
     const list = (views.data && views.data.views) || []
     // The Default view's name is '' in availableViews but 'Default view' in uiView.view: one value for both.
@@ -274,7 +280,16 @@ function FormSettingsMenu(props: {
                 <Icon name="settings" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-52">
-                {props.showViews ? (
+                {props.showViews && locked ? (
+                    <DropdownMenuItem
+                        disabled
+                        title={props.lockedBy ? `Set by the view rule "${props.lockedBy}"` : 'Set by a view rule'}
+                        aria-label={`View: ${viewLabel}, set by ${props.lockedBy ? `the view rule "${props.lockedBy}"` : 'a view rule'}`}
+                        data-rp-view-locked={props.lockedBy || ''}
+                    >
+                        <Icon name="lock" aria-hidden="true" /> View {value(viewLabel)}
+                    </DropdownMenuItem>
+                ) : props.showViews ? (
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger data-rp-settings-sub="view">
                             <Icon name="eye" aria-hidden="true" /> View {value(currentView)}
@@ -438,7 +453,12 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
     // platform didn't find and replaced with Default), and the shown view's label for the notice.
     const forced = (boot && boot.requested && boot.requested.forcedView) || ''
     const shownView = (boot && boot.view) || ''
-    const missingView = props.missingView || (forced && forced !== 'default' && forced.toLowerCase() !== shownView.toLowerCase() ? forced : '')
+    // Portal view rules (form.resolution): pinned unless automatic; a rule locks the switcher.
+    const resolution = form.resolution
+    const viewPinned = props.viewPinned !== undefined ? props.viewPinned : resolution ? resolution.source !== 'auto' : undefined
+    const lockedBy = resolution && resolution.source === 'rule' ? resolution.ruleName || '' : undefined
+    const missingView =
+        props.missingView || (resolution && resolution.missing) || (forced && forced !== 'default' && forced.toLowerCase() !== shownView.toLowerCase() ? forced : '')
     const shownViewLabel = useViewLabel(missingView && !isDefaultViewName(shownView) ? shownView : '') || (isDefaultViewName(shownView) ? 'Default view' : shownView)
 
     if (!boot) {
@@ -520,7 +540,8 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             view={boot.view}
             showViews={props.showViews}
             onViewChange={props.onViewChange}
-            viewPinned={props.viewPinned}
+            viewPinned={viewPinned}
+            lockedBy={lockedBy}
             presentation={presentation}
             onPresentationChange={setUserPresentation}
             canTab={tabsPossible}
@@ -545,7 +566,7 @@ function RecordFormView(props: RecordFormProps & { form: RecordFormModel }) {
             : null
     const relatedMerged = !!relatedConfig && relatedMode !== 'stacked' && presentation === 'tabs' && tabsPossible
     return (
-        <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`} data-rp-form-view={boot.view} data-rp-view-pinned={props.viewPinned === undefined ? undefined : String(props.viewPinned)}>
+        <Card ref={root} className={props.className} data-rp-record-form={`${boot.table}:${form.isNew ? 'new' : boot.sysId}`} data-rp-form-view={boot.view} data-rp-view-pinned={viewPinned === undefined ? undefined : String(viewPinned)} data-rp-view-source={resolution ? resolution.source : undefined} data-rp-view-rule={resolution && resolution.ruleId ? resolution.ruleId : undefined}>
             {/* g_modal (client scripts, UI actions) dialogs; only the page's first outlet renders. */}
             <DialogOutlet />
             {slots ? (

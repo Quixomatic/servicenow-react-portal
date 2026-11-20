@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from 'utilities:react-query'
+import { usePortal } from '@portal/runtime'
 import { graphql } from './client'
 import type { GraphQLOptions } from './client'
-import { checkFormViews, fetchChoices, fetchDisplayValue, fetchFormBootstrap, fetchFormViews, fetchRecordValues, fetchTableMeta, searchReference, stableChanges } from './documents'
-import type { Choice, FieldMeta, FormBootstrap, FormChanges, FormView, FormViewResolution, FieldValue, ReferenceSearchResult } from './types'
+import { checkFormViews, explainViewRules, resolveViewRules, fetchChoices, fetchDisplayValue, fetchFormBootstrap, fetchFormViews, fetchRecordValues, fetchTableMeta, searchReference, stableChanges } from './documents'
+import type { Choice, FieldMeta, FormBootstrap, FormChanges, FormView, FormViewResolution, FieldValue, ReferenceSearchResult, ViewRuleInputs, ViewResolutionInfo } from './types'
 
 /** Query keys: everything this utility caches lives under ['rp-gql', …]. */
 export const gqlKeys = {
@@ -78,12 +79,19 @@ export function useFormBootstrap(table: string | undefined, sysId: string | unde
     const isNew = !sysId || sysId === '-1'
     // View resolution (no forced view): the candidate list and the Workspace view-rule config are part
     // of the key; a forced view ignores both. useForm and useRecordForm must pass the same options.
-    const views = view ? '' : options.views || ''
-    const viewRuleConfigId = view ? '' : options.viewRuleConfigId || ''
-    const viewKey = views || viewRuleConfigId ? `${view}|${views}|${viewRuleConfigId}` : view
+    // Portal view rules: the server resolves the view (rules force it; then URL / option / remembered),
+    // so `view` is not sent; the rule inputs are part of the key instead.
+    const rules = options.rules && options.rules.portal ? options.rules : undefined
+    const views = view && !rules ? '' : options.views || ''
+    const viewRuleConfigId = view && !rules ? '' : options.viewRuleConfigId || ''
+    const viewKey = rules
+        ? `rules|${rules.portal}|${rules.page || ''}|${rules.urlView || ''}|${rules.optionView || ''}|${rules.lockView ? 1 : 0}|${rules.remember === false ? 0 : 1}|${rules.remembered == null ? '~' : rules.remembered}|${views}|${viewRuleConfigId}`
+        : views || viewRuleConfigId
+          ? `${view}|${views}|${viewRuleConfigId}`
+          : view
     return useQuery<FormBootstrap>({
         queryKey: gqlKeys.form(table || '', sysId || '-1', viewKey, query),
-        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormBootstrap(table as string, sysId || '-1', view, signal, query, { views, viewRuleConfigId }),
+        queryFn: ({ signal }: { signal: AbortSignal }) => fetchFormBootstrap(table as string, sysId || '-1', rules ? '' : view, signal, query, { views, viewRuleConfigId, rules }),
         enabled: !!table && options.enabled !== false,
         // A new record's bootstrap reserves a number: never refetch it behind the user's back
         // (no staleness, no mount / focus / reconnect refetch).
@@ -246,4 +254,39 @@ export function useGraphQLClient() {
         }),
         [qc],
     )
+}
+
+/**
+ * A view resolution without a form (lists, the switcher, tests): x312987Portal.viewRules.resolve.
+ * Cached per inputs for 5 minutes (list rules don't depend on a record).
+ */
+export function useViewRuleResolution(kind: 'form' | 'list', table: string | undefined, rules: ViewRuleInputs | undefined, options: { sysId?: string; query?: string; enabled?: boolean } = {}) {
+    const r = rules && rules.portal ? rules : undefined
+    return useQuery<ViewResolutionInfo>({
+        queryKey: ['rp-gql', 'view-rule', kind, table || '', options.sysId || '', options.query || '', r ? JSON.stringify(r) : ''],
+        queryFn: ({ signal }: { signal: AbortSignal }) => resolveViewRules(kind, table as string, options.sysId || '', options.query || '', r as ViewRuleInputs, signal),
+        enabled: !!table && !!r && options.enabled !== false,
+        staleTime: 5 * MINUTE,
+        retry: false,
+    })
+}
+
+/** Studio: every rule's verdict for a table / record, optionally as another user (null for non-studio users). */
+export function useViewRuleExplain(args: Parameters<typeof explainViewRules>[0] | null, options: { enabled?: boolean } = {}) {
+    return useQuery({
+        queryKey: ['rp-gql', 'view-rule-explain', args ? JSON.stringify(args) : ''],
+        queryFn: ({ signal }: { signal: AbortSignal }) => explainViewRules(args as Parameters<typeof explainViewRules>[0], signal),
+        enabled: !!args && !!args.table && !!args.portal && options.enabled !== false,
+        staleTime: 0,
+        retry: false,
+    })
+}
+
+/** The portal and page view rules are evaluated for ({ portal: '' } outside a real portal: rules off). */
+export function useViewRulesContext(): { portal: string; page: string } {
+    const ctx = usePortal() as any
+    const id = ctx && ctx.portal && typeof ctx.portal.id === 'string' ? ctx.portal.id : ''
+    const page = ctx && ctx.page && typeof ctx.page.id === 'string' ? ctx.page.id : ''
+    const SYS_ID = /^[0-9a-f]{32}$/i
+    return { portal: SYS_ID.test(id) ? id : '', page: SYS_ID.test(page) ? page : '' }
 }

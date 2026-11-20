@@ -48,11 +48,30 @@ The action **`PORTAL_NAVIGATE`** carries `portalSlug`, `page`, `recordId`, `q`, 
 | Setting | Value |
 |---|---|
 | Required URL params | none |
-| Optional URL params | `id`, `view` |
-| Host properties | Mode = `studio` (static); Record id ← `@context.props.id`; View ← `view` |
-| Event handler | **Portal navigate** → **Link to destination** → page `studio`, `id` = payload `recordId`, `view` = payload `view` |
+| Optional URL params | `view`, `id`, `q` |
+| Host properties | Mode = `studio` (static); Record id ← `@context.props.id`; View ← `@context.props.view`; Query ← `@context.props.q` |
+| Event handler | **Portal navigate** → **Link to destination** in **script** mode → route `studio`; params `view`, `id` (payload `recordId`), `q` (empty values left out); redirect = payload `replace` |
 
-Studio decides what `id` is (a component, theme, portal, page, menu or menu item) and opens the matching activity. See [Studio overview](../studio/overview.md).
+Studio reads `view`, `id` and `q` from the URL itself and writes what's open back to it (see [Studio overview](../studio/overview.md#deep-links)). `id` is what to open (a component, theme, page, portal, menu or menu item), and `q` packs everything else (file, line, placement, device, …).
+
+### Setting up the studio page's params and handler
+
+In UI Builder, open the **Service Portal** experience, then the **Studio** page (variant *Studio default*):
+
+1. **Page parameters.** In the page's settings, under *Optional parameters*, keep `view` and `id` and add **`q`** (type string). Don't add required parameters: each required value would be a separate screen.
+2. **Host properties.** Select the **React Portal Host** component and bind:
+   - *Mode* = `studio` (static);
+   - *Record id* ← `@context.props.id`;
+   - *View* ← `@context.props.view`;
+   - *Query* (`q`) ← `@context.props.q`.
+3. **Event handler.** Still on the host component, open *Events* → **Portal navigate** → *Add handler* → **Link to destination**, and switch it to **script** mode. The form's declarative mode doesn't offer *Redirect*, and in testing a declarative mapping never navigated for Studio. The script returns:
+   - route `studio`;
+   - params `{ view: payload.view, id: payload.recordId, q: payload.q }`, leaving out empty values;
+   - redirect `payload.replace === true || payload.replace === 'true'` (replace the current history entry instead of pushing one);
+   - everything else (fields, title, passive navigation, external, navigation options) `null`.
+4. **Save.** Hard-reload `/x/312987/portal/studio`. Open a component, then a file: the URL follows (`…/params/view/code/id/app%2Fform/q/file%3Drecord-form.tsx`). The file change replaces the entry (`history.length` unchanged), and Back steps through components.
+
+> **Note:** Studio works without the handler too. If its first navigation of a page load doesn't move the URL within about half a second, it writes the history entries itself for the rest of that load, following the shell's `history.state.position` convention. With the handler in place it's used automatically, and nothing needs to be switched. (`WRITER` in `studio/deep-link/controller.js` can force either way.)
 
 ## URL format
 
@@ -63,7 +82,8 @@ UI Builder writes optional params after **one** `params` segment, as name/value 
 /x/312987/portal/site/sp/params/page-id/incidents                the "incidents" page
 /x/312987/portal/site/sp/params/page-id/form/table/incident/sys-id/<sys_id>
 /x/312987/portal/site/sp/params/page-id/list/table/incident/query/active%3Dtrue
-/x/312987/portal/studio/params/id/<record sys_id>/view/pages
+/x/312987/portal/studio/params/view/pages/id/sp%3A%2Fhome
+/x/312987/portal/studio/params/view/code/id/app%2Fform/q/file%3Dserver.js%26line%3D42
 ```
 
 - `pageId` appears as `page-id` and `sys_id` as `sys-id`.

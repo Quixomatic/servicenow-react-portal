@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAvailableHeight } from '#/runtime/use-available-height';
 import { useNavigate } from '#/runtime/navigation';
@@ -10,6 +10,8 @@ import DiagnosticsPanel from './diagnostics-panel';
 import { PortalRouterHost, bootstrapQuery, toRouterPath } from './portal-router';
 import { isMock } from '#/runtime/api';
 import { canSeeErrorDetails } from '#/runtime/widgets';
+import { BootGateContext, useBootGated, useBootReady } from '#/runtime/boot-gate';
+import PortalSkeleton from './portal-skeleton';
 
 // The page frame is the `rp-page` size container: instance CSS (placement.css) answers its
 // tablet/mobile container queries, so in the designer the device-width frame renders exactly.
@@ -33,14 +35,24 @@ const PortalApp = memo(function PortalApp({ portalSlug, hostId }) {
 		}
 	}, []);
 
+	// One skeleton covers the portal from the first paint until its layout (or an error view) has
+	// rendered: the bootstrap, router and theme stages render nothing under the gate. A portal
+	// switch shows it again until the new portal's layout is up.
+	const [readyFor, setReadyFor] = useState(null);
+	const gate = useMemo(() => ({ ready: () => setReadyFor(portalSlug) }), [portalSlug]);
+	const loading = !!portalSlug && readyFor !== portalSlug;
+
 	// The root fills the visible viewport below the host's top edge. Inside it, the layout sits
 	// in a one-cell grid frame, so the layout's root stretches to the full width and height and
 	// its main region gets all the space the other regions leave; main scrolls only after that.
 	return (
 		<div ref={setRoot} data-rp-root="" className="relative flex flex-col overflow-hidden" style={{ height }}>
-			<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="">
-				{!portalSlug ? <NoPortal /> : target ? <PortalBoot key={portalSlug} slug={portalSlug} target={target} /> : null}
-			</div>
+			<BootGateContext.Provider value={gate}>
+				<div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]" style={PAGE_CONTAINER} data-rp-layout-frame="" aria-busy={loading || undefined}>
+					{!portalSlug ? <NoPortal /> : target ? <PortalBoot key={portalSlug} slug={portalSlug} target={target} /> : null}
+				</div>
+			</BootGateContext.Provider>
+			<PortalSkeleton visible={loading} />
 			<DiagnosticsGate slug={portalSlug} hostId={hostId} target={target} />
 		</div>
 	);
@@ -73,8 +85,10 @@ export default PortalApp;
 export function PortalBoot({ slug, target, embedded, sidebarStore }) {
 	const boot = useQuery(bootstrapQuery(slug));
 	useDiagCounter('PortalBoot', { slug, data: boot.data });
+	const gated = useBootGated();
 	if (boot.isError) return <BootError slug={slug} error={boot.error} />;
-	if (!boot.data) return <div className="bg-muted/60 m-4 h-40 animate-pulse rounded-xl" data-rp-booting="" />;
+	// Under the host's skeleton (PortalApp) nothing; embedded previews keep a small placeholder.
+	if (!boot.data) return gated ? null : <div className="bg-muted/60 m-4 h-40 animate-pulse rounded-xl" data-rp-booting="" />;
 	const routesKey = (boot.data.pages || []).map((p) => toRouterPath(p.route)).join('|') + '#' + ((boot.data.layout && boot.data.layout.id) || '');
 	return <PortalRouterHost key={routesKey} slug={slug} boot={boot.data} target={target} embedded={embedded} sidebarStore={sidebarStore} />;
 }
@@ -94,7 +108,7 @@ function PortalSwitchButtons({ current }) {
 
 function NoPortal() {
 	return (
-		<div className="p-4">
+		<div className="bg-background min-h-full p-4">
 			<Card>
 				<CardHeader>
 					<CardTitle>No portal selected</CardTitle>
@@ -109,8 +123,9 @@ function NoPortal() {
 }
 
 function BootError({ slug, error }) {
+	useBootReady(true);
 	return (
-		<div className="p-4">
+		<div className="bg-background min-h-full p-4">
 			<Card>
 				<CardHeader>
 					<CardTitle>Portal "{slug}" could not load</CardTitle>

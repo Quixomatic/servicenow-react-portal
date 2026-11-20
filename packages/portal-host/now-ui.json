@@ -33,7 +33,8 @@
             { "name": "view", "label": "View", "fieldType": "string" },
             { "name": "table", "label": "Table", "fieldType": "string" },
             { "name": "sysId", "label": "Sys ID", "fieldType": "string" },
-            { "name": "query", "label": "Encoded query", "fieldType": "string" }
+            { "name": "query", "label": "Encoded query", "fieldType": "string" },
+            { "name": "replace", "label": "Replace (no new history entry)", "fieldType": "boolean" }
           ]
         }
       ]

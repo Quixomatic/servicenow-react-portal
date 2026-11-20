@@ -17,6 +17,8 @@ import type {
     ClientScripts,
     FormAnnotation,
     RelatedListInfo,
+    ViewRuleInputs,
+    ViewResolutionInfo,
 } from './types'
 
 /**
@@ -227,14 +229,8 @@ function parseScratchpad(v: unknown): Record<string, unknown> {
 export const RELATED_LISTS_FIELDS = `relatedListMetadata { hasRelatedLists }
               relatedLists(includeEmptyOmittedRelatedLists: true) { groupByField sourceTable targetTable count filter displayLabel label value relatedField omitIfEmpty }`
 
-/**
- * The record form as Workspace loads it: the view resolver (GlideViewQuery_Query.uiView) wraps
- * the form layout, the UI policies (GlideClientScriptingEnvironment_Query) and the form's UI
- * actions (GlideUIAction_Query), all evaluated for the resolved view ("$$parent.viewName$$").
- */
-export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query: String, $forcedViewName: String, $views: String, $viewRuleConfigId: String) {
-  GlideViewQuery_Query {
-    uiView(table: $table, views: $views, sysId: $sysId, query: $query, forcedViewName: $forcedViewName, viewRuleConfigId: $viewRuleConfigId) {
+/** uiView's selection for a record form (shared by FORM_QUERY and FORM_RULES_QUERY). */
+export const UI_VIEW_SELECTION = `{
       view
       glideLayoutItem(table: $table, sysId: $sysId, query: $query) {
         _query {
@@ -272,6 +268,40 @@ export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query
             uiActions(table: $table, sysId: $sysId, query: $query, view: "$$parent.viewName$$") {
               formActions { label name sysId order style type clientScript hasClientScript hint }
             }
+          }
+        }
+      }
+    }`
+
+/**
+ * The record form as Workspace loads it: the view resolver (GlideViewQuery_Query.uiView) wraps
+ * the form layout, the UI policies (GlideClientScriptingEnvironment_Query) and the form's UI
+ * actions (GlideUIAction_Query), all evaluated for the resolved view ("$$parent.viewName$$").
+ */
+export const FORM_QUERY = `query rpForm($table: String!, $sysId: String!, $query: String, $forcedViewName: String, $views: String, $viewRuleConfigId: String) {
+  GlideViewQuery_Query {
+    uiView(table: $table, views: $views, sysId: $sysId, query: $query, forcedViewName: $forcedViewName, viewRuleConfigId: $viewRuleConfigId) ${UI_VIEW_SELECTION}
+  }
+}`
+
+/**
+ * The record form with portal view rules, in ONE request: the remote table x_312987_portal_view_answer
+ * returns one row with the resolved view (page rules → portal rules → URL / option / remembered), and
+ * the platform's nested-query mechanism (_query, "$$parent.<column>$$") feeds it to uiView:
+ * - a resolved view: views = that view, no rule config (nothing can override it);
+ * - automatic: views = the portal's default views (or 'default'), viewRuleConfigId = its Workspace
+ *   rule configuration, so uiView applies Workspace rules, then the candidates, then Default.
+ * The row never sends an empty value: an empty $$parent substitution is the string "null", which
+ * uiView would treat as a view name.
+ */
+export const FORM_RULES_QUERY = `query rpFormRules($table: String!, $sysId: String!, $query: String, $answer: String) {
+  GlideRecord_Query {
+    x_312987_portal_view_answer(queryConditions: $answer, pagination: { limit: 1 }) {
+      _results {
+        view { value } views { value } rule_config { value } source { value } rule_id { value } rule_name { value } missing { value } reason { value }
+        _query {
+          GlideViewQuery_Query {
+            uiView(table: $table, views: "$$parent.views$$", sysId: $sysId, query: $query, viewRuleConfigId: "$$parent.rule_config$$") ${UI_VIEW_SELECTION}
           }
         }
       }
@@ -373,13 +403,20 @@ function normalizeAction(a: any): UiAction {
  */
 export async function fetchFormBootstrap(table: string, sysId: string, view = '', signal?: AbortSignal, query = '', resolution: FormViewResolution = {}): Promise<FormBootstrap> {
     safeName(table, 'table')
+    // Portal view rules (one request): the answer row resolves the view, uiView builds the form.
+    if (resolution.rules && resolution.rules.portal) return fetchFormWithRules(table, sysId, signal, query, resolution)
     // View resolution (uiView): a forced view beats Workspace view rules (viewRuleConfigId), which beat
     // the candidate list (views). Without a forced view the rules and candidates decide.
     const forcedView = forcedViewName(view)
     const views = forcedView ? '' : cleanViewList(resolution.views)
     const viewRuleConfigId = forcedView ? '' : sysIdOrEmpty(resolution.viewRuleConfigId)
     const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: forcedView, views, viewRuleConfigId }, { signal, allowPartial: true })
-    const U = data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView
+    return bootstrapFromUiView(data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView, table, sysId, view, { forcedView, views, viewRuleConfigId })
+}
+
+/** FormBootstrap from a uiView result (FORM_QUERY or FORM_RULES_QUERY). */
+export function bootstrapFromUiView(U: any, table: string, sysId: string, view: string, requested: { forcedView: string; views: string; viewRuleConfigId: string }, resolution?: ViewResolutionInfo): FormBootstrap {
+    const { forcedView, views, viewRuleConfigId } = requested
     const Q = (U && U.glideLayoutItem && U.glideLayoutItem._query) || {}
     const L = Q.GlideLayout_Query && Q.GlideLayout_Query.formLayout
     if (!L) throw new Error(`No form layout for ${table}`)
@@ -416,6 +453,7 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
         sections,
         view: (U && U.view) || view || '',
         requested: { forcedView, views, viewRuleConfigId },
+        resolution,
         tableLabel: (sections[0] && sections[0].label) || table,
         formatters: (L.formatters || []).map((f: any) => String(f.name || '')).filter(Boolean),
         // Related lists (app/related-list wave): none for a new record, as in Workspace.
@@ -435,6 +473,155 @@ export async function fetchFormBootstrap(table: string, sysId: string, view = ''
         },
         warnings,
     }
+}
+
+// ---- portal view rules (x312987Portal.viewRules, x_312987_portal_view_answer) -----------------
+
+/** One encoded-query term per input (values URL-encoded: they may hold ^ and =). Empty inputs are left out. */
+export function viewAnswerConditions(kind: 'form' | 'list', table: string, sysId: string, query: string, rules: ViewRuleInputs, fallback: { views?: string; viewRuleConfigId?: string } = {}): string {
+    const terms: string[] = []
+    const add = (field: string, value: unknown) => {
+        const v = value === undefined || value === null ? '' : String(value)
+        if (v !== '') terms.push(`${field}=${encodeURIComponent(v)}`)
+    }
+    add('kind', kind)
+    add('target_table', table)
+    add('record', kind === 'form' ? sysId || '-1' : '')
+    add('preset', kind === 'form' ? query : '')
+    add('portal', rules.portal)
+    add('page', rules.page)
+    add('url_view', rules.urlView)
+    add('option_view', rules.optionView)
+    if (rules.lockView) add('lock_view', 'true')
+    if (rules.remember === false) add('remember', 'false')
+    // 'v:' + value: the client's remembered view ('' = none known to be set); absent = the server reads the preference.
+    if (rules.remembered !== undefined && rules.remembered !== null) terms.push(`remembered=${encodeURIComponent('v:' + rules.remembered)}`)
+    // The automatic fallback (absent = the portal's settings, read on the server).
+    add('default_views', fallback.views)
+    add('config_in', fallback.viewRuleConfigId)
+    return terms.join('^')
+}
+
+function resolutionFromRow(row: any, via: 'answer' | 'api'): ViewResolutionInfo {
+    const v = (k: string) => (row && row[k] && row[k].value != null ? String(row[k].value) : row && typeof row[k] === 'string' ? row[k] : '')
+    return {
+        view: v('view'),
+        source: (v('source') || 'auto') as ViewResolutionInfo['source'],
+        ruleId: v('rule_id') || v('ruleId'),
+        ruleName: v('rule_name') || v('ruleName'),
+        missing: v('missing'),
+        reason: v('reason'),
+        via,
+    }
+}
+
+export const VIEW_RESOLVE_QUERY = `query rpViewResolve($kind: String, $table: String!, $sysId: String, $query: String, $portal: String!, $page: String, $urlView: String, $optionView: String, $lockView: Boolean, $remember: Boolean, $remembered: String) {
+  x312987Portal { viewRules { resolve(kind: $kind, table: $table, sysId: $sysId, query: $query, portal: $portal, page: $page, urlView: $urlView, optionView: $optionView, lockView: $lockView, remember: $remember, remembered: $remembered) {
+    view source ruleId ruleName missing reason } } }
+}`
+
+/** The view resolution alone (the two-call fallback, lists, tests): x312987Portal.viewRules.resolve. */
+export async function resolveViewRules(kind: 'form' | 'list', table: string, sysId: string, query: string, rules: ViewRuleInputs, signal?: AbortSignal): Promise<ViewResolutionInfo> {
+    safeName(table, 'table')
+    const data = await graphql(
+        VIEW_RESOLVE_QUERY,
+        {
+            kind,
+            table,
+            sysId: kind === 'form' ? sysId || '-1' : '',
+            query: kind === 'form' ? query || '' : '',
+            portal: rules.portal,
+            page: rules.page || '',
+            urlView: rules.urlView || '',
+            optionView: rules.optionView || '',
+            lockView: !!rules.lockView,
+            remember: rules.remember !== false,
+            remembered: rules.remembered === undefined ? null : rules.remembered,
+        },
+        { signal },
+    )
+    const r = data && data.x312987Portal && data.x312987Portal.viewRules && data.x312987Portal.viewRules.resolve
+    if (!r) throw new Error('View rules: no resolution')
+    return resolutionFromRow(r, 'api')
+}
+
+export const VIEW_EXPLAIN_QUERY = `query rpViewExplain($kind: String, $table: String!, $sysId: String, $query: String, $portal: String!, $page: String, $urlView: String, $optionView: String, $lockView: Boolean, $user: String) {
+  x312987Portal { viewRules { explain(kind: $kind, table: $table, sysId: $sysId, query: $query, portal: $portal, page: $page, urlView: $urlView, optionView: $optionView, lockView: $lockView, user: $user) {
+    resolution { view source ruleId ruleName missing reason }
+    rulePortalId rulePortalName rulePortalShared subjectUserId subjectViewAs notes
+    rules { ruleId name scope order view matched failedOn detail } } } }
+}`
+
+export type ViewRuleVerdict = { ruleId: string; name: string; scope: 'page' | 'portal'; order: number; view: string; matched: boolean; failedOn: string; detail: string }
+export type ViewExplanation = {
+    resolution: ViewResolutionInfo
+    rulePortal: { id: string; name: string; shared: boolean }
+    subject: { userId: string; viewAs: boolean }
+    notes: string[]
+    rules: ViewRuleVerdict[]
+}
+
+/** Studio: every candidate rule's verdict (null when the caller isn't a studio user). */
+export async function explainViewRules(
+    args: { kind?: 'form' | 'list'; table: string; sysId?: string; query?: string; portal: string; page?: string; urlView?: string; optionView?: string; lockView?: boolean; user?: string },
+    signal?: AbortSignal,
+): Promise<ViewExplanation | null> {
+    safeName(args.table, 'table')
+    const data = await graphql(VIEW_EXPLAIN_QUERY, { kind: args.kind || 'form', table: args.table, sysId: args.sysId || '', query: args.query || '', portal: args.portal, page: args.page || '', urlView: args.urlView || '', optionView: args.optionView || '', lockView: !!args.lockView, user: args.user || '' }, { signal })
+    const e = data && data.x312987Portal && data.x312987Portal.viewRules && data.x312987Portal.viewRules.explain
+    if (!e) return null
+    return {
+        resolution: resolutionFromRow(e.resolution, 'api'),
+        rulePortal: { id: String(e.rulePortalId || ''), name: String(e.rulePortalName || ''), shared: !!e.rulePortalShared },
+        subject: { userId: String(e.subjectUserId || ''), viewAs: !!e.subjectViewAs },
+        notes: (e.notes || []).map(String),
+        rules: (e.rules || []).map((r: any) => ({ ruleId: String(r.ruleId), name: String(r.name || ''), scope: r.scope === 'page' ? 'page' : 'portal', order: Number(r.order || 0), view: String(r.view || ''), matched: !!r.matched, failedOn: String(r.failedOn || ''), detail: String(r.detail || '') })),
+    }
+}
+
+/** Set once the one-request path failed on this page load (e.g. the answer table isn't installed): use two calls. */
+let composedUnavailable = false
+
+/** The record form with portal view rules: one request (answer row → uiView), else resolve + rpForm. */
+async function fetchFormWithRules(table: string, sysId: string, signal: AbortSignal | undefined, query: string, resolution: FormViewResolution): Promise<FormBootstrap> {
+    const rules = resolution.rules as ViewRuleInputs
+    const views = cleanViewList(resolution.views)
+    const viewRuleConfigId = sysIdOrEmpty(resolution.viewRuleConfigId)
+    if (!composedUnavailable) {
+        let row: any = null
+        let U: any = null
+        try {
+            const answer = viewAnswerConditions('form', table, sysId, query, rules, { views, viewRuleConfigId })
+            const data = await graphql(FORM_RULES_QUERY, { table, sysId: sysId || '-1', query: query || '', answer }, { signal, allowPartial: true })
+            const rows = data && data.GlideRecord_Query && data.GlideRecord_Query.x_312987_portal_view_answer && data.GlideRecord_Query.x_312987_portal_view_answer._results
+            row = rows && rows[0]
+            U = row && row._query && row._query.GlideViewQuery_Query && row._query.GlideViewQuery_Query.uiView
+        } catch (e) {
+            if (signal && signal.aborted) throw e
+        }
+        if (row && U) {
+            // The one-request path worked: record errors (no access, deleted) are the form's own errors.
+            const res = resolutionFromRow(row, 'answer')
+            const sent = { views: String((row.views && row.views.value) || ''), config: String((row.rule_config && row.rule_config.value) || '') }
+            return bootstrapFromUiView(U, table, sysId, res.view, { forcedView: res.view ? forcedViewName(res.view) : '', views: res.view ? '' : sent.views, viewRuleConfigId: res.view ? '' : sent.config }, res)
+        }
+        // No row (answer table missing or refused) or a transport error: use two calls from now on.
+        // A new record reserved nothing yet (uiView never ran without the row).
+        composedUnavailable = true
+    }
+    let res: ViewResolutionInfo
+    try {
+        res = await resolveViewRules('form', table, sysId, query, rules, signal)
+    } catch (e) {
+        if (signal && signal.aborted) throw e
+        // No resolver at all: the v1.17 behaviour (explicit names are not checked; uiView decides).
+        res = { view: '', source: 'auto', ruleId: '', ruleName: '', missing: '', reason: '', via: 'api' }
+        const named = rules.lockView ? rules.optionView || rules.urlView : rules.urlView || rules.optionView
+        if (named) res = { ...res, view: named, source: rules.lockView ? 'option' : 'url' }
+    }
+    const forcedView = res.view ? forcedViewName(res.view) : ''
+    const data = await graphql(FORM_QUERY, { table, sysId: sysId || '-1', query: query || '', forcedViewName: forcedView, views: forcedView ? '' : views, viewRuleConfigId: forcedView ? '' : viewRuleConfigId }, { signal, allowPartial: true })
+    return bootstrapFromUiView(data && data.GlideViewQuery_Query && data.GlideViewQuery_Query.uiView, table, sysId, res.view, { forcedView, views, viewRuleConfigId }, res)
 }
 
 // ---- form views (GlideViewQuery_Query.uiView.availableViews) --------------------------------

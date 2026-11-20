@@ -1,6 +1,6 @@
 {
   "name": "x-312987-react-portal",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "description": "Service Portal with modern tooling",
   "license": "UNLICENSED",
   "imports": {
@@ -14,7 +14,10 @@
     "dev": "now-sdk run dev",
     "vendor:compiler": "node scripts/build-compiler-vendor.mjs",
     "version:bump": "node scripts/bump-version.mjs",
-    "seed": "node scripts/seed/run-seed.mjs"
+    "seed": "node scripts/seed/run-seed.mjs",
+    "docs:pull": "node scripts/seed/docs-pull.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@servicenow/glide": "27.0.5",
@@ -23,6 +26,7 @@
     "@types/react": "19.x",
     "@types/react-dom": "19.x",
     "esbuild": "0.28.2",
+    "prettier": "3.6.1",
     "sucrase": "3.35.1",
     "tailwindcss": "4.3.5",
     "typescript": "5.5.4"

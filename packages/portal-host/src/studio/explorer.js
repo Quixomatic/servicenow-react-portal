@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, FilePlus, Folder, FolderOpen, FolderPlus } f
 import { FileIcon, ask, baseName } from './dialogs';
 import { startFileDrag, endFileDrag } from './groups';
 import { useStudio, virtualLabel } from './store';
+import { copyStudioLink } from './deep-link/controller';
 import * as L from './layout';
 
 function buildTree(paths, folders) {
@@ -102,6 +103,7 @@ export default function Explorer({ studio, onMenu }) {
 		if (item && !item.virtual) {
 			items.push('-');
 			if (!item.isFolder) items.push({ label: 'Open to the Side', run: () => studio.openToSide(item.path) });
+			if (!item.isFolder) items.push({ label: 'Copy Link to File', run: () => copyStudioLink({ file: item.path, line: false }) });
 			items.push({ label: 'Rename…', run: () => renameItem(item.path, item.isFolder) });
 			items.push({ label: 'Delete', run: () => deleteItem(item.path, item.isFolder) });
 		}

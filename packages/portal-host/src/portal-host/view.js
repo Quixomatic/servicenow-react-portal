@@ -28,7 +28,16 @@ function Studio({ locationStore, navigate }) {
 				if (!alive || !containerRef.current) return;
 				const mount = mod.mount || mod.default;
 				handle = mount(containerRef.current, { locationStore, navigate, root: containerRef.current.getRootNode() });
-				setState({ status: 'ready' });
+				// Studio renders in its own root (asynchronously): keep the skeleton until its first
+				// element is in the container and painted, so there is no blank frame (cap: 5 s).
+				const started = Date.now();
+				const waitForPaint = () => {
+					if (!alive) return;
+					const el = containerRef.current;
+					if ((el && el.firstElementChild) || Date.now() - started > 5000) requestAnimationFrame(() => alive && setState({ status: 'ready' }));
+					else requestAnimationFrame(waitForPaint);
+				};
+				waitForPaint();
 			})
 			.catch((error) => alive && setState({ status: 'error', error }));
 		return () => {
@@ -37,14 +46,17 @@ function Studio({ locationStore, navigate }) {
 			if (handle) setTimeout(() => handle.unmount(), 0);
 		};
 	}, [locationStore, navigate]);
+	// The skeleton overlays the container (absolute, the same height Studio takes) and fades out
+	// once Studio has painted; the error state replaces it in the flow.
 	return (
-		<>
-			{state.status === 'loading' ? <StudioPlaceholder loading /> : null}
-			{state.status === 'error' ? <StudioPlaceholder error={state.error} /> : null}
+		<div style={STUDIO_FRAME}>
 			<div ref={containerRef} data-rps-container="" />
-		</>
+			{state.status === 'error' ? <StudioPlaceholder error={state.error} /> : <StudioPlaceholder loading ready={state.status === 'ready'} />}
+		</div>
 	);
 }
+
+const STUDIO_FRAME = Object.freeze({ position: 'relative' });
 
 // Host view: normalize the properties once, publish them through a per-instance store, pick the
 // mode. The view re-renders on every property change; nothing below it does unless it reads

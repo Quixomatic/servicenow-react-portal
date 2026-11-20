@@ -34,10 +34,12 @@ export function buildNavigatePayload(current, target) {
 	// (code | pages | menus) for the studio page's `view` param.
 	const str = (v) => (v === undefined || v === null ? '' : String(v));
 	const record = { table: str(to.table), sysId: str(to.sysId !== undefined ? to.sysId : to.sys_id), view: str(to.view), query: str(to.query) };
+	// replace: the handler binds Link to destination's `redirect` to it (replaceState, no new entry).
+	const replace = !!to.replace;
 	if (settings.preEncode) {
-		return { portalSlug, page: encodeURIComponent(page), recordId, q: q ? encodeURIComponent(q) : '', ...record, query: record.query ? encodeURIComponent(record.query) : '' };
+		return { portalSlug, page: encodeURIComponent(page), recordId, q: q ? encodeURIComponent(q) : '', ...record, query: record.query ? encodeURIComponent(record.query) : '', replace };
 	}
-	return { portalSlug, page, recordId, q, ...record };
+	return { portalSlug, page, recordId, q, ...record, replace };
 }
 
 /**

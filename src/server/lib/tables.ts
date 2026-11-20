@@ -21,6 +21,12 @@ export const T = {
     pageUcNo: 'x_312987_portal_page_uc_no',
     itemUc: 'x_312987_portal_item_uc',
     itemUcNo: 'x_312987_portal_item_uc_no',
+    /** Portal view rules (form / list view per portal, page, table, condition and audience). */
+    viewRule: 'x_312987_portal_view_rule',
+    viewRuleUc: 'x_312987_portal_vrule_uc',
+    viewRuleUcNo: 'x_312987_portal_vrule_uc_no',
+    /** Remote table: one computed answer row per query (the view resolution), for GraphQL chaining. */
+    viewAnswer: 'x_312987_portal_view_answer',
 } as const
 
 export const SCOPE = 'x_312987_portal'

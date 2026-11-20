@@ -17922,7 +17922,7 @@
    "components:app/form",
    "utilities:app/graphql"
   ],
-  "coverageNotes": "useRecordForm: one GlideViewQuery_Query.uiView request (layout, values, field states, metadata, UI policies, client scripts, g_scratchpad, form UI actions, related lists with counts), save via the Save UI action, sys_mod_count conflict check. View resolution (backlog B): forced view (URL / option / remembered, checked to exist) beats Workspace view rules (viewRuleConfigId, portal setting) beats the portal candidate list (views) beats Default; useResolvedFormView, checkFormViews."
+  "coverageNotes": "useRecordForm: one GlideViewQuery_Query.uiView request (layout, values, field states, metadata, UI policies, client scripts, g_scratchpad, form UI actions, related lists with counts), save via the Save UI action, sys_mod_count conflict check. View resolution: portal view rules (x_312987_portal_view_rule, page then portal rules; they force the view) resolved in the same request (remote table x_312987_portal_view_answer chained into uiView via _query / $$parent), then URL / option / remembered (checked to exist), then Workspace view rules (viewRuleConfigId, portal setting), the portal candidate list (views) and Default; form.resolution, useViewRulesContext; useResolvedFormView (v1.17, no portal rules)."
  },
  {
   "tag": "now-record-form-connected",
@@ -18162,7 +18162,7 @@
    "components:app/related-lists",
    "components:app/activity-stream"
   ],
-  "coverageNotes": "RecordForm: header (banner / bar / inline), cog settings (view, stacked / tabs), collapsible sections, tabs mode, annotations, 2-4 column splits, UI action bar, Save / Discard in the header, conflict check, per-field remote-change markers, remembered view, view resolution with Workspace view rules (portal viewRuleConfigId), an Automatic switcher choice and a view-not-found notice. Missing: related lists, activity: opt-in (RecordForm activity=\"notes\" | \"below\", app/activity-stream; off by default while the presentation is undecided); attachments (app/attachment-panel, option off / below / header) done; other formatters (placeholders), form personalisation."
+  "coverageNotes": "RecordForm: header (banner / bar / inline), cog settings (view, stacked / tabs), collapsible sections, tabs mode, annotations, 2-4 column splits, UI action bar, Save / Discard in the header, conflict check, per-field remote-change markers, remembered view, view resolution with portal view rules (forced, switcher locked with the rule name) and Workspace view rules as a fallback (portal viewRuleConfigId), an Automatic switcher choice and a view-not-found notice. Missing: related lists, activity: opt-in (RecordForm activity=\"notes\" | \"below\", app/activity-stream; off by default while the presentation is undecided); attachments (app/attachment-panel, option off / below / header) done; other formatters (placeholders), form personalisation."
  },
  {
   "tag": "now-record-form-section-connected",

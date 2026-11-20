@@ -29,6 +29,9 @@
         "x_312987_portal_page_uc",
         "x_312987_portal_page_uc_no",
         "x_312987_portal_item_uc",
-        "x_312987_portal_item_uc_no"
+        "x_312987_portal_item_uc_no",
+        "x_312987_portal_view_rule",
+        "x_312987_portal_vrule_uc",
+        "x_312987_portal_vrule_uc_no"
     ]
 }

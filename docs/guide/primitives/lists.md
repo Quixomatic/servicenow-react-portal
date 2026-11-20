@@ -84,7 +84,7 @@ The presentational grid for any rows: a real `role="grid"` with roving focus, fu
 
 ### `app/list-view`
 
-A full-bleed page list. Its state lives in the URL (filter, sort, page) and rows open the record page.
+A full-bleed page list. Its state lives in the URL (filter, sort, page) and rows open the record page. A portal [view rule](../concepts/view-rules.md) that applies to lists forces the list view; otherwise the `view` option, the route, then the URL `view` param apply.
 
 | Option | Meaning |
 |---|---|

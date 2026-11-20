@@ -9,6 +9,7 @@
 // PORTAL_NAVIGATE (runtime/navigation.js). A portal switch builds a new router.
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import {
+	ErrorComponent,
 	RouterProvider,
 	createMemoryHistory,
 	createRootRoute,
@@ -29,6 +30,7 @@ import { LayoutHost, PagePlacements, canSeeErrorDetails, createOutletStore, main
 import { searchParamsToObject, toSearchParams, safeDecode, requestContextOf } from '#/runtime/location';
 import { leafData } from '#/runtime/page-state';
 import { useDiagCounter } from '#/runtime/diag-hooks';
+import { BootGateContext, useBootGated, useBootReady } from '#/runtime/boot-gate';
 import { clearActiveRouter, navNoop, navResolved, navStart, setActiveRouter } from '#/runtime/diagnostics';
 import { Button } from '#/components/ui/button';
 import { Toaster } from '#/components/ui/sonner';
@@ -258,6 +260,7 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 
 	const rootRoute = createRootRoute({
 		component: PortalShell,
+		errorComponent: RootErrorView,
 		loader: rootLoader,
 		staleTime: Infinity,
 		shouldReload: false
@@ -306,6 +309,7 @@ export function createPortalRouter({ slug, boot, target, locationStore, navigate
 export function PortalRouterHost({ slug, boot, target, embedded, sidebarStore }) {
 	const locationStore = useContext(LocationStoreContext);
 	const navigate = useNavigate();
+	const gate = useContext(BootGateContext);
 	useDiagCounter('PortalRouterHost', { slug, boot, target });
 	const [router] = useState(() =>
 		createPortalRouter({ slug, boot, target, locationStore, navigate, initialHref: targetOf(locationStore.get()).key, embedded, sidebarStore })
@@ -329,7 +333,10 @@ export function PortalRouterHost({ slug, boot, target, embedded, sidebarStore })
 			(error) => {
 				// eslint-disable-next-line no-console
 				console.error('[react-portal] initial route load failed', error);
-				if (alive) setReady(true);
+				if (!alive) return;
+				setReady(true);
+				// The router shows its error view: lift the host skeleton.
+				if (gate) gate.ready();
 			}
 		);
 		const offLocation = locationStore.subscribe(() => syncRouter(router, locationStore.get(), 'props'));
@@ -353,7 +360,9 @@ function RouterProgress() {
 	return busy ? <div className="bg-primary/70 pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 animate-pulse" data-rp-progress="" /> : null;
 }
 
+/** Under the host's skeleton (PortalApp's boot gate) nothing; embedded previews keep a placeholder. */
 function ShellSkeleton() {
+	if (useBootGated()) return null;
 	return <div className="bg-muted/60 m-4 h-40 animate-pulse rounded-xl" data-rp-booting="" />;
 }
 
@@ -367,9 +376,16 @@ function contentMax(width) {
 	return CONTENT_MAX[width] || 'none';
 }
 
+/** The shell itself failed (root loader): TanStack's default error view, and lift the host skeleton. */
+function RootErrorView(props) {
+	useBootReady(true);
+	return <ErrorComponent {...props} />;
+}
+
 function PageErrorView({ error }) {
 	const navigate = useNavigate();
 	const portal = useContext(PortalContext);
+	useBootReady(true);
 	const notFound = !!error && error.status === 404;
 	// Authors see the raw error; everyone else a plain sentence (plus the reference for failures).
 	const detailed = canSeeErrorDetails(portal);

@@ -9,7 +9,7 @@
  * Props: doc (parseMarkdown result) or markdown, path (the doc's path, for relative .md links),
  * skipTitle (drop a leading # heading; the page shows the record's title instead), className.
  *
- * Exports for any widget: CodeBlock ({ code, lang, title }), Callout ({ type, title, children }),
+ * Exports for any widget: CodeBlock ({ code, lang, title }), Callout ({ type, title, children }), InlineCode ({ text }),
  * calloutOf(blockquote token) → { type, title } | null, docsComponents(path) (the Markdown component
  * map), EMBEDS (the rp-embed allow-list).
  *
@@ -167,6 +167,28 @@ export function calloutOf(token: Token): { type: string; title: string; tokens: 
     return { type, title, tokens: [{ ...first, tokens: restInline }].concat(token.tokens!.slice(1)) }
 }
 
+/* ---------------- Inline code ---------------- */
+
+/**
+ * Inline code with line-break opportunities after '.' and '/' (<wbr>, no visible characters):
+ * dotted property names and paths (x_312987_portal.source.max_file_bytes) wrap at a dot instead
+ * of overflowing a table column or breaking mid-word. Exported for other docs widgets.
+ */
+export function InlineCode({ text }: { text: string }) {
+    const parts = String(text || '').split(/(?<=[./])(?=[^./])/)
+    if (parts.length < 2) return <code>{text}</code>
+    return (
+        <code>
+            {parts.map((part, i) => (
+                <span key={i}>
+                    {part}
+                    {i < parts.length - 1 ? <wbr /> : null}
+                </span>
+            ))}
+        </code>
+    )
+}
+
 /* ---------------- Headings, links, tables ---------------- */
 
 function Heading({ id, depth, children }: { id: string; depth: number; children: React.ReactNode }) {
@@ -267,6 +289,7 @@ export function docsComponents(path: string) {
                 {children}
             </DocLink>
         ),
+        codespan: ({ text }: any) => <InlineCode text={text} />,
         // Raw HTML in the docs (<Region>, <Link> written outside backticks) shows as literal text.
         html: ({ text, token }: any) => (token && token.block ? <p>{text}</p> : <>{text}</>),
     }

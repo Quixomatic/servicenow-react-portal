@@ -3,24 +3,30 @@ import { useFormViewCheck } from 'utilities:app/graphql'
 import { useRememberedView } from './preferences'
 
 /**
- * Form view resolution (backlog B). In order, the first that applies wins:
+ * Form view resolution. In order, the first that applies wins:
  *
- *   1. the URL `view` param (user intent: deep links, the view switcher);
- *   2. the widget / page option `view` (author intent); with `lockView` the option beats the URL;
- *   3. the user's remembered view (x_312987_portal.form.<table>.view, set by the view switcher);
- *   4. Workspace view rules (sysrule_view_workspace) of the portal's `settings.viewRuleConfigId`;
- *   5. the portal's candidate list `settings.formViews` ('sp,ess': the first view that exists);
- *   6. the Default view.
+ *   1. page rules of the current page, then portal rules (x_312987_portal_view_rule, of this portal or
+ *      of settings.viewRulesFrom): a matching rule FORCES the view (the URL, the widget option and the
+ *      remembered view can't override it; the switcher shows it locked);
+ *   2. only when no rule matched: the URL `view` param, then the widget / page option `view` (with
+ *      `lockView` the option beats the URL), then the user's remembered view
+ *      (x_312987_portal.form.<table>.view), each only when it exists for the table;
+ *   3. Workspace view rules (sysrule_view_workspace) of the portal's `settings.viewRuleConfigId`;
+ *   4. the portal's candidate list `settings.formViews` ('sp,ess': the first view that exists);
+ *   5. the Default view.
  *
- * 1–3 are sent as uiView's forcedViewName, and only when the view exists for the table (checked
- * first, in one request): an unknown name falls through to the next step instead of silently
- * becoming Default, and the form shows a "View `x` not found" notice for an unknown URL / option
- * view. 4–6 are the platform's own resolution (uiView with viewRuleConfigId + views).
- * 'default' / 'Default view' name the Default view explicitly (it beats the rules).
+ * 1–2 run on the server in the same request as the form (useRecordForm's `viewRules`): the remote
+ * table x_312987_portal_view_answer returns the resolution as one row and uiView takes it through
+ * "$$parent.view$$"; 3–5 are uiView's own resolution. useResolvedFormView below is the v1.17
+ * client-side resolution without portal rules (kept for widgets that resolve a view themselves).
+ * 'default' / 'Default view' name the Default view explicitly.
  */
+/** The portal and page the view rules are evaluated for (utilities:app/graphql; re-exported here). */
+export { useViewRulesContext } from 'utilities:app/graphql'
+
 export type FormViewSource = 'url' | 'option' | 'remembered' | 'auto'
 
-/** The portal's form-view settings (settings_json): { viewRuleConfigId, formViews }. */
+/** The portal's form-view settings (settings_json): { viewRuleConfigId, formViews } (viewRulesFrom is read on the server). */
 export function usePortalViewSettings(): { viewRuleConfigId: string; formViews: string } {
     const ctx = usePortal() as any
     const settings = (ctx && ctx.portal && ctx.portal.settings) || {}

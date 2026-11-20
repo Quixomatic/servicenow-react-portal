@@ -15,3 +15,44 @@ CrossScopePrivilege({
     targetScope: 'global',
     targetType: 'sys_script_include',
 })
+
+/**
+ * View rules (src/server/views): the GraphQL resolver reads its arguments through the platform's
+ * resolver environment, and view existence is checked on the form-section / list-layout tables.
+ * Adopted so they keep working under "enforcing" runtime access tracking.
+ */
+CrossScopePrivilege({
+    $id: Now.ID['csp-graphql-get-arguments'],
+    status: 'allowed',
+    operation: 'execute',
+    targetName: 'ScriptedDataFetchingEnvironment.getArguments',
+    targetScope: 'global',
+    targetType: 'scriptable',
+})
+
+CrossScopePrivilege({
+    $id: Now.ID['csp-read-sys-ui-section'],
+    status: 'allowed',
+    operation: 'read',
+    targetName: 'sys_ui_section',
+    targetScope: 'global',
+    targetType: 'sys_db_object',
+})
+
+CrossScopePrivilege({
+    $id: Now.ID['csp-read-sys-ui-list'],
+    status: 'allowed',
+    operation: 'read',
+    targetName: 'sys_ui_list',
+    targetScope: 'global',
+    targetType: 'sys_db_object',
+})
+
+CrossScopePrivilege({
+    $id: Now.ID['csp-read-sys-ui-view'],
+    status: 'allowed',
+    operation: 'read',
+    targetName: 'sys_ui_view',
+    targetScope: 'global',
+    targetType: 'sys_db_object',
+})

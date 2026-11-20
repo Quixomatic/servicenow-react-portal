@@ -8,11 +8,12 @@ import {
     JsonColumn,
     IntegerColumn,
     MultiLineTextColumn,
+    ChoiceColumn,
 } from '@servicenow/sdk/core'
 
 /**
  * Documentation pages for the `docs` portal: one row per Markdown file of docs/guide/, written by
- * `npm run seed` (the docs step, diff-based on content_hash). Content, not application metadata, so
+ * `npm run seed` (the docs step, diff-based on content_hash) and by Portal Studio's Docs activity. Content, not application metadata, so
  * it doesn't extend sys_metadata: rows never travel in the app package or update sets.
  *
  * The docs widgets read it through the Table API with the user's session (read ACL: logged-in
@@ -42,6 +43,18 @@ export const x_312987_portal_doc = Table({
         search_text: MultiLineTextColumn({ label: 'Search text', maxLength: 1000000, hint: 'Plain text for the client-side search index' }),
         content_hash: StringColumn({ label: 'Content hash', maxLength: 64, readOnly: true }),
         active: BooleanColumn({ label: 'Active', default: true }),
+        // Source of truth (.plans/docs-editor.md): docs/guide stays canonical; Studio edits are held
+        // until `npm run docs:pull` writes them back. "Edited in Studio" = content_hash ≠ seed_hash.
+        origin: ChoiceColumn({
+            label: 'Origin',
+            default: 'repo',
+            dropdown: 'dropdown_without_none',
+            choices: {
+                repo: { label: 'Repository (docs/guide)', sequence: 0 },
+                studio: { label: 'Studio (not yet pulled into the repo)', sequence: 1 },
+            },
+        }),
+        seed_hash: StringColumn({ label: 'Seed hash', maxLength: 64, readOnly: true, hint: 'content_hash as last written by the docs seed (differs from content_hash = edited in Studio)' }),
     },
     index: [{ name: 'rp_doc_path', element: 'path', unique: true }],
 })
@@ -68,6 +81,8 @@ Form({
                         { field: 'order', type: 'table_field' },
                         { field: 'source_path', type: 'table_field' },
                         { field: 'content_hash', type: 'table_field' },
+                        { field: 'origin', type: 'table_field' },
+                        { field: 'seed_hash', type: 'table_field' },
                     ],
                 },
                 {

@@ -9,104 +9,16 @@ import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { here } from './seed-lib.mjs'
+// The analysis (frontmatter, headings, search text, hash input) is shared with the server's Studio
+// saves, so a page saved in Studio hashes exactly as the same content seeded from the repo.
+import { parseFrontmatter, inlineText, createSlugger, analyse, docHash as sharedDocHash } from '../../src/server/docs/docs-text.ts'
+
+export { parseFrontmatter, inlineText, createSlugger, analyse }
 
 export const DOCS_ROOT = join(here, '..', '..', 'docs', 'guide')
 const ICONS_FILE = join(here, 'docs-icons.json')
 
 const walk = (d) => readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]))
-
-/** `key: value` frontmatter (strings, numbers, [a, b] lists). Returns { data, body }. */
-export function parseFrontmatter(text) {
-    const src = text.replace(/\r\n/g, '\n')
-    const m = src.match(/^---\n([\s\S]*?)\n---\n?/)
-    if (!m) return { data: {}, body: src }
-    const data = {}
-    for (const line of m[1].split('\n')) {
-        const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
-        if (!kv) continue
-        let v = kv[2].trim()
-        if (/^\[.*\]$/.test(v)) v = v.slice(1, -1).split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
-        else if (/^-?\d+(\.\d+)?$/.test(v)) v = Number(v)
-        else v = v.replace(/^['"]|['"]$/g, '')
-        data[kv[1]] = v
-    }
-    return { data, body: src.slice(m[0].length) }
-}
-
-/** Inline Markdown → plain text (code spans keep their text, links their label). */
-export function inlineText(s) {
-    // Code spans are set aside first, so their underscores, asterisks and <tags> stay literal.
-    const codes = []
-    const out = s
-        .replace(/(`+)([\s\S]*?[^`])\1(?!`)/g, (_, __, code) => '\u0000' + (codes.push(code.trim()) - 1) + '\u0000')
-        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-        .replace(/\*\*(.+?)\*\*/g, '$1')
-        .replace(/(^|[^\w])__(.+?)__(?=[^\w]|$)/g, '$1$2')
-        .replace(/\*(\S(?:.*?\S)?)\*/g, '$1')
-        .replace(/(^|[^\w])_(\S(?:.*?\S)?)_(?=[^\w]|$)/g, '$1$2')
-        .replace(/<\/?[a-z][\w-]*(\s[^<>]*)?\/?>/gi, '')
-        .replace(/\\([\\`*_{}\[\]()#+\-.!|<>])/g, '$1')
-    return out.replace(/\u0000(\d+)\u0000/g, (_, i) => codes[Number(i)]).trim()
-}
-
-/** GitHub-style heading slugs, deduplicated per document. */
-export function createSlugger() {
-    const seen = {}
-    return (text) => {
-        const base = String(text)
-            .toLowerCase()
-            .trim()
-            .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '')
-            .replace(/\s/g, '-')
-        let slug = base
-        if (seen[base] !== undefined) {
-            seen[base]++
-            slug = base + '-' + seen[base]
-        } else seen[base] = 0
-        return slug
-    }
-}
-
-/**
- * Headings (depth 2–4) and the search sections of a Markdown body. Fenced code is skipped for
- * headings and kept out of the search text (identifiers in inline code stay searchable).
- */
-export function analyse(body) {
-    const slug = createSlugger()
-    const headings = []
-    const sections = [{ h: '', t: '', x: [] }]
-    let fence = null
-    for (const line of body.split('\n')) {
-        const f = line.match(/^\s{0,3}(`{3,}|~{3,})/)
-        if (f) {
-            if (!fence) fence = f[1]
-            else if (line.trim().startsWith(fence)) fence = null
-            continue
-        }
-        if (fence) continue
-        const h = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/)
-        if (h) {
-            const text = inlineText(h[2])
-            const id = slug(text)
-            if (h[1].length >= 2 && h[1].length <= 4) headings.push({ depth: h[1].length, text, slug: id })
-            if (h[1].length >= 2) sections.push({ h: id, t: text, x: [] })
-            continue
-        }
-        const plain = inlineText(
-            line
-                .replace(/^\s*>\s?/, '')
-                .replace(/^\s*([-*+]|\d+[.)])\s+/, '')
-                .replace(/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/, '')
-                .replace(/\|/g, ' ')
-        )
-        if (plain) sections[sections.length - 1].x.push(plain)
-    }
-    const search = sections
-        .map((s) => ({ h: s.h, t: s.t, x: s.x.join(' ').replace(/\s+/g, ' ').trim() }))
-        .filter((s) => s.h || s.x)
-    return { headings, search }
-}
 
 /** Every page listed in docs/guide/_nav.json as a doc row, keyed by path (no .md). */
 export function loadDocs() {
@@ -133,7 +45,8 @@ export function loadDocs() {
                 section_order: (si + 1) * 100,
                 order: (pi + 1) * 100,
                 tags: Array.isArray(data.tags) ? data.tags.join(', ') : String(data.tags || ''),
-                icon: (icons.pages && icons.pages[path]) || (icons.sections && icons.sections[section.slug]) || '',
+                // A pages entry wins, even "" (no icon); else the section's icon (docs:pull writes these).
+                icon: icons.pages && Object.prototype.hasOwnProperty.call(icons.pages, path) ? String(icons.pages[path] || '') : (icons.sections && icons.sections[section.slug]) || '',
                 source_path: 'docs/guide/' + page.path,
                 markdown: body,
                 headings_json: headings,
@@ -149,22 +62,77 @@ export function loadDocs() {
     return { docs, unlisted, missing, nav }
 }
 
-const canonical = (x) =>
-    Array.isArray(x) ? '[' + x.map(canonical).join(',') + ']' : x && typeof x === 'object' ? '{' + Object.keys(x).sort().map((k) => JSON.stringify(k) + ':' + canonical(x[k])).join(',') + '}' : JSON.stringify(x)
-
-/** Hash of every field the seed writes except the hash itself. */
+/** Hash of every field the seed writes except the hash itself (src/server/docs/docs-text.ts). */
 export function docHash(row) {
-    const copy = { ...row }
-    delete copy.content_hash
-    return createHash('sha256').update(canonical(copy)).digest('hex').slice(0, 32)
+    return sharedDocHash(row, (text) => createHash('sha256').update(text).digest('hex'))
 }
 
-/** Render a docs seed (docs-template.js): upsert `rows`, deactivate `deactivate` (paths). */
-export function renderDocsSeed({ rows, deactivate = [], runId }) {
+/**
+ * Render a docs seed (docs-template.js): upsert `rows` (each stamped seed_hash = its content_hash,
+ * origin = repo), adopt `adopt` ([{ path, seed_hash }]: content already matches, only the stamp),
+ * deactivate `deactivate` (paths).
+ */
+export function renderDocsSeed({ rows, deactivate = [], adopt = [], runId }) {
     const template = readFileSync(join(here, 'docs-template.js'), 'utf8')
-    const json = JSON.stringify(rows)
+    const json = JSON.stringify(rows.map((r) => ({ ...r, seed_hash: r.content_hash, origin: 'repo' })))
     return template
         .replace('__DOCS_JSON__', () => json)
         .replace('__DOCS_DEACTIVATE__', () => JSON.stringify(deactivate))
+        .replace('__DOCS_ADOPT__', () => JSON.stringify(adopt))
         .replace('__SEED_RUN_ID__', runId)
+}
+
+const isTrue = (v) => v === true || v === 'true' || v === '1'
+
+/**
+ * The source-of-truth rule (.plans/docs-editor.md) for every page: L = repo hash, C = instance
+ * content_hash, S = instance seed_hash (legacy rows with no seed_hash and origin repo: S = C).
+ * Edited in Studio = origin studio, or C ≠ S.
+ *   C = L                  in sync → adopt when S ≠ L or origin studio (stamp only)
+ *   not edited, L ≠ C      repo changed → write
+ *   edited, L = S          only Studio changed → skip ("run npm run docs:pull")
+ *   edited, L ≠ S          both changed → conflict, skip
+ *   no row                 new page → write
+ * force (--docs-force) writes edited and conflicting pages too; all (--docs-all) rewrites every
+ * page that isn't edited in Studio. Instance-only active rows are deactivated unless edited in
+ * Studio (then kept and reported as studioOnly).
+ * remote: [{ path, content_hash, active, seed_hash, origin }]
+ */
+export function classifyDocs(docs, remote, { all = false, force = false } = {}) {
+    const byPath = {}
+    for (const r of remote) byPath[r.path] = r
+    const out = { write: [], adopt: [], deactivate: [], studioOnly: [], studioEdited: [], conflicts: [], forced: [] }
+    const editedRow = (r) => {
+        const S = r.seed_hash || (r.origin === 'studio' ? '' : r.content_hash)
+        return r.origin === 'studio' || r.content_hash !== S ? { S } : null
+    }
+    for (const p of Object.keys(docs)) {
+        const L = docs[p].content_hash
+        const r = byPath[p]
+        if (!r) {
+            out.write.push(p)
+            continue
+        }
+        const edited = editedRow(r)
+        if (r.content_hash === L && isTrue(r.active)) {
+            if (all && !edited) out.write.push(p)
+            else if ((r.seed_hash || '') !== L || r.origin === 'studio') out.adopt.push({ path: p, seed_hash: L })
+            continue
+        }
+        if (!edited) {
+            out.write.push(p)
+            continue
+        }
+        const kind = edited.S === L ? 'studioEdited' : 'conflicts'
+        if (force) {
+            out.write.push(p)
+            out.forced.push(p)
+        } else out[kind].push(p)
+    }
+    for (const r of remote) {
+        if (docs[r.path] || !isTrue(r.active)) continue
+        if (editedRow(r) && !force) out.studioOnly.push(r.path)
+        else out.deactivate.push(r.path)
+    }
+    return out
 }

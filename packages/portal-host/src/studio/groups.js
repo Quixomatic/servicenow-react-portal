@@ -8,6 +8,7 @@ import CodeEditor from './editor';
 import PreviewPane from './preview';
 import { FileIcon, baseName } from './dialogs';
 import { PREVIEW_TAB, useStudio } from './store';
+import { copyStudioLink } from './deep-link/controller';
 
 // Drag payload lives here: dataTransfer can't be read during dragover.
 const drag = { current: null }; // { path, fromGroup | null }
@@ -177,6 +178,7 @@ function EditorGroup({ group, studio, root, dark, onMenu }) {
 										'-',
 										{ label: 'Split Right', run: () => studio.splitTab(group.id, tab.path, 'right') },
 										{ label: 'Split Down', run: () => studio.splitTab(group.id, tab.path, 'bottom') },
+										...(tab.path !== PREVIEW_TAB ? ['-', { label: 'Copy Link to File', run: () => copyStudioLink({ file: tab.path, line: false }) }, { label: 'Copy Link to Line', run: () => copyStudioLink({ file: tab.path, lineNumber: studio.get().cursor && studio.get().cursor.line }) }] : []),
 										...(tab.preview ? ['-', { label: 'Keep Open', run: () => studio.pin(group.id, tab.path) }] : [])
 									]
 								});

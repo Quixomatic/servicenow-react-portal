@@ -35,25 +35,32 @@ A [form store](fields.md#the-form-store) plus the bootstrap, UI policies, the cl
 
 Which view a form shows. The first step that applies wins:
 
-1. the URL `view` param (user intent: deep links and the view switcher write it);
-2. the widget / page option `view` (author intent). With the widget option `lockView: true`, the option comes before the URL and the view switcher is hidden;
-3. the user's remembered view for the table (`x_312987_portal.form.<table>.view`, set by the switcher);
-4. **Workspace view rules** (`sysrule_view_workspace`) linked to the portal's `settings.viewRuleConfigId` (a `sys_ux_view_rules_configuration`);
-5. the portal's candidate list `settings.formViews` (e.g. `"sp,ess"`; the first view that exists for the table);
-6. the Default view.
+1. **Portal view rules** (`x_312987_portal_view_rule`): page rules of the current page, then portal rules (this portal's, or another portal's via `settings.viewRulesFrom`). A matching rule **forces** the view: the URL, the option and the remembered view can't override it, and the view switcher shows it locked with the rule's name. See [View rules](../concepts/view-rules.md).
+2. the URL `view` param (user intent: deep links and the view switcher write it);
+3. the widget / page option `view` (author intent). With the widget option `lockView: true`, the option comes before the URL and the view switcher is hidden;
+4. the user's remembered view for the table (`x_312987_portal.form.<table>.view`, set by the switcher);
+5. the **Workspace rules fallback**: Workspace view rules (`sysrule_view_workspace`) linked to the portal's `settings.viewRuleConfigId` (a `sys_ux_view_rules_configuration`);
+6. the portal's candidate list `settings.formViews` (e.g. `"sp,ess"`; the first view that exists for the table);
+7. the Default view.
 
 How it works:
-- Steps 1–3 go to `uiView` as `forcedViewName`, and only when the view exists for the table. One request checks the named views first (`checkFormViews`: aliased `uiView(views: "<name>")` calls with no layout, so new records work too).
-- An unknown view falls through to the next step. If it came from the URL or the option, the form shows a small notice: "View `x` not found, showing <view>". On its own the platform would silently show Default.
-- Steps 4–6 are the platform's own resolution: `uiView(viewRuleConfigId, views)`. Rules beat the candidate list, and a forced view beats both. Workspace rules apply **only** when a config id is passed; classic `sysrule_view` rules are never applied by `uiView`, so React Portal doesn't evaluate them.
-- `default` / `Default view` name the Default view explicitly; this beats the rules.
-- The switcher (cog ▸ View) lists the table's views plus **Automatic**. Picking a view writes the URL `view` param and the remembered view. Automatic clears both and goes back to steps 4–6. Its label shows "(auto)" when the view was resolved automatically.
-- The form card carries `data-rp-form-view` (the view shown) and `data-rp-view-pinned` (an explicit view, or automatic).
-- Admins manage the rules in the platform's own UI: the View Rules related list of the `sys_ux_view_rules_configuration`. A rule should set **Experience restricted** so it applies only through its configuration.
+- Steps 1–4 run on the server **in the form's own GraphQL request**. The remote table `x_312987_portal_view_answer` returns the resolution as one row, and `uiView` takes it through `_query` / `$$parent` (`views: "$$parent.views$$", viewRuleConfigId: "$$parent.rule_config$$"`). Steps 5–7 are `uiView`'s own resolution in the same call. A form loads with **one request**, including forms with a URL view (v1.17 needed a `checkFormViews` pre-request).
+- Named views count only when they exist for the table. An unknown URL or option view falls through to the next step and shows a small notice: "View `x` not found, showing <view>".
+- `useRecordForm` applies portal rules by default inside a portal. Its `view` option is the author's view (step 3); `viewRules: { urlView, lockView, remember, remembered }` carries the rest; `forceView: true` or `viewRules: false` forces `view` without rules (the old behaviour). `form.resolution` says how the view was chosen: `{ view, source: 'rule' | 'url' | 'option' | 'remembered' | 'auto', ruleId, ruleName, missing, reason, via: 'answer' | 'api' }`.
+- **Fallback:** without an answer row (e.g. the table isn't installed), the form switches to two calls for the page load: `x312987Portal.viewRules.resolve`, then the form.
+- `default` / `Default view` name the Default view explicitly.
+- The switcher (cog ▸ View) lists the table's views plus **Automatic**. Picking a view writes the URL `view` param and the remembered view; Automatic clears both. Its label shows "(auto)" when the platform chose the view. When a rule forced the view, the switcher shows **View** locked, and its tooltip names the rule.
+- The form card carries `data-rp-form-view` (the view shown), `data-rp-view-pinned` (explicit or not), `data-rp-view-source` (`rule`, `url`, `option`, `remembered`, `auto`) and `data-rp-view-rule` (the rule's sys_id).
+- Rules are edited in Studio ▸ View rules. Workspace rules for the fallback are managed in the platform's own UI (the View Rules related list of the `sys_ux_view_rules_configuration`; set **Experience restricted** so a rule applies only through its configuration).
 
-Reusable exports: `useResolvedFormView({ table, urlView, optionView, lockView, remember? })` → `{ ready, view, source: 'url' | 'option' | 'remembered' | 'auto', missing, remembered, setRemembered }`; `usePortalViewSettings()` → `{ viewRuleConfigId, formViews }`; `utilities:app/graphql` `checkFormViews` / `useFormViewCheck` / `isDefaultViewName`.
+Reusable exports:
+- `useViewRulesContext()` → `{ portal, page }`;
+- `usePortalViewSettings()` → `{ viewRuleConfigId, formViews }`;
+- `utilities:app/graphql`: `resolveViewRules`, `explainViewRules`, `useViewRuleResolution`, `useViewRuleExplain`, `FORM_RULES_QUERY`, `viewAnswerConditions`, `checkFormViews`, `useFormViewCheck`, `isDefaultViewName`.
 
-**Lists:** `getListLayout` has no `viewRuleConfigId` argument (the server rejects it as an unknown argument), so Workspace view rules don't exist for list layouts. A list uses the view it is given (`app/list-view`: option, route, then URL), and an unknown list view silently gives the Default list layout. Related lists on a form use the form's resolved view.
+`useResolvedFormView({ table, urlView, optionView, lockView, remember? })` is the v1.17 client-side resolution without portal rules, kept for widgets that resolve a view themselves.
+
+**Lists:** `getListLayout` has no rules argument, and Workspace has no list rules. Portal view rules that apply to lists force the list view (`app/list-view` asks `resolve(kind: 'list')` once per portal, page and table). Otherwise a list uses the view it is given (`app/list-view`: option, route, then URL), and an unknown list view silently gives the Default list layout. Related lists on a form use the form's resolved view.
 
 ## `<RecordForm>`
 
@@ -143,7 +150,7 @@ It navigates with explicit `table` / `sys-id` / `view` URL params.
 
 ## Not built yet
 
-Classic view rules (`sysrule_view`; by design, see [Form view resolution](#form-view-resolution)), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), highlighted values and form personalization.
+Classic view rules (`sysrule_view`; by design: use [portal view rules](../concepts/view-rules.md)), formatters other than activity (attached knowledge, process flow…; the platform lists formatters without a position in the rows), highlighted values and form personalization.
 
 ## Related
 

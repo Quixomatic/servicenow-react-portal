@@ -1,0 +1,1 @@
+{ "name": "View Rules Editor", "kind": "widget", "tailwind": true, "defaults": { "portal": "sp" } }

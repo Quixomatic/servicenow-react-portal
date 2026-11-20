@@ -45,6 +45,7 @@ import { findPlacement, siblingsOf } from './designer-store';
 import { tableApi } from '#/runtime/api';
 import { ask } from '../dialogs';
 import { ViewAsUserPicker, useViewAsUser, hiddenSets, viewAsUser } from '../view-as-user';
+import { studioApi } from '../studio-api';
 
 export function useDesigner(designer) {
 	return useSyncExternalStore(designer.subscribe, designer.get, designer.get);
@@ -858,17 +859,32 @@ const CONTENT_WIDTH_OPTIONS = [
 const SYS_ID = /^[0-9a-f]{32}$/i;
 
 /**
- * Form views (backlog B), stored in settings_json:
- * - viewRuleConfigId: a sys_ux_view_rules_configuration whose Workspace view rules (sysrule_view_workspace)
- *   pick a form's view when the URL, the widget option and the user's remembered view name none;
- * - formViews: the candidate list after the rules ('sp,ess': the first view that exists for the table).
+ * Form views, stored in settings_json. Two separate things:
+ * - viewRulesFrom: whose React Portal view rules apply (x_312987_portal_view_rule): this portal's (empty)
+ *   or another portal's portal rules (page rules are always this portal's own). Rules force the view;
+ *   they are edited in the View rules activity;
+ * - viewRuleConfigId: an optional Workspace fallback, a sys_ux_view_rules_configuration whose view rules
+ *   (sysrule_view_workspace) apply when no portal rule, URL, option or remembered view does;
+ * - formViews: the candidate list after that ('sp,ess': the first view that exists for the table).
  */
-function PortalFormViewSettings({ designer, portal, busy }) {
+function PortalFormViewSettings({ designer, studio, portal, busy }) {
 	const settings = portal.settings || {};
 	const current = typeof settings.viewRuleConfigId === 'string' ? settings.viewRuleConfigId : '';
 	const [configs, setConfigs] = useState(null);
 	const [loadError, setLoadError] = useState('');
 	const [views, setViews] = useState(null);
+	const [portals, setPortals] = useState(null);
+	const rulesFrom = typeof settings.viewRulesFrom === 'string' ? settings.viewRulesFrom : '';
+	useEffect(() => {
+		let live = true;
+		studioApi
+			.listPortals()
+			.then((rows) => live && setPortals(Array.isArray(rows) ? rows : []))
+			.catch(() => live && setPortals([]));
+		return () => {
+			live = false;
+		};
+	}, []);
 	useEffect(() => {
 		let live = true;
 		tableApi('sys_ux_view_rules_configuration', null, { sysparm_query: 'active=true^ORDERBYname', sysparm_fields: 'sys_id,name,description', sysparm_limit: 200 })
@@ -896,8 +912,28 @@ function PortalFormViewSettings({ designer, portal, busy }) {
 			<div className="rpd-label">Form views</div>
 			<label className="rpd-field">
 				<span className="rpd-label">View rules</span>
+				<select value={rulesFrom} onChange={(e) => update('viewRulesFrom', e.target.value)} disabled={busy || portals === null} data-rpd-view-rules-from="">
+					<option value="">This portal's rules</option>
+					{(portals || [])
+						.filter((p) => p.id !== portal.id)
+						.map((p) => (
+							<option key={p.id} value={p.id}>
+								Use {p.name}'s rules
+							</option>
+						))}
+				</select>
+			</label>
+			<div className="rpd-hint">
+				React Portal view rules force a form or list view (page rules first, then portal rules). Edit them in the{' '}
+				<button type="button" onClick={() => studio && studio.set && studio.set({ view: 'viewRules' })} style={{ textDecoration: 'underline', textUnderlineOffset: 2, color: 'inherit', background: 'none', border: 0, padding: 0, cursor: 'pointer' }} data-rpd-open-view-rules="">
+					View rules
+				</button>{' '}
+				activity.
+			</div>
+			<label className="rpd-field">
+				<span className="rpd-label">Workspace rules fallback</span>
 				<select value={current} onChange={(e) => update('viewRuleConfigId', e.target.value)} disabled={busy || configs === null} data-rpd-view-rule-config="">
-					<option value="">None (no view rules)</option>
+					<option value="">None</option>
 					{!known ? <option value={current}>Unknown configuration ({current.slice(0, 8)}…)</option> : null}
 					{list.map((c) => (
 						<option key={c.sys_id} value={c.sys_id} title={c.description || ''}>
@@ -907,7 +943,7 @@ function PortalFormViewSettings({ designer, portal, busy }) {
 				</select>
 			</label>
 			<div className="rpd-hint">
-				{configs === null ? 'Loading view rule configurations…' : loadError ? loadError : "Workspace view rules (sysrule_view_workspace) in this configuration pick a form's view when the URL, the widget and the user name none."}
+				{configs === null ? 'Loading view rule configurations…' : loadError ? loadError : 'Optional: Workspace view rules (sysrule_view_workspace) of this configuration, used only when no portal rule, URL, option or remembered view applies.'}
 				{current && SYS_ID.test(current) ? (
 					<>
 						{' '}
@@ -937,7 +973,7 @@ function PortalFormViewSettings({ designer, portal, busy }) {
 					data-rpd-form-views-input=""
 				/>
 			</label>
-			<div className="rpd-hint">After the view rules: the first of these views that exists for the table, else Default.</div>
+			<div className="rpd-hint">After the Workspace rules: the first of these views that exists for the table, else Default.</div>
 		</div>
 	);
 }
@@ -1015,7 +1051,7 @@ function PortalSettings({ designer, studio, state }) {
 					))}
 				</select>
 			</label>
-			<PortalFormViewSettings designer={designer} portal={portal} busy={busy} />
+			<PortalFormViewSettings designer={designer} studio={studio} portal={portal} busy={busy} />
 			<label className="rpd-field rpd-check">
 				<input type="checkbox" checked={portal.active !== false} onChange={(e) => designer.updatePortal({ active: e.target.checked })} disabled={busy} />
 				<span className="rpd-label">Active</span>

@@ -28,8 +28,9 @@ export const STUDIO_CSS = `
 @layer base {
 	.rps *, .rps *::before, .rps *::after { box-sizing: border-box; }
 	.rps button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
-	.rps input, .rps select, .rps textarea { font: inherit; color: var(--rps-fg); background: var(--rps-input); border: 1px solid var(--rps-input-border); border-radius: 2px; padding: 3px 6px; outline: none; user-select: text; }
-	.rps input:focus, .rps select:focus, .rps textarea:focus { border-color: var(--rps-focus); }
+	/* Studio's own controls only: widgets hosted in Studio (.rps-host-content: previews, the view rules editor) keep their own styles. :where() keeps the specificity unchanged. */
+	.rps input:where(:not(.rps-host-content *)), .rps select:where(:not(.rps-host-content *)), .rps textarea:where(:not(.rps-host-content *)) { font: inherit; color: var(--rps-fg); background: var(--rps-input); border: 1px solid var(--rps-input-border); border-radius: 2px; padding: 3px 6px; outline: none; user-select: text; }
+	.rps input:where(:not(.rps-host-content *)):focus, .rps select:where(:not(.rps-host-content *)):focus, .rps textarea:where(:not(.rps-host-content *)):focus { border-color: var(--rps-focus); }
 	.rps svg { flex: none; }
 }
 /* Rendered portal content inside Studio (designer canvas, component preview) gets the host's

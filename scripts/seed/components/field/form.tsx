@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useFormBootstrap, useTableMeta, useRecordValues } from 'utilities:app/graphql'
+import type { ViewRuleInputs } from 'utilities:app/graphql'
 import { createFormStore } from './store'
 import type { FormStore, ValueInput } from './store'
 
@@ -29,6 +30,8 @@ export type UseFormOptions = {
     /** View resolution when no view is forced: candidate list ('sp,ess') and Workspace view-rule config sys_id. */
     views?: string
     viewRuleConfigId?: string
+    /** Portal view rules: the server resolves the view (see utilities:app/graphql ViewRuleInputs). */
+    rules?: ViewRuleInputs
     /** Initial values when not bootstrapping (or for a new, local-only form). */
     values?: Record<string, ValueInput>
     /** Load the record from the platform (default: when table and sysId are given). */
@@ -49,7 +52,7 @@ export function useForm(options: UseFormOptions = {}): Form {
     const { table, sysId, view, values } = options
     const [store] = useState(() => createFormStore({ table, sysId, values }))
     const doBootstrap = options.bootstrap ?? !!(table && sysId)
-    const boot = useFormBootstrap(table, sysId, { view, enabled: doBootstrap, query: options.query, views: options.views, viewRuleConfigId: options.viewRuleConfigId })
+    const boot = useFormBootstrap(table, sysId, { view, enabled: doBootstrap, query: options.query, views: options.views, viewRuleConfigId: options.viewRuleConfigId, rules: options.rules })
     const tableMeta = useTableMeta(table)
 
     useEffect(() => {

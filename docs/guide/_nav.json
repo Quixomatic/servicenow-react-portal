@@ -81,6 +81,10 @@
                 {
                     "title": "User criteria",
                     "path": "concepts/user-criteria.md"
+                },
+                {
+                    "title": "View rules",
+                    "path": "concepts/view-rules.md"
                 }
             ]
         },

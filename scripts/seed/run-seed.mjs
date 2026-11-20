@@ -21,7 +21,8 @@ import { dirname, join } from 'node:path'
 import { here, loadComponents, loadTemplate, templateHash, renderSeed, newRunId, bytes } from './seed-lib.mjs'
 // Docs step (docs/guide → x_312987_portal_doc): diff by content_hash, before the component parts.
 // Skipped with --no-docs, and on --only runs unless --docs is given; --docs adds it (diff-based) to an --only run; --docs-all rewrites every page.
-import { loadDocs, renderDocsSeed } from './docs-lib.mjs'
+// Pages edited in Studio (content_hash ≠ seed_hash) are never overwritten unless --docs-force: classifyDocs in docs-lib.mjs.
+import { loadDocs, renderDocsSeed, classifyDocs } from './docs-lib.mjs'
 
 const repoRoot = join(here, '..', '..')
 const argv = process.argv.slice(2)
@@ -30,6 +31,27 @@ const valueOf = (name) => {
     const a = argv.find((x) => x === name || x.startsWith(name + '='))
     if (!a) return null
     return a.includes('=') ? a.slice(a.indexOf('=') + 1) : argv[argv.indexOf(a) + 1] || ''
+}
+// Unknown flags must never fall through to a real seed (a stray --help once ran one).
+const KNOWN_FLAGS = ['--dry-run', '--all', '--portals', '--reprocess', '--keep', '--only', '--max-kb', '--wait-minutes', '--docs', '--docs-all', '--docs-force', '--no-docs']
+if (flag('--help') || flag('-h')) {
+    console.log(`npm run seed -- [flags]
+  --dry-run          show the diff and the plan, run nothing
+  --all              every component + portals (auto-split)
+  --only a,b         just these components (skips the template check unless --portals)
+  --portals          force the portals step (pages, menus, placements, themes)
+  --reprocess        force a final reprocess even when nothing else runs
+  --docs / --docs-all / --no-docs   docs step: diff-based / rewrite all / skip
+  --docs-force       docs step that also overwrites pages edited in Studio (see npm run docs:pull)
+  --max-kb N         payload budget per exec (default 1300)
+  --wait-minutes N   how long to wait on a run that didn't answer (default 30)
+  --keep             keep the generated part files`)
+    process.exit(0)
+}
+const unknownFlags = argv.filter((a) => a.startsWith('-') && !KNOWN_FLAGS.includes(a.split('=')[0]))
+if (unknownFlags.length) {
+    console.error('Unknown flag(s): ' + unknownFlags.join(', ') + ' (see --help). Nothing was run.')
+    process.exit(1)
 }
 const DRY = flag('--dry-run')
 const ALL = flag('--all')
@@ -290,7 +312,7 @@ function printDone(message) {
  * the exec budget. Returns [] when skipped, unchanged, or the doc table isn't installed yet.
  */
 async function planDocs() {
-    if (flag('--no-docs') || (onlyKeys && !flag('--docs') && !flag('--docs-all'))) return []
+    if (flag('--no-docs') || (onlyKeys && !flag('--docs') && !flag('--docs-all') && !flag('--docs-force'))) return []
     // Never fatal for the rest of the seed: a broken docs tree only skips the docs step.
     let loaded
     try {
@@ -303,23 +325,26 @@ async function planDocs() {
     if (missing.length) log(`\nDocs: _nav.json lists missing files (skipped): ${missing.join(', ')}`)
     let remote
     try {
-        remote = await query(T + 'doc', 'pathISNOTEMPTY', ['path', 'content_hash', 'active'], 200)
+        remote = await query(T + 'doc', 'pathISNOTEMPTY', ['path', 'content_hash', 'active', 'seed_hash', 'origin'], 200)
     } catch (e) {
         log(`\nDocs: skipped, x_312987_portal_doc isn't readable (install the app first?): ${String(e.message).slice(0, 160)}`)
         return []
     }
-    const byPath = {}
-    for (const r of remote) byPath[r.path] = r
-    const changed = Object.keys(docs).filter((p) => {
-        const r = byPath[p]
-        return flag('--docs-all') || !r || r.content_hash !== docs[p].content_hash || !(r.active === 'true' || r.active === '1')
-    })
-    const deactivate = remote.filter((r) => !docs[r.path] && (r.active === 'true' || r.active === '1')).map((r) => r.path)
-    log(`\nDocs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the instance → ${changed.length} to write, ${deactivate.length} to deactivate`)
+    const plan = classifyDocs(docs, remote, { all: flag('--docs-all'), force: flag('--docs-force') })
+    const changed = plan.write
+    const deactivate = plan.deactivate
+    const adopt = plan.adopt
+    log(`
+Docs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the instance → ${changed.length} to write, ${adopt.length} to adopt, ${deactivate.length} to deactivate`)
     if (unlisted.length) log(`  Not in _nav.json (not seeded): ${unlisted.join(', ')}`)
     if (changed.length && changed.length <= 12) log(`  ${changed.join(', ')}`)
-    if (!changed.length && !deactivate.length) return []
-    const base = bytes(renderDocsSeed({ rows: [], deactivate, runId: 'x'.repeat(40) }))
+    if (adopt.length && adopt.length <= 12) log(`  adopt (already matches the repo, stamp only): ${adopt.map((a) => a.path).join(', ')}`)
+    if (plan.forced.length) log(`  --docs-force OVERWRITES Studio edits: ${plan.forced.join(', ')}`)
+    if (plan.studioEdited.length) log(`  Edited in Studio, kept (run npm run docs:pull, then commit): ${plan.studioEdited.join(', ')}`)
+    if (plan.conflicts.length) log(`  CONFLICT, kept: changed in the repo AND in Studio (docs:pull to compare, or --docs-force to overwrite): ${plan.conflicts.join(', ')}`)
+    if (plan.studioOnly.length) log(`  Studio pages not in the repo, kept (run npm run docs:pull): ${plan.studioOnly.join(', ')}`)
+    if (!changed.length && !deactivate.length && !adopt.length) return []
+    const base = bytes(renderDocsSeed({ rows: [], deactivate, adopt, runId: 'x'.repeat(40) }))
     const parts = []
     let cur = []
     let size = base
@@ -337,12 +362,13 @@ async function planDocs() {
     return parts.map((paths, i) => {
         const runId = newRunId('rs-docs') + (i ? '-' + (i + 1) : '')
         const dea = i === 0 ? deactivate : []
+        const ado = i === 0 ? adopt : []
         return {
-            mode: `docs ${paths.length} pages${dea.length ? ', ' + dea.length + ' deactivated' : ''}`,
+            mode: `docs ${paths.length} pages${ado.length ? ', ' + ado.length + ' adopted' : ''}${dea.length ? ', ' + dea.length + ' deactivated' : ''}`,
             keys: [],
             reprocess: false,
             runId,
-            script: renderDocsSeed({ rows: paths.map((p) => docs[p]), deactivate: dea, runId }),
+            script: renderDocsSeed({ rows: paths.map((p) => docs[p]), deactivate: dea, adopt: ado, runId }),
         }
     })
 }

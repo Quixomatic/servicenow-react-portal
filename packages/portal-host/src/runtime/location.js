@@ -93,6 +93,10 @@ export function rawKey(properties) {
 
 /** Optional host properties and the UIB URL param names they are bound to (dash-cased variants too). */
 export const OPTIONAL_PARAMS = {
+	// The page itself is an optional UIB param too: Back from .../params/page-id/form/… to the bare
+	// portal URL (/site/sp) leaves the old pageId property behind, so it must go stale like the rest
+	// ('' = the portal's home page).
+	page: ['page-id', 'pageId', 'page_id'],
 	q: ['q'],
 	table: ['table'],
 	sysId: ['sys_id', 'sys-id', 'sysId'],

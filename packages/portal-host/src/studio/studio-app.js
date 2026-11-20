@@ -1,11 +1,10 @@
 // Portal Studio entry, loaded with import() only in mode = studio (consumers never download it).
 // Layout: title bar · explorer | editor groups / panel | properties · status bar, filling the
-// host's height. The open component is the host's recordId property; switching components
-// dispatches PORTAL_NAVIGATE { recordId } so the platform URL follows.
+// host's height. What's open follows the URL (view / id / q params) both ways: see deep-link/.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Allotment, LayoutPriority } from 'allotment';
 import allotmentStyles from 'allotment/dist/style.css';
-import { Code2, LayoutTemplate, ListTree, Plus } from 'lucide-react';
+import { BookOpen, Code2, Eye, LayoutTemplate, ListTree, Plus } from 'lucide-react';
 import { isMock } from '#/runtime/api';
 import { ensureStyle, styleTarget } from '#/runtime/styles';
 import { useAvailableHeight } from '#/runtime/use-available-height';
@@ -21,9 +20,14 @@ import EditorGroups from './groups';
 import Explorer from './explorer';
 import { ConflictBanner, Panel, Properties, QuickOpen, ScopeBanner, StatusBar, Titlebar, guardedOpen } from './chrome';
 import Menus from './menus/menus';
+import ViewRules from './view-rules/view-rules';
+import Docs from './docs/docs';
+import { docsDirty, requestDocsSave } from './docs/location';
 import { createMenusStore } from './menus/menus-store';
 import { loadScope, useScope } from './scope';
 import { ContextMenu, Dialogs, ask, confirmDiscard } from './dialogs';
+import './deep-link/builtin';
+import { useStudioDeepLinks, copyStudioLink } from './deep-link/controller';
 
 function cssText(mod) {
 	if (!mod) return '';
@@ -32,9 +36,8 @@ function cssText(mod) {
 	return typeof value === 'string' ? value : String(value);
 }
 
-// Studio activity ↔ the studio page's `view` URL parameter.
-const VIEW_PARAM = { components: 'code', pages: 'pages', menus: 'menus' };
-const VIEW_OF_PARAM = { code: 'components', components: 'components', pages: 'pages', menus: 'menus' };
+// Studio activity ↔ the studio page's `view` URL parameter: each activity's deep-link entry
+// (deep-link/builtin.js, registerStudioLocation) declares it.
 
 // allotment's stylesheet defines its variables on :root, which doesn't exist in a shadow root.
 const ALLOTMENT_CSS = cssText(allotmentStyles).replace(/:root\b/g, ':host');
@@ -45,7 +48,6 @@ const ALLOTMENT_CSS = cssText(allotmentStyles).replace(/:root\b/g, ':host');
  *   navigate       (to, { recordId }) => dispatches PORTAL_NAVIGATE through the host
  */
 export default function StudioApp({ locationStore, navigate }) {
-	const location = useSyncExternalStore(locationStore.subscribe, locationStore.get, locationStore.get);
 	const [rootEl, setRootEl] = useState(null);
 	const [target, setTarget] = useState(null);
 	const height = useAvailableHeight(rootEl);
@@ -56,13 +58,10 @@ export default function StudioApp({ locationStore, navigate }) {
 		}
 	}, []);
 	const navigateRef = useRef(navigate);
-	// Every Studio navigation carries the current activity as `view` (URL sync for all three).
+	// The stores' own navigate() calls are ignored: the deep-link controller (deep-link/controller.js)
+	// serializes what's open and owns the URL (push vs replace, Back / Forward).
 	const studioRef = useRef(null);
-	navigateRef.current = (to, opts) => {
-		const o = opts || {};
-		const current = studioRef.current ? studioRef.current.get().view : '';
-		return navigate(to, { ...o, view: o.view || VIEW_PARAM[current] || undefined });
-	};
+	navigateRef.current = () => {};
 	const [studio] = useState(() =>
 		createStudio({
 			navigate: (to, opts) => navigateRef.current(to, opts)
@@ -138,76 +137,11 @@ export default function StudioApp({ locationStore, navigate }) {
 		return () => window.removeEventListener('focus', onFocus);
 	}, []);
 
-	// `view` property (studio page URL param): code → Components, pages → Pages, menus → Menus.
-	// Applied when it changes (initial load, back / forward); Studio's own navigation sends the
-	// activity it's already in, so that's a no-op. An id (recordId, below) still picks what to
-	// open and can switch the activity.
-	const viewHint = location ? location.view : '';
-	useEffect(() => {
-		const next = VIEW_OF_PARAM[viewHint];
-		if (next && studio.get().view !== next) studio.set({ view: next });
-	}, [viewHint, studio]);
-
-	// recordId → what it is: a component or theme opens the editor; a portal or page opens the
-	// designer. Studio's own navigation dispatches the id it already has open (no-op here).
-	const recordId = location ? location.recordId : '';
+	// Deep links (deep-link/*): the URL (view, id, q) opens a location on load and on Back /
+	// Forward, and what's open is written back to the URL. `handling` is true while a location is
+	// being applied, so the default-open effects below wait for it.
 	const handling = useRef(false);
-	useEffect(() => {
-		const current = studio.get().owner;
-		const d = designer.get();
-		const m = menus.get();
-		if (!recordId || handling.current) return;
-		if ((current && current.id === recordId) || d.pageId === recordId || (d.portalId === recordId && d.node === 'portal')) return;
-		if (m.selection === recordId || (!m.selection && m.menuId === recordId)) return;
-		handling.current = true;
-		(async () => {
-			let catalog = studio.get().catalog;
-			if (!catalog.components) await studio.loadCatalog();
-			catalog = studio.get().catalog;
-			const isOwner = (catalog.components || []).some((c) => c.id === recordId) || (catalog.themes || []).some((t) => t.id === recordId);
-			let kind = isOwner ? 'component' : null;
-			let resolved = null;
-			if (!kind) {
-				try {
-					resolved = await designApi.resolve(recordId);
-					kind = resolved.kind;
-				} catch (error) {
-					kind = 'component'; // older backends: try it as a component
-				}
-			}
-			if (kind === 'menu' || kind === 'menuItem') {
-				studio.set({ view: 'menus' });
-				await menus.openPortal(resolved.portalId, { menuId: resolved.menuId, itemId: resolved.itemId || null, navigate: false });
-				return;
-			}
-			if (kind === 'portal' && viewHint === 'menus') {
-				studio.set({ view: 'menus' });
-				await menus.openPortal(resolved.portalId, { navigate: false });
-				return;
-			}
-			if (kind === 'portal' || kind === 'page') {
-				studio.set({ view: 'pages' });
-				await designer.openPortal(resolved.portalId, { pageId: resolved.pageId, node: kind === 'portal' ? 'portal' : 'page', navigate: false });
-				return;
-			}
-			if (kind === 'unknown') {
-				toast.error('Nothing in React Portal has the id ' + recordId);
-				return;
-			}
-			studio.set({ view: 'components' });
-			if (current && studio.anyDirty()) {
-				const choice = await confirmDiscard(studio, current.name);
-				if (choice === null) {
-					navigateRef.current('', { recordId: current.id }); // put the URL back
-					return;
-				}
-				if (choice === 'save') await studio.save();
-			}
-			await studio.openOwner(recordId, { navigate: false });
-		})().finally(() => {
-			handling.current = false;
-		});
-	}, [recordId, studio, designer, menus]);
+	useStudioDeepLinks({ studio, designer, menus, locationStore, navigate, handling });
 
 	// Opening the Pages view without a portal: open the default (or first) one.
 	const designerPortals = useSyncExternalStore(designer.subscribe, () => designer.get().portals);
@@ -233,26 +167,16 @@ export default function StudioApp({ locationStore, navigate }) {
 		menus.openPortal(def.id, { navigate: false });
 	}, [view, menusRequest, menusPortalId, designerPortals, designerPortalId, menus, studio]);
 
-	/** Switch activity and put its current record in the URL (view + id). */
+	/** Switch activity (the deep-link controller pushes the new URL). */
 	const activate = (next) => {
 		if (studio.get().view === next) return;
 		studio.set({ view: next });
-		let id = '';
-		if (next === 'components') id = (studio.get().owner && studio.get().owner.id) || '';
-		else if (next === 'pages') {
-			const d = designer.get();
-			id = d.node === 'portal' ? d.portalId || '' : d.pageId || d.portalId || '';
-		} else if (next === 'menus') {
-			const m = menus.get();
-			id = m.selection || m.menuId || m.portalId || '';
-		}
-		navigateRef.current('', { recordId: id, view: VIEW_PARAM[next] });
 	};
 
 	// Warn before leaving the page with unsaved work.
 	useEffect(() => {
 		const onBeforeUnload = (e) => {
-			if (!studio.anyDirty()) return undefined;
+			if (!studio.anyDirty() && !docsDirty()) return undefined;
 			e.preventDefault();
 			e.returnValue = '';
 			return '';
@@ -267,6 +191,22 @@ export default function StudioApp({ locationStore, navigate }) {
 		const mod = e.ctrlKey || e.metaKey;
 		const key = e.key.toLowerCase();
 		let handled = true;
+		// Copy link to the current location (every activity).
+		if (e.ctrlKey && e.altKey && !e.shiftKey && key === 'l') {
+			e.preventDefault();
+			e.stopPropagation();
+			copyStudioLink();
+			return;
+		}
+		if (studio.get().view === 'docs') {
+			// The Docs activity: Ctrl/⌘+S saves the open doc page; its editors handle the rest.
+			if (mod && !e.shiftKey && key === 's') {
+				e.preventDefault();
+				e.stopPropagation();
+				requestDocsSave();
+			}
+			return;
+		}
 		if (studio.get().view === 'pages' || studio.get().view === 'menus') {
 			// The designer saves every change as it happens; it handles its own keys (undo, delete).
 			if (mod && !e.shiftKey && key === 's') {
@@ -312,10 +252,18 @@ export default function StudioApp({ locationStore, navigate }) {
 				<button role="tab" aria-pressed={view === 'menus'} aria-selected={view === 'menus'} title="Menus: navigation menus with a live preview" onClick={() => activate('menus')} data-rps-activity="menus">
 					<ListTree size={22} strokeWidth={1.6} />
 				</button>
+				<button role="tab" aria-pressed={view === 'viewRules'} aria-selected={view === 'viewRules'} title="View rules: which form and list views a portal shows" onClick={() => activate('viewRules')} data-rps-activity="view-rules">
+					<Eye size={22} strokeWidth={1.6} />
+				</button>
+				<button role="tab" aria-pressed={view === 'docs'} aria-selected={view === 'docs'} title="Docs: write the docs portal's pages" onClick={() => activate('docs')} data-rps-activity="docs">
+					<BookOpen size={22} strokeWidth={1.6} />
+				</button>
 			</div>
 			<div className="rps-body" ref={setBodyEl}>
 				{target && bodySized && view === 'pages' ? <Designer designer={designer} studio={studio} root={target} /> : null}
 				{target && bodySized && view === 'menus' ? <Menus store={menus} studio={studio} root={target} /> : null}
+				{target && bodySized && view === 'viewRules' ? <ViewRules studio={studio} root={target} /> : null}
+				{target && bodySized && view === 'docs' ? <Docs studio={studio} root={target} /> : null}
 				{target && bodySized && view === 'components' ? (
 					<Allotment proportionalLayout={false} separator>
 						<Allotment.Pane preferredSize={260} minSize={170} maxSize={600} visible={explorerOpen} snap priority={LayoutPriority.Low}>

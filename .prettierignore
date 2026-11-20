@@ -1,0 +1,33 @@
+# Dependencies and build output
+node_modules/
+dist/
+target/
+packages/*/dist/
+packages/*/target/
+*.tsbuildinfo
+
+# Generated (rewritten by tools; formatting them would be undone on the next run)
+src/fluent/generated/
+packages/global-helpers/src/fluent/generated/
+src/server/icons/
+scripts/seed-demo.js
+docs/primitives/catalog.json
+
+# Vendored third-party bundles
+src/server/compiler/vendor/
+packages/portal-host/src/vendor/
+scripts/seed/components/markdown/vendor/
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+
+# Markdown is content: docs/guide pages are hashed and seeded as written, and the
+# docs editor keeps their exact bytes. Plans and summaries are local notes.
+*.md
+.docs/
+.plans/
+
+# Local tooling
+.claude/
+.now/

@@ -120,6 +120,9 @@ The tools scan each folder's client sources for record imports (`components:app/
 | `--max-kb N` | Payload budget per exec (default `1300`) |
 | `--wait-minutes N` | How long to poll for each run's done line (default `30`) |
 | `--keep` | Keep the generated exec files instead of deleting them |
+| `--docs` / `--no-docs` | Add the docs step to an `--only` run / skip it |
+| `--docs-all` | Rewrite every doc page that isn't edited in Studio |
+| `--docs-force` | Also overwrite pages edited in Studio (see [Docs pages](#docs-pages)) |
 
 ```bash
 npm run seed -- --dry-run
@@ -127,6 +130,43 @@ npm run seed -- --only cart,cart-button
 ```
 
 Builds in state `failed` are reported, not reseeded automatically (a broken component would otherwise rerun the seed every time). Instance components with no seed folder are listed as instance-only, never deleted. If a part fails, the earlier parts' records are written but the portals weren't reprocessed: fix the cause and rerun (add `--reprocess` if the diff is now empty).
+
+### Docs pages
+
+The docs step loads `docs/guide/` (Markdown with frontmatter, `_nav.json`, and the sidebar icons in `scripts/seed/docs-icons.json`) into `x_312987_portal_doc`. The repository is canonical, but pages can also be edited in Portal Studio's Docs activity. So that the seed never clobbers that work, every row tracks what the seed last wrote:
+
+- `content_hash`: a hash of the row's content. Studio saves and the seed compute it with the same code (`src/server/docs/docs-text.ts`; the seed imports it directly through Node's type stripping).
+- `seed_hash`: the `content_hash` the seed last wrote or adopted.
+- `origin`: `repo`, or `studio` for a page created in Studio that hasn't been pulled yet.
+
+A page is **edited in Studio** when `origin = studio` or `content_hash ≠ seed_hash`. For each page, with L the repo's hash:
+
+| Instance row | Seed action |
+|---|---|
+| `content_hash` = L | In sync. Adopt: stamp `seed_hash` only, when it differs |
+| Not edited in Studio, L differs | Write (the repo changed) |
+| Edited in Studio, L = `seed_hash` | Keep, and report "edited in Studio: run `npm run docs:pull`" |
+| Edited in Studio, L ≠ `seed_hash` | **Conflict**: keep, and report. `--docs-force` overwrites it |
+| No row | Insert |
+
+Rows that aren't in the repo are deactivated, never deleted, unless they were edited in Studio. Those are kept and reported.
+
+**`npm run docs:pull`** (`scripts/seed/docs-pull.mjs`) writes pages edited in Studio back into the repo:
+
+- the `.md` file: the frontmatter (title, description, section, order and tags, other keys kept) and the stored Markdown byte for byte;
+- the sections of `_nav.json` the pages are in or left;
+- `docs-icons.json`.
+
+Pages deactivated in Studio leave `_nav.json`, but their file stays. The pull then checks that the repo hashes exactly like the instance. Commit, and the next seed adopts the pages.
+
+```bash
+npm run docs:pull -- --dry-run         # what would be written
+npm run docs:pull                      # every page edited in Studio
+npm run docs:pull -- --only concepts/layouts
+npm run seed -- --only hello-card --docs --dry-run   # the docs plan alone
+```
+
+> **Note:** Studio renumbers whole sections on every move (`order` and `section_order` = position × 100, the numbers the seed derives from `_nav.json`). A move therefore marks every page of the sections involved as edited, and the pull rewrites those sections.
 
 ### `build-seed.mjs`
 

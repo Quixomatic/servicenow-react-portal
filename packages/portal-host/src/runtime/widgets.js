@@ -35,6 +35,7 @@ setServerMessageSink((messages) =>
 );
 import { EMPTY_LIST, leafData } from './page-state';
 import { requestContextOf } from './location';
+import { useBootReady } from './boot-gate';
 
 // ---- error boundary -------------------------------------------------------------------------
 
@@ -536,6 +537,8 @@ function LayoutSlot({ placement }) {
 		initStore.requestInstance(portal ? portal.slug : '', portal && portal.getPath ? portal.getPath() : '', rootId, requestContextOf(portal && portal.locationStore ? portal.locationStore.get() : null));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [initStore, rootId, serverMode]);
+	// The layout's first render lifts the host's loading skeleton (boot gate).
+	useBootReady(loaded.status !== 'loading');
 	if (loaded.status === 'error' || loaded.status === 'empty') {
 		return <LayoutFailure error={loaded.error || 'Layout has no build'} />;
 	}
@@ -543,6 +546,7 @@ function LayoutSlot({ placement }) {
 }
 
 function LayoutFailure({ error }) {
+	useBootReady(true);
 	return (
 		<div>
 			<div className="px-4 pt-4">

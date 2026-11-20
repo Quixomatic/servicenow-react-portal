@@ -210,6 +210,44 @@ export function ucAllowed(kind: UcKind, portalId: string, ownerId: string): bool
     return verdict(portalRules(portalId)[kind], ownerId, state().matched)
 }
 
+/**
+ * Evaluate user criteria for the current subject (the session user, or the View-as subject), in one
+ * getMatchingCriteria call for the ids not cached yet this request. → { criterionId: matched }.
+ * No studio bypass: callers such as view rules want the subject's real audience.
+ */
+export function matchCriteria(ids: string[]): Record<string, boolean> {
+    const s = state()
+    const pending = ids.filter((id) => !!id && s.matched[id] === undefined)
+    if (pending.length) {
+        for (const id of pending) s.matched[id] = false
+        try {
+            const hits = UserCriteriaLoader.getMatchingCriteria(s.subject, pending) || []
+            for (let i = 0; i < hits.length; i++) s.matched[String(hits[i])] = true
+        } catch (e) {
+            gs.error(`[React Portal] user criteria evaluation failed: ${e}`)
+        }
+    }
+    const out: Record<string, boolean> = {}
+    for (const id of ids) if (id) out[id] = !!s.matched[id]
+    return out
+}
+
+/** Available-for / Not-available-for verdict over criterion ids (same rule as portals, pages and items). */
+export function criteriaAllow(can: string[], cannot: string[]): boolean {
+    if (!can.length && !cannot.length) return true
+    const matched = matchCriteria(can.concat(cannot))
+    for (const id of cannot) if (matched[id]) return false
+    if (!can.length) return true
+    for (const id of can) if (matched[id]) return true
+    return false
+}
+
+/** The user criteria are evaluated for: the session user, or the View-as subject. */
+export function criteriaSubject(): { userId: string; viewAs: boolean } {
+    const s = state()
+    return { userId: s.subject, viewAs: s.viewAs }
+}
+
 /** What a View-as subject is denied in one portal: user criteria only (Studio preview). */
 export interface UcAudience {
     bypass: boolean

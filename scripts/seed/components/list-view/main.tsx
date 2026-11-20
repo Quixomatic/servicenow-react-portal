@@ -4,6 +4,7 @@ import { RecordList } from 'components:app/data-table'
 import type { ListState, RecordListFeatures } from 'components:app/data-table'
 import type { ListRow } from 'utilities:app/list-data'
 import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
+import { useViewRuleResolution, useViewRulesContext } from 'utilities:app/graphql'
 
 type Options = {
     table?: string
@@ -77,7 +78,14 @@ export default function ListView({ options = {} }: { options?: Options }) {
     const rawTable = pick(options.table, route.table, loc.table, urlObj.table, qp.get('table'), 'incident')
     const table = NAME.test(rawTable) ? rawTable : 'incident'
     const urlView = loc.mode === 'studio' ? '' : pick(loc.view, urlObj.view, qp.get('view'))
-    const view = pick(options.view, route.view, urlView)
+    const askedView = pick(options.view, route.view, urlView)
+    // Portal view rules (applies to lists / both) force the list view; otherwise the option, the
+    // route, then the URL, as before. Resolved once per portal, page and table (cached 5 minutes).
+    const rulesCtx = useViewRulesContext()
+    const listRule = useViewRuleResolution('list', table, rulesCtx.portal ? { portal: rulesCtx.portal, page: rulesCtx.page, remember: false } : undefined)
+    const rulesPending = !!rulesCtx.portal && listRule.isLoading
+    const ruleView = listRule.data && listRule.data.source === 'rule' ? listRule.data.view : ''
+    const view = ruleView || askedView
     const sync = options.syncUrl !== false
     const page = String(loc.page || '')
 
@@ -162,7 +170,8 @@ export default function ListView({ options = {} }: { options?: Options }) {
     }
 
     return (
-        <div className="rpl-view min-w-0" data-rp-list-view={table}>
+        <div className="rpl-view min-w-0" data-rp-list-view={table} data-rp-list-view-rule={ruleView ? listRule.data!.ruleId : undefined}>
+            {rulesPending ? null : (
             <RecordList
                 key={`${table}|${view}`}
                 table={table}
@@ -186,6 +195,7 @@ export default function ListView({ options = {} }: { options?: Options }) {
                 prefKey={`${instanceId || 'list-view'}:${table}`}
                 live={!!options.liveUpdates}
             />
+            )}
         </div>
     )
 }

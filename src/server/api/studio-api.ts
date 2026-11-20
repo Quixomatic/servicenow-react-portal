@@ -20,6 +20,7 @@ import { listMenus, createMenu, updateMenu, deleteMenu, createMenuItem, updateMe
 import { studioContext, requireReactPortalScope } from '../security/scope.ts'
 import { searchUsers, portalAudience } from '../design/audience-service.ts'
 import { requireStudio } from '../security/access.ts'
+import { listDocs, getDoc, createDoc, updateDoc, orderDocs } from '../docs/docs-service.ts'
 import type { CompleteBuildRequest, SaveRequest } from '../../shared/contracts'
 
 /**
@@ -224,4 +225,31 @@ export function portalAudienceRoute(request: any, response: any): void {
 /** GET /icons?q=&limit=: lucide icon names for pickers. */
 export function iconsRoute(request: any, response: any): void {
     handle(request, response, (req) => ({ data: iconSearch(queryParam(req, 'q'), parseInt(queryParam(req, 'limit'), 10) || 200) }))
+}
+
+/* ---------------- Docs (x_312987_portal_doc, the Docs activity) ---------------- */
+
+/** GET /docs: every doc page (inactive included), nav order, without markdown. */
+export function listDocsRoute(request: any, response: any): void {
+    handle(request, response, () => ({ data: listDocs() }))
+}
+
+/** GET /docs/{id}: one doc page with its markdown. */
+export function getDocRoute(request: any, response: any): void {
+    handle(request, response, (req) => ({ data: getDoc(requiredParam(req, 'id')) }))
+}
+
+/** POST /docs { title, section?, sectionSlug?, path?, description?, tags?, icon?, markdown? } */
+export function createDocRoute(request: any, response: any): void {
+    handle(request, response, (req) => write(() => ({ data: createDoc(req.body as any), status: 201 })))
+}
+
+/** PATCH /docs/{id} { baseHash?, ...fields, markdown?, active? }: derived fields recomputed server-side. */
+export function updateDocRoute(request: any, response: any): void {
+    handle(request, response, (req) => write(() => ({ data: updateDoc(requiredParam(req, 'id'), req.body as any) })))
+}
+
+/** POST /docs/order { sections: [{ slug, title, pages: [id...] }] }: move / reorder, then renumber. */
+export function orderDocsRoute(request: any, response: any): void {
+    handle(request, response, (req) => write(() => ({ data: orderDocs(req.body as any) })))
 }

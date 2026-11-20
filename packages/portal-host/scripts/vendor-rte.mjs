@@ -20,10 +20,16 @@ const version = JSON.parse(readFileSync(join(root, 'node_modules', '@tiptap', 'c
 await build({
 	stdin: {
 		contents: [
-			"export { Editor, Extension, Mark, Node, mergeAttributes } from '@tiptap/core';",
+			"export { Editor, Extension, Mark, Node, mergeAttributes, getSchema } from '@tiptap/core';",
 			"export { default as StarterKit } from '@tiptap/starter-kit';",
 			"export { default as Image } from '@tiptap/extension-image';",
 			"export { Placeholder } from '@tiptap/extensions';",
+			// The Docs editor (Studio, createMarkdownEditor): GFM tables and a code block with meta.
+			"export { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';",
+			"export { default as CodeBlock } from '@tiptap/extension-code-block';",
+			// Docs editor decorations (break points in inline code): the same ProseMirror instances TipTap uses.
+			"export { Plugin, PluginKey } from '@tiptap/pm/state';",
+			"export { Decoration, DecorationSet } from '@tiptap/pm/view';",
 			`export const TIPTAP_VERSION = ${JSON.stringify(version)};`
 		].join('\n'),
 		resolveDir: root,

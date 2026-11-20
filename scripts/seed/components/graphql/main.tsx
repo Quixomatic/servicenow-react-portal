@@ -11,6 +11,11 @@
  *   fetchFormBootstrap(table, sysId, view?)    GlideViewQuery_Query.uiView → formLayout + UI policies + UI actions
  *     (…, signal?, query?, { views?, viewRuleConfigId? })  view resolution when no view is forced:
  *     Workspace view rules (sys_ux_view_rules_configuration) beat the candidate list ('sp,ess')
+ *     (…, { rules: { portal, page?, urlView?, optionView?, lockView?, remember?, remembered? } })  portal view
+ *     rules in ONE request: the answer row (x_312987_portal_view_answer) feeds uiView's forcedViewName
+ *     through _query / $$parent.view$$; bootstrap.resolution says how (source 'rule' = forced by a rule)
+ *   resolveViewRules(kind, table, sysId, query, rules)  x312987Portal.viewRules.resolve (two-call fallback, lists)
+ *   explainViewRules({ table, portal, … user? })   Studio: every rule's verdict
  *   checkFormViews(table, names)               which view names exist for the table (no layout)
  *   fetchFormViews(table)                      the table's form views
  *   executeUiAction({ actionSysId, table, sysId, encodedRecord, fields })  POST /api/now/ui/ui_action/{id} (form Save)
@@ -21,7 +26,8 @@
  *
  * Hooks (TanStack Query, the host's page cache)
  *   useGraphQL, useTableMeta, useFieldMeta, useFormBootstrap, useFormViews, useFormViewCheck, useChoices, useReferenceSearch,
- *   useRecordValues, useReferenceDisplay, useDebouncedValue, useGraphQLClient, gqlKeys
+ *   useRecordValues, useReferenceDisplay, useDebouncedValue, useGraphQLClient, gqlKeys,
+ *   useViewRuleResolution(kind, table, rules), useViewRuleExplain(args)
  */
 export { graphql, gql, restGet, authHeaders, safeName, GraphQLError, GRAPHQL_ENDPOINT } from './client'
 export type { GraphQLOptions, GraphQLErrorEntry } from './client'
@@ -51,7 +57,17 @@ export {
     UI_POLICY_FIELDS,
     CHOICES_QUERY,
     REFERENCE_QUERY,
+    // portal view rules
+    UI_VIEW_SELECTION,
+    FORM_RULES_QUERY,
+    VIEW_RESOLVE_QUERY,
+    VIEW_EXPLAIN_QUERY,
+    viewAnswerConditions,
+    resolveViewRules,
+    explainViewRules,
+    bootstrapFromUiView,
 } from './documents'
+export type { ViewExplanation, ViewRuleVerdict } from './documents'
 export {
     useGraphQL,
     useTableMeta,
@@ -66,6 +82,9 @@ export {
     useDebouncedValue,
     useGraphQLClient,
     gqlKeys,
+    useViewRuleResolution,
+    useViewRuleExplain,
+    useViewRulesContext,
 } from './hooks'
 export type {
     GlideType,
@@ -78,6 +97,8 @@ export type {
     FormSection,
     FormView,
     FormViewResolution,
+    ViewRuleInputs,
+    ViewResolutionInfo,
     FormAnnotation,
     RelatedListInfo,
     PolicyFlag,

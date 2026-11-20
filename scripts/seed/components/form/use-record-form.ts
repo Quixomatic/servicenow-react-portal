@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast, useUser, useRecordWatch } from '@portal/runtime'
 import { useQueryClient } from 'utilities:react-query'
-import { useFormBootstrap, executeUiAction, fetchRecordValues, UiActionError } from 'utilities:app/graphql'
-import type { FormBootstrap, UiAction, UiActionResult, SessionNotification } from 'utilities:app/graphql'
+import { useFormBootstrap, executeUiAction, fetchRecordValues, UiActionError, useViewRulesContext } from 'utilities:app/graphql'
+import type { FormBootstrap, UiAction, UiActionResult, SessionNotification, ViewRuleInputs, ViewResolutionInfo } from 'utilities:app/graphql'
 import { useForm, attachPolicies, applyRemoteValues } from 'components:app/field'
 import type { Form, ValidationResult } from 'components:app/field'
 import { startScriptEnvironment, scriptUserFrom } from 'utilities:app/gform'
@@ -40,6 +40,8 @@ export type SubmitOptions = { force?: boolean; skipValidation?: boolean }
 export type RecordForm = Form & {
     /** The bootstrap (layout, views, policies, actions, scripts); undefined while loading. */
     bootstrap: FormBootstrap | undefined
+    /** Portal view rules: how the view was chosen (source 'rule' = forced by a rule); undefined without rules. */
+    resolution: ViewResolutionInfo | undefined
     isNew: boolean
     /** The Save UI action (absent: the user can't save this record here → read-only). */
     saveAction: UiAction | undefined
@@ -79,8 +81,21 @@ export type UseRecordFormOptions = {
     table: string
     /** sys_id, or '-1' / '' for a new record (the platform reserves a number on load). */
     sysId?: string
-    /** A view to force (beats rules). '' = automatic: Workspace view rules → candidate list → Default. */
+    /**
+     * The view the caller asks for (the widget option). With portal view rules on (the default inside a
+     * portal) a matching rule beats it; with `forceView` (or viewRules: false) it is forced as before.
+     * '' = automatic.
+     */
     view?: string
+    /** Force `view` (no portal view rules). */
+    forceView?: boolean
+    /**
+     * Portal view rules (x_312987_portal_view_rule), resolved in the same request as the form:
+     * page rules → portal rules (they FORCE the view) → urlView → the option (`view`; lockView: option
+     * first) → the remembered view → Workspace rules / default views / Default. false = off.
+     * Default: on when the form is inside a portal.
+     */
+    viewRules?: false | { urlView?: string; lockView?: boolean; remember?: boolean; remembered?: string | null }
     /** Automatic resolution: candidate view list ('sp,ess'). Default: the portal's settings.formViews. */
     views?: string
     /** Automatic resolution: a sys_ux_view_rules_configuration sys_id. Default: the portal's settings.viewRuleConfigId. */
@@ -136,9 +151,24 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
     const portalViews = usePortalViewSettings()
     const views = options.views !== undefined ? options.views : portalViews.formViews
     const viewRuleConfigId = options.viewRuleConfigId !== undefined ? options.viewRuleConfigId : portalViews.viewRuleConfigId
+    // Portal view rules: on inside a real portal unless the caller forces the view or turns them off.
+    const rulesCtx = useViewRulesContext()
+    const vr = options.viewRules
+    const rules: ViewRuleInputs | undefined =
+        options.forceView || vr === false || !rulesCtx.portal
+            ? undefined
+            : {
+                  portal: rulesCtx.portal,
+                  page: rulesCtx.page,
+                  urlView: (vr && vr.urlView) || '',
+                  optionView: view || '',
+                  lockView: !!(vr && vr.lockView),
+                  remember: vr ? vr.remember !== false : true,
+                  remembered: vr && vr.remembered !== undefined ? vr.remembered : undefined,
+              }
     // Same options for both: they share one bootstrap query (one request, one reserved number).
-    const boot = useFormBootstrap(table, sysId, { view, query, views, viewRuleConfigId })
-    const base = useForm({ table, sysId, view, query, views, viewRuleConfigId })
+    const boot = useFormBootstrap(table, sysId, { view, query, views, viewRuleConfigId, rules })
+    const base = useForm({ table, sysId, view, query, views, viewRuleConfigId, rules })
     const qc = useQueryClient()
     const user = useUser() as any
     const baseRef = useRef(base)
@@ -397,6 +427,7 @@ export function useRecordForm(options: UseRecordFormOptions): RecordForm {
     return useMemo(() => {
         const form = Object.create(base) as RecordForm
         form.bootstrap = boot.data
+        form.resolution = boot.data ? boot.data.resolution : undefined
         form.isNew = isNew
         form.saveAction = saveAction
         form.readOnly = !!boot.data && !saveAction

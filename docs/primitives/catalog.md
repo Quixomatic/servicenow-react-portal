@@ -760,7 +760,7 @@ Our forms use `GlideViewQuery_Query.uiView`, the platform's bootstrap. That's th
 
 | Phase | Item | Status | Notes |
 |---|---|---|---|
-| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **Workspace view rules are honoured** via the portal's `viewRuleConfigId` (§12.3); classic `sysrule_view` rules are not, by design. Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Related lists: done (A4). Not yet: formatters (placeholders only), `formTabs` |
+| P1 | Form layout | **Partial** | Views, sections, rows and 1/2 columns are done, as are the view switcher (`availableViews`) and the forced view (`forcedViewName`). **Portal view rules** (`x_312987_portal_view_rule`: per portal / page, condition, roles, user criteria; they force the view, one request via the `_query` chain, §12.4), then **Workspace view rules** via the portal's `viewRuleConfigId` as a fallback (§12.3); classic `sysrule_view` rules are not evaluated, by design. Also done: annotations (`app/form-annotation`), collapsible sections, sections as tabs, 2–4 column splits, remembered view (`x_312987_portal.form.<table>.view`). Related lists: done (A4). Not yet: formatters (placeholders only), `formTabs` |
 | P1 | Field ACLs, dictionary read-only/mandatory | **Done** | `fieldStates` plus dictionary `canRead`/`canWrite`. The form is read-only when the view has no Save action. The server re-checks on save, because Save is a UI action |
 | P1 | Display BRs and `g_scratchpad` | **Done** | `ClientScriptingEnvironment_Globals.g_scratchpad` |
 | P2 | UI policies and actions | **Done** | Evaluated in the browser with the server's pre-evaluated terms; reverse-if-false, onLoad=false, run-scripts and last-writer-wins with scripts; catalog policies too, and MRVS rows run their set's policies. Not done: the `relatedList` action (`sys_ui_policy_rl_action`) |
@@ -806,6 +806,16 @@ GraphQL from a CDP tab, admin session:
 
 ---
 
+
+### 12.4 Portal view rules and the `_query` chain (verified 2026-11-20)
+
+- **`_query` is the root `QueryType`.** It appears on `GlideRecord_Query` rows and on `uiView.glideLayoutItem`. String arguments under it may use `$$parent.<field>$$`, filled from the parent object (a row's column, or `viewName` for `uiView`). One request can therefore chain a row into `uiView`.
+- **Scripted types can't take part.** A type from a scripted schema has no `_query` (FieldUndefined), and the built-in `Glide*` types are merged at execution time and aren't introspectable (even with `glide.graphql.glide_record_schema.introspection_enabled`). So scripted schemas can't extend or wrap them.
+- **Remote tables are exposed under `GlideRecord_Query`** only with web-service access. In their script, `v_query.getParameter(field)` returns a term's value; `getCondition(field)` returns the whole `field=value` term.
+- **An empty `$$parent` value substitutes the string `"null"`.** `uiView` treats `"null"` as a view name: it matches the Default view's empty name and skips Workspace rules. So the chain never sends an empty value. The answer row `x_312987_portal_view_answer` emits `views` (the resolved view, else the portal's default views, else `default`) and `rule_config` (the Workspace configuration, only when nothing was resolved). The chain is `uiView(views: "$$parent.views$$", viewRuleConfigId: "$$parent.rule_config$$")`.
+- **Workspace view rules are exact-table.** A `sysrule_view_workspace` rule on `task` doesn't apply to `incident` or `problem` (throwaway rules, removed). Portal view rules match the same way.
+- **Latency (admin, warm, medians):** plain form 197 ms; the composed form 208 ms; resolver, then form (two calls) 231 ms.
+- **Design and API:** `docs/guide/concepts/view-rules.md`.
 ## 13. What's built: our components → catalog entries
 
 | Our component | Kind | Catalog entries it covers (match unless marked partial) |
