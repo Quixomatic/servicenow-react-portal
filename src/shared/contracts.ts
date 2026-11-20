@@ -541,3 +541,64 @@ export interface ReleaseSummary {
     processedAt: string;
     problems: string[];
 }
+
+// ---- navigation history (@portal/runtime: useBackTarget, useNavHistory; .plans/back-navigation.md) ----
+
+/** navigate(to, opts) / <Link> options beyond the target itself. */
+export interface NavigateOptions {
+    portalSlug?: string;
+    recordId?: string;
+    q?: string | Record<string, unknown>;
+    table?: string;
+    sysId?: string;
+    view?: string;
+    query?: string;
+    /** No new history entry (state writes, new → saved record, success screens). */
+    replace?: boolean;
+    /** Label of the new history entry ("Back to <title>"). */
+    title?: string;
+    /** Don't ask the navigation guards (useNavigationGuard) first. */
+    skipGuard?: boolean;
+}
+
+/** One entry of the tab's navigation history, keyed by the shell's history.state.position. */
+export interface NavEntry {
+    pos: number;
+    key: string;
+    identity: string;
+    portalSlug: string;
+    page: string;
+    params: { table: string; sysId: string; recordId: string; view: string; query: string; q: string };
+    title: string;
+    hintTitle: string;
+    kind: 'page' | 'record' | 'new-record' | 'success';
+    flags: { gone?: boolean; skip?: boolean };
+    scroll: Record<string, number>;
+    state: Record<string, unknown>;
+    at: number;
+    epoch: string;
+    /** useNavHistory() only: the entry's label. */
+    label?: string;
+}
+
+/** A declared parent for useBackTarget / app/back-button (deep links, new tabs). */
+export interface BackParent {
+    to: string;
+    portalSlug?: string;
+    table?: string;
+    sysId?: string;
+    recordId?: string;
+    view?: string;
+    query?: string;
+    q?: string | Record<string, unknown>;
+    label?: string;
+}
+
+/** useBackTarget() result. */
+export interface BackTarget {
+    available: boolean;
+    label: string;
+    title: string;
+    source: 'history' | 'parent' | 'browser' | 'home' | 'none';
+    go: () => Promise<boolean>;
+}

@@ -23,6 +23,16 @@ import {
     useUser,
 } from './sp-utils';
 import { useAmbChannel, useAmbStatus, useRecordWatch } from './record-watch';
+import {
+    goBack,
+    markEntries,
+    useBackTarget,
+    useEntryTitle,
+    useHistoryState,
+    useNavHistory,
+    useNavigationGuard,
+    useScrollRestoration,
+} from './nav-history';
 
 export const RUNTIME_ABI = '0.2.0';
 
@@ -61,6 +71,14 @@ export {
     useRecordWatch,
     useAmbChannel,
     useAmbStatus,
+    useBackTarget,
+    goBack,
+    useEntryTitle,
+    useHistoryState,
+    useScrollRestoration,
+    markEntries,
+    useNavigationGuard,
+    useNavHistory,
 };
 
 /** Names exported above, for Studio autocomplete. */
@@ -96,4 +114,12 @@ export const RUNTIME_EXPORTS = [
     'useRecordWatch',
     'useAmbChannel',
     'useAmbStatus',
+    'useBackTarget',
+    'goBack',
+    'useEntryTitle',
+    'useHistoryState',
+    'useScrollRestoration',
+    'markEntries',
+    'useNavigationGuard',
+    'useNavHistory',
 ];

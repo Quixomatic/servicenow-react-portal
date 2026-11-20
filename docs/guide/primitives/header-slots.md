@@ -40,6 +40,23 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots'
 - Several contributions to one slot render in mount order.
 - An outlet with contributions gets `data-filled`, so the header can hide its default content with CSS: `[data-rp-hslot=left][data-filled] ~ .default { display: none }`.
 
+## Header breadcrumbs
+
+A page widget can contribute its end of the header trail. The record form does this when it has a declared parent list page: the generic `form` page reads "Incidents / INC0010023" instead of "Record form".
+
+```tsx
+import { HeaderCrumbs } from 'utilities:app/header-slots'
+
+<HeaderCrumbs items={[{ label: 'Incidents', to: 'list', table: 'incident' }, { label: 'INC0010023' }]} />
+```
+
+| Export | Meaning |
+|---|---|
+| `HeaderCrumbs` | `<HeaderCrumbs items />`: renders nothing; each item is `<Link>` props plus `label` (`to`, `table`, `sysId`, `recordId`, `q`, `view`, `query`); the last item is the current page |
+| `useHeaderCrumbs()` | The most recent contribution's items, or `null` (header widgets read it) |
+
+`app/app-header` keeps the menu's groups, then shows these items in place of the page title. Breadcrumbs are hierarchy, never history: where you came from is [Back](../runtime-api/history-and-back.md).
+
 ## Built-in outlets
 
 | Widget | Outlets |

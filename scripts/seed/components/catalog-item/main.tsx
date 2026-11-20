@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { usePortalLocation, useNavigate, toast } from '@portal/runtime';
+import { usePortal, usePortalLocation, useNavigate, useRecord, useEntryTitle, Link, toast } from '@portal/runtime';
 import { useQueryClient } from 'utilities:react-query';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'components:card';
 import { Button } from 'components:button';
@@ -45,7 +45,12 @@ import type { FieldLayout } from 'components:app/field';
  * `cart: false` hides Add to cart everywhere. The first line in an empty cart sets the cart's
  * requested for to the item-level person.
  *
- * Widget options: { itemId, table, fieldLayout, requestedFor, cart, cartPage } (or the page query: ?item=<sys_id>).
+ * Success lives in the URL (James's decision 2): after Order now / Submit the widget replaces its history
+ * entry with the same page plus q `ordered=<sys_id>` (and `ordered_table=<table>` unless it's sc_request),
+ * so a reload, or Back from the request opened here, shows the confirmation again rather than a blank
+ * form. The created record opens on the portal's `recordPage` (default 'form') when the portal has it.
+ *
+ * Widget options: { itemId, table, fieldLayout, requestedFor, cart, cartPage, recordPage } (or the page query: ?item=<sys_id>).
  * Also exported as <CatalogItem itemId /> for other widgets.
  */
 export type CatalogItemProps = {
@@ -72,6 +77,8 @@ type Props = {
         requestedFor?: 'auto' | 'hidden';
         cart?: boolean;
         cartPage?: string;
+        /** Portal page that opens the created record (gets table + sys_id); '' = the platform form. Default 'form'. */
+        recordPage?: string;
     };
 };
 
@@ -81,6 +88,35 @@ export default function CatalogItemWidget({ options = {} }: Props) {
     const query = (location && (location.params || location.qParams)) || {};
     const itemId = String(query.item || options.itemId || '');
     const table = String(query.table || options.table || 'sc_cat_item');
+    const navigate = useNavigate();
+    const portal = usePortal() as any;
+    const qParams: Record<string, any> = (location && location.qParams) || {};
+    // The success state, from the URL.
+    const orderedId = String(qParams.ordered || '');
+    const orderedTable = String(qParams.ordered_table || '') || 'sc_request';
+    const recordPage = useMemo(() => {
+        const target = options.recordPage === undefined ? 'form' : options.recordPage;
+        if (!target) return '';
+        const pages: any[] = (portal && portal.pages) || [];
+        return pages.some((p) => [p.route, p.routePattern, p.route_pattern, p.path].indexOf(target) >= 0) ? target : '';
+    }, [portal && portal.pages, options.recordPage]);
+    /** The same page with these q changes (other q keys and the record params kept), as a replace. */
+    const goSelf = (changes: Record<string, string>, title?: string) => {
+        const q: Record<string, string> = {};
+        Object.keys(qParams).forEach((k) => {
+            if (['table', 'sys_id', 'view', 'query'].indexOf(k) < 0) q[k] = String(qParams[k]);
+        });
+        Object.keys(changes).forEach((k) => {
+            if (changes[k]) q[k] = changes[k];
+            else delete q[k];
+        });
+        navigate(String((location && location.page) || ''), {
+            q,
+            table: location && location.table ? location.table : undefined,
+            replace: true,
+            title,
+        } as any);
+    };
     if (!itemId)
         return (
             <Card>
@@ -96,16 +132,38 @@ export default function CatalogItemWidget({ options = {} }: Props) {
             requestedFor={options.requestedFor}
             cart={options.cart}
             cartPage={options.cartPage}
+            ordered={orderedId ? { table: orderedTable, sysId: orderedId } : null}
+            recordPage={recordPage}
+            onSubmitted={(r) =>
+                // The form entry becomes the success entry (replace): Back from here leaves the item.
+                goSelf(
+                    {
+                        ordered: r.sysId,
+                        ordered_table: r.table && r.table !== 'sc_request' ? r.table : '',
+                    },
+                    r.number ? `Submitted ${r.number}` : 'Submitted'
+                )
+            }
+            onAgain={() => goSelf({ ordered: '', ordered_table: '' })}
         />
     );
 }
 
-export function CatalogItem(props: CatalogItemProps) {
+type RoundProps = CatalogItemProps & {
+    /** A submission shown from the URL (q ordered=…); the widget owns the URL. */
+    ordered?: { table: string; sysId: string } | null;
+    /** Portal page for the created record (an in-portal link instead of the platform form). */
+    recordPage?: string;
+    /** "Start another" when the success state comes from the URL. */
+    onAgain?: () => void;
+};
+
+export function CatalogItem(props: RoundProps) {
     const [round, setRound] = useState(0);
     return <CatalogItemRound key={round} {...props} onRestart={() => setRound((r) => r + 1)} />;
 }
 
-function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
+function CatalogItemRound(props: RoundProps & { onRestart: () => void }) {
     const qc = useQueryClient();
     const item = useCatalogItem(props.itemId, props.table || 'sc_cat_item');
     const form = useCatalogForm(item.data, props.table || 'sc_cat_item');
@@ -131,7 +189,29 @@ function CatalogItemRound(props: CatalogItemProps & { onRestart: () => void }) {
                 </CardContent>
             </Card>
         );
-    if (result) return <Submitted item={item.data} result={result} href={props.recordHref} onAgain={restart} />;
+    if (props.ordered)
+        return (
+            <SubmittedFromUrl
+                item={item.data}
+                ordered={props.ordered}
+                recordPage={props.recordPage}
+                href={props.recordHref}
+                onAgain={() => {
+                    if (props.onAgain) props.onAgain();
+                    restart();
+                }}
+            />
+        );
+    if (result)
+        return (
+            <Submitted
+                item={item.data}
+                result={result}
+                href={props.recordHref}
+                recordPage={props.recordPage}
+                onAgain={restart}
+            />
+        );
     return (
         <CatalogFormProvider form={form}>
             {/* g_modal dialogs from catalog client scripts. */}
@@ -489,14 +569,40 @@ function ItemForm(props: {
     );
 }
 
+/** The success view for a submission named in the URL: fetches its number. */
+function SubmittedFromUrl(props: {
+    item: CatalogItemData;
+    ordered: { table: string; sysId: string };
+    recordPage?: string;
+    href?: (table: string, sysId: string) => string;
+    onAgain: () => void;
+}) {
+    const rec = useRecord(props.ordered.table, props.ordered.sysId, { fields: ['number'] }) as any;
+    const number = rec.data && rec.data.number ? String(rec.data.number) : '';
+    useEntryTitle(number ? `Submitted ${number}` : '');
+    return (
+        <Submitted
+            item={props.item}
+            result={{ table: props.ordered.table, sysId: props.ordered.sysId, number, raw: {} }}
+            href={props.href}
+            recordPage={props.recordPage}
+            onAgain={props.onAgain}
+        />
+    );
+}
+
 function Submitted(props: {
     item: CatalogItemData;
     result: SubmitResult;
     href?: (table: string, sysId: string) => string;
+    recordPage?: string;
     onAgain: () => void;
 }) {
     const { result } = props;
     const table = result.table || (props.item.type === 'record_producer' ? '' : 'sc_request');
+    const label = result.number || result.sysId;
+    // In-portal: the record opens on the portal's record page (Back returns here).
+    const inPortal = !props.href && !!props.recordPage && !!table && !!result.sysId;
     const link =
         result.sysId && table
             ? props.href
@@ -514,7 +620,17 @@ function Submitted(props: {
                 </p>
                 <p className="text-sm text-muted-foreground">
                     {props.item.name}:{' '}
-                    {link ? (
+                    {inPortal ? (
+                        <Link
+                            to={props.recordPage}
+                            table={table}
+                            sysId={result.sysId}
+                            title={label}
+                            className="font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                            {label}
+                        </Link>
+                    ) : link ? (
                         <a
                             href={link}
                             target="_blank"

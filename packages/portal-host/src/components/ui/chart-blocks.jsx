@@ -16,7 +16,7 @@ import {
 } from './chart';
 
 // Chart building blocks (part of components:chart): data + config in, an accessible, themed chart
-// out. Generic (no record or table logic; app/data-chart binds them to platform data).
+// out. Generic (no record or table logic; charts/data-chart binds them to platform data).
 //
 //   <BarChart data={rows} index="priority" series={['count']} />
 //   <BarChart data={rows} index="month" series={['open', 'closed']} stacked orientation="horizontal" />
@@ -1042,7 +1042,7 @@ function Sparkline({
 const CHART_TYPES = ['bar', 'bar-horizontal', 'bar-stacked', 'line', 'area', 'area-stacked', 'pie', 'donut', 'radial'];
 
 /**
- * One component for every chart type, for config-driven callers (app/data-chart, chart-card):
+ * One component for every chart type, for config-driven callers (charts/data-chart, chart-card):
  * <Chart type="donut" data={rows} index="state" series={['count']} />.
  */
 function Chart({ type = 'bar', series, valueKey, ...props }) {

@@ -30065,12 +30065,12 @@
    "name": "ui/stat",
    "kind": "primitive"
   },
-  "ourMatch": "match: components:app/score-tile ScoreTile / DataScore (+ widget app/score-card)",
+  "ourMatch": "match: components:charts/score-tile ScoreTile / DataScore (+ widget charts/score-card)",
   "sourceRef": "sys_ux_lib_component:42779779f6835587a975fb21eef62b46 | https://dev189813.service-now.com/uxab/_servicenow_now-score.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-score/index.min.js.map.jsdbx",
   "ourComponent": [
-   "components:app/score-tile",
-   "utilities:app/analytics",
-   "app/score-card"
+   "components:charts/score-tile",
+   "utilities:charts/analytics",
+   "charts/score-card"
   ],
   "coverageNotes": "Value, trend arrow, delta % vs previous period (rolling days or interval-to-date), sparkline, target progress, icon, click-through; useScore is one GraphQL request."
  },
@@ -31203,13 +31203,13 @@
    "name": "ui/chart",
    "kind": "primitive"
   },
-  "ourMatch": "match: components:chart LineChart / AreaChart / BarChart over time; app/data-chart time-series mode",
+  "ourMatch": "match: components:chart LineChart / AreaChart / BarChart over time; charts/data-chart time-series mode",
   "sourceRef": "sys_ux_lib_component:b24d9c9611c699ad4404d38447057afb | https://dev189813.service-now.com/uxab/_servicenow_now-vis-timeseries.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-vis-timeseries/index.min.js.map.jsdbx",
   "ourComponent": [
    "components:chart",
-   "components:app/data-chart",
-   "utilities:app/analytics",
-   "app/chart-card"
+   "components:charts/data-chart",
+   "utilities:charts/analytics",
+   "charts/chart-card"
   ],
   "coverageNotes": "Recharts 3 (lazy portal-charts chunk). Time buckets day/week/month/quarter/year via useTimeSeries (one GraphQL request); series per group; gradient / glow; text summary + data table fallback; click-through query per bucket. No forecast / annotations / navigator."
  },
@@ -31264,8 +31264,8 @@
   "sourceRef": "sys_ux_lib_component:2b8faa88d37b2938ec226013721a8a15 | https://dev189813.service-now.com/uxab/_servicenow_now-chart-bar.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-chart-bar/index.min.js.map.jsdbx",
   "ourComponent": [
    "components:chart",
-   "components:app/data-chart",
-   "app/chart-card"
+   "components:charts/data-chart",
+   "charts/chart-card"
   ],
   "coverageNotes": "orientation, stacked, variants (default / gradient / hatched), value labels, hover highlight, onValueClick; accessibilityTable → ChartDataTable (\"View as table\"); accessibilityLayer."
  },
@@ -31364,13 +31364,13 @@
    "name": "app/visualization",
    "kind": "widget"
   },
-  "ourMatch": "match: components:app/data-chart (+ widget app/chart-card)",
+  "ourMatch": "match: components:charts/data-chart (+ widget charts/chart-card)",
   "sourceRef": "sys_ux_macroponent:67cf18a377c70010cb834a2a6910619a | sys_ux_lib_component:180a1a9e67a0330075e8ebc172415a20",
   "verified": false,
   "ourComponent": [
-   "components:app/data-chart",
-   "utilities:app/analytics",
-   "app/chart-card"
+   "components:charts/data-chart",
+   "utilities:charts/analytics",
+   "charts/chart-card"
   ],
   "coverageNotes": "Table + filter + groupBy (two levels) + aggregate (count/sum/avg/min/max/countDistinct) + chart type + time field / interval + top N; live (record watch) and refresh interval; click-through via page params. Indicator (PA) data sources not supported."
  },
@@ -36048,7 +36048,7 @@
   "verified": false,
   "ourComponent": [
    "components:chart",
-   "components:app/data-chart"
+   "components:charts/data-chart"
   ],
   "coverageNotes": "Pie and donut, centre total, hover highlight, legend, slice click-through."
  },
@@ -37922,7 +37922,7 @@
   "verified": false,
   "ourComponent": [
    "components:chart",
-   "utilities:app/analytics"
+   "utilities:charts/analytics"
   ],
   "coverageNotes": "See now-vis-timeseries."
  },
@@ -40244,11 +40244,11 @@
   "usefulness": "low",
   "rationale": "Auto-catalogued from sys_ux_lib_component / UIB toolbox metadata; niche or internal to a product area.",
   "proposedPrimitive": null,
-  "ourMatch": "match: components:app/score-tile (sparkline + comparison + target)",
+  "ourMatch": "match: components:charts/score-tile (sparkline + comparison + target)",
   "sourceRef": "sys_ux_lib_component:d869375f8ecf931a19f1b02e896bd4b3 | https://dev189813.service-now.com/uxab/_servicenow_now-score.map.jsdbx | https://dev189813.service-now.com/uxasset/externals/@servicenow/now-score/index.min.js.map.jsdbx",
   "ourComponent": [
-   "components:app/score-tile",
-   "app/score-card"
+   "components:charts/score-tile",
+   "charts/score-card"
   ],
   "coverageNotes": "Same tile as now-score-basic with sparkline, change info and target info."
  },

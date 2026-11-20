@@ -205,8 +205,10 @@ export default function KbHome({ options = {} }: { options?: Options }) {
     const legacyArticle = safeId(loc.sysId);
     const legacyCategory = safeId(qp.category);
     useEffect(() => {
-        if (legacyArticle) navigate(links.pages.article, { sysId: legacyArticle });
-        else if (legacyCategory) navigate(links.pages.category, { q: { category: legacyCategory } });
+        // Replace: the old URL forwards, so Back doesn't bounce into it again.
+        if (legacyArticle) navigate(links.pages.article, { sysId: legacyArticle, replace: true } as any);
+        else if (legacyCategory)
+            navigate(links.pages.category, { q: { category: legacyCategory }, replace: true } as any);
     }, [legacyArticle, legacyCategory]);
 
     const kbs = useKnowledgeBases({ ids: options.knowledgeBases });

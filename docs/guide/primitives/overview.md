@@ -56,8 +56,9 @@ Every name above `host kit` is a record under the `app` namespace (`components:a
 | Related lists | `app/related-list`, `app/related-lists`; widget `app/related-lists-card` | [Related lists](related-lists.md) |
 | Attachments | `utilities:app/attachments`, `app/attachment-dropzone`, `app/attachment-list`, `app/attachment-panel`, `app/attachment-field`; widget `app/attachments-card` | [Attachments](attachments.md) |
 | Data | `utilities:app/graphql` | [GraphQL utility](graphql.md) |
-| Charts | `components:chart` (host kit), `utilities:app/analytics`, `app/data-chart`, `app/score-tile`; widgets `app/chart-card`, `app/score-card` | [Charts and dashboards](charts.md) |
-| Page chrome | `utilities:app/header-slots` | [Header slots](header-slots.md) |
+| Charts | `components:chart` (host kit), `utilities:charts/analytics`, `charts/data-chart`, `charts/score-tile`; widgets `charts/chart-card`, `charts/score-card` | [Charts and dashboards](charts.md) |
+| Page chrome | `utilities:app/header-slots` (slots, header breadcrumbs) | [Header slots](header-slots.md) |
+| Back | `app/back-button` (on the runtime's `useBackTarget`) | [History and Back](../runtime-api/history-and-back.md#componentsappback-button) |
 | Home and search | `utilities:app/search`, `app/search-box`, `app/highlighted-value`; widgets `app/hero-search`, `app/search-results`, `app/my-items`, `app/kb-articles`, `app/knowledge`, `app/catalog-tiles`, `app/quick-links`, `app/announcements` | [Home page and search](home-and-search.md) |
 
 ## Design principles

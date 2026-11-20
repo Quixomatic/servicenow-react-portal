@@ -1,5 +1,5 @@
 /**
- * utilities:app/analytics: aggregates as the user, for charts, scores and dashboards, on the
+ * utilities:charts/analytics: aggregates as the user, for charts, scores and dashboards, on the
  * platform's aggregate GraphQL (GlideAggregateRecord_Query: count / sum / avg / min / max /
  * countDistinct, group by one or two fields). Many aggregates go in one request as aliases, so a
  * time series (one bucket per alias) or a score (current, previous, sparkline) is one round trip.

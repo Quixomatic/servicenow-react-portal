@@ -1,4 +1,4 @@
-import { usePortalLocation, useNavigate, Link } from '@portal/runtime';
+import { usePortalLocation, useNavigate, useEntryTitle, Link } from '@portal/runtime';
 import { Card } from 'components:card';
 import { Button } from 'components:button';
 import { Icon } from 'components:icon';
@@ -169,8 +169,14 @@ export default function SearchResults({ options = {} }: { options?: Options }) {
         kbSearchPage: options.kbSearchPage || '',
     };
     const all = useSearch(term, { sources, limit: options.perSource || 4, targets });
+    // A refinement here (new term, source tab) replaces the entry: Back leaves the search.
     const go = (t: string, source?: string) =>
-        navigate(page, { q: source && source !== 'all' ? { term: t, source } : { term: t } });
+        navigate(page, {
+            q: source && source !== 'all' ? { term: t, source } : { term: t },
+            replace: String(loc.page || '') === page,
+            title: t ? `Search: ${t}` : undefined,
+        } as any);
+    useEntryTitle(term ? `Search: ${term}` : '');
     const totalAll = all.groups.reduce((n, g) => n + g.total, 0);
     const withHits = all.groups.filter((g) => g.hits.length);
 

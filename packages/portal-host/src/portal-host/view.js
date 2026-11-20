@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '#/runtime/query-client';
 import { useNormalizedLocation } from '#/runtime/use-normalized-location';
 import { NavigationContext, createNavigate } from '#/runtime/navigation';
+import { useNavHistorySync } from '#/runtime/nav-history';
 import { LocationStoreContext } from '#/runtime/contexts';
 import { rawKey } from '#/runtime/location';
 import { createStore } from '#/runtime/store';
@@ -99,6 +100,9 @@ export default function PortalHostView({ properties, dispatch }) {
     useLayoutEffect(() => {
         locationStore.set(location);
     }, [location, locationStore]);
+
+    // The tab's navigation history follows the URL (Back targets, entry titles, scroll and state).
+    useNavHistorySync(locationStore, navigate);
 
     const rootRef = useRef(null);
 

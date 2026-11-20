@@ -17,6 +17,13 @@
  * contributions gets data-filled, so the header can hide its own default content with CSS
  * (`[data-rp-hslot=left][data-filled] ~ .default { display: none }`).
  *
+ * Breadcrumbs (James's decision 8, .plans/back-navigation.md): a page widget contributes its own end of
+ * the header trail, e.g. a record form with a declared parent list:
+ *     <HeaderCrumbs items={[{ label: 'Incidents', to: 'list', table: 'incident' }, { label: 'INC0010023' }]} />
+ *     useHeaderCrumbs() → the items or null (the header widget, e.g. app/app-header, reads it)
+ *   Items are <Link> props plus a label ({ label, to?, table?, sysId?, recordId?, q?, view?, query? });
+ *   the last one is the current page. Hierarchy only: never history (that's Back).
+ *
  * Why a utility, not RegionPortal: RegionPortal targets a layout region's outlet; these slots live
  * inside a header widget's own markup (left / center / right of its bar).
  */
@@ -24,7 +31,24 @@ import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'reac
 import { createPortal } from 'react-dom';
 import { usePortalContainer } from '@portal/runtime';
 
-type Scope = { outlets: Map<string, HTMLElement>; counts: Map<string, number>; listeners: Set<() => void> };
+export type HeaderCrumb = {
+    label: string;
+    to?: string;
+    table?: string;
+    sysId?: string;
+    recordId?: string;
+    q?: string | Record<string, unknown>;
+    view?: string;
+    query?: string;
+};
+
+type Scope = {
+    outlets: Map<string, HTMLElement>;
+    counts: Map<string, number>;
+    listeners: Set<() => void>;
+    crumbs?: { id: object; items: HeaderCrumb[] }[];
+    crumbItems?: HeaderCrumb[] | null;
+};
 
 const scopes = new WeakMap<object, Scope>();
 const GLOBAL_KEY = {};
@@ -107,4 +131,37 @@ export function HeaderSlot({
     }, [el, name, s]);
     if (el) return createPortal(children, el);
     return fallback === 'inline' ? children : null;
+}
+
+/** The header trail contributed by page widgets (the most recent contribution), or null. */
+export function useHeaderCrumbs(): HeaderCrumb[] | null {
+    const s = useScope();
+    return useSyncExternalStore(
+        (l: () => void) => {
+            s.listeners.add(l);
+            return () => s.listeners.delete(l);
+        },
+        () => s.crumbItems || null,
+        () => null
+    );
+}
+
+/** Contribute the end of the header breadcrumb trail (renders nothing itself). */
+export function HeaderCrumbs({ items }: { items: HeaderCrumb[] }) {
+    const s = useScope();
+    const [id] = useState(() => ({}));
+    const key = JSON.stringify(items || []);
+    useLayoutEffect(() => {
+        const list = (s.crumbs = (s.crumbs || []).filter((c) => c.id !== id));
+        const parsed: HeaderCrumb[] = JSON.parse(key);
+        if (parsed.length) list.push({ id, items: parsed });
+        s.crumbItems = list.length ? list[list.length - 1].items : null;
+        emit(s);
+        return () => {
+            s.crumbs = (s.crumbs || []).filter((c) => c.id !== id);
+            s.crumbItems = s.crumbs.length ? s.crumbs[s.crumbs.length - 1].items : null;
+            emit(s);
+        };
+    }, [key, id, s]);
+    return null;
 }

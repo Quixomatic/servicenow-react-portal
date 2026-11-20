@@ -67,10 +67,12 @@ import { Button } from 'components:button'
 | `table`, `sysId`, `view`, `query` | Standard record params, each sent as its own field |
 | `q` | Object, query string or `URLSearchParams` |
 | `portalSlug` | Navigate to another portal (explicit cross-portal) |
+| `replace` | Replace the current history entry instead of pushing one (state on the same page: filters, tabs, refinements) |
+| `title` | Label for the new history entry ("Back to <title>"); widgets usually set it with `useEntryTitle` instead |
 | `render` | Render any element as the clickable element (Base UI style), e.g. a `Button` |
 | other props | Passed to the `<a>` (`className`, `onClick`; `preventDefault()` in your `onClick` cancels navigation) |
 
-The rendered anchor has `href="#"` and `data-portal-page`.
+The rendered anchor has a real `href` in the UI Builder URL format (`…/site/sp/params/page-id/form/table/incident/sys-id/<id>`) and `data-portal-page`. A plain click dispatches `PORTAL_NAVIGATE`; ctrl / cmd / shift / middle click and `target="_blank"` are left to the browser, so they open a new tab or window.
 
 ### `useNavigate()`
 
@@ -82,11 +84,11 @@ navigate({ to: 'orders', q: { tab: 'open' } })
 navigate('', { portalSlug: 'sp' })
 ```
 
-`navigate(to, { recordId?, q?, table?, sysId?, view?, query?, portalSlug? })`. Also available as `usePortal().navigate`.
+`navigate(to, { recordId?, q?, table?, sysId?, view?, query?, portalSlug?, replace?, title?, skipGuard? })`. Also available as `usePortal().navigate`. It returns a `Promise<boolean>`: `false` when a navigation guard (an unsaved form) cancelled it. `replace` and `title` are as on `<Link>`; `skipGuard` skips the guards when your widget has already asked. See [History and Back](history-and-back.md).
 
 ### How navigation works
 
-The platform owns the URL. `navigate()` dispatches the host's `PORTAL_NAVIGATE` action; the page's **Link to destination** handler maps the payload onto the `site` page's URL params; UI Builder updates the URL and hands the new values back as host properties; the host normalizes them and moves its router. The host never calls `window.history`, and only dispatches for user-initiated navigation, never in response to a property change.
+The platform owns the URL. `navigate()` dispatches the host's `PORTAL_NAVIGATE` action; the page's **Link to destination** handler maps the payload onto the `site` page's URL params; UI Builder updates the URL and hands the new values back as host properties; the host normalizes them and moves its router. The host never writes `window.history` (the shell pushes, or replaces when the payload's `replace` is set), and only dispatches for user-initiated navigation, never in response to a property change. Back is the one read: `history.go(-n)` to the target entry ([History and Back](history-and-back.md)).
 
 ## URL parameters
 
@@ -111,5 +113,6 @@ Primitives such as the record form and the list view read their target in this o
 ## Related
 
 - [UI Builder setup](../getting-started/ui-builder-setup.md)
+- [History and Back](history-and-back.md)
 - [Pages and routes](../concepts/pages-and-routes.md)
 - [`$sp.getParameter`](../server-api/sp-api.md#parameters)

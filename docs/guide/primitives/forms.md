@@ -143,7 +143,7 @@ A form page widget, like Service Portal's form widget: one generic `form` page s
 | `pickerQuery` | Filter for the picker |
 | `showViews` | The form-view switcher |
 | `headerPlacement` | `auto`, `header`, `inline` |
-| `listPage` | A portal page with the list: adds a back button that carries the table |
+| `listPage` | A portal page with the list: the declared parent for Back (with the table) when the tab has no history, and the record's header breadcrumb ("Incidents / INC0010023"). Back itself is always shown (`app/back-button`): where you came from, else this page, else home. See [History and Back](../runtime-api/history-and-back.md) |
 | `presentation` | `stacked` or `tabs` (default only; the user's choice wins) |
 | `attachments` | `off`, `below`, `header` (the record's attachments; default off) |
 | `relatedLists` | `auto`, `tabs`, `stacked`, `off` |

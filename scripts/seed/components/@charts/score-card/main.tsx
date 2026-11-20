@@ -1,7 +1,7 @@
 import { useNavigate } from '@portal/runtime';
-import { DataScore } from 'components:app/score-tile';
-import type { ValueFormat } from 'components:app/data-chart';
-import type { AggregateFn, Interval } from 'utilities:app/analytics';
+import { DataScore } from 'components:charts/score-tile';
+import type { ValueFormat } from 'components:charts/data-chart';
+import type { AggregateFn, Interval } from 'utilities:charts/analytics';
 
 type Options = {
     table?: string;
@@ -36,7 +36,7 @@ function colorOf(c?: string) {
 }
 
 /**
- * Score Card: a KPI tile (app/score-tile's DataScore): value, trend arrow, delta % vs the previous
+ * Score Card: a KPI tile (charts/score-tile's DataScore): value, trend arrow, delta % vs the previous
  * period, sparkline, target; click-through to `listPage` with the current period's filter.
  */
 export default function ScoreCard({ options = {} }: { options?: Options }) {

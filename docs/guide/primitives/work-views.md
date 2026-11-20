@@ -101,9 +101,11 @@ import { VisualBoard } from 'components:app/visual-board';
 - **Moving.** Drag a card to another lane, or use its **Move to** menu. From the keyboard: focus the card's title, press Space, use the arrow keys and press Space again. The card moves at once and the write goes through `app/record-update`. When the form needs more (Resolved needs resolution notes), a dialog asks. Failure or Cancel puts the card back with a toast; success toasts with Undo. Needs write access to the field (`movable={false}` turns it off).
 - **WIP limits** (`wip`, `'value:limit,…'` or an object): the lane header shows count / limit and turns red over the limit. Moving into a full lane still works, with a warning.
 
-Exports: `VisualBoard`, `useBoardLanes(options)` → `{ lanes, meta, fieldMeta, isLoading, error }`, `useLaneCards(options)` (one lane's infinite list), `laneCondition(field, value)`, `parseWip(text)`.
+- **Full bleed** (`height="fill"`): the lane strip takes exactly the height left in the page's scroll container, so the page doesn't scroll; only the lanes and the horizontal strip do. `toolbarSlot` receives the toolbar (search, "Grouped by …") to put it elsewhere, e.g. a `utilities:app/header-slots` `HeaderSlot`.
 
-**Widget** `app/record-board` options: `title`, `description`, `table`, `field`, `query`, `lanes` (comma list, `(empty)` for the empty lane), `laneQuery`, `hideEmpty`, `emptyLabel`, `wip`, `cardFields`, `orderBy` (`-field` = descending), `perLane`, `movable`, `search`, `recordPage`.
+Exports: `VisualBoard`, `useBoardLanes(options)` → `{ lanes, meta, fieldMeta, isLoading, error }`, `useLaneCards(options)` (one lane's infinite list), `laneCondition(field, value)`, `parseWip(text)`, `useFillHeight(ref, enabled)` (the exact-fit height behind `height="fill"`).
+
+**Widget** `app/record-board` options: `title`, `description`, `table`, `field`, `query`, `lanes` (comma list, `(empty)` for the empty lane), `laneQuery`, `hideEmpty`, `emptyLabel`, `wip`, `cardFields`, `orderBy` (`-field` = descending), `perLane`, `movable`, `search`, `recordPage`, `chrome` (`card`, the default: a card with the title and description; `plain`: no card or title block, the lanes fill the page height) and `toolbarPlacement` (`auto`: the app-shell sub-header's right slot when chrome is plain and the page has one; `header`; `inline`). The sp **Board** page is the full-bleed setup: content width Full bleed, `texture: 'plain'`, `contentPadding: 'sm'`, the bar sub-header with the page title, the search in its right slot.
 
 ## Timeline (`app/timeline`)
 

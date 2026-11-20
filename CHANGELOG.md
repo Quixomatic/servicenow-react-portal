@@ -2,6 +2,61 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.22.0] - 2026-11-20
+
+Back navigation that follows where you were, slot-based seed placements and a component identity
+lock, a full-bleed Board page, a `charts/` namespace, and the first chart gallery blocks.
+
+### Added: back navigation
+- **Back means where you were in this tab:**
+  - the host keeps a per-tab navigation history, keyed by the shell's history position (sessionStorage `x_312987_portal.nav.v1`);
+  - Back is `history.go(-n)`;
+  - it skips blank new-record forms, deleted records, the same page, and other portals (back stays inside the portal);
+  - with no history it falls back to the widget's declared parent, then the portal home.
+- **New runtime hooks:** `useBackTarget`, `goBack` (also `usePortalUtils().goBack`), `useEntryTitle`, `useHistoryState`, `useScrollRestoration`, `markEntries`, `useNavigationGuard`, `useNavHistory`.
+- **Navigation options:**
+  - `navigate(to, { replace, title, skipGuard })` and `<Link replace title>`;
+  - `<Link>` renders real UIB hrefs, so ctrl, cmd and middle click open a new tab;
+  - the `site` page's Portal navigate handler is now a script mapping `replace` to the shell's redirect (UI Builder setup docs).
+- **New primitive `app/back-button`:** driven by `useBackTarget`, arrow plus label on wide screens and arrow only on narrow ones. Used by the record form, KB article and record detail.
+- **Record form:**
+  - saving a new record replaces its blank entry;
+  - entries are titled with the record;
+  - unsaved changes are guarded on Back, links and menus;
+  - deleting goes back;
+  - `listPage` is the declared parent and adds a "List / Record" header breadcrumb.
+- **No Back steps for state changes:** form tabs, view switches, list filters / sort / paging, KB facets and search refinements replace the history entry instead of adding one.
+- **Success screens live in the URL:** catalog item `q ordered=`, cart `q done=`. A reload, or Back from the request, shows the confirmation. The catalog item's request link opens in the portal (`recordPage`).
+- **Restored on Back:** main and list scroll positions, and the my-items tab.
+- **Header breadcrumbs:** `HeaderCrumbs` / `useHeaderCrumbs` in `utilities:app/header-slots`.
+- **Studio preview:** gets an in-memory history.
+- **New guide page:** "History and back".
+
+### Changed: seed placements and component identity
+- **The seed matches placements by slot,** not by component: page or portal, parent, plus new `placement.seed_slot` = region/position. A slot whose component changes is updated in place. This fixes the duplicated Dashboards charts after the `charts/` move.
+- **Only seed-managed placements** (with `seed_slot`) are pruned (deactivated, never deleted) when they leave the template. Studio-made placements are never touched. The first portals run adopted 123 existing placements.
+- **`npm run seed -- --dry-run`** simulates the portals step against the instance and lists every insert, update, deactivation and adoption.
+- **A component's namespace and key can't change after creation:** the before-update rule "RP: Lock component identity", field write ACLs that lock them on the form, and a Studio save guard. Placements, layouts and imports reference them.
+
+### Added: charts namespace and gallery
+- **Seed folders `scripts/seed/components/@<ns>/<key>/`** create records in namespace `<ns>`. All chart records moved to `charts/`: analytics, data-chart, score-tile, chart-card, score-card. The old `app/*` chart records stay on the instance, unused; their 9 duplicate Dashboards placements were deactivated.
+- **New host kit `components:chart-frame`:** card frame (ported from ReUI's MIT `Frame`), toolbar, segmented control, selects, more menu with CSV / copy, KPI strip, delta badge, legend, footer.
+- **Theme status tokens** `success`, `warning`, `info` (+ `-foreground`) and `destructive-foreground`, in the host and the server compiler.
+- **Motion 12.43.0** in the lazy `portal-charts` chunk.
+- **Chart gallery** (Dashboard portal ▸ Chart gallery), on `charts/chart-kit` plus `line-kit` and `composed-kit`. The first blocks: Campaign Impressions, Orders Overview, Inbound Leads, Balance Tracker, Metric Switcher, Sales vs Goal, Operating Margin, Cashflow Trend. Visual design inspired by ReUI chart blocks; independent implementation (ReUI's blocks are a paid product; only the MIT `Frame` primitive was ported). More blocks follow.
+
+### Changed: Board page
+- **The sp Board page is full bleed:** the bar sub-header holds the title and the board's search, there's no card, and the lanes fill the page height.
+- **New options:**
+  - `app/record-board`: `chrome` (card / plain) and `toolbarPlacement`;
+  - `app/visual-board`: `height="fill"` and `toolbarSlot`, plus `useFillHeight`.
+
+### Notes
+- **Test data:**
+  - INC0020999 and REQ0010007 (back-navigation tests);
+  - TEST component `test/identity-lock-test` (deactivated).
+- Runtime Tests: 33/33.
+
 ## [1.21.0] - 2026-11-20
 
 Record header fields as configuration, charts and dashboards, work views (calendar, board,

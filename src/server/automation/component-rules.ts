@@ -30,6 +30,21 @@ const JSON_FIELDS = [
 const KINDS = ['widget', 'layout', 'block', 'primitive', 'utility'];
 const SERVER_MODES = ['none', 'on-load', 'on-demand'];
 
+/** Why a component's namespace and key are fixed (RP: Lock component identity, Studio save). */
+export const COMPONENT_IDENTITY_LOCKED =
+    "A component's namespace and key can't change after it's created: placements, layouts and imports reference it. Create a new component instead.";
+
+/**
+ * before update, after normalizeComponent: namespace and key, and so unique_id, are fixed once the
+ * component exists. Both sides compare normalized (lower case, trimmed, default namespace), so a
+ * save that only re-types the same id passes. Records that never had a key aren't locked yet.
+ */
+export function lockComponentIdentity(current: any, previous: any): void {
+    if (!previous || !str(previous, 'key')) return;
+    const id = (gr: any) => canonicalId((str(gr, 'namespace') || DEFAULT_NAMESPACE).trim(), str(gr, 'key').trim());
+    if (id(current) !== id(previous)) abort(current, COMPONENT_IDENTITY_LOCKED);
+}
+
 /** before insert/update: normalize the definition, canonical id, revision tracking. */
 export function normalizeComponent(current: any, previous: any): void {
     const namespace = (str(current, 'namespace') || DEFAULT_NAMESPACE).trim().toLowerCase();

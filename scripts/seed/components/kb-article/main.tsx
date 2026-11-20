@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import { usePortalLocation, useServer, Link, toast } from '@portal/runtime';
+import { usePortalLocation, useServer, useEntryTitle, Link, toast } from '@portal/runtime';
+import { BackButton } from 'components:app/back-button';
 import { Button } from 'components:button';
 import { Card } from 'components:card';
 import { Icon } from 'components:icon';
@@ -155,6 +156,10 @@ export default function KbArticlePage({ options = {} }: { options?: Options }) {
         enabled: !!(art && art.categoryId),
     });
     const articleLink = (x: KbArticleSummary) => links.article(x.id);
+    // Back: where you came from (search, a category, home), else the knowledge home (declared parent).
+    useEntryTitle(art ? art.title : '');
+    const home = links.home() as any;
+    const parent = home && home.to !== undefined ? { to: String(home.to), q: home.q } : null;
 
     if (!sysId || a.isLoading)
         return sysId ? (
@@ -205,6 +210,7 @@ export default function KbArticlePage({ options = {} }: { options?: Options }) {
         <div className="rp-kba min-w-0" data-rp-kb-article={art.number} data-toc={showToc ? '1' : '0'}>
             <div className="rp-kba-grid">
                 <div className="flex min-w-0 flex-col gap-8">
+                    <BackButton parent={parent} className="-mb-6 -ml-2 self-start" />
                     <KbArticleHeader
                         article={art}
                         kb={kb}

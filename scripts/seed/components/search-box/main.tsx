@@ -23,7 +23,7 @@
  * icon tile), SOURCE_TINT.
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useNavigate } from '@portal/runtime';
+import { useNavigate, usePortalLocation } from '@portal/runtime';
 import { Icon } from 'components:icon';
 import { Button } from 'components:button';
 import { Kbd } from 'components:kbd';
@@ -127,6 +127,7 @@ export type SearchBoxProps = {
 export function SearchBox(props: SearchBoxProps) {
     const lg = props.size === 'lg';
     const navigate = useNavigate();
+    const currentPage = String(((usePortalLocation() as any) || {}).page || '');
     const id = useId().replace(/:/g, '');
     const listId = `rp-sb-${id}-list`;
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -178,7 +179,13 @@ export function SearchBox(props: SearchBoxProps) {
         setOpen(false);
         setActive(-1);
         if (props.onSubmit) props.onSubmit(t);
-        else if (resultsPage) navigate(resultsPage, { q: { term: t } });
+        else if (resultsPage)
+            navigate(resultsPage, {
+                q: { term: t },
+                // Already on the results page: a refinement (replace); elsewhere a new place (push).
+                replace: currentPage === resultsPage,
+                title: `Search: ${t}`,
+            } as any);
     };
     const pick = (hit: SearchHit) => {
         if (typed) recent.add(typed);

@@ -29,6 +29,7 @@ import {
 } from '#/runtime/contexts';
 import { SidebarShell, createSidebarStore } from '#/runtime/sidebar';
 import { useNavigate } from '#/runtime/navigation';
+import { useNavHistoryStore, useScrollRestoration } from '#/runtime/nav-history';
 import { createInstanceInitStore, onLoadIds } from '#/runtime/instance-init';
 import { loadCss } from '#/runtime/loader';
 import { useThemeStyles } from '#/runtime/theme';
@@ -228,6 +229,7 @@ export function createPortalRouter({
                 <InstanceInitContext.Provider value={initStore}>
                     <SidebarShell store={sidebarStore} shortcut={!embedded}>
                         <RouterProgress />
+                        {embedded ? null : <MainScrollRestoration />}
                         {themeReady ? <LayoutSwitch /> : <ShellSkeleton />}
                     </SidebarShell>
                     {/* usePortalUtils().addInfoMessage & co.: one toaster per portal, in the overlay layer. */}
@@ -365,13 +367,25 @@ export function PortalRouterHost({ slug, boot, target, embedded, sidebarStore })
         })
     );
     const [ready, setReady] = useState(false);
+    const navHistory = useNavHistoryStore();
 
     useEffect(() => {
         setActiveRouter(router);
         let alive = true;
+        // Page titles for Back labels: every page's title up front, then the resolved page's own.
+        const titles = {};
+        (boot.pages || []).forEach((p) => {
+            if (p && p.route && (p.title || p.name))
+                titles[String(p.route).replace(/^\/+|\/+$/g, '')] = p.title || p.name;
+        });
+        navHistory.setPageTitles(slug, titles);
         const offResolved = router.subscribe('onResolved', (event) => {
             const loc = (event && event.toLocation) || router.state.resolvedLocation;
             navResolved(loc ? safeDecode(loc.pathname) + stringifySearch(loc.search) : null);
+            const data = leafData(router.state);
+            const current = locationStore.get();
+            if (data && data.page && current && current.page)
+                navHistory.setPageTitle(slug, current.page, data.page.title || data.page.name || '');
         });
         navStart('initial', null, targetOf(locationStore.get()).key);
         router.load().then(
@@ -396,13 +410,19 @@ export function PortalRouterHost({ slug, boot, target, embedded, sidebarStore })
             offLocation();
             clearActiveRouter(router);
         };
-    }, [router, locationStore]);
+    }, [router, locationStore]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!ready) return <ShellSkeleton />;
     return <RouterProvider router={router} />;
 }
 
 // ---- small views ----------------------------------------------------------------------------
+
+/** Remembers the main region's scroll per history entry and restores it on Back / Forward. */
+function MainScrollRestoration() {
+    useScrollRestoration('main', 'main');
+    return null;
+}
 
 /** Thin progress bar while the router loads; the only thing that re-renders on pending. */
 function RouterProgress() {

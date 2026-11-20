@@ -1,0 +1,11 @@
+{
+    "type": "object",
+    "properties": {
+        "family": {
+            "type": "string",
+            "title": "Chart family",
+            "description": "Show one family only (empty: a switcher over all of them)",
+            "enum": ["", "area", "bar", "composed", "line", "pie", "radial", "sankey", "slope", "sparkline", "status"]
+        }
+    }
+}

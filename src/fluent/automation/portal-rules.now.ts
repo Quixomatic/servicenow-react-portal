@@ -2,7 +2,7 @@ import '@servicenow/sdk/global';
 import { BusinessRule } from '@servicenow/sdk/core';
 import { normalizePortal, enforceSingleDefault } from '../../server/automation/portal-rules';
 import { normalizeTheme } from '../../server/automation/theme-rules';
-import { normalizeComponent } from '../../server/automation/component-rules';
+import { normalizeComponent, lockComponentIdentity } from '../../server/automation/component-rules';
 import { validatePage, validatePlacement } from '../../server/automation/page-rules';
 import { compileInstanceStyle } from '../../server/automation/instance-style-rules';
 
@@ -56,6 +56,18 @@ BusinessRule({
     action: ['insert', 'update'],
     order: 100,
     script: normalizeComponent,
+});
+
+BusinessRule({
+    $id: Now.ID['br-component-lock-identity'],
+    name: 'RP: Lock component identity',
+    description:
+        'Namespace and key (so unique_id) are fixed after insert: placements, layouts and imports reference them. Runs after the normalize rule, so both sides compare normalized.',
+    table: 'x_312987_portal_component',
+    when: 'before',
+    action: ['update'],
+    order: 200,
+    script: lockComponentIdentity,
 });
 
 /* Page and placement */

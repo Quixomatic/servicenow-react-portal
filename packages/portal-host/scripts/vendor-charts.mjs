@@ -20,6 +20,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const out = join(root, 'src', 'vendor', 'recharts.js');
 const version = JSON.parse(readFileSync(join(root, 'node_modules', 'recharts', 'package.json'), 'utf8')).version;
+// Motion (motion/react, MIT) for the chart gallery's enter / hover animations, exported as one namespace
+// (`Motion`) so its names never collide with Recharts'.
+const motionVersion = JSON.parse(readFileSync(join(root, 'node_modules', 'motion', 'package.json'), 'utf8')).version;
 
 // Registry keys for the host's React (src/runtime/registry.js).
 const HOST_REACT = {
@@ -53,9 +56,14 @@ const hostReact = {
 
 await build({
     stdin: {
-        contents: ["export * from 'recharts';", `export const RECHARTS_VERSION = ${JSON.stringify(version)};`].join(
-            '\n'
-        ),
+        contents: [
+            "export * from 'recharts';",
+            `export const RECHARTS_VERSION = ${JSON.stringify(version)};`,
+            // Named imports so esbuild drops the parts of motion/react the gallery doesn't use.
+            "import { motion, AnimatePresence, LayoutGroup, MotionConfig, animate, stagger, useAnimate, useInView, useReducedMotion, useMotionValue, useSpring, useTransform, useMotionValueEvent } from 'motion/react';",
+            'export const Motion = { motion, AnimatePresence, LayoutGroup, MotionConfig, animate, stagger, useAnimate, useInView, useReducedMotion, useMotionValue, useSpring, useTransform, useMotionValueEvent };',
+            `export const MOTION_VERSION = ${JSON.stringify(motionVersion)};`,
+        ].join('\n'),
         resolveDir: root,
         sourcefile: 'recharts-entry.js',
         loader: 'js',
@@ -69,7 +77,7 @@ await build({
     define: { 'process.env.NODE_ENV': '"production"' },
     plugins: [hostReact],
     banner: {
-        js: `/* Recharts ${version} (MIT) + redux toolkit, d3, es-toolkit (MIT / ISC), pre-bundled by scripts/vendor-charts.mjs against the host's React. Do not edit. */`,
+        js: `/* Recharts ${version} (MIT), Motion ${motionVersion} (MIT) + redux toolkit, d3, es-toolkit (MIT / ISC), pre-bundled by scripts/vendor-charts.mjs against the host's React. Do not edit. */`,
     },
     outfile: out,
     logLevel: 'info',
@@ -80,4 +88,6 @@ if (/@jsxImportSource/.test(text))
     throw new Error('vendor-charts: a @jsxImportSource pragma survived; the CLI build will fail');
 if (/__SECRET_INTERNALS|react\.production\.min|ReactCurrentDispatcher/.test(text))
     throw new Error('vendor-charts: a copy of React was bundled');
-console.log(`vendor-charts: ${out} (${statSync(out).size} bytes, gzip ${gzipSync(text).length}, Recharts ${version})`);
+console.log(
+    `vendor-charts: ${out} (${statSync(out).size} bytes, gzip ${gzipSync(text).length}, Recharts ${version}, Motion ${motionVersion})`
+);

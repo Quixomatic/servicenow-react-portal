@@ -12,7 +12,8 @@
  * - badges: fields to fix after a failed save (`errors`, red), else mandatory fields still empty
  *   (computed live from the form store, outlined), each with a screen-reader label;
  * - useFormTabState keeps the chosen tab in the URL (`tab=<section>` inside q, other q keys and
- *   the table / sys-id / view / query params kept), so Back and deep links restore it;
+ *   the table / sys-id / view / query params kept; written with replace, so tabs add no Back steps),
+ *   so Back and deep links restore it;
  *   select(name) is how the error summary reveals a field ("switch tab, then focus").
  *
  * Tab values are section names (caption in lower case); the first, untitled section is 'main'.
@@ -77,7 +78,10 @@ export function useFormTabState(options: {
                 view: location.view || qParams.view || undefined,
                 query: (typeof location.query === 'string' && location.query) || qParams.query || undefined,
                 q: q.toString(),
-            });
+                // A tab is state on the same entry: no Back step, and no unsaved-changes prompt.
+                replace: true,
+                skipGuard: true,
+            } as any);
         },
         [
             syncUrl,

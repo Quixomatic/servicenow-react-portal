@@ -3,7 +3,7 @@ import { Link, usePortal, useNavigation, useSidebar } from '@portal/runtime';
 import { SidebarTrigger } from 'components:sidebar';
 import { Button } from 'components:button';
 import { Icon } from 'components:icon';
-import { HeaderSlotOutlet } from 'utilities:app/header-slots';
+import { HeaderSlotOutlet, useHeaderCrumbs } from 'utilities:app/header-slots';
 import { ModeToggle } from './parts/ModeToggle';
 
 type Action = { label: string; to?: string; href?: string; icon?: string };
@@ -27,7 +27,8 @@ const TINTS: Record<string, string> = {
 
 /**
  * Dashboard top bar (ChannelGuide's TopHeader): transparent 56px bar on the page background.
- * Left: the sidebar trigger and breadcrumbs (useNavigation().activePath, then the page title);
+ * Left: the sidebar trigger and breadcrumbs (useNavigation().activePath, then the page title; a page
+ * widget's own trail from <HeaderCrumbs> replaces the page title, e.g. "Incidents / INC0010023");
  * centre: optional text; right: the "header-actions" header slot (utilities:app/header-slots, e.g.
  * app/cart-button), action buttons and the theme toggle. No divider next to the
  * trigger: spacing separates it.
@@ -46,8 +47,20 @@ export default function AppHeader({ options = {} }: { options?: Options }) {
         .filter((i: any) => i && i.type !== 'separator' && String(i.label || '').trim())
         .map((i: any) => ({ label: String(i.label).trim(), link: i.type === 'group' ? null : i.link }));
     const title = qTitle || String((page ? page.title || page.name : '') || '').trim();
+    // A page widget's trail (HeaderCrumbs: a record's declared parent, then the record) follows the menu's
+    // groups instead of the page title. Hierarchy, never history.
+    const widgetCrumbs = (useHeaderCrumbs() || []).filter((c) => c && String(c.label || '').trim());
+    if (widgetCrumbs.length) {
+        const groups = crumbs.filter((c) => !c.link);
+        crumbs.length = 0;
+        groups.forEach((c) => crumbs.push(c));
+        widgetCrumbs.forEach((c) => {
+            const { label, ...link } = c;
+            crumbs.push({ label: String(label).trim(), link: link.to !== undefined ? link : null });
+        });
+    }
     // The page title closes the trail unless the active item already says it (case-insensitive).
-    if (title && (!crumbs.length || crumbs[crumbs.length - 1].label.toLowerCase() !== title.toLowerCase()))
+    else if (title && (!crumbs.length || crumbs[crumbs.length - 1].label.toLowerCase() !== title.toLowerCase()))
         crumbs.push({ label: title });
     const lead = nav.activePath.find((i: any) => i.icon);
     const actions = Array.isArray(options.actions) ? options.actions : [];

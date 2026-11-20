@@ -62,6 +62,12 @@ export const x_312987_portal_placement = Table({
             maxLength: 1000,
             hint: 'Tailwind classes for this instance (compiled into Instance CSS)',
         }),
+        seed_slot: StringColumn({
+            label: 'Seed slot',
+            maxLength: 100,
+            readOnly: true,
+            hint: 'Set by the demo seed: the slot it manages ("<region>/<n>" under the page, portal or parent block). Empty = made in Studio or by hand; the seed never matches or prunes those.',
+        }),
         instance_css: MultiLineTextColumn({
             label: 'Instance CSS',
             maxLength: 200000,
@@ -103,6 +109,7 @@ Form({
                         { field: 'classes', type: 'table_field' },
                         { field: 'visibility_config_json', type: 'table_field' },
                         { field: 'instance_css', type: 'table_field' },
+                        { field: 'seed_slot', type: 'table_field' },
                     ],
                 },
             ],

@@ -1,5 +1,12 @@
-import { useMemo } from 'react';
-import { usePortal, usePortalLocation, useNavigate, useComponent } from '@portal/runtime';
+import { useMemo, useRef } from 'react';
+import {
+    usePortal,
+    usePortalLocation,
+    useNavigate,
+    useComponent,
+    useEntryTitle,
+    useScrollRestoration,
+} from '@portal/runtime';
 import { RecordList } from 'components:app/data-table';
 import type { ListState, RecordListFeatures } from 'components:app/data-table';
 import type { ListRow } from 'utilities:app/list-data';
@@ -245,8 +252,23 @@ export default function ListView({ options = {} }: { options?: Options }) {
         journalEdit: !!options.journalEdit,
     };
 
+    // Back to this list: its title labels the entry, and the table's scroll comes back (filters, sort and
+    // page are already in the URL, written with replace).
+    useEntryTitle(options.title || qp.get('title') || '');
+    const wrapRef = useRef<HTMLDivElement | null>(null);
+    const scroller = useMemo(
+        () => ({
+            get current() {
+                return wrapRef.current ? (wrapRef.current.querySelector('.rpl-scroll') as HTMLElement | null) : null;
+            },
+        }),
+        []
+    );
+    useScrollRestoration(scroller, 'list');
+
     return (
         <div
+            ref={wrapRef}
             className="rpl-view min-w-0"
             data-rp-list-view={table}
             data-rp-list-view-rule={ruleView ? listRule.data!.ruleId : undefined}

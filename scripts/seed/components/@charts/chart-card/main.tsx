@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from '@portal/runtime';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent } from 'components:card';
 import { ChartViewToggle } from 'components:chart';
-import { DataChart } from 'components:app/data-chart';
-import type { ChartType, ValueFormat } from 'components:app/data-chart';
-import type { AggregateFn, Interval } from 'utilities:app/analytics';
+import { DataChart } from 'components:charts/data-chart';
+import type { ChartType, ValueFormat } from 'components:charts/data-chart';
+import type { AggregateFn, Interval } from 'utilities:charts/analytics';
 
 type Options = {
     table?: string;
@@ -39,7 +39,7 @@ type Options = {
 };
 
 /**
- * Chart Card: an app/data-chart in a card, configured by options (table, filter, group by,
+ * Chart Card: a charts/data-chart in a card, configured by options (table, filter, group by,
  * aggregate, chart type, time field + interval, top N). Clicking a bar / slice / point (or a row of
  * "View as table") opens `listPage` with that group's filter as the `table` and `query` page params.
  */

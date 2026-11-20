@@ -29,7 +29,8 @@ x-312987-portal-host (createCustomElement, @servicenow/ui-core)
 ## Properties in, actions out
 
 - **Property adapter** (`runtime/location.js`): UI Builder hands raw properties; the host normalizes them once (decoding, `''`/`'true'` as absent, standard params packed in `q`, URL fallbacks for undelivered params, staleness of absent optional params). The normalized location lives in a per-instance store: only readers of the location re-render.
-- **Outgoing navigation** dispatches `PORTAL_NAVIGATE`; the host never touches `window.history`, and never dispatches in response to a property change (loop safety). After its own navigation it re-reads the URL shortly, because optional params UI Builder drops never arrive as property changes.
+- **Outgoing navigation** dispatches `PORTAL_NAVIGATE`; the host never writes `window.history`, except through the shell: the `site` page's script handler maps the payload's `replace` to the shell's `redirect` (a `replaceState`), and everything else is a shell `pushState`. The host never dispatches in response to a property change (loop safety). After its own navigation it re-reads the URL shortly, because optional params UI Builder drops never arrive as property changes.
+- **Navigation history** (`runtime/nav-history.js`, pure part `nav-history-core.js`): the host *observes* the browser's history. Every settled URL is applied to a per-tab store keyed by the shell's `history.state.position` (sessionStorage `x_312987_portal.nav.v1`; push / replace / pop told apart by position). Back (`useBackTarget`, `app/back-button`) is a read plus `history.go(-n)`, never a write. Studio's page designer uses a memory-mode store. See [History and Back](../runtime-api/history-and-back.md).
 - **Incoming navigation** (`syncRouter`): property changes move the router with `replace`; updates matching the current location are ignored.
 
 ## Router and data

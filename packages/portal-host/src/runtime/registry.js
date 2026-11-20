@@ -50,6 +50,8 @@ import * as CodeEditor from '#/components/ui/code-editor';
 // Charts (Wave 4a): shadcn chart + building blocks; Recharts itself is the lazily loaded portal-charts chunk.
 import * as Chart from '#/components/ui/chart';
 import * as ChartBlocks from '#/components/ui/chart-blocks';
+// Chart card shell (Frame port, MIT, ReUI) + toolbar / KPI / legend / export pieces for the chart gallery.
+import * as ChartFrame from '#/components/ui/chart-frame';
 import { PortalContext, WidgetInstanceContext } from './contexts';
 import { NavigationContext } from './navigation';
 import { WidgetErrorBoundary } from './widgets';
@@ -124,6 +126,9 @@ const modules = {
     // blocks (BarChart, LineChart, AreaChart, PieChart, RadialChart, Sparkline, Chart) + a11y (ChartFigure,
     // ChartDataTable, describeChart); Recharts = the portal-charts chunk (useRecharts()).
     'components:chart': { ...Chart, ...ChartBlocks },
+    // Chart card shell: Frame (ported from ReUI's MIT Frame) + ChartCard, toolbar buttons, SegmentedControl,
+    // ToolbarSelect, ChartMoreMenu (CSV / copy summary), KpiStrip, DeltaBadge, LegendList, FooterMeta.
+    'components:chart-frame': ChartFrame,
     'utilities:cn': cnModule,
     // TanStack Query (the host's copy, so hooks share the page QueryClient). Utilities and primitives
     // build data hooks on it: import { useQuery } from 'utilities:react-query'.

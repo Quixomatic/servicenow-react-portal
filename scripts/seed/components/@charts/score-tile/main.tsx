@@ -1,12 +1,12 @@
 import { Sparkline, formatNumber } from 'components:chart';
 import { Icon } from 'components:icon';
-import { useScore } from 'utilities:app/analytics';
-import type { AggregateFn, Interval, ScoreResult } from 'utilities:app/analytics';
-import { valueFormatterFor } from 'components:app/data-chart';
-import type { ValueFormat } from 'components:app/data-chart';
+import { useScore } from 'utilities:charts/analytics';
+import type { AggregateFn, Interval, ScoreResult } from 'utilities:charts/analytics';
+import { valueFormatterFor } from 'components:charts/data-chart';
+import type { ValueFormat } from 'components:charts/data-chart';
 
 /**
- * components:app/score-tile: KPI tiles (now-score-basic / -advanced): value, trend arrow, delta %,
+ * components:charts/score-tile: KPI tiles (now-score-basic / -advanced): value, trend arrow, delta %,
  * period comparison, sparkline and target.
  *
  *   <ScoreTile label="Open P1" value={17} deltaPercent={12.5} trend="up" positive={false}

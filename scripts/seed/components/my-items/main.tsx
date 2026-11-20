@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Link, useUser, useRecordWatch } from '@portal/runtime';
+import { Link, useUser, useRecordWatch, useHistoryState } from '@portal/runtime';
 import { useQuery, keepPreviousData } from 'utilities:react-query';
 import { Card } from 'components:card';
 import { Button } from 'components:button';
@@ -268,7 +267,12 @@ export default function MyItems({ options = {} }: { options?: Options }) {
             ? options.sources
             : (['requests', 'incidents', 'approvals'] as MyItemKind[])
     ).filter((k) => !!MY_ITEM_KINDS[k]);
-    const [tab, setTab] = useState<MyItemKind>(kinds[0] || 'requests');
+    // The active tab belongs to the history entry: Back from a record opened here shows the same tab.
+    const [storedTab, setTab] = useHistoryState('my-items.tab', kinds[0] || 'requests') as [
+        MyItemKind,
+        (v: MyItemKind) => void,
+    ];
+    const tab: MyItemKind = kinds.indexOf(storedTab) >= 0 ? storedTab : kinds[0] || 'requests';
     const limit = Math.max(1, Math.min(10, options.limit || 5));
     const live = options.live !== false;
     const recordPage = options.recordPage || 'form';

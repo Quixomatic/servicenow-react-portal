@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useProperty, useUser, toast } from '@portal/runtime';
+import {
+    Link,
+    useProperty,
+    useUser,
+    toast,
+    usePortalLocation,
+    useNavigate,
+    useRecord,
+    useEntryTitle,
+} from '@portal/runtime';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent } from 'components:card';
 import { Button } from 'components:button';
 import { Icon } from 'components:icon';
@@ -37,6 +46,9 @@ import { cx, Spinner, IconCheck, controlClass } from 'components:app/field';
  * All data comes from utilities:app/catalog's cart hooks (one shared cache key), so the header
  * app/cart-button follows every change. Exported for other widgets: <Cart />, <CartLineItem />,
  * <CartTotals />, <CartVariables />, <CheckoutDone />, formatCartValue.
+ *
+ * The confirmation lives in the URL (James's decision 2): after checkout the cart replaces its history entry
+ * with q `done=<sc_request sys_id>`, so a reload, or Back from the request opened here, shows it again.
  *
  * Options: { title ('Your cart'), catalogPage ('catalog'), recordPage ('form'), review ('auto' | 'always') }.
  */
@@ -85,6 +97,9 @@ export function Cart(props: CartProps) {
     const user = useUser() as any;
     const [step, setStep] = useState<Step>('cart');
     const [done, setDone] = useState<CheckoutResult | null>(null);
+    const location = (usePortalLocation() as any) || {};
+    const navigate = useNavigate();
+    const doneId = String((location.qParams && location.qParams.done) || '');
     const [failure, setFailure] = useState('');
     // The platform answered a checkout with its summary (two-step): the next Place order submits it.
     const [platformReview, setPlatformReview] = useState(false);
@@ -99,6 +114,15 @@ export function Cart(props: CartProps) {
         if (step === 'review' && heading.current) heading.current.focus();
     }, [step]);
 
+    if (doneId)
+        return (
+            <CheckoutDoneFromUrl
+                requestId={doneId}
+                known={done && done.kind === 'ordered' && done.requestId === doneId ? done : null}
+                recordPage={props.recordPage}
+                catalogPage={catalogPage}
+            />
+        );
     if (done && done.kind === 'ordered')
         return <CheckoutDone result={done} recordPage={props.recordPage} catalogPage={catalogPage} />;
 
@@ -151,6 +175,13 @@ export function Cart(props: CartProps) {
             const r = platformReview ? await submit.mutateAsync() : await checkout.mutateAsync();
             if (r.kind === 'ordered') {
                 setDone(r);
+                // The cart entry becomes the confirmation (replace): reload and Back keep showing it.
+                if (r.requestId)
+                    navigate(String(location.page || ''), {
+                        q: { done: r.requestId },
+                        replace: true,
+                        title: r.requestNumber ? `Order ${r.requestNumber}` : 'Order placed',
+                    } as any);
                 return;
             }
             // Two-step on the platform: review what's in the cart, then submit_order.
@@ -549,6 +580,22 @@ function CartRequestedForField(props: {
             {...rf.fieldProps}
         />
     );
+}
+
+/** The confirmation for a checkout named in the URL (q done=<sc_request sys_id>). */
+function CheckoutDoneFromUrl(props: {
+    requestId: string;
+    known: Extract<CheckoutResult, { kind: 'ordered' }> | null;
+    recordPage?: string;
+    catalogPage?: string;
+}) {
+    const rec = useRecord(props.known ? '' : 'sc_request', props.known ? '' : props.requestId, {
+        fields: ['number'],
+    }) as any;
+    const number = props.known ? props.known.requestNumber : rec.data && rec.data.number ? String(rec.data.number) : '';
+    useEntryTitle(number ? `Order ${number}` : '');
+    const result = props.known || ({ kind: 'ordered', requestId: props.requestId, requestNumber: number } as any);
+    return <CheckoutDone result={result} recordPage={props.recordPage} catalogPage={props.catalogPage} />;
 }
 
 /** After checkout: the request number with a link, and Continue shopping. */

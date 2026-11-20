@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usePortalLocation, useNavigate, Link } from '@portal/runtime';
+import { usePortalLocation, useNavigate, useEntryTitle, Link } from '@portal/runtime';
 import { Button } from 'components:button';
 import { Card } from 'components:card';
 import { Icon } from 'components:icon';
@@ -154,7 +154,10 @@ export default function KbSearchPage({ options = {} }: { options?: Options }) {
     const [text, setText] = useState(s.term);
     const [filtersOpen, setFiltersOpen] = useState(false);
     useEffect(() => setText(s.term), [s.term]);
-    const link = (patch: Partial<State>) => {
+    // Refinements of this search (facets, term, sort, page) replace the history entry: Back leaves the
+    // search, not each refinement.
+    const link = (patch: Partial<State>) => ({ ...searchLink(patch), replace: true });
+    const searchLink = (patch: Partial<State>) => {
         const n = { ...s, page: 1, ...patch };
         return links.search({
             term: n.term,
@@ -166,9 +169,10 @@ export default function KbSearchPage({ options = {} }: { options?: Options }) {
         });
     };
     const go = (patch: Partial<State>) => {
-        const l = link(patch);
-        navigate(l.to, { q: l.q });
+        const l = searchLink(patch);
+        navigate(l.to, { q: l.q, replace: true } as any);
     };
+    useEntryTitle(s.term ? `Search: ${s.term}` : '');
     const active = [s.kb, s.category, s.type].filter(Boolean).length;
     const articles: KbArticleSummary[] = r.articles;
     const from = (s.page - 1) * pageSize + 1;

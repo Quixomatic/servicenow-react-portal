@@ -7,6 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '#/runtime/query-client';
 import { LocationStoreContext } from '#/runtime/contexts';
 import { NavigationContext } from '#/runtime/navigation';
+import { NavHistoryContext, createNavHistory } from '#/runtime/nav-history';
 import { normalizeLocation } from '#/runtime/location';
 import { createStore } from '#/runtime/store';
 import { createSidebarStore } from '#/runtime/sidebar';
@@ -45,9 +46,13 @@ export function PortalPreview({ slug, page, version, target, height, onNavigate,
     useLayoutEffect(() => {
         if (sidebarStore && controlled) sidebarStore.get().setOpen(!!sidebarOpen);
     }, [sidebarStore, controlled, sidebarOpen]);
+    // Memory-mode history (no browser, nothing stored): Back in the preview re-navigates to the previous
+    // entry through onNavigate.
+    const [navHistory] = useState(() => createNavHistory({ mode: 'memory' }));
     useLayoutEffect(() => {
         store.set(locationOf(slug, page));
-    }, [store, slug, page]);
+        navHistory.applyLocation(store.get());
+    }, [store, slug, page, navHistory]);
     const navigate = useMemo(() => (to, opts) => onNavigate && onNavigate(to, opts), [onNavigate]);
     // Its own overlay layer: this root has no renderer context, so dropdowns etc. portal here.
     const [overlay, setOverlay] = useState(null);
@@ -56,37 +61,39 @@ export function PortalPreview({ slug, page, version, target, height, onNavigate,
             <QueryClientProvider client={queryClient}>
                 <LocationStoreContext.Provider value={store}>
                     <NavigationContext.Provider value={navigate}>
-                        <div
-                            data-rp-root=""
-                            data-rp-preview-root=""
-                            className="relative flex flex-col"
-                            style={{ minHeight: height || '100%' }}
-                        >
+                        <NavHistoryContext.Provider value={navHistory}>
                             <div
-                                className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
-                                style={PAGE_CONTAINER}
-                                data-rp-layout-frame=""
+                                data-rp-root=""
+                                data-rp-preview-root=""
+                                className="relative flex flex-col"
+                                style={{ minHeight: height || '100%' }}
                             >
-                                {slug && target ? (
-                                    <OverlayContainerContext.Provider value={overlay}>
-                                        <MenuPreviewContext.Provider value={menus || null}>
-                                            <PortalBoot
-                                                key={`${slug}:${version || 0}`}
-                                                slug={slug}
-                                                target={target}
-                                                embedded
-                                                sidebarStore={sidebarStore}
-                                            />
-                                        </MenuPreviewContext.Provider>
-                                    </OverlayContainerContext.Provider>
-                                ) : null}
+                                <div
+                                    className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
+                                    style={PAGE_CONTAINER}
+                                    data-rp-layout-frame=""
+                                >
+                                    {slug && target ? (
+                                        <OverlayContainerContext.Provider value={overlay}>
+                                            <MenuPreviewContext.Provider value={menus || null}>
+                                                <PortalBoot
+                                                    key={`${slug}:${version || 0}`}
+                                                    slug={slug}
+                                                    target={target}
+                                                    embedded
+                                                    sidebarStore={sidebarStore}
+                                                />
+                                            </MenuPreviewContext.Provider>
+                                        </OverlayContainerContext.Provider>
+                                    ) : null}
+                                </div>
+                                <div
+                                    ref={setOverlay}
+                                    className="absolute inset-x-0 top-0 z-50 h-0"
+                                    data-rp-preview-overlay=""
+                                />
                             </div>
-                            <div
-                                ref={setOverlay}
-                                className="absolute inset-x-0 top-0 z-50 h-0"
-                                data-rp-preview-overlay=""
-                            />
-                        </div>
+                        </NavHistoryContext.Provider>
                     </NavigationContext.Provider>
                 </LocationStoreContext.Provider>
             </QueryClientProvider>

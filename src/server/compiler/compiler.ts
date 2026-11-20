@@ -262,6 +262,13 @@ export const SHADCN_COLORS = [
     'accent-foreground',
     'destructive',
     'destructive-foreground',
+    // Status tones (success / warning / info), same values as ReUI's theme; the chart gallery uses them.
+    'success',
+    'success-foreground',
+    'warning',
+    'warning-foreground',
+    'info',
+    'info-foreground',
     'border',
     'input',
     'ring',

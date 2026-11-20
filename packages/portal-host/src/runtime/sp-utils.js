@@ -2,6 +2,7 @@
 // system properties, translated messages, spUtils-like helpers, and Table API hooks. Data goes
 // through the module-level QueryClient (cached per portal / language), so widgets share it.
 import { useContext, useMemo, useState } from 'react';
+import { goBack } from './nav-history';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PortalContext } from './contexts';
@@ -142,7 +143,7 @@ function scrollToIn(root, target, options) {
  * usePortalUtils(): the spUtils equivalent.
  *   addInfoMessage / addErrorMessage / addTrivialMessage(msg)  toasts (Sonner); `toast` for more
  *   format(template, values)  getMessage(key) → Promise  scrollTo(selectorOrElement)
- *   fetchJson(url, init)  refresh()  getHeaders()
+ *   fetchJson(url, init)  refresh()  getHeaders()  goBack({ parent? }) → Promise<boolean>
  */
 export function usePortalUtils() {
     const portal = usePortalValue();
@@ -162,6 +163,8 @@ export function usePortalUtils() {
             getHeaders,
             // spUtils.get equivalent: (component | 'app/x', options?, { key? }) → Promise<EmbedModel>
             getWidget,
+            // Back for the active portal (history, else opts.parent, else home); see useBackTarget.
+            goBack,
         };
     }, [portal, getWidget]);
 }

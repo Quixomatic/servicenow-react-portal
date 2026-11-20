@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.21.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.22.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     var T = 'x_312987_portal_';
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
@@ -438,10 +438,13 @@
         for (var key in components) {
             var c = components[key];
             // Saving the record triggers "RP: Compile component on save" (server compiler).
-            C[key] = upsert('component', 'unique_id=app/' + key, {
+            // Map keys: "<key>" = app/<key>; "<ns>/<key>" = another namespace (components/@<ns>/<key>/).
+            var cns = c.namespace || 'app';
+            var ckey = c.key || key;
+            C[key] = upsert('component', 'unique_id=' + cns + '/' + ckey, {
                 name: c.meta.name,
-                namespace: 'app',
-                key: key,
+                namespace: cns,
+                key: ckey,
                 kind: c.meta.kind,
                 active: true,
                 placeable: c.meta.kind === 'widget',
@@ -479,9 +482,13 @@
         // --portals: no component sources in this payload; placements need the existing component ids.
         if (SEED_MODE === 'portals') {
             var existing = new GlideRecord(T + 'component');
-            existing.addQuery('namespace', 'app');
             existing.query();
-            while (existing.next()) C[existing.getValue('key')] = existing.getUniqueValue();
+            while (existing.next()) {
+                var ens = existing.getValue('namespace');
+                var ek = existing.getValue('key');
+                if (ens === 'app') C[ek] = existing.getUniqueValue();
+                else if (!C[ens + '/' + ek]) C[ens + '/' + ek] = existing.getUniqueValue();
+            }
         }
 
         var builds = require(ROOT + 'build/build-service.ts');
@@ -610,38 +617,62 @@
 
         /* ---------------- Portals, pages, placements ---------------- */
 
-        // Place a list of widgets/blocks; a block's `children` maps its drop zones to nested lists.
+        // Placements are matched by SLOT, not by component: the page (or the portal, for portal-level
+        // ones), the parent block placement, and seed_slot = "<region>/<n>" (the n-th entry of that
+        // region in the list). A slot whose component changes in the template updates its placement in
+        // place (moving the charts from app/ to charts/ once left the old placements active beside new
+        // ones). seed_slot is also the marker of seed-managed rows: rows without it (made in Studio or
+        // by hand) are never matched by slot nor pruned (pg.prune pages excepted). Rows from before
+        // seed_slot are adopted once: same region, order and component; or, in a page / block / portal
+        // scope with no stamped row yet, same region and order.
         var seedPlacements = [];
+        function firstPlacement(query) {
+            var gr = new GlideRecord(T + 'placement');
+            gr.addEncodedQuery(query);
+            gr.orderByDesc('active');
+            gr.setLimit(1);
+            gr.query();
+            return gr.next() ? gr.getUniqueValue() : '';
+        }
+        function slotPlacement(scope, slot, region, componentId, order, adoptByPosition) {
+            var id = firstPlacement(scope + '^seed_slot=' + slot);
+            if (id) return id;
+            var legacy = scope + '^seed_slotISEMPTY^region=' + region + '^order=' + order;
+            id = firstPlacement(legacy + '^component=' + componentId);
+            return id || (adoptByPosition ? firstPlacement(legacy) : '');
+        }
+        function placementScope(pid, pageId, parentId) {
+            return (
+                (pageId ? 'page=' + pageId : 'portal=' + pid + '^pageISEMPTY') +
+                '^parent' +
+                (parentId ? '=' + parentId : 'ISEMPTY')
+            );
+        }
+        // Place a list of widgets/blocks; a block's `children` maps its drop zones to nested lists.
         function placeAll(pid, pageId, parentId, list, defaultRegion, kept) {
+            var scope = placementScope(pid, pageId, parentId);
+            var adoptByPosition = !firstPlacement(scope + '^seed_slotISNOTEMPTY');
+            var perRegion = {};
             for (var j = 0; j < list.length; j++) {
                 var w = list[j];
                 var region = w.region || defaultRegion;
-                var id = upsert(
-                    'placement',
-                    'page=' +
-                        pageId +
-                        '^parent' +
-                        (parentId ? '=' + parentId : 'ISEMPTY') +
-                        '^region=' +
-                        region +
-                        '^component=' +
-                        C[w.c] +
-                        '^order=' +
-                        (j + 1) * 100,
-                    {
-                        portal: pid,
-                        page: pageId,
-                        parent: parentId,
-                        region: region,
-                        component: C[w.c],
-                        order: (j + 1) * 100,
-                        active: true,
-                        options_json: w.options || {},
-                        layout_json: w.layout || '',
-                        style_tokens_json: w.style || '',
-                        classes: w.classes || '',
-                    }
-                );
+                perRegion[region] = (perRegion[region] || 0) + 1;
+                var slot = region + '/' + perRegion[region];
+                var found = slotPlacement(scope, slot, region, C[w.c], (j + 1) * 100, adoptByPosition);
+                var id = upsert('placement', found ? 'sys_id=' + found : 'sys_idISEMPTY', {
+                    seed_slot: slot,
+                    portal: pid,
+                    page: pageId,
+                    parent: parentId,
+                    region: region,
+                    component: C[w.c],
+                    order: (j + 1) * 100,
+                    active: true,
+                    options_json: w.options || {},
+                    layout_json: w.layout || '',
+                    style_tokens_json: w.style || '',
+                    classes: w.classes || '',
+                });
                 if (kept) kept[id] = true;
                 seedPlacements.push(id);
                 if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone, kept);
@@ -754,6 +785,10 @@
 
         function seedPortal(def) {
             if (SEED_MODE === 'components') return ''; // build-seed --only: components only, no portal structure
+            if (!new GlideRecord(T + 'placement').isValidField('seed_slot'))
+                throw new Error(
+                    'x_312987_portal_placement.seed_slot is missing: install the app before seeding portals'
+                );
             var pid = upsert('portal', 'slug=' + def.slug, {
                 name: def.name,
                 slug: def.slug,
@@ -781,12 +816,15 @@
                 seedCriteria('page', 'page', pageIds[pg.route], pg);
                 var keptPl = {};
                 placeAll(pid, pageIds[pg.route], '', pg.widgets, 'main', keptPl);
-                // pg.prune: placements on this page that the seed no longer lists (e.g. the old home
-                // page's demo cards) are deactivated, not deleted. Opt-in, so designer-made placements on
-                // other seeded pages stay.
-                if (pg.prune) {
+                // Seed-managed placements (seed_slot set) on this page, at any depth, that the template no
+                // longer lists are deactivated, never deleted. pg.prune also deactivates every other
+                // unlisted placement on the page (e.g. the old home page's demo cards); without it,
+                // designer-made placements on seeded pages stay.
+                {
                     var stalePl = new GlideRecord(T + 'placement');
-                    stalePl.addEncodedQuery('page=' + pageIds[pg.route] + '^active=true');
+                    stalePl.addEncodedQuery(
+                        'page=' + pageIds[pg.route] + '^active=true' + (pg.prune ? '' : '^seed_slotISNOTEMPTY')
+                    );
                     stalePl.query();
                     while (stalePl.next()) {
                         if (keptPl[stalePl.getUniqueValue()]) continue;
@@ -808,9 +846,17 @@
                 { c: 'nav-sidebar', region: 'sidebar', options: { title: def.name + ' pages' } },
                 { c: 'site-footer', region: 'footer', options: { text: def.name } },
             ];
+            var pwScope = placementScope(pid, '', '');
+            var pwAdopt = !firstPlacement(pwScope + '^seed_slotISNOTEMPTY');
+            var pwPerRegion = {};
+            var keepPw = {};
             for (var k = 0; k < portalWidgets.length; k++) {
                 var pw = portalWidgets[k];
-                upsert('placement', 'portal=' + pid + '^pageISEMPTY^region=' + pw.region + '^component=' + C[pw.c], {
+                pwPerRegion[pw.region] = (pwPerRegion[pw.region] || 0) + 1;
+                var pwSlot = pw.region + '/' + pwPerRegion[pw.region];
+                var pwFound = slotPlacement(pwScope, pwSlot, pw.region, C[pw.c], 100, pwAdopt);
+                var pwId = upsert('placement', pwFound ? 'sys_id=' + pwFound : 'sys_idISEMPTY', {
+                    seed_slot: pwSlot,
                     portal: pid,
                     page: '',
                     region: pw.region,
@@ -819,17 +865,15 @@
                     active: true,
                     options_json: pw.options,
                 });
+                keepPw[pwId] = true;
             }
-            // Portal-level placements no longer listed (e.g. sp's old site-header / nav-sidebar / site-footer
-            // after it moved to the app shell) are deactivated, not deleted.
-            var keepPw = {};
-            for (var kp = 0; kp < portalWidgets.length; kp++)
-                keepPw[portalWidgets[kp].region + '|' + C[portalWidgets[kp].c]] = true;
+            // Seed-managed portal-level placements no longer listed (e.g. sp's old site-header /
+            // nav-sidebar / site-footer after it moved to the app shell) are deactivated, not deleted.
             var stalePw = new GlideRecord(T + 'placement');
-            stalePw.addEncodedQuery('portal=' + pid + '^pageISEMPTY^parentISEMPTY^active=true');
+            stalePw.addEncodedQuery(pwScope + '^active=true^seed_slotISNOTEMPTY');
             stalePw.query();
             while (stalePw.next()) {
-                if (keepPw[stalePw.getValue('region') + '|' + stalePw.getValue('component')]) continue;
+                if (keepPw[stalePw.getUniqueValue()]) continue;
                 stalePw.setValue('active', false);
                 stalePw.update();
                 log.push(
@@ -1653,19 +1697,21 @@
                         },
                     ],
                 },
-                // Board: active incidents by state (app/record-board). In Progress has a WIP limit of 25; moving a
-                // card to Resolved asks for the resolution fields (the form's UI policies make them mandatory).
+                // Board: active incidents by state (app/record-board), full bleed: the title is the sub-header's,
+                // the search goes into its right slot, no card (chrome plain) and the lanes fill the height (only
+                // the lanes and the lane strip scroll). In Progress has a WIP limit of 25; moving a card to
+                // Resolved asks for the resolution fields (the form's UI policies make them mandatory).
                 {
                     route: 'board',
                     name: 'Board',
                     contentWidth: 'full',
+                    layoutOptions: { texture: 'plain', contentPadding: 'sm' },
                     widgets: [
                         {
                             c: 'record-board',
                             options: {
-                                title: 'Incident board',
-                                description:
-                                    'app/visual-board: active incidents by state. Drag a card, use its Move to menu, or focus its title and press Space, the arrow keys, Space. Moves save through the form with Undo.',
+                                chrome: 'plain',
+                                toolbarPlacement: 'auto',
                                 table: 'incident',
                                 field: 'state',
                                 query: 'active=true',
@@ -2130,6 +2176,7 @@
                     children: [
                         { label: 'Overview', to: '', icon: 'layout-dashboard', tint: 'chart-1' },
                         { label: 'Dashboards', to: 'dashboards', icon: 'chart-column', tint: 'chart-5' },
+                        { label: 'Chart gallery', to: 'chart-gallery', icon: 'chart-area', tint: 'chart-1' },
                         { label: 'Incidents', to: 'incidents', icon: 'ticket', tint: 'chart-2' },
                         { label: 'Incident list', to: 'incidents-list', icon: 'list', tint: 'chart-3' },
                         { label: 'Record form', to: 'form', icon: 'file-text', tint: 'chart-4' },
@@ -2159,6 +2206,7 @@
                             children: [
                                 { page: 'overview', label: 'Overview', icon: 'layout-dashboard' },
                                 { page: 'dashboards', label: 'Dashboards', icon: 'chart-column' },
+                                { page: 'chart-gallery', label: 'Chart gallery', icon: 'chart-area' },
                                 { page: 'incidents', label: 'Incidents', icon: 'ticket' },
                                 { page: 'incidents-list', label: 'Incident list', icon: 'list' },
                                 { page: 'form', label: 'Record form', icon: 'file-text' },
@@ -2207,8 +2255,14 @@
                 { c: 'cart-button', region: 'header', options: { cartPage: 'cart', catalogPage: 'catalog' } },
             ],
             pages: [
-                // Dashboards (Wave 4a): KPI tiles (app/score-card) and data-bound charts (app/chart-card) on
-                // utilities:app/analytics; every bar / slice / point / tile opens the incident list filtered to it.
+                // Chart gallery: every components:charts/* block with sample data (charts/chart-gallery).
+                {
+                    route: 'chart-gallery',
+                    name: 'Chart gallery',
+                    widgets: [{ c: 'charts/chart-gallery', options: {} }],
+                },
+                // Dashboards (Wave 4a): KPI tiles (charts/score-card) and data-bound charts (charts/chart-card) on
+                // utilities:charts/analytics; every bar / slice / point / tile opens the incident list filtered to it.
                 // The P1–P4 filters leave out the instance's thousands of generated P5 "Inquiry" records.
                 {
                     route: 'dashboards',
@@ -2220,7 +2274,7 @@
                             children: {
                                 items: [
                                     {
-                                        c: 'score-card',
+                                        c: 'charts/score-card',
                                         layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
                                         options: {
                                             label: 'Opened · last 7 days',
@@ -2237,7 +2291,7 @@
                                         },
                                     },
                                     {
-                                        c: 'score-card',
+                                        c: 'charts/score-card',
                                         layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
                                         options: {
                                             label: 'Open P1 incidents',
@@ -2251,7 +2305,7 @@
                                         },
                                     },
                                     {
-                                        c: 'score-card',
+                                        c: 'charts/score-card',
                                         layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
                                         options: {
                                             label: 'Mean resolve time',
@@ -2266,7 +2320,7 @@
                                         },
                                     },
                                     {
-                                        c: 'score-card',
+                                        c: 'charts/score-card',
                                         layout: { colSpan: 3, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
                                         options: {
                                             label: 'Opened this month',
@@ -2283,7 +2337,7 @@
                                         },
                                     },
                                     {
-                                        c: 'chart-card',
+                                        c: 'charts/chart-card',
                                         layout: { colSpan: 8, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
                                         options: {
                                             title: 'Incidents opened per week',
@@ -2300,7 +2354,7 @@
                                         },
                                     },
                                     {
-                                        c: 'chart-card',
+                                        c: 'charts/chart-card',
                                         layout: { colSpan: 4, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
                                         options: {
                                             title: 'Open by state',
@@ -2314,7 +2368,7 @@
                                         },
                                     },
                                     {
-                                        c: 'chart-card',
+                                        c: 'charts/chart-card',
                                         layout: { colSpan: 6, tablet: { colSpan: 6 }, mobile: { colSpan: 12 } },
                                         options: {
                                             title: 'Open by priority',
@@ -2330,7 +2384,7 @@
                                         },
                                     },
                                     {
-                                        c: 'chart-card',
+                                        c: 'charts/chart-card',
                                         layout: { colSpan: 6, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
                                         options: {
                                             title: 'Mean resolve time by priority',
@@ -2350,7 +2404,7 @@
                                         },
                                     },
                                     {
-                                        c: 'chart-card',
+                                        c: 'charts/chart-card',
                                         layout: { colSpan: 12, tablet: { colSpan: 12 }, mobile: { colSpan: 12 } },
                                         options: {
                                             title: 'Open incidents by assignment group',
@@ -2669,11 +2723,19 @@
         // Reported, never deleted (deletions are a deliberate, separate step).
         if (SEED_MODE === 'full') {
             var staleComps = [];
+            var seededNs = { app: true };
+            for (var sk in components) seededNs[components[sk].namespace || 'app'] = true;
             var sc = new GlideRecord(T + 'component');
-            sc.addQuery('namespace', 'app');
+            sc.addQuery('namespace', 'IN', Object.keys(seededNs).join(','));
             sc.query();
             while (sc.next())
-                if (!components[sc.getValue('key')])
+                if (
+                    !components[
+                        sc.getValue('namespace') === 'app'
+                            ? sc.getValue('key')
+                            : sc.getValue('namespace') + '/' + sc.getValue('key')
+                    ]
+                )
                     staleComps.push(sc.getValue('unique_id') + (sc.getValue('active') === '1' ? '' : ' (inactive)'));
             log.push(
                 'stale components (no seed folder; not deleted): ' +

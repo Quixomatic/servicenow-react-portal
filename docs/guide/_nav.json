@@ -135,6 +135,10 @@
                     "path": "runtime-api/portal-and-location.md"
                 },
                 {
+                    "title": "History and Back",
+                    "path": "runtime-api/history-and-back.md"
+                },
+                {
                     "title": "Layout and navigation",
                     "path": "runtime-api/layout-and-navigation.md"
                 },

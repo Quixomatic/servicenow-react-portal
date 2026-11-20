@@ -21,3 +21,16 @@ export {
 export { Region, RegionPortal, LayoutHost, WidgetSlot, useComponent, createOutletStore } from './widgets';
 export { useThemeStyles, buildTokenCss } from './theme';
 export { loadBuild, importModule, loadCss } from './loader';
+export {
+    NavHistoryContext,
+    browserNavHistory,
+    createNavHistory,
+    goBack,
+    markEntries,
+    useBackTarget,
+    useEntryTitle,
+    useHistoryState,
+    useNavHistory,
+    useNavigationGuard,
+    useScrollRestoration,
+} from './nav-history';

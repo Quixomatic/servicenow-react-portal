@@ -1,6 +1,6 @@
 ---
 title: Charts and dashboards
-description: components:chart (shadcn charts on Recharts 3, lazily loaded), the chart building blocks, utilities:app/analytics (aggregates as the user), app/data-chart, app/score-tile and the Chart Card / Score Card widgets.
+description: components:chart (shadcn charts on Recharts 3, lazily loaded), the chart building blocks, utilities:charts/analytics (aggregates as the user), charts/data-chart, charts/score-tile and the Chart Card / Score Card widgets.
 section: Primitives and utilities
 order: 30
 tags: [charts, recharts, dashboards, analytics, kpi, accessibility]
@@ -11,8 +11,8 @@ tags: [charts, recharts, dashboards, analytics, kpi, accessibility]
 Charts come in three layers:
 
 1. **Host kit, `components:chart`.** shadcn's chart, the building blocks and the accessibility pieces. It is generic and knows nothing about tables.
-2. **Data.** `utilities:app/analytics` runs aggregates as the user. `components:app/data-chart` and `components:app/score-tile` bind the blocks to a table.
-3. **Widgets.** `app/chart-card` and `app/score-card` configure everything from options.
+2. **Data.** `utilities:charts/analytics` runs aggregates as the user. `components:charts/data-chart` and `components:charts/score-tile` bind the blocks to a table.
+3. **Widgets.** `charts/chart-card` and `charts/score-card` configure everything from options.
 
 The Dashboard portal's **Dashboards** page (`app` portal, route `dashboards`) uses all of them.
 
@@ -106,9 +106,9 @@ Animations are skipped when the user prefers reduced motion.
 
 Helpers: `ChartFigure`, `ChartDataTable`, `ChartViewToggle`, `describeChart`, `normalizeSeries`, `configFromSeries`, `chartColor(n)`, `chartKey`, `formatNumber(v, { compact, decimals, percent })`, `formatDuration(seconds)`, `prefersReducedMotion()`.
 
-## utilities:app/analytics
+## utilities:charts/analytics
 
-`utilities:app/analytics` runs aggregates as the session user, through the platform's aggregate GraphQL (`GlideAggregateRecord_Query`, which UI Builder's aggregate data resources also use). It supports `count`, `sum`, `avg`, `min`, `max` and `countDistinct`, grouped by up to two fields.
+`utilities:charts/analytics` runs aggregates as the session user, through the platform's aggregate GraphQL (`GlideAggregateRecord_Query`, which UI Builder's aggregate data resources also use). It supports `count`, `sum`, `avg`, `min`, `max` and `countDistinct`, grouped by up to two fields.
 
 **Why GraphQL rather than `/api/now/stats`.** Both run as the user and both return the raw value and the display value per group. The stats REST API, though, takes one HTTP request per time bucket (or the Batch API's base64 envelopes). One GraphQL document carries every bucket as an alias. A 12-week series, or a score with its previous period and a 14-point sparkline, is therefore **one round trip** (~100 ms on the dev instance).
 
@@ -140,7 +140,7 @@ Instance findings (2026-11-20):
 
 ## Data-bound primitives
 
-**`components:app/data-chart`**: `DataChart` (and `useDataChart`, `valueFormatterFor`).
+**`components:charts/data-chart`**: `DataChart` (and `useDataChart`, `valueFormatterFor`).
 
 ```tsx
 <DataChart table="incident" query="active=true" groupBy="priority" type="bar" />
@@ -155,19 +155,19 @@ Instance findings (2026-11-20):
 - **Click-through.** `onSelect({ query, label, row })` fires for a bar, slice, point or table row.
 - **States.** Loading, error and empty states keep the chart's height.
 
-**`components:app/score-tile`**:
+**`components:charts/score-tile`**:
 - `ScoreTile`, the presentational tile: value, trend arrow, delta %, comparison label, sparkline, target progress, icon. It renders as a button with a spoken summary when `onClick` is set.
 - `DataScore`, the same tile bound to `useScore`.
 - `comparisonLabel`.
 
 ## Widgets
 
-**Chart Card** (`app/chart-card`) puts a DataChart in a card. Its options:
+**Chart Card** (`charts/chart-card`) puts a DataChart in a card. Its options:
 - data: `table`, `query`, `groupBy`, `stackBy`, `aggregate`, `field`, `sort`, `limit` (top N), `dateField` + `interval` + `periods`;
 - display: `title`, `description`, `type`, `format`, `valueLabel`, `height`, `variant`, `showLegend`, `showLabels`, `glow`, `tableToggle` (on), `showSummary`;
 - behaviour: `listPage` (click-through), `live`, `refreshInterval`.
 
-**Score Card** (`app/score-card`) is a KPI tile. Its options:
+**Score Card** (`charts/score-card`) is a KPI tile. Its options:
 - data: `table`, `query`, `aggregate`, `field`, `dateField`, `period` (days, or week / month / quarter / year);
 - sparkline: `sparkline`, `sparklineInterval`, `sparklinePeriods`, `sparklineType`;
 - target: `target`, `lowerIsBetter`;
@@ -175,3 +175,37 @@ Instance findings (2026-11-20):
 - behaviour: `listPage`, `live`, `refreshInterval`.
 
 Clicking a chart or tile opens `listPage` with the clicked filter as the `table` and `query` page parameters, e.g. `/params/page-id/incidents-list/table/incident/query/priority%3D1`. The list view reads them as its filter.
+
+## Chart gallery
+
+The `charts/` records include a gallery of dashboard chart cards: each block is a whole card (header, toolbar, KPI tiles, chart, legend, tooltip and footer) with sample data, and every one takes its data as props. The **Chart gallery** page of the `app` portal (route `chart-gallery`, widget `charts/chart-gallery`) shows them all, grouped by family.
+
+Visual design inspired by ReUI's chart blocks ([reui.io](https://reui.io/blocks/chart/area-chart)); independent implementation. The card frame (`Frame`, `FramePanel` …) is ported from ReUI's MIT-licensed Frame primitive (Copyright (c) 2025 Keenthemes Inc).
+
+### Layers
+
+| Piece | What it is |
+|---|---|
+| `components:chart-frame` (host kit) | The card shell and its parts. `Frame` / `FramePanel` / `FrameHeader` / `FrameTitle` / `FrameDescription` / `FrameFooter` (`stacked` joins panels); `ChartCard`; toolbar pieces `ChartToolbar`, `ToolbarGroup`, `ToolbarButton`, `SegmentedControl`, `ToolbarSelect`, `ToolbarMultiSelect`; `ChartMoreMenu` (Export CSV / JSON, Copy summary, extra items, with toasts); `KpiStrip` / `KpiStat`, `DeltaBadge`, `LegendList`, `FooterMeta`, `Dot`; helpers `rowsToCsv`, `downloadText`, `copyText`, `formatDelta`, `useReplay` |
+| `components:charts/chart-kit` | Shared chart pieces: Tailwind palette colours (`PALETTE`, `tw`, `series(light, dark)`), `SeriesScope` (series colours as `--color-<key>` on a wrapper), Motion helpers (`useMotion`, `useEnterAnimation`, `GROW_Y`, `baselineOrigin`, `riseFromBaseline`, `EASE_OUT`), marks (`PingDot`, `HaloDot`, `AnchorLine`), `AccentPicker`, formatters (`compact`, `money`, `percent`, `signedPercent`, `shortDate`) and hooks (`useElementWidth`, `labelEvery`, `useMedia`) |
+| `components:charts/<block>` | One record per block, e.g. `charts/campaign-impressions` |
+| `charts/chart-gallery` (widget) | The gallery; option `family` pins one family |
+
+### Motion
+
+The lazy chart chunk also carries [Motion](https://motion.dev) 12.43.0 (MIT), exposed as `useRecharts().Motion` (`motion`, `AnimatePresence`, `animate`, `useAnimate`, `useInView`, `useReducedMotion`, `useMotionValue`, `useSpring`, `useTransform`, …). The blocks turn Recharts' own animation off and run Motion keyframes instead, e.g. areas grow from the baseline (scaleY 0 → 1 with a fade, 780 ms, `cubic-bezier(0.22, 1, 0.36, 1)`, staggered per series) and dots rise into place. `useEnterAnimation` starts them before the first paint and skips them when the user prefers reduced motion.
+
+### Blocks
+
+| Family | Block | Record |
+|---|---|---|
+| Area | Campaign Impressions: this period vs the prior one as dashed area fills; KPI tiles; channel filter; period menu; accent colour; per-channel tooltip | `charts/campaign-impressions` |
+
+```tsx
+import { CampaignImpressions } from 'components:charts/campaign-impressions';
+
+<CampaignImpressions />                                     // sample data
+<CampaignImpressions title="Ad impressions" periods={{ '30d': { label: 'Last 30 days', days: 30, data: rows, range: '…' } }} />
+```
+
+Every block keeps the accessibility pattern of the other charts: a labelled `<figure>`, a text summary, a **View as table** item in its **…** menu, and Recharts' keyboard layer.

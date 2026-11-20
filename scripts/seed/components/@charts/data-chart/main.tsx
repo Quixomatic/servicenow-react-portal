@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { Chart, formatNumber, formatDuration } from 'components:chart';
-import { useAggregate, useTimeSeries } from 'utilities:app/analytics';
-import type { AggregateFn, Interval } from 'utilities:app/analytics';
+import { useAggregate, useTimeSeries } from 'utilities:charts/analytics';
+import type { AggregateFn, Interval } from 'utilities:charts/analytics';
 
 /**
- * components:app/data-chart: a chart bound to platform data (now-uxf-visualization-connected's
- * role): a table + filter, aggregated as the user by utilities:app/analytics, drawn by the
+ * components:charts/data-chart: a chart bound to platform data (now-uxf-visualization-connected's
+ * role): a table + filter, aggregated as the user by utilities:charts/analytics, drawn by the
  * components:chart blocks.
  *
  *   <DataChart table="incident" query="active=true" groupBy="priority" type="bar" />

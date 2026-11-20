@@ -18,6 +18,8 @@
         "perLane": 20,
         "movable": true,
         "search": true,
-        "recordPage": "form"
+        "recordPage": "form",
+        "chrome": "card",
+        "toolbarPlacement": "auto"
     }
 }

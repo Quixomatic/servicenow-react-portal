@@ -76,9 +76,10 @@ export default function KbCategoryPage({ options = {} }: { options?: Options }) 
             all: deep ? '' : '0',
             ...extra,
         });
+    // Sort, "include subcategories" and paging are state on this entry (replace, no Back step).
     const go = (extra: Record<string, any>) => {
         const l = state(extra);
-        navigate(l.to, { q: l.q });
+        navigate(l.to, { q: l.q, replace: true } as any);
     };
 
     const notFound = cats.tree && kbs.ready && ((category && !node) || (qp.kb && !kb));
@@ -259,7 +260,11 @@ export default function KbCategoryPage({ options = {} }: { options?: Options }) 
                                     {Math.min(list.total, from + articles.length - 1).toLocaleString()} of{' '}
                                     {list.total.toLocaleString()}
                                 </span>
-                                <KbPager page={page} pages={list.pages} link={(n) => state({ page: n })} />
+                                <KbPager
+                                    page={page}
+                                    pages={list.pages}
+                                    link={(n) => ({ ...state({ page: n }), replace: true })}
+                                />
                             </div>
                         ) : null}
                     </section>

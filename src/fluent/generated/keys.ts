@@ -61,6 +61,14 @@ declare global {
                         table: 'sys_security_acl';
                         id: 'a86e2fc5d50247dcb5635a5d60d3243d';
                     };
+                    'acl-component-key-write': {
+                        table: 'sys_security_acl';
+                        id: '7bad199d4f024bde9134e9f5d5b81c50';
+                    };
+                    'acl-component-namespace-write': {
+                        table: 'sys_security_acl';
+                        id: 'e69a1f18309d42c49764de5d1428ccce';
+                    };
                     'acl-component-read': {
                         table: 'sys_security_acl';
                         id: '5580ad75cd004e7c90d8dbfc9710f56e';
@@ -520,6 +528,10 @@ declare global {
                     'br-compile-theme': {
                         table: 'sys_script';
                         id: '3f6dc599ef1d46b48d22b3e9150a8e11';
+                    };
+                    'br-component-lock-identity': {
+                        table: 'sys_script';
+                        id: 'fee9bdefd5d74ff8b3b3012079cf1359';
                     };
                     'br-component-normalize': {
                         table: 'sys_script';
@@ -1889,6 +1901,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '031ec06f699e475884176bdc009166b8';
+                        key: {
+                            name: 'x_312987_portal_placement';
+                            element: 'seed_slot';
+                        };
+                    },
+                    {
                         table: 'sys_choice';
                         id: '033b4dcf3103463fbe9da2d5fdebc020';
                         key: {
@@ -2033,6 +2053,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '057a6346c6044d158c49690ff0bab7e7';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';
@@ -2182,6 +2203,15 @@ declare global {
                             };
                             element: '.end_split';
                             position: '12';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '07303319f1dd4cc2be82975d3fa73137';
+                        key: {
+                            name: 'x_312987_portal_placement';
+                            element: 'seed_slot';
+                            language: 'en';
                         };
                     },
                     {
@@ -3079,6 +3109,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '13413dd563a84924930e00150393393e';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';
@@ -6328,6 +6359,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '3c25d03cde7b4ab998fff83fa908ef96';
+                        key: {
+                            sys_ui_section: {
+                                id: 'c764c9bf81c24b1fbcaa29a782d66074';
+                                key: {
+                                    name: 'x_312987_portal_placement';
+                                    caption: 'Placement';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'seed_slot';
+                            position: '17';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '3c2865e1d25f46fe8ea04919b9d1e6c0';
                         key: {
@@ -7278,6 +7331,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '4747ef2bd96b4d2eb0b4143ed216e3e1';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';
@@ -7864,6 +7918,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '4cb0142449944cdf97f793c4ca4da65c';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';
@@ -9924,6 +9979,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '64dbbceb3cef4d2285a83f1e176e61c5';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';
@@ -15043,6 +15099,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: 'a657f048cbc246cb8cfc3b560f235f72';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';
@@ -18268,6 +18325,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: 'cf56f8bf3c74439bb49be1ea5d22978c';
+                        deleted: false;
                         key: {
                             sys_ui_section: {
                                 id: 'c764c9bf81c24b1fbcaa29a782d66074';

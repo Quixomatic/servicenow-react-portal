@@ -137,6 +137,35 @@ Acl({
     description: 'React Portal: delete on component',
 });
 
+// Namespace and key are writable only while the record is new, so forms and lists show them locked
+// on an existing component (the table-level write ACL above still decides who may edit at all).
+// No admin override: the lock is about record identity, not access. Server scripts using GlideRecord
+// skip ACLs; the before-update rule "RP: Lock component identity" refuses those changes.
+Acl({
+    $id: Now.ID['acl-component-namespace-write'],
+    type: 'record',
+    table: 'x_312987_portal_component',
+    field: 'namespace',
+    operation: 'write',
+    securityAttribute: 'user_is_authenticated',
+    script: 'answer = current.isNewRecord();',
+    adminOverrides: false,
+    description:
+        'React Portal: component.namespace is set on create only (identity: placements and imports reference it)',
+});
+
+Acl({
+    $id: Now.ID['acl-component-key-write'],
+    type: 'record',
+    table: 'x_312987_portal_component',
+    field: 'key',
+    operation: 'write',
+    securityAttribute: 'user_is_authenticated',
+    script: 'answer = current.isNewRecord();',
+    adminOverrides: false,
+    description: 'React Portal: component.key is set on create only (identity: placements and imports reference it)',
+});
+
 /* ---- x_312987_portal_source_file ---- */
 
 Acl({

@@ -3,7 +3,8 @@ import { T } from '../lib/tables.ts';
 import { badRequest, conflict } from '../lib/errors.ts';
 import { parseJson, isPlainObject, propInt, sha256 } from '../lib/util.ts';
 import { normalizeSourcePath, inferTarget, mimeFor } from '../lib/paths.ts';
-import { normalizeRegions, buildOf } from '../registry/registry.ts';
+import { normalizeRegions, buildOf, DEFAULT_NAMESPACE } from '../registry/registry.ts';
+import { COMPONENT_IDENTITY_LOCKED } from '../automation/component-rules.ts';
 import { requireStudio } from '../security/access.ts';
 import { loadOwner, Owner, OwnerType } from './owner.ts';
 import { gs } from '@servicenow/glide';
@@ -126,9 +127,17 @@ function applyComponentMeta(gr: any, meta: ComponentMetaDto): void {
     const setJson = (field: string, v: unknown) => {
         if (v !== undefined) gr.setValue(field, v === null ? '' : JSON.stringify(v));
     };
+    // Namespace and key are fixed once the component exists (RP: Lock component identity). The rule
+    // would abort the owner update, so a save that changes them is refused before anything is written;
+    // the same values are a no-op.
+    const changes = (field: string, v: unknown, fallback: string) =>
+        v !== undefined &&
+        (String(v || '')
+            .trim()
+            .toLowerCase() || fallback) !== str(gr, field);
+    if (changes('namespace', meta.namespace, DEFAULT_NAMESPACE) || changes('key', meta.key, str(gr, 'key')))
+        throw badRequest(COMPONENT_IDENTITY_LOCKED);
     set('name', meta.name);
-    set('namespace', meta.namespace);
-    set('key', meta.key);
     set('kind', meta.kind);
     set('description', meta.description);
     if (meta.placeable !== undefined) gr.setValue('placeable', !!meta.placeable);

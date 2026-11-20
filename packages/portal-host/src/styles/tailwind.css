@@ -50,6 +50,14 @@
     --chart-3: oklch(0.398 0.07 227.392);
     --chart-4: oklch(0.828 0.189 84.429);
     --chart-5: oklch(0.769 0.188 70.08);
+    /* Status tones (ReUI's values): text-success, bg-success/10, text-warning-foreground … */
+    --destructive-foreground: lab(33.7174% 55.8993 41.0293);
+    --success: lab(66.9756% -58.27 19.5419);
+    --success-foreground: lab(28.8637% -26.9249 5.45986);
+    --warning: lab(76.3898% 14.5258 98.4589);
+    --warning-foreground: lab(32.3865% 21.1273 38.5959);
+    --info: lab(49.9355% 55.1776 -81.8963);
+    --info-foreground: lab(24.3783% 45.7525 -61.4902);
 }
 
 /* Sidebar tokens (shadcn names). Themes may set their own; otherwise they follow the theme's
@@ -93,6 +101,10 @@
     --chart-3: oklch(0.769 0.188 70.08);
     --chart-4: oklch(0.627 0.265 303.9);
     --chart-5: oklch(0.645 0.246 16.439);
+    --destructive-foreground: lab(48.4493% 77.4328 61.5452);
+    --success-foreground: lab(55.0481% -49.9246 15.93);
+    --warning-foreground: lab(62.7799% 22.4197 86.1544);
+    --info-foreground: lab(41.088% 68.9966 -91.995);
 }
 
 @theme inline {
@@ -115,6 +127,13 @@
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
     --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -336,5 +355,15 @@
     }
     100% {
         transform: translateX(300%);
+    }
+}
+
+/* Keyframes the chart gallery's widgets reference by name (components:charts/*, e.g.
+ * animate-[ping_2.4s_cubic-bezier(0,0,0.2,1)_infinite]): widget CSS has no keyframes of its own. */
+@keyframes ping {
+    75%,
+    100% {
+        transform: scale(2);
+        opacity: 0;
     }
 }

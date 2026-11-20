@@ -29,9 +29,20 @@ export function loadComponents() {
             .map((s) => s.trim())
             .filter(Boolean)
     );
-    for (const key of readdirSync(root).sort()) {
-        const dir = join(root, key);
+    // Folders: components/<key>/ → app/<key> (map key "<key>"); components/@<ns>/<key>/ → <ns>/<key>
+    // (map key "<ns>/<key>"), e.g. @charts/orders-overview → components:charts/orders-overview.
+    const folders = [];
+    for (const name of readdirSync(root).sort()) {
+        const dir = join(root, name);
         if (!statSync(dir).isDirectory()) continue;
+        if (name.startsWith('@')) {
+            for (const sub of readdirSync(dir).sort())
+                if (statSync(join(dir, sub)).isDirectory())
+                    folders.push({ id: `${name.slice(1)}/${sub}`, ns: name.slice(1), key: sub, dir: join(dir, sub) });
+        } else folders.push({ id: name, ns: 'app', key: name, dir });
+    }
+    const namespaces = new Set(folders.map((f) => f.ns));
+    for (const { id: key, ns, key: recordKey, dir } of folders) {
         const missingFile = !existsSync(join(dir, 'component.json'))
             ? 'component.json'
             : !existsSync(join(dir, 'main.tsx')) && !existsSync(join(dir, 'main.jsx'))
@@ -44,6 +55,8 @@ export function loadComponents() {
         }
         const c = {
             meta: JSON.parse(readFileSync(join(dir, 'component.json'), 'utf8')),
+            namespace: ns,
+            key: recordKey,
             clientScript: '',
             css: '',
             serverScript: '',
@@ -60,15 +73,18 @@ export function loadComponents() {
             else c.extraFiles.push({ path: rel, target: rel.endsWith('.css') ? 'style' : 'client', content });
         }
         if (!c.clientScript) throw new Error(`${key}: missing main.tsx/main.jsx`);
-        // Record imports (components:app/<key>, utilities:app/<key>) found in the client sources.
+        // Record imports (components:<ns>/<key>, utilities:<ns>/<key>) of seeded namespaces, as map keys.
         const imports = new Set();
         for (const src of [c.clientScript].concat(
             c.extraFiles.filter((f) => f.target === 'client').map((f) => f.content)
         )) {
             for (const m of src.matchAll(
-                /^\s*import\s+(?!type\s)[^'"]*['"](?:components|utilities):app\/([a-z][a-z0-9-]*)['"]/gm
-            ))
-                if (m[1] !== key) imports.add(m[1]);
+                /^\s*import\s+(?!type\s)[^'"]*['"](?:components|utilities):([a-z][a-z0-9-]*)\/([a-z][a-z0-9-]*)['"]/gm
+            )) {
+                if (!namespaces.has(m[1])) continue;
+                const dep = m[1] === 'app' ? m[2] : `${m[1]}/${m[2]}`;
+                if (dep !== key) imports.add(dep);
+            }
         }
         c.imports = Array.from(imports).sort();
         components[key] = c;
@@ -82,7 +98,9 @@ export function loadComponents() {
         if (ordered[key]) return;
         if (visiting.has(key)) throw new Error(`Record import cycle: ${trail.concat(key).join(' -> ')}`);
         if (!components[key])
-            throw new Error(`${trail[trail.length - 1]} imports app/${key}, which has no seed folder`);
+            throw new Error(
+                `${trail[trail.length - 1]} imports ${key.includes('/') ? key : 'app/' + key}, which has no seed folder`
+            );
         visiting.add(key);
         for (const dep of components[key].imports) visit(dep, trail.concat(key));
         visiting.delete(key);

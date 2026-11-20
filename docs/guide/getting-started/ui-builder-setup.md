@@ -28,7 +28,7 @@ React Portal renders inside one Next Experience component, **React Portal Host**
 | `sysId` | `''` | optional `sys_id` (see the warning below) |
 | `query` | `''` | optional `query` (an encoded query) |
 
-The action **`PORTAL_NAVIGATE`** carries `portalSlug`, `page`, `recordId`, `q`, `view`, `table`, `sysId` and `query`, all strings, with `''` meaning absent. The host dispatches it for every user-initiated navigation and never touches `window.history` itself.
+The action **`PORTAL_NAVIGATE`** carries `portalSlug`, `page`, `recordId`, `q`, `view`, `table`, `sysId` and `query`, all strings, with `''` meaning absent, plus `replace` (boolean: replace the current history entry instead of pushing one) and `title` (the new entry's label). The host dispatches it for every user-initiated navigation and never writes `window.history` itself: entries are pushed or replaced by the shell, through the handler below. (Back reads the history: it's `history.go(-n)`, see [History and Back](../runtime-api/history-and-back.md).)
 
 > **Warning:** Never add a host property named `id`: it collides with the element's HTML `id` attribute. The record id is `recordId`.
 
@@ -39,9 +39,49 @@ The action **`PORTAL_NAVIGATE`** carries `portalSlug`, `page`, `recordId`, `q`, 
 | Required URL params | `portalSlug` |
 | Optional URL params | `pageId`, `id`, `table`, `sys_id`, `view`, `query`, `q` |
 | Host properties | Mode = `portal`; Portal slug ← `@context.props.portalSlug`; Page ← `pageId`; Record id ← `id`; Query ← `q`; Table, Sys ID, View, Encoded query ← their params |
-| Event handler | **Portal navigate** → **Link to destination** → page `site`, mapping payload `portalSlug` → `portalSlug`, `page` → `pageId`, `recordId` → `id`, `q` → `q`, `table` → `table`, `sysId` → `sys_id`, `view` → `view`, `query` → `query` |
+| Event handler | **Portal navigate** → **Link to destination** in **script** mode → route `site`; field `portalSlug`; params `pageId` (payload `page`), `id` (payload `recordId`), `q`, `query`, `table`, `sys_id` (payload `sysId`), `view` (empty values left out); redirect = payload `replace` |
 
 > **Warning:** Keep `pageId` (and every other param except `portalSlug`) **optional**. In Next Experience each distinct combination of *required* params is a separate screen: a new host instance, with the shell keeping the old ones hidden. Optional params keep one host instance alive across navigation. The Link to destination handler must put `pageId` under optional params, or the shell throws `Cannot read properties of undefined (reading '0')`.
+
+### Setting up the site page's handler
+
+The handler must be in **script** mode: the declarative form doesn't offer *Redirect*, and without it every navigation pushes a history entry (filters, form tabs and new → saved records would each add a Back step).
+
+In UI Builder, open the **Service Portal** experience, then the **site** page (variant *Site default*). Select the **React Portal Host** component, open *Events* → **Portal navigate** → its **Link to destination** handler (or *Add handler*), switch it to **script** mode and paste:
+
+```js
+/**
+* @param {params} params
+* @param {api} params.api
+* @param {any} params.event
+*/
+function evaluateEvent({api, event}) {
+    var p = (event && event.payload) || {};
+    var params = {};
+    // Only send params that have a value: an empty optional param would end up in the URL as /q//.
+    if (p.page) params.pageId = p.page;
+    if (p.recordId) params.id = p.recordId;
+    if (p.q) params.q = p.q;
+    if (p.query) params.query = p.query;
+    if (p.table) params.table = p.table;
+    if (p.sysId) params.sys_id = p.sysId;
+    if (p.view) params.view = p.view;
+    return {
+        route: 'site',
+        fields: { portalSlug: p.portalSlug },
+        params: params,
+        redirect: p.replace === true || p.replace === 'true',
+        passiveNavigation: null,
+        title: null,
+        multiInstField: null,
+        targetRoute: null,
+        external: null,
+        navigationOptions: null
+    };
+}
+```
+
+Save, hard-reload a portal and check: a navigation pushes (`history.length` + 1, `history.state.position` + 1), and a filter change on a list page replaces (both unchanged). Without the script, replace navigations still work, as pushes.
 
 ## The `studio` page
 

@@ -1,16 +1,33 @@
 {
     "type": "object",
     "properties": {
-        "title": { "type": "string", "title": "Title", "default": "" },
-        "description": { "type": "string", "title": "Description", "default": "" },
-        "table": { "type": "string", "title": "Table", "default": "incident" },
+        "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+        },
+        "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+        },
+        "table": {
+            "type": "string",
+            "title": "Table",
+            "default": "incident"
+        },
         "field": {
             "type": "string",
             "title": "Group by",
             "description": "Choice or reference field: one lane per value",
             "default": "state"
         },
-        "query": { "type": "string", "title": "Query", "description": "Encoded query", "default": "active=true" },
+        "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "Encoded query",
+            "default": "active=true"
+        },
         "lanes": {
             "type": "string",
             "title": "Lanes",
@@ -23,8 +40,17 @@
             "description": "Reference fields: lanes are the referenced records matching this query",
             "default": ""
         },
-        "hideEmpty": { "type": "boolean", "title": "Hide empty choice lanes", "default": false },
-        "emptyLabel": { "type": "string", "title": "Empty lane label", "description": "Default: None", "default": "" },
+        "hideEmpty": {
+            "type": "boolean",
+            "title": "Hide empty choice lanes",
+            "default": false
+        },
+        "emptyLabel": {
+            "type": "string",
+            "title": "Empty lane label",
+            "description": "Default: None",
+            "default": ""
+        },
         "wip": {
             "type": "string",
             "title": "WIP limits",
@@ -43,19 +69,41 @@
             "description": "Field; - prefix = descending",
             "default": "-sys_updated_on"
         },
-        "perLane": { "type": "number", "title": "Cards per page", "default": 20 },
+        "perLane": {
+            "type": "number",
+            "title": "Cards per page",
+            "default": 20
+        },
         "movable": {
             "type": "boolean",
             "title": "Drag between lanes",
             "description": "Writes the field as the user (form save, Undo toast)",
             "default": true
         },
-        "search": { "type": "boolean", "title": "Search box", "default": true },
+        "search": {
+            "type": "boolean",
+            "title": "Search box",
+            "default": true
+        },
         "recordPage": {
             "type": "string",
             "title": "Record page",
             "description": "Portal page cards open on (table / sys-id); empty = the classic form",
             "default": "form"
+        },
+        "chrome": {
+            "type": "string",
+            "title": "Chrome",
+            "enum": ["card", "plain"],
+            "description": "card: a card with title and description; plain: no card, the lanes fill the page height (Full bleed pages with the sub-header)",
+            "default": "card"
+        },
+        "toolbarPlacement": {
+            "type": "string",
+            "title": "Toolbar placement",
+            "enum": ["auto", "header", "inline"],
+            "description": "auto: the sub-header's right slot when chrome is plain and the page has one; header: the slot whenever it exists; inline: above the lanes",
+            "default": "auto"
         }
     }
 }

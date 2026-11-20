@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { usePortal, usePortalLocation, useNavigate, Link } from '@portal/runtime';
+import {
+    usePortal,
+    usePortalLocation,
+    useNavigate,
+    useEntryTitle,
+    useNavigationGuard,
+    markEntries,
+} from '@portal/runtime';
 import { Card, CardContent } from 'components:card';
 import { Button } from 'components:button';
-import { Icon } from 'components:icon';
 import { useGraphQL, useDebouncedValue, useTableMeta, safeName } from 'utilities:app/graphql';
 import { IconPlus, IconSearch, useFormMeta } from 'components:app/field';
 import { Combobox } from 'components:app/combobox';
@@ -10,7 +16,9 @@ import type { ComboItem } from 'components:app/combobox';
 import { RecordForm, useRecordForm, useRememberedView } from 'components:app/form';
 import type { FormActionOptions } from 'components:app/form';
 import { confirmDialog, DialogOutlet } from 'components:app/confirm-dialog';
-import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots';
+import { HeaderSlot, HeaderCrumbs, useHeaderSlot } from 'utilities:app/header-slots';
+import { BackButton, useBack } from 'components:app/back-button';
+import { useRecordHeaderModel } from 'components:app/record-header';
 
 /**
  * components:app/record-form: a record's real form view (app/form) as a page widget.
@@ -23,7 +31,13 @@ import { HeaderSlot, useHeaderSlot } from 'utilities:app/header-slots';
  *
  * On a layout with header slots (app/app-subheader) the record's title and state go to the left
  * slot, the UI actions, view switcher and New to the right (the picker shows only with no record open)
- * (headerPlacement: 'auto' | 'header' | 'inline'). `listPage` adds a back button to a list page.
+ * (headerPlacement: 'auto' | 'header' | 'inline').
+ *
+ * Back (components:app/back-button): where you came from in this tab, else `listPage` (the declared
+ * parent, with the table), else the portal home. `listPage` also puts the list into the header
+ * breadcrumbs ("Incidents / INC0010023"). Saving a new record replaces its blank `-1` history entry
+ * (Back then skips it); deleting flags the record's entries and goes Back. While the form has unsaved
+ * changes, Back, links and the menus ask before leaving (the browser's own back button can't).
  *
  * Options: { table, sysId, view, lockView, picker, showViews, pickerQuery, headerPlacement, listPage, presentation, attachments, relatedLists, activity, ribbon, presence }
  *
@@ -119,7 +133,11 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
     // Encoded query presetting a new record (g_aw.openRecord(table, '-1', { query })).
     const presetQuery = pick(typeof loc.query === 'string' ? loc.query : '', query.query);
     const page = String(loc.page || '');
-    const go = (next: { sysId?: string; view?: string; table?: string; query?: string }) => {
+    // Internal moves have already asked about unsaved changes (confirmDiscard): skip the guard.
+    const go = (
+        next: { sysId?: string; view?: string; table?: string; query?: string },
+        how?: { replace?: boolean; title?: string }
+    ) => {
         const id = next.sysId !== undefined ? next.sysId : sysId;
         // Only the URL's own view travels with navigation (never the remembered or automatic one).
         const v = next.view !== undefined ? next.view : urlView;
@@ -128,7 +146,10 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
             sysId: id || undefined,
             view: next.table ? next.view || undefined : v || undefined,
             query: next.query || undefined,
-        });
+            replace: !!(how && how.replace),
+            title: (how && how.title) || undefined,
+            skipGuard: true,
+        } as any);
     };
     const [dirty, setDirty] = useState(false);
 
@@ -144,19 +165,18 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
         return pages.some((p) => [p.route, p.routePattern, p.route_pattern, p.path].indexOf(target) >= 0) ? target : '';
     }, [portal && portal.pages, options.listPage]);
 
-    const back = listPage ? (
-        <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to the list"
-            title="Back to the list"
-            className="shrink-0"
-            render={<Link to={listPage} table={table} />}
-            data-rp-form-back=""
-        >
-            <Icon name="arrow-left" />
-        </Button>
-    ) : null;
+    // The declared parent: the list page for this table (deep links, a new tab), labelled with its page title.
+    const listTitle = useMemo(() => {
+        if (!listPage) return '';
+        const pages: any[] = (portal && portal.pages) || [];
+        const p = pages.find((x) => [x.route, x.routePattern, x.route_pattern, x.path].indexOf(listPage) >= 0);
+        return p ? String(p.title || p.name || '') : '';
+    }, [portal && portal.pages, listPage]);
+    const parent = listPage ? { to: listPage, table, label: listTitle || undefined } : null;
+    const backTarget = useBack({ parent });
+    const back = <BackButton parent={parent} className={toHeader ? '' : 'self-center'} />;
+    // Header breadcrumbs (decision 8): the declared parent, then the record ("Incidents / INC0010023").
+    const crumbParent = listPage ? { label: listTitle || 'List', to: listPage, table } : null;
     const newButton = (
         <Button
             variant="outline"
@@ -273,16 +293,22 @@ export default function RecordFormWidget({ options = {} }: { options?: Options }
                     ribbon={options.ribbon !== false}
                     presence={options.presence !== false}
                     onDirty={setDirty}
+                    crumbParent={crumbParent}
                     onViewChange={(v) => {
                         confirmDiscard(dirty).then((ok) => {
                             if (!ok) return;
                             // '' = Automatic (forget the remembered view), 'default' = force Default.
                             setRemembered(v);
                             setPicked(v);
-                            go({ view: v });
+                            go({ view: v }, { replace: true });
                         });
                     }}
-                    onCreated={(id) => go({ sysId: id })}
+                    // New → saved: the blank -1 entry becomes the record (Back skips past it).
+                    onCreated={(id, title) => go({ sysId: id }, { replace: true, title })}
+                    onDeleted={() => {
+                        markEntries({ table, sysId }, { gone: true });
+                        backTarget.go();
+                    }}
                     onOpenRecord={(t, id, params) =>
                         confirmDiscard(dirty).then(
                             (ok) =>
@@ -327,7 +353,9 @@ function FormFor(props: {
     presence?: boolean;
     onDirty: (d: boolean) => void;
     onViewChange: (v: string) => void;
-    onCreated: (id: string) => void;
+    onCreated: (id: string, title?: string) => void;
+    onDeleted: () => void;
+    crumbParent?: { label: string; to: string; table?: string } | null;
     onOpenRecord: (table: string, sysId: string, params?: Record<string, unknown>) => void;
 }) {
     const form = useRecordForm({
@@ -337,30 +365,43 @@ function FormFor(props: {
         viewRules: props.viewRules,
         query: props.query,
         onSaved: (result, info) => {
-            if (info.isNew && result.sysId) props.onCreated(result.sysId);
+            if (String((result as any).operation || '') === 'delete') props.onDeleted();
+            else if (info.isNew && result.sysId) props.onCreated(result.sysId);
         },
         onOpenRecord: props.onOpenRecord,
     });
     const meta = useFormMeta(form);
     const { onDirty } = props;
     useEffect(() => onDirty(meta.isDirty), [meta.isDirty, onDirty]);
+    // Back, links and menus ask first when the form has unsaved changes (browser back can't be stopped).
+    // The store is read at click time: a field commits on blur, moments before the click lands.
+    useNavigationGuard(true, () => confirmDiscard(form.getDirtyFields().length > 0));
+    // Label this history entry ("Back to INC0010023") and the record's header breadcrumb.
+    const header = useRecordHeaderModel(form as any);
+    const entryTitle = form.isNew ? 'New record' : header.title || '';
+    useEntryTitle(entryTitle);
+    const crumbs =
+        props.crumbParent && entryTitle ? <HeaderCrumbs items={[props.crumbParent, { label: entryTitle }]} /> : null;
     return (
-        <RecordForm
-            form={form}
-            showViews={props.showViews}
-            viewPinned={props.viewPinned}
-            missingView={props.missingView}
-            onViewChange={props.onViewChange}
-            headerSlots={props.headerSlots}
-            headerActions={props.headerActions}
-            presentation={props.presentation}
-            attachments={props.attachments}
-            relatedLists={props.relatedLists}
-            activity={props.activity}
-            actionOptions={props.actionOptions}
-            ribbon={props.ribbon}
-            presence={props.presence}
-        />
+        <>
+            {crumbs}
+            <RecordForm
+                form={form}
+                showViews={props.showViews}
+                viewPinned={props.viewPinned}
+                missingView={props.missingView}
+                onViewChange={props.onViewChange}
+                headerSlots={props.headerSlots}
+                headerActions={props.headerActions}
+                presentation={props.presentation}
+                attachments={props.attachments}
+                relatedLists={props.relatedLists}
+                activity={props.activity}
+                actionOptions={props.actionOptions}
+                ribbon={props.ribbon}
+                presence={props.presence}
+            />
+        </>
     );
 }
 

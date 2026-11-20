@@ -19,6 +19,8 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { here, loadComponents, loadTemplate, templateHash, renderSeed, newRunId, bytes } from './seed-lib.mjs';
+// --dry-run with a portals step: simulate it locally against the instance's rows (seed-plan.mjs).
+import { planPortals } from './seed-plan.mjs';
 // Docs step (docs/guide → x_312987_portal_doc): diff by content_hash, before the component parts.
 // Skipped with --no-docs, and on --only runs unless --docs is given; --docs adds it (diff-based) to an --only run; --docs-all rewrites every page.
 // Pages edited in Studio (content_hash ≠ seed_hash) are never overwritten unless --docs-force: classifyDocs in docs-lib.mjs.
@@ -152,8 +154,7 @@ async function query(table, q, fields, pageSize = 100) {
             table,
             '-q',
             q + '^ORDERBYsys_id',
-            '-f',
-            fields.join(','),
+            ...(fields ? ['-f', fields.join(',')] : []),
             '--limit',
             String(pageSize),
             '--offset',
@@ -217,8 +218,8 @@ function normStored(stored, wanted) {
 function wantedFields(key, c) {
     return {
         name: c.meta.name,
-        namespace: 'app',
-        key,
+        namespace: c.namespace || 'app',
+        key: c.key || key,
         kind: c.meta.kind,
         active: true,
         placeable: c.meta.kind === 'widget',
@@ -250,21 +251,15 @@ function sideHashes(key, c, rec, files) {
 
 /* ---------------- Diff ---------------- */
 
-async function readInstance() {
+// Map key of a component record: "<key>" for app/*, "<ns>/<key>" for other namespaces (seed-lib folders).
+const mapKey = (r) => (r.namespace === 'app' ? r.key : `${r.namespace}/${r.key}`);
+
+async function readInstance(namespaces = ['app']) {
+    const ns = 'namespaceIN' + namespaces.join(',');
     const [comps, files, builds, props] = await Promise.all([
-        query(T + 'component', 'namespace=app', ['sys_id', 'unique_id'].concat(FIELDS)),
-        query(
-            T + 'source_file',
-            'component.namespace=app',
-            ['sys_id', 'component', 'path', 'target', 'content_text'],
-            200
-        ),
-        query(
-            T + 'build',
-            'component.namespace=app',
-            ['sys_id', 'component', 'state', 'last_error', 'compiler_version'],
-            200
-        ),
+        query(T + 'component', ns, ['sys_id', 'unique_id'].concat(FIELDS)),
+        query(T + 'source_file', 'component.' + ns, ['sys_id', 'component', 'path', 'target', 'content_text'], 200),
+        query(T + 'build', 'component.' + ns, ['sys_id', 'component', 'state', 'last_error', 'compiler_version'], 200),
         query('sys_properties', 'name=' + PROPERTY, ['name', 'value']),
     ]);
     return { comps, files, builds, markerHash: props.length ? props[0].value : '' };
@@ -272,7 +267,7 @@ async function readInstance() {
 
 function diffComponents(ordered, inst) {
     const byKey = {};
-    for (const r of inst.comps) byKey[r.key] = r;
+    for (const r of inst.comps) byKey[mapKey(r)] = r;
     const filesById = {};
     for (const f of inst.files) (filesById[f.component] = filesById[f.component] || []).push(f);
     const buildById = {};
@@ -304,7 +299,7 @@ function diffComponents(ordered, inst) {
         if (reasons.length) changed.push({ key, reasons });
     }
     const stale = inst.comps
-        .filter((r) => !ordered[r.key])
+        .filter((r) => !ordered[mapKey(r)])
         .map((r) => r.unique_id + (r.active === 'true' || r.active === '1' ? '' : ' (inactive)'));
     return { changed, warnings, stale };
 }
@@ -515,6 +510,37 @@ Docs: ${Object.keys(docs).length} pages in docs/guide, ${remote.length} on the i
     });
 }
 
+/* ---------------- Portals plan (dry run) ---------------- */
+
+/** What the portals step would write, simulated from the instance's current rows (read-only). */
+async function printPortalsPlan(script) {
+    log('\nPortals step plan (simulated locally against the instance; nothing is written):');
+    let plan;
+    try {
+        plan = await planPortals({ script, query: (t, q, f) => query(t, q, f, 200) });
+    } catch (e) {
+        log(`  plan unavailable: ${String(e.message || e).slice(0, 600)}`);
+        return;
+    }
+    const placements = plan.db[T + 'placement'] || [];
+    if (placements.length && !placements.some((r) => 'seed_slot' in r))
+        log('  NOTE: placement.seed_slot is not on the instance yet (install the app before the portals step).');
+    const tables = Object.keys(plan.report.counts);
+    if (!tables.length) log('  no changes');
+    for (const t of tables) {
+        const c = plan.report.counts[t];
+        const parts = [];
+        if (c.insert) parts.push(c.insert + ' insert');
+        if (c.update) parts.push(c.update + ' update');
+        if (c.deactivate) parts.push(c.deactivate + ' deactivate');
+        if (c.delete) parts.push(c.delete + ' delete');
+        if (c.adopt) parts.push(c.adopt + ' adopt (seed_slot stamp only)');
+        log(`  ${t}: ${parts.join(', ')}`);
+    }
+    plan.report.lines.slice(0, 200).forEach((l) => log(l));
+    if (plan.report.lines.length > 200) log(`  … ${plan.report.lines.length - 200} more`);
+}
+
 /* ---------------- Main ---------------- */
 
 async function main() {
@@ -527,7 +553,7 @@ async function main() {
     }
 
     log(`Reading app/* components, source files and builds from the instance…`);
-    const inst = await readInstance();
+    const inst = await readInstance(Array.from(new Set(Object.values(ordered).map((c) => c.namespace || 'app'))));
     const diff = diffComponents(ordered, inst);
     log(
         `  ${inst.comps.length} components, ${inst.files.length} source files, ${inst.builds.length} builds on the instance; ${Object.keys(ordered).length} local folders (${secs(Date.now() - t0)})`
@@ -586,6 +612,8 @@ async function main() {
         )
     );
     if (DRY) {
+        const portalStep = steps.find((s) => s.mode === 'portals');
+        if (portalStep) await printPortalsPlan(portalStep.script);
         log('\n--dry-run: nothing run.');
         return;
     }

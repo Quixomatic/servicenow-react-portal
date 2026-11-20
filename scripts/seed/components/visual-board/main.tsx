@@ -24,7 +24,7 @@
  * - WIP limits (`wip`): the lane header shows count / limit and turns red over the limit; moving a
  *   card into a full lane still works but warns.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast, useRecordWatch } from '@portal/runtime';
 import { useQueryClient } from 'utilities:react-query';
 import { useInfiniteList, useList, listKeys } from 'utilities:app/list-data';
@@ -215,6 +215,70 @@ export function useLaneCards(o: UseLaneCardsOptions) {
     });
 }
 
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+    let node: any = el.parentNode;
+    while (node) {
+        if (node.nodeType === 11) node = node.host; // shadow root → host
+        if (!node || node === document.documentElement || node === document.body) return null;
+        if (node.nodeType === 1) {
+            const st = getComputedStyle(node);
+            if (/(auto|scroll)/.test(st.overflowY) && node.clientHeight > 0) return node;
+        }
+        node = node.parentNode;
+    }
+    return null;
+}
+
+/**
+ * The height that makes `ref` end exactly at the bottom of its scroll container (the page content
+ * area): its current height plus whatever the container's content is short of / over its height,
+ * so the page itself never scrolls. Re-measured on resize. undefined until measured / when off.
+ */
+export function useFillHeight(ref: { current: HTMLElement | null }, enabled: boolean, min = 280) {
+    const [height, setHeight] = useState<number | undefined>(undefined);
+    useLayoutEffect(() => {
+        if (!enabled) return undefined;
+        const el = ref.current;
+        if (!el) return undefined;
+        let observed: HTMLElement | null = null;
+        let frame = 0;
+        const measure = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const sp = el.isConnected ? findScrollParent(el) : null;
+                if (sp && sp !== observed && ro) {
+                    ro.observe(sp);
+                    observed = sp;
+                }
+                let h: number;
+                if (sp) {
+                    let content = 0;
+                    for (const child of Array.from(sp.children) as HTMLElement[]) {
+                        const cs = getComputedStyle(child);
+                        if (cs.position === 'absolute' || cs.position === 'fixed') continue;
+                        content +=
+                            child.getBoundingClientRect().height +
+                            (parseFloat(cs.marginTop) || 0) +
+                            (parseFloat(cs.marginBottom) || 0);
+                    }
+                    h = el.getBoundingClientRect().height + (sp.clientHeight - content);
+                } else h = window.innerHeight - el.getBoundingClientRect().top - 16;
+                setHeight(Math.max(min, Math.floor(h)));
+            });
+        };
+        const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+        if (ro) ro.observe(document.documentElement);
+        measure();
+        window.addEventListener('resize', measure);
+        return () => {
+            cancelAnimationFrame(frame);
+            if (ro) ro.disconnect();
+            window.removeEventListener('resize', measure);
+        };
+    }, [enabled, min]);
+    return height;
+}
+
 export type VisualBoardProps = {
     table: string;
     /** The choice or reference field the lanes group by. */
@@ -235,6 +299,16 @@ export type VisualBoardProps = {
     movable?: boolean;
     /** Search box over every lane (default true). */
     search?: boolean;
+    /**
+     * 'fill': the lane strip takes the height left in the page's scroll container (exact fit, no page
+     * scrollbar; only the lanes and the strip scroll). Default: lanes cap at 70vh.
+     */
+    height?: 'fill' | 'auto';
+    /**
+     * Where the toolbar (search, "Grouped by …") goes: a function that receives it, e.g. into a
+     * utilities:app/header-slots HeaderSlot. Default: above the lanes.
+     */
+    toolbarSlot?: (toolbar: any) => any;
     live?: boolean;
     /** "Open record" (default: the classic form in a new tab). */
     onOpen?: (table: string, sysId: string) => void;
@@ -278,6 +352,9 @@ export function VisualBoard(props: VisualBoardProps) {
     const qc = useQueryClient();
     const updater = useRecordUpdate();
     const [a11yEl, setA11yEl] = useState<HTMLDivElement | null>(null);
+    const fill = props.height === 'fill';
+    const stripRef = useRef<HTMLDivElement | null>(null);
+    const fillHeight = useFillHeight(stripRef, fill && board.lanes.length > 0);
     const [dragging, setDragging] = useState<DragData | null>(null);
     const laneLabel = (v: string) => {
         const l = board.lanes.find((x) => x.value === v);
@@ -369,30 +446,32 @@ export function VisualBoard(props: VisualBoardProps) {
             className={cx('flex min-w-0 flex-col gap-3 contain-inline-size', props.className)}
             data-rp-visual-board={`${props.table}.${props.field}`}
         >
-            {props.search !== false ? (
-                <div className="flex flex-wrap items-center gap-2">
-                    <label className="relative flex min-w-0 max-w-xs flex-1 items-center">
-                        <span className="sr-only">Search the board</span>
-                        <Icon
-                            name="search"
-                            className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground"
-                            aria-hidden="true"
-                        />
-                        <input
-                            type="search"
-                            value={typed}
-                            onChange={(e: any) => setTyped(e.target.value)}
-                            placeholder="Search cards"
-                            className="h-8 w-full min-w-0 rounded-md border border-input bg-transparent pr-2.5 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                            data-rp-board-search=""
-                        />
-                    </label>
-                    <span className="text-xs text-muted-foreground">
-                        Grouped by {fieldLabel}
-                        {canMove ? ' · drag cards, or focus one and press Space' : ''}
-                    </span>
-                </div>
-            ) : null}
+            {props.search !== false
+                ? (props.toolbarSlot || ((t: any) => t))(
+                      <div className="flex min-w-0 flex-wrap items-center gap-2" data-rp-board-toolbar="">
+                          <label className="relative flex min-w-0 max-w-xs flex-1 items-center">
+                              <span className="sr-only">Search the board</span>
+                              <Icon
+                                  name="search"
+                                  className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground"
+                                  aria-hidden="true"
+                              />
+                              <input
+                                  type="search"
+                                  value={typed}
+                                  onChange={(e: any) => setTyped(e.target.value)}
+                                  placeholder="Search cards"
+                                  className="h-8 w-full min-w-0 rounded-md border border-input bg-transparent pr-2.5 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                  data-rp-board-search=""
+                              />
+                          </label>
+                          <span className="text-xs text-muted-foreground">
+                              Grouped by {fieldLabel}
+                              {canMove && !props.toolbarSlot ? ' · drag cards, or focus one and press Space' : ''}
+                          </span>
+                      </div>
+                  )
+                : null}
             <DndContext
                 sensors={sensors}
                 collisionDetection={(args: any) => {
@@ -424,7 +503,9 @@ export function VisualBoard(props: VisualBoardProps) {
                 }}
             >
                 <div
+                    ref={stripRef}
                     className="flex min-w-0 snap-x gap-3 overflow-x-auto pb-2"
+                    style={fill && fillHeight ? { height: fillHeight } : undefined}
                     role="list"
                     aria-label={`Board by ${fieldLabel}`}
                 >
@@ -441,6 +522,7 @@ export function VisualBoard(props: VisualBoardProps) {
                             wip={wip[lane.value]}
                             moved={moved}
                             reportCount={reportCount}
+                            fill={fill}
                         />
                     ))}
                     {!board.lanes.length ? (
@@ -485,6 +567,7 @@ function Lane(props: {
     wip?: number;
     moved: Record<string, Moved>;
     reportCount: (value: string, n: number) => void;
+    fill?: boolean;
 }) {
     const { lane, ctx } = props;
     const cards = useLaneCards({
@@ -521,7 +604,8 @@ function Lane(props: {
             role="listitem"
             aria-labelledby={headingId}
             className={cx(
-                'flex max-h-[70vh] w-[85%] max-w-80 min-w-64 shrink-0 snap-start flex-col rounded-xl border bg-muted/40',
+                'flex w-[85%] max-w-80 min-w-64 shrink-0 snap-start flex-col rounded-xl border bg-muted/40',
+                props.fill ? 'h-full min-h-0' : 'max-h-[70vh]',
                 over ? 'border-destructive/50 bg-destructive/5' : 'border-border',
                 drop.isOver ? 'ring-2 ring-primary/50' : ''
             )}
