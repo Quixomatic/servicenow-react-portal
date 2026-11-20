@@ -2,6 +2,27 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.19.1] - 2026-11-20
+
+`npm run seed` now splits execs by component count as well as size, and recovers on its own when the
+instance rejects a script as too complex.
+
+### Fixed
+- **"Program too complex (out of locals)" stopped a full seed.** The instance's script engine rejects
+  one exec that defines too many components, whatever its byte size: a 1.26 MB exec of 63 components
+  failed, while 31 and 32 passed. The size-based splitter couldn't see it coming.
+  - Execs are now capped at 30 components each. A full seed is 5 component execs plus portals.
+  - An exec rejected as too complex is halved and retried automatically. It failed to compile, so
+    nothing ran and the retry is safe. The final reprocess still runs once, last.
+
+### Added
+- **`--max-per-exec N`** (default 30) and **`--parts N`** (split into at least N execs). Non-numeric
+  values are refused without running.
+
+### Notes
+- Verified live: forcing the 63-component exec was rejected, split into 32 + 31, and both ran
+  (0 records written, already in sync; one reprocess).
+
 ## [1.19.0] - 2026-11-20
 
 Portal view rules, a docs editor in Portal Studio, Studio deep links, and loading skeletons for

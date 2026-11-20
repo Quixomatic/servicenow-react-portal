@@ -41,6 +41,8 @@ const KNOWN_FLAGS = [
     '--keep',
     '--only',
     '--max-kb',
+    '--max-per-exec',
+    '--parts',
     '--wait-minutes',
     '--docs',
     '--docs-all',
@@ -57,6 +59,11 @@ if (flag('--help') || flag('-h')) {
   --docs / --docs-all / --no-docs   docs step: diff-based / rewrite all / skip
   --docs-force       docs step that also overwrites pages edited in Studio (see npm run docs:pull)
   --max-kb N         payload budget per exec (default 1300)
+  --max-per-exec N   at most N components per exec (default 30; the instance rejects one script
+                     that defines too much with "Program too complex", whatever its size)
+  --parts N          split the components into at least N execs
+                     (an exec that still fails with "Program too complex" is halved and retried
+                     automatically: nothing ran, so the retry is safe)
   --wait-minutes N   how long to wait on a run that didn't answer (default 30)
   --keep             keep the generated part files`);
     process.exit(0);
@@ -79,6 +86,21 @@ const onlyKeys =
               .map((s) => s.trim())
               .filter(Boolean);
 const MAX_BYTES = Number(valueOf('--max-kb') || 1300) * 1024;
+// The instance's script engine has a second limit besides payload size: one script that defines too
+// much fails to compile ("Program too complex (out of locals)"). It tracks the component count, not
+// bytes (a 1.26 MB exec of 63 components failed; 31 and 32 passed), so execs are capped by count too.
+const MAX_PER_EXEC = Math.max(1, Number(valueOf('--max-per-exec') || 30));
+const MIN_PARTS = Math.max(1, Number(valueOf('--parts') || 1));
+for (const [name, v] of [
+    ['--max-kb', MAX_BYTES],
+    ['--max-per-exec', MAX_PER_EXEC],
+    ['--parts', MIN_PARTS],
+]) {
+    if (!Number.isFinite(v)) {
+        console.error(`${name} needs a number. Nothing was run.`);
+        process.exit(1);
+    }
+}
 const WAIT_MS = Number(valueOf('--wait-minutes') || 30) * 60000;
 const PROPERTY = 'x_312987_portal.seed.template_hash';
 const T = 'x_312987_portal_';
@@ -292,6 +314,8 @@ function diffComponents(ordered, inst) {
 function splitParts(keys, ordered, template) {
     const runId = 'x'.repeat(40);
     const base = bytes(renderSeed({ mode: 'components', components: {}, reprocess: true, runId, template }));
+    // Count cap: the smaller of --max-per-exec and an even share for --parts.
+    const perExec = Math.min(MAX_PER_EXEC, Math.max(1, Math.ceil(keys.length / MIN_PARTS)));
     const parts = [];
     let cur = [];
     let size = base;
@@ -299,7 +323,7 @@ function splitParts(keys, ordered, template) {
         const s = bytes(JSON.stringify({ [key]: ordered[key] }, null, 1)) + 64;
         if (base + s > MAX_BYTES)
             throw new Error(`${key} alone is ${(s / 1024).toFixed(0)} KB, over the ${MAX_BYTES / 1024} KB budget`);
-        if (cur.length && size + s > MAX_BYTES) {
+        if (cur.length && (size + s > MAX_BYTES || cur.length >= perExec)) {
             parts.push(cur);
             cur = [];
             size = base;
@@ -337,6 +361,14 @@ async function runStep(step, index, total) {
         /did not return a script execution response|timed?\s*out|timeout|ETIMEDOUT|ECONNRESET|socket hang up/i.test(
             text
         );
+    // The script failed to COMPILE (too many definitions for the engine): nothing ran, so the caller
+    // may split the step and retry.
+    if (r.code !== 0 && /Program too complex|out of locals/i.test(text)) {
+        if (!KEEP) unlinkSync(file);
+        const err = new Error(`${label}: the instance rejected the script as too complex (nothing ran)`);
+        err.tooComplex = true;
+        throw err;
+    }
     if (r.code === 0) log(`   exec returned after ${secs(Date.now() - started)}`);
     else
         log(
@@ -508,8 +540,7 @@ async function main() {
     if (!steps.length && FORCE_REPROCESS) steps.push({ mode: 'components', keys: [] });
     // Docs: their own exec(s), first, never reprocessing (docs aren't in any manifest).
     const docSteps = await planDocs();
-    steps.forEach((s, i) => {
-        s.reprocess = i === steps.length - 1;
+    const render = (s, i) => {
         s.runId = newRunId('rs');
         if (i > 0) s.runId += '-' + (i + 1);
         const comps = {};
@@ -517,6 +548,10 @@ async function main() {
         s.script = renderSeed({ mode: s.mode, components: comps, reprocess: s.reprocess, runId: s.runId, template });
         if (bytes(s.script) > MAX_BYTES + 100 * 1024)
             throw new Error(`step ${i + 1} renders to ${(bytes(s.script) / 1024).toFixed(0)} KB, over budget`);
+    };
+    steps.forEach((s, i) => {
+        s.reprocess = i === steps.length - 1;
+        render(s, i);
     });
     steps.unshift(...docSteps);
 
@@ -543,6 +578,22 @@ async function main() {
             log(`   done in ${secs(res.ms)}`);
             printDone(res.message);
         } catch (e) {
+            // Too complex to compile: halve the step and retry it (only the second half keeps the
+            // step's reprocess flag, so the final reprocess still runs once, last).
+            if (e.tooComplex && steps[i].mode === 'components' && steps[i].keys.length > 1) {
+                const s = steps[i];
+                const mid = Math.ceil(s.keys.length / 2);
+                const a = { mode: s.mode, keys: s.keys.slice(0, mid), reprocess: false };
+                const b = { mode: s.mode, keys: s.keys.slice(mid), reprocess: s.reprocess };
+                render(a, i);
+                render(b, i + 1);
+                steps.splice(i, 1, a, b);
+                log(
+                    `   ${e.message}: splitting it into ${a.keys.length} + ${b.keys.length} components and retrying (lower --max-per-exec to avoid this)`
+                );
+                i--;
+                continue;
+            }
             log(`\nSTOPPED: ${e.message}`);
             if (i > 0 || !steps[i].reprocess)
                 log(
