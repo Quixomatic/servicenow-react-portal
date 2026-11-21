@@ -5,6 +5,7 @@ import { notFound, rpError } from '../lib/errors.ts';
 import { isUsableBuild } from '../registry/registry.ts';
 import { canAccessPortal, hasStudioCapability } from '../security/access.ts';
 import { PORTAL_UTILITIES_ASSET, portalUtilitiesCss } from '../release/portal-utilities.ts';
+import { COMPILE_CACHE_ASSET } from '../compiler/cache-asset.ts';
 
 /**
  * RPAssetService: delivers compiled build assets (JS/CSS) with correct MIME types and
@@ -32,6 +33,8 @@ export interface AssetResponse {
 export function getAsset(buildId: string, path: string): AssetResponse {
     if (!gs.isLoggedIn()) throw rpError(401, 'unauthenticated', 'Login required');
     if (path === PORTAL_UTILITIES_ASSET) return portalSheet(buildId);
+    // The compile cache is the compiler's own memory, not a deliverable: never served.
+    if (path === COMPILE_CACHE_ASSET) throw notFound('Asset not found');
     const build = getById(T.build, buildId);
     if (!build || !isUsableBuild(build)) throw notFound('Asset not found');
     const asset = findOne(T.buildAsset, `build=${buildId}^path=${path}`);

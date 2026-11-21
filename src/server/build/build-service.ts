@@ -1,4 +1,4 @@
-import { GR, newGR, getById, findOne, each, str, int, bool } from '../lib/gr.ts';
+import { GR, newGR, getById, findOne, each, str, int, bool, inChunks } from '../lib/gr.ts';
 import { T } from '../lib/tables.ts';
 import { badRequest, conflict, notFound } from '../lib/errors.ts';
 import { canonicalJson, sha256, byteLength, nowValue, parseJson, prop, propInt } from '../lib/util.ts';
@@ -6,7 +6,14 @@ import { isValidAssetPath, mimeFor } from '../lib/paths.ts';
 import { requireStudio } from '../security/access.ts';
 import { Owner, ownerRecordOf, ownerOfRecord, loadOwner } from '../source/owner.ts';
 import { compilerInputs, serverScriptOf } from '../source/project-files.ts';
-import { compileComponent, COMPILER_VERSION, ENTRY, CompileResult } from '../compiler/compiler.ts';
+import {
+    compileComponent,
+    COMPILER_VERSION,
+    COMPILE_CACHE_ASSET,
+    ENTRY,
+    CompileCache,
+    CompileResult,
+} from '../compiler/compiler.ts';
 import { replaceDependencies, flagDependents } from './dependency-service.ts';
 import {
     UTILITIES_ASSET,
@@ -15,7 +22,6 @@ import {
     themeRef,
     buildRef,
     buildOf,
-    findComponentByUniqueId,
     isUsableBuild,
 } from '../registry/registry.ts';
 import { reprocessForOwner } from '../release/release-service.ts';
@@ -287,47 +293,88 @@ const IMPORTABLE: Record<string, string[]> = { components: ['primitive', 'widget
 
 /**
  * Resolve a compile's record imports (components:<ns>/<key>, utilities:<ns>/<key>) to the imported
- * components' builds. Problems become compile errors. Returns specifier → target build id.
+ * components' builds. Problems become compile errors on the importing file. Returns specifier → target
+ * build id. Shared by the save (compileOwner) and Studio's live check, so both report the same problems.
+ * Two queries in all: the imported components, then their builds.
  */
-function resolveRecordImports(owner: Owner, result: CompileResult): Record<string, string> {
+export function resolveRecordImports(owner: Owner, result: CompileResult): Record<string, string> {
     const targets: Record<string, string> = {};
-    const fail = (message: string) => result.diagnostics.errors.push({ file: ENTRY, message });
-    for (const d of result.dependencies) {
-        if (d.kind !== 'component') continue;
+    const records = result.dependencies.filter((d) => d.kind === 'component');
+    if (!records.length) return targets;
+
+    interface Target {
+        id: string;
+        kind: string;
+        serverMode: string;
+    }
+    const comps: Record<string, Target> = {};
+    const ids = records.map((d) => (d.resolvedEntry || '').toLowerCase()).filter((u) => !!u);
+    for (const chunk of inChunks(ids)) {
+        each(T.component, `unique_idIN${chunk}`, (c) => {
+            const uid = str(c, 'unique_id');
+            if (comps[uid]) return;
+            comps[uid] = {
+                id: c.getUniqueValue(),
+                kind: str(c, 'kind') || 'widget',
+                serverMode: str(c, 'server_mode'),
+            };
+        });
+    }
+    const builds: Record<string, string> = {};
+    const keys = Object.keys(comps).map((u) => `component:${comps[u].id}`);
+    for (const chunk of inChunks(keys)) {
+        each(T.build, `owner_keyIN${chunk}`, (b) => {
+            const key = str(b, 'owner_key');
+            if (builds[key] === undefined) builds[key] = isUsableBuild(b) ? b.getUniqueValue() : '';
+        });
+    }
+
+    for (const d of records) {
+        const file = d.file || ENTRY;
+        const fail = (message: string) => result.diagnostics.errors.push({ file, message });
         const prefix = d.specifier.split(':')[0];
-        const comp = findComponentByUniqueId(d.resolvedEntry || '');
+        const comp = comps[(d.resolvedEntry || '').toLowerCase()];
         if (!comp) {
-            fail(`Import "${d.specifier}": no component with unique id "${d.resolvedEntry}"`);
+            fail(`Unknown component "${d.specifier}": no component has the unique id "${d.resolvedEntry}"`);
             continue;
         }
-        if (comp.getUniqueValue() === owner.id) {
+        if (comp.id === owner.id) {
             fail(`Import "${d.specifier}": a component can't import itself`);
             continue;
         }
-        const kind = str(comp, 'kind') || 'widget';
         const allowed = IMPORTABLE[prefix] || [];
-        if (allowed.indexOf(kind) < 0) {
+        if (allowed.indexOf(comp.kind) < 0) {
             fail(
-                `Import "${d.specifier}": it's a ${kind}; ${prefix}: imports reach ${allowed.join(' or ')} components`
+                `Import "${d.specifier}": it's a ${comp.kind}; ${prefix}: imports reach ${allowed.join(' or ')} components`
             );
             continue;
         }
-        const b = buildOf('component', comp.getUniqueValue());
-        if (!b || !isUsableBuild(b)) {
+        const buildId = builds[`component:${comp.id}`];
+        if (!buildId) {
             fail(`Import "${d.specifier}": ${d.resolvedEntry} hasn't compiled successfully yet`);
             continue;
         }
-        targets[d.specifier] = b.getUniqueValue();
+        targets[d.specifier] = buildId;
         // Embedded widgets: a widget import's default export renders as its own instance.
-        if (kind === 'widget' && (str(comp, 'server_mode') || 'none') !== 'none' && result.diagnostics.warnings) {
+        if (comp.kind === 'widget' && (comp.serverMode || 'none') !== 'none' && result.diagnostics.warnings) {
             result.diagnostics.warnings.push({
-                file: ENTRY,
+                file,
                 message: `Import "${d.specifier}" is a widget: its default export renders as an embedded instance (own options and server script). Use <X.Raw /> or a named export for presentational use.`,
             });
         }
     }
     if (result.diagnostics.errors.length) result.ok = false;
     return targets;
+}
+
+/**
+ * A build's compile cache (compile-cache.json), or null. The compiler ignores a cache from another
+ * compiler or set of utility roots, and a damaged one only costs a full compile.
+ */
+export function compileCacheOf(build: GR | null): CompileCache | null {
+    if (!build) return null;
+    const asset = findOne(T.buildAsset, `build=${build.getUniqueValue()}^path=${COMPILE_CACHE_ASSET}`);
+    return asset ? parseJson<CompileCache | null>(str(asset, 'content'), null) : null;
 }
 
 export function compileOwner(owner: Owner, force = false): Promise<BuildSummary> {
@@ -354,6 +401,8 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
         files: compilerInputs(owner).map((f) => ({ path: f.path, content: f.content, target: f.target })),
         tailwind: bool(owner.gr, 'tailwind'),
         label,
+        cache: compileCacheOf(build),
+        hash: sha256,
     }).then((result) => {
         const importTargets = result.ok ? resolveRecordImports(owner, result) : {};
         const assets: BuildAssetDto[] = [];
@@ -375,6 +424,15 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
                     path: CANDIDATES_ASSET,
                     kind: 'other',
                     content: JSON.stringify(result.candidates),
+                    mimeType: 'application/json',
+                });
+            // What the next compile reuses (per-file Sucrase output, Tailwind verdicts, the utilities
+            // sheet). One asset per build, overwritten in place; never served (asset-service).
+            if (result.cache)
+                assets.push({
+                    path: COMPILE_CACHE_ASSET,
+                    kind: 'other',
+                    content: JSON.stringify(result.cache),
                     mimeType: 'application/json',
                 });
         }

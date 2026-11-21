@@ -91,3 +91,13 @@ Property({
         'Studio: which baseline files each component kind has. JSON object, kind → array of file names from main.tsx, styles.css, server.js, options.schema.json, options.defaults.json, regions.json. main.tsx is always included; unknown names are ignored; a kind left out uses its built-in default; invalid JSON falls back to the built-in default (with a log warning). Applies to Studio, saves, the compiler and server scripts (e.g. add "server.js" to "block" to give blocks a server script). A file a kind does not list stays visible and editable, flagged "Not used", while its field still has content. Extra source files are not affected. Themes always have theme.css and tokens.json.',
     roles: { read: [adminRole], write: [adminRole] },
 });
+
+Property({
+    $id: Now.ID['prop-portal-sheet-background'],
+    name: 'x_312987_portal.portal_sheet.background',
+    type: 'boolean',
+    value: 'true',
+    description:
+        "Compile a portal's Tailwind utilities sheet in a background event (x_312987_portal.portal_sheet.compile, on the x_312987_portal.portal_sheet queue) instead of inside the save that needs it. Set to false to compile inline. The save returns sooner; the changed component uses its own utilities sheet until the job patches the release (a few seconds). Seeds and Studio's Reprocess always compile inline.",
+    roles: { read: [adminRole], write: [adminRole] },
+});

@@ -645,6 +645,10 @@ declare global {
                         table: 'sys_scope_privilege';
                         id: 'c661440300974aa88f888573c0f2ec8c';
                     };
+                    'event-portal-sheet-compile': {
+                        table: 'sysevent_register';
+                        id: '57064dce93f9474d941b62dc417631ec';
+                    };
                     'formatter-menu-icon-picker': {
                         table: 'sys_ui_formatter';
                         id: 'f8e1398f05a540fdb8bb39d111d911bb';
@@ -797,6 +801,10 @@ declare global {
                         table: 'sys_properties';
                         id: '3451e5aa3ff242258677f196fb08789b';
                     };
+                    'prop-portal-sheet-background': {
+                        table: 'sys_properties';
+                        id: 'cde4d89cc6a941a88455561fbb65ed63';
+                    };
                     'prop-public-welcome': {
                         table: 'sys_properties';
                         id: 'bf9a2b2a07bf42099e4fa33a5fab007b';
@@ -812,6 +820,10 @@ declare global {
                     'prop-studio-kind-files': {
                         table: 'sys_properties';
                         id: 'e35f9dabd5ee43c8985e969799934f4c';
+                    };
+                    'queue-portal-sheet': {
+                        table: 'sysevent_queue';
+                        id: 'd82da0be8fd649a08d419c97974e2b7c';
                     };
                     'rel-build-imported-by': {
                         table: 'sys_relationship';
@@ -1405,6 +1417,10 @@ declare global {
                         table: 'x_312987_portal_record_field';
                         id: 'e185c3b6bb1f4497a26e59de0a3e9a55';
                     };
+                    'sa-portal-sheet-compile': {
+                        table: 'sysevent_script_action';
+                        id: 'fa2503d8ffbd4e0793ba9ba54b1d9f7f';
+                    };
                     'script-include-quick-utils': {
                         table: 'sys_script_include';
                         id: '37641b67e6a24135aceeebe2dde5300d';
@@ -1469,6 +1485,10 @@ declare global {
                         table: 'sys_module';
                         id: '746117a850b04a0a8b34278053e69993';
                     };
+                    'src_server_automation_sheet-rules_ts': {
+                        table: 'sys_module';
+                        id: '8ca9cd135b124a05bb689cad0bda1e93';
+                    };
                     'src_server_automation_source-file-rules_ts': {
                         table: 'sys_module';
                         id: '0da99972b8954341a38335447d8abba2';
@@ -1485,6 +1505,10 @@ declare global {
                         table: 'sys_module';
                         id: '129b9e003f0943668d4e20c8029e1b86';
                     };
+                    'src_server_compiler_cache-asset_ts': {
+                        table: 'sys_module';
+                        id: 'dbedf4c1c96249019fc85f1a9b6aab56';
+                    };
                     src_server_compiler_compiler_ts: {
                         table: 'sys_module';
                         id: 'cc60548c79ad47bab7da2b55749d78db';
@@ -1492,6 +1516,10 @@ declare global {
                     'src_server_compiler_host-candidates_ts': {
                         table: 'sys_module';
                         id: '108ebc710ec144ab931b8dc1b0be8bab';
+                    };
+                    'src_server_compiler_utility-roots_ts': {
+                        table: 'sys_module';
+                        id: 'ddc330326e0a4b0689ff4f0a0a2a0b77';
                     };
                     'src_server_compiler_variant-layer_ts': {
                         table: 'sys_module';
@@ -3755,6 +3783,14 @@ declare global {
                                     name: 'x_312987_portal.developer';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '1b7040fd62ca4f238e8c5e3ac25bc349';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'sheet_pending';
                         };
                     },
                     {
@@ -8661,6 +8697,15 @@ declare global {
                         key: {
                             name: 'x_312987_portal_menu_item';
                             element: 'icon';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '539cd7b462144e2b83972b5516b2d6c2';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'sheet_pending';
                             language: 'en';
                         };
                     },

@@ -7,7 +7,16 @@ import { requireStudio } from '../security/access.ts';
 import { assembleManifest, Manifest, flattenRegions, MANIFEST_VERSION } from '../runtime/portal-service.ts';
 import { buildOf, copyBuildRef } from '../registry/registry.ts';
 import { reprocessSuppressed } from '../lib/session-flags.ts';
-import { planUtilities, utilitiesFor, utilitiesDescriptor, descriptor, UtilitiesPlan } from './portal-utilities.ts';
+import {
+    planUtilities,
+    utilitiesFor,
+    utilitiesDescriptor,
+    descriptor,
+    UtilitiesPlan,
+    compileInBackground,
+    clearSheetPending,
+    compileSheetsInline,
+} from './portal-utilities.ts';
 import type { ReleaseSummary, PlacementRef, ComponentRef, BuildRef } from '../../shared/contracts';
 
 /**
@@ -254,6 +263,91 @@ export function patchUtilities(portalId: string, plan: UtilitiesPlan): void {
 }
 
 /**
+ * Background mode (x_312987_portal.portal_sheet.background): the job of the
+ * x_312987_portal.portal_sheet.compile event. Clears the pending marker first (a save from now on
+ * queues a follow-up job), then plans from the stored manifest as it is now: nothing to do when the
+ * release's sheet already matches; otherwise the sheet compiles at the end of this script and
+ * patchUtilitiesCurrent points the current release at it. `queuedAt`: when the event was queued (ms).
+ */
+export function compileSheetInBackground(portalId: string, queuedAt: number): void {
+    const started = Date.now();
+    compileSheetsInline(); // whatever this job reprocesses compiles here, never re-queued
+    const r = releaseOf(portalId);
+    const manifest = r ? storedManifest(r) : null;
+    if (!r || !manifest) {
+        gs.info(`[rp] portal sheet (background) ${portalId}: no release; nothing to do`);
+        return;
+    }
+    clearSheetPending(r.getUniqueValue());
+    const plan = planUtilities(manifest);
+    if (str(r, 'utilities_hash') === plan.hash) {
+        const u = manifest.utilities;
+        if (!u || u.hash !== plan.hash || (u.covers || []).join(',') !== plan.covers.join(','))
+            patchUtilitiesCurrent(portalId, plan);
+        gs.info(
+            `[rp] portal sheet (background) ${portalId}: already covered (queue wait ${queuedAt ? started - queuedAt + ' ms' : 'unknown'})`
+        );
+        return;
+    }
+    compileInBackground(portalId, plan, patchUtilitiesCurrent, started, queuedAt, sheetSuperseded);
+}
+
+/**
+ * Before a background job writes its sheet: has another job meanwhile written a different sheet that
+ * matches the portal's current union? Then this one is stale and is dropped (the queue is sequential,
+ * but a job can also overlap an inline compile, e.g. Studio's Reprocess). Otherwise it writes, even when the union moved on (patchUtilitiesCurrent
+ * covers only what it compiled and reprocesses the rest).
+ */
+function sheetSuperseded(portalId: string, plan: UtilitiesPlan): boolean {
+    const r = releaseOf(portalId);
+    const manifest = r ? storedManifest(r) : null;
+    if (!r || !manifest) return false;
+    const written = str(r, 'utilities_hash');
+    return !!written && written !== plan.hash && written === planUtilities(manifest).hash;
+}
+
+/**
+ * After a background sheet compile: point the CURRENT release's manifest (re-read now, not the one
+ * the job planned from) at the new sheet. A save may have changed the manifest during the compile, so
+ * `covers` lists only the builds both in the compiled union and in the current manifest; the rest keep
+ * their own sheets. When the current union differs, it is then reprocessed (compiling the newer union
+ * inline in this job), so the portal converges. Never overwrites a sheet written after this one.
+ */
+export function patchUtilitiesCurrent(portalId: string, plan: UtilitiesPlan): void {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const r = releaseOf(portalId);
+        const manifest = r ? storedManifest(r) : null;
+        if (!r || !manifest) {
+            processPortal(portalId);
+            return;
+        }
+        if (str(r, 'utilities_hash') !== plan.hash) {
+            gs.info(`[rp] portal sheet (background) ${portalId}: a newer sheet was written meanwhile; left alone`);
+            return;
+        }
+        const current = planUtilities(manifest);
+        const compiled: Record<string, boolean> = {};
+        for (const k of plan.covers) compiled[k] = true;
+        manifest.utilities = descriptor(
+            r.getUniqueValue(),
+            plan.hash,
+            current.covers.filter((k) => compiled[k])
+        );
+        const hash = sha256(canonicalJson(manifest));
+        if (str(r, 'manifest_hash') !== hash) {
+            // Revision check: a save that wrote the release since it was read wins; plan again on it.
+            const now = getById(T.release, r.getUniqueValue());
+            if (!now || int(now, 'revision') !== int(r, 'revision')) continue;
+            writeRelease(portalId, r, manifest, hash, manifestProblems(manifest));
+        }
+        if (current.hash !== plan.hash) processPortal(portalId);
+        return;
+    }
+    gs.warn(`[rp] portal sheet (background) ${portalId}: release kept changing; reprocessing in full`);
+    processPortal(portalId);
+}
+
+/**
  * After a compile that changed only `componentId`'s entry assets (same build record, same import
  * edges, usable before and after): rewrite its BuildRefs in the stored manifest (placements, layouts
  * and every imports[] entry), then redo the utilities plan and the hash. Release entries hold build
@@ -289,6 +383,7 @@ export function patchPortalBuild(portalId: string, componentId: string, ref: Bui
  * serves a live-assembled manifest (correct, slower). new x_312987_portal.ReactPortal().reprocessAll()
  */
 export function processAllPortals(): number {
+    compileSheetsInline();
     let n = 0;
     each(T.portal, '', (p) => {
         if (processPortal(p.getUniqueValue(), true)) n++;
@@ -400,6 +495,7 @@ export function importersOf(componentId: string): string[] {
 /** Studio: force-reprocess a portal (e.g. after changing properties that feed the manifest). */
 export function reprocess(portalId: string): ReleaseSummary {
     requireStudio('publish');
+    compileSheetsInline(); // Reprocess compiles the portal sheet in the request, whatever the property says
     const summary = processPortal(portalId, true);
     if (!summary) throw notFound('Portal not found');
     return summary;

@@ -10,7 +10,13 @@ import { loadOwner, Owner, OwnerType } from './owner.ts';
 import { gs } from '@servicenow/glide';
 import { clearSessionFlag, SKIP_REPROCESS_KEY } from '../lib/session-flags.ts';
 import { reprocessForOwner } from '../release/release-service.ts';
-import { compileOwner, buildSummary, runtimeAbiVersion } from '../build/build-service.ts';
+import {
+    compileOwner,
+    buildSummary,
+    runtimeAbiVersion,
+    compileCacheOf,
+    resolveRecordImports,
+} from '../build/build-service.ts';
 import { compileComponent, CompilerFile } from '../compiler/compiler.ts';
 import {
     virtualMapFor,
@@ -424,11 +430,17 @@ export function check(type: OwnerType, id: string, files: { path: string; conten
         if (target !== 'client' && target !== 'style') continue;
         merged[path] = { path, content: f.content, target: target as CompilerFile['target'] };
     }
+    // Problems only: no Tailwind (it reports nothing a check needs), and unchanged files reuse the
+    // build's cached Sucrase output (read only; a check writes nothing).
     return compileComponent({
         files: Object.keys(merged).map((k) => merged[k]),
-        tailwind: bool(owner.gr, 'tailwind'),
+        tailwind: false,
         label: str(owner.gr, 'unique_id'),
+        cache: compileCacheOf(buildOf('component', id)),
+        hash: sha256,
     }).then((r) => {
+        // Record imports resolve exactly as on save (unknown component, wrong kind, not compiled yet).
+        if (r.ok) resolveRecordImports(owner, r);
         const all = errors.concat(r.diagnostics.errors);
         return {
             ok: all.length === 0,

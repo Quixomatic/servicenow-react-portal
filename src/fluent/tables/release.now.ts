@@ -72,6 +72,11 @@ export const x_312987_portal_release = Table({
             readOnly: true,
             hint: 'Candidates, bytes, compile time and when it was compiled',
         }),
+        sheet_pending: DateTimeColumn({
+            label: 'Portal sheet compile queued',
+            readOnly: true,
+            hint: 'Background mode: when a background sheet compile was queued; cleared when the job starts',
+        }),
     },
 });
 

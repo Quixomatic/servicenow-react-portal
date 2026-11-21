@@ -15,6 +15,8 @@ import {
     INSTANCE_LAYER,
     INSTANCE_VARIANT_LAYER,
 } from './variant-layer.ts';
+import { UTILITY_ROOTS, UTILITY_ROOTS_KEY } from './utility-roots.ts';
+import { HOST_CANDIDATES } from './host-candidates.ts';
 
 /**
  * RPCompiler: server-side component compiler (runs in the instance's JavaScript engine, no
@@ -49,7 +51,41 @@ export interface CompileInput {
     tailwind: boolean;
     /** For the banner comment and diagnostics. */
     label: string;
+    /**
+     * The previous compile's cache (compile-cache.json of the owner's build). Used only together with
+     * `hash`, and only when its format, compiler and utility roots match this compiler.
+     */
+    cache?: CompileCache | null;
+    /** Content hash for the cache (sha256 on the instance). Without it nothing is cached. */
+    hash?: (text: string) => string;
 }
+
+/**
+ * What one compile remembers for the next (stored as the build's compile-cache.json). Every entry is
+ * keyed by content or by compiler identity, so a stale or foreign cache only causes misses: outputs are
+ * byte-identical with or without it.
+ */
+export interface CompileCache {
+    format: number;
+    compiler: string;
+    roots: string;
+    /** Per linked file: content hash → Sucrase output, and its possible utilities (Tailwind builds only). */
+    files: Record<string, CompileCacheFile>;
+    /** Possible utilities Tailwind accepted (= the build's candidates, sorted) and rejected. */
+    valid: string[];
+    rejected: string[];
+    /** The utilities sheet compiled from `valid` (result.utilities). */
+    utilities: string;
+}
+
+export interface CompileCacheFile {
+    hash: string;
+    code: string;
+    survivors?: string[];
+}
+
+export { COMPILE_CACHE_ASSET } from './cache-asset.ts';
+const COMPILE_CACHE_FORMAT = 1;
 
 export interface Diagnostic {
     file?: string;
@@ -63,6 +99,8 @@ export interface CompileDependency {
     kind: 'host' | 'relative' | 'component';
     hostExport?: string;
     resolvedEntry?: string;
+    /** The file that imports it (the first one, for host and record imports). */
+    file?: string;
 }
 
 export interface CompileResult {
@@ -78,6 +116,8 @@ export interface CompileResult {
     diagnostics: { errors: Diagnostic[]; warnings: Diagnostic[] };
     compilerVersion: string;
     ms: number;
+    /** The cache for the next compile (only when the input had `hash` and the compile succeeded). */
+    cache?: CompileCache;
 }
 
 /** Bare specifiers the host registry provides (prefix entries end with ':'). */
@@ -166,8 +206,36 @@ interface Linked {
     errors: Diagnostic[];
 }
 
+/** Per-compile cache state: the previous cache (when usable) and the entries for the next one. */
+interface CacheState {
+    hash: (text: string) => string;
+    prev: CompileCache | null;
+    next: Record<string, CompileCacheFile>;
+}
+
+function usableCache(cache: CompileCache | null | undefined): CompileCache | null {
+    if (!cache || typeof cache !== 'object') return null;
+    if (cache.format !== COMPILE_CACHE_FORMAT || cache.compiler !== COMPILER_VERSION) return null;
+    if (cache.roots !== UTILITY_ROOTS_KEY || !cache.files || typeof cache.files !== 'object') return null;
+    return cache;
+}
+
+/** Sucrase output of a file, reused from the previous compile when the content hash matches. */
+function transformCached(file: CompilerFile, state: CacheState | null): string {
+    if (!state) return transformFile(file);
+    const hash = state.hash(file.content);
+    const prev = state.prev ? state.prev.files[file.path] : undefined;
+    if (prev && prev.hash === hash && typeof prev.code === 'string') {
+        state.next[file.path] = { hash, code: prev.code, survivors: prev.survivors };
+        return prev.code;
+    }
+    const code = transformFile(file);
+    state.next[file.path] = { hash, code };
+    return code;
+}
+
 /** Walk the import graph from main.tsx, transforming each reachable code file once. */
-function link(byPath: Record<string, CompilerFile>): Linked {
+function link(byPath: Record<string, CompilerFile>, state: CacheState | null): Linked {
     const linked: Linked = { order: [], code: {}, maps: {}, styles: [], dependencies: [], errors: [] };
     const seenHost: Record<string, boolean> = {};
     const queue = [ENTRY];
@@ -183,7 +251,7 @@ function link(byPath: Record<string, CompilerFile>): Linked {
         }
         let code: string;
         try {
-            code = transformFile(file);
+            code = transformCached(file, state);
         } catch (e) {
             linked.errors.push(toDiagnostic(path, e));
             continue;
@@ -210,7 +278,7 @@ function link(byPath: Record<string, CompilerFile>): Linked {
                     map[spec] = target;
                     queue.push(target);
                 }
-                linked.dependencies.push({ specifier: spec, kind: 'relative', resolvedEntry: target });
+                linked.dependencies.push({ specifier: spec, kind: 'relative', resolvedEntry: target, file: path });
             } else if (isHost(spec)) {
                 map[spec] = '@host:' + spec;
                 if (!seenHost[spec]) {
@@ -218,8 +286,14 @@ function link(byPath: Record<string, CompilerFile>): Linked {
                     // Record imports load another component's build into the registry at runtime
                     // (resolved and validated by the build service); the rest are host built-ins.
                     const rec = RECORD_IMPORT.exec(spec);
-                    if (rec) linked.dependencies.push({ specifier: spec, kind: 'component', resolvedEntry: rec[2] });
-                    else linked.dependencies.push({ specifier: spec, kind: 'host', hostExport: spec });
+                    if (rec)
+                        linked.dependencies.push({
+                            specifier: spec,
+                            kind: 'component',
+                            resolvedEntry: rec[2],
+                            file: path,
+                        });
+                    else linked.dependencies.push({ specifier: spec, kind: 'host', hostExport: spec, file: path });
                 }
             } else {
                 linked.errors.push({
@@ -449,6 +523,11 @@ function portalDesignSystem(): Promise<TailwindDesignSystem> {
  * component input), so classes from the host's CSS packages count too.
  */
 export function validCandidates(candidates: string[]): Promise<string[]> {
+    return verdicts(candidates.filter((t) => isPossibleUtility(t))).then((valid) => valid.sort());
+}
+
+/** The candidates Tailwind accepts, in input order (the design system only loads for a non-empty list). */
+function verdicts(candidates: string[]): Promise<string[]> {
     if (!candidates.length) return Promise.resolve([]);
     return portalDesignSystem().then((ds) => {
         const css = ds.candidatesToCss(candidates);
@@ -456,7 +535,86 @@ export function validCandidates(candidates: string[]): Promise<string[]> {
         for (let i = 0; i < candidates.length; i++) {
             if (css[i] !== null && css[i] !== undefined) out.push(candidates[i]);
         }
-        return out.sort();
+        return out;
+    });
+}
+
+/**
+ * Root pre-filter (Tailwind's own findRoots rule): after its variants (up to the last ':' outside
+ * brackets and parentheses) and its !/- markers, a utility starts with an arbitrary property ([…]) or
+ * with one of the design system's utility roots, as the whole word or up to a '-'. Anything else can't
+ * be a utility, so it skips candidatesToCss, which costs about 0.5 ms per rejected word on the instance.
+ * The roots come from the portal input (utility-roots.ts, generated and checked by vendor:compiler).
+ */
+const ROOT_SET: Record<string, boolean> = {};
+for (const r of UTILITY_ROOTS) ROOT_SET[r] = true;
+
+export function isPossibleUtility(token: string, roots?: Record<string, boolean>): boolean {
+    const set = roots || ROOT_SET;
+    let depth = 0;
+    let cut = -1;
+    for (let i = 0; i < token.length; i++) {
+        const ch = token.charAt(i);
+        if (ch === '[' || ch === '(') depth++;
+        else if ((ch === ']' || ch === ')') && depth > 0) depth--;
+        else if (ch === ':' && depth === 0) cut = i;
+    }
+    let base = token.substring(cut + 1);
+    if (base.charAt(0) === '!') base = base.substring(1);
+    if (base.charAt(base.length - 1) === '!') base = base.substring(0, base.length - 1);
+    if (base.charAt(0) === '-') base = base.substring(1);
+    if (base.charAt(0) === '[') return true;
+    if (set[base] === true || set[base.split('/')[0]] === true) return true;
+    let dash = base.indexOf('-');
+    while (dash > 0) {
+        if (set[base.substring(0, dash)] === true) return true;
+        dash = base.indexOf('-', dash + 1);
+    }
+    return false;
+}
+
+/** The host's classes, verified valid for the portal input (host-candidates.ts): no design system needed. */
+let hostSet: Record<string, boolean> | null = null;
+
+function isHostCandidate(token: string): boolean {
+    if (!hostSet) {
+        hostSet = {};
+        for (const c of HOST_CANDIDATES) hostSet[c] = true;
+    }
+    return hostSet[token] === true;
+}
+
+/** A file's possible utilities (extracted, then root-filtered). */
+function survivorsOf(content: string): string[] {
+    return extractCandidates([content]).filter((t) => isPossibleUtility(t));
+}
+
+/**
+ * The valid candidates of a compile (sorted) and the rejected possible utilities. Verdicts known from
+ * the previous compile and the host's classes need no design system; only new words load it.
+ */
+function cachedCandidates(
+    survivors: string[],
+    prev: CompileCache | null
+): Promise<{ valid: string[]; rejected: string[] }> {
+    const known: Record<string, boolean> = Object.create(null);
+    if (prev) {
+        for (const t of prev.valid || []) known[t] = true;
+        for (const t of prev.rejected || []) known[t] = false;
+    }
+    const unknown: string[] = [];
+    for (const t of survivors) {
+        if (known[t] === true || known[t] === false) continue;
+        if (isHostCandidate(t)) known[t] = true;
+        else unknown.push(t);
+    }
+    return verdicts(unknown).then((accepted) => {
+        for (const t of unknown) known[t] = false;
+        for (const t of accepted) known[t] = true;
+        const valid: string[] = [];
+        const rejected: string[] = [];
+        for (const t of survivors) (known[t] ? valid : rejected).push(t);
+        return { valid: valid.sort(), rejected: rejected.sort() };
     });
 }
 
@@ -497,7 +655,8 @@ export function compileComponent(input: CompileInput): Promise<CompileResult> {
         return Promise.resolve(finish());
     }
 
-    const linked = link(byPath);
+    const state: CacheState | null = input.hash ? { hash: input.hash, prev: usableCache(input.cache), next: {} } : null;
+    const linked = link(byPath, state);
     result.diagnostics.errors.push(...linked.errors);
     result.dependencies = linked.dependencies;
     if (linked.errors.length) return Promise.resolve(finish());
@@ -510,15 +669,59 @@ export function compileComponent(input: CompileInput): Promise<CompileResult> {
     for (const p of linked.styles) if (p !== 'styles.css') authorCss.push(`/* ${p} */\n${byPath[p].content}`);
 
     result.css = authorCss.join('\n\n');
-    if (!input.tailwind) return Promise.resolve(finish());
-    return validCandidates(extractCandidates(linked.order.map((p) => byPath[p].content)))
-        .then((valid) => {
-            result.candidates = valid;
-            return valid.length ? compileTailwind(valid) : '';
+    const cacheOf = (valid: string[], rejected: string[], utilities: string): CompileCache | undefined =>
+        state
+            ? {
+                  format: COMPILE_CACHE_FORMAT,
+                  compiler: COMPILER_VERSION,
+                  roots: UTILITY_ROOTS_KEY,
+                  files: state.next,
+                  valid,
+                  rejected,
+                  utilities,
+              }
+            : undefined;
+    if (!input.tailwind) {
+        result.cache = cacheOf([], [], '');
+        return Promise.resolve(finish());
+    }
+
+    // Possible utilities of the linked files: per file through the cache, else in one pass. Extraction
+    // is a per-file union, so both give the same set as extracting from all sources together.
+    let survivors: string[];
+    if (state) {
+        const seen: Record<string, boolean> = Object.create(null);
+        survivors = [];
+        for (const p of linked.order) {
+            const entry = state.next[p];
+            if (!Array.isArray(entry.survivors)) entry.survivors = survivorsOf(byPath[p].content);
+            for (const t of entry.survivors) {
+                if (seen[t] === true) continue;
+                seen[t] = true;
+                survivors.push(t);
+            }
+        }
+    } else
+        survivors = extractCandidates(linked.order.map((p) => byPath[p].content)).filter((t) => isPossibleUtility(t));
+
+    const prev = state ? state.prev : null;
+    let rejected: string[] = [];
+    return cachedCandidates(survivors, prev)
+        .then((c): Promise<string> => {
+            result.candidates = c.valid;
+            rejected = c.rejected;
+            // Same candidates as the previous compile: same utilities sheet (Tailwind is deterministic).
+            if (prev && typeof prev.utilities === 'string' && (prev.valid || []).join(' ') === c.valid.join(' '))
+                return Promise.resolve(prev.utilities);
+            if (!c.valid.length) return Promise.resolve('');
+            return compileTailwind(c.valid).then((tw) =>
+                tw.trim() ? `/* tailwind v${tailwindVersion} utilities */\n${tw}` : ''
+            );
         })
         .then(
-            (tw) => {
-                result.utilities = tw.trim() ? `/* tailwind v${tailwindVersion} utilities */\n${tw}` : '';
+            (utilities) => {
+                result.utilities = utilities;
+                result.cache = cacheOf(result.candidates, rejected, result.utilities);
                 return finish();
             },
             (e) => {

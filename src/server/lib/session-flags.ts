@@ -29,3 +29,14 @@ export function clearSessionFlag(key: string): void {
     const session: any = gs.getSession();
     session.putClientData(key, '');
 }
+
+/**
+ * Session flag set by the seed around its final reprocess: portal sheets compile inline in this script
+ * even when x_312987_portal.portal_sheet.background is on (the seed waits for them and reports timings).
+ */
+export const SHEET_INLINE_KEY = 'x_312987_portal.sheet_inline';
+
+export function sheetInlineForced(): boolean {
+    const session: any = gs.getSession();
+    return String(session.getClientData(SHEET_INLINE_KEY) || '') === 'true';
+}

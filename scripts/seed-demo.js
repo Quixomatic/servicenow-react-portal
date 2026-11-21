@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.25.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.26.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     // Load every module the deferred steps use NOW, while the script runs in this app's scope. Promise
     // callbacks run when the outermost script finishes, and after real compiles (new build_asset inserts
@@ -30,8 +30,8 @@
     // Run id (tags the "[seed] done" / failure syslog lines; scripts/seed/run-seed.mjs polls for it)
     // and this template's hash, stored by portals/full runs in TEMPLATE_HASH_PROPERTY when they finish
     // so `npm run seed` reruns the portals step only after the template changes.
-    var SEED_RUN_ID = 'manual-20261121005023-1pqv';
-    var SEED_TEMPLATE_HASH = 'f4ddf2a19acccfb52d2230305059878e';
+    var SEED_RUN_ID = 'manual-20261121014141-l0ng';
+    var SEED_TEMPLATE_HASH = '655a2d0c921f44470e431da12dc95ab8';
     var TEMPLATE_HASH_PROPERTY = 'x_312987_portal.seed.template_hash';
     // While the seed runs, the compile-on-save rules and per-write portal reprocessing are off:
     // every component compiles ONCE in dependency order below, and every active portal reprocesses
@@ -46,6 +46,14 @@
     seedSession.putClientData(SKIP_COMPILE, 'true');
     seedSession.putClientData(SKIP_REPROCESS, 'true');
     seedSession.putClientData(SKIP_INSTANCE_CSS, 'true');
+    // Portal sheets compile inline in this script even when x_312987_portal.portal_sheet.background is
+    // on: the final reprocess waits for them, so "[seed] done" timings include the sheet. Cleared at the
+    // end (separately from the batch flags, which clear before the reprocess).
+    var SHEET_INLINE = 'x_312987_portal.sheet_inline';
+    seedSession.putClientData(SHEET_INLINE, 'true');
+    function clearSheetInline() {
+        seedSession.putClientData(SHEET_INLINE, '');
+    }
     function clearBatchFlags() {
         seedSession.putClientData(SKIP_COMPILE, '');
         seedSession.putClientData(SKIP_REPROCESS, '');
@@ -9095,6 +9103,7 @@
                     );
                 }
                 mark('reprocess');
+                clearSheetInline(); // the reprocess above queued its sheet compiles inline
                 // Portal structure is in place: record which template produced it (scoped gs.setProperty
                 // creates the property in this scope when missing). Written before the done line.
                 if (SEED_MODE === 'portals' || SEED_MODE === 'full') {
@@ -9129,6 +9138,7 @@
             })
             .then(null, function (e) {
                 clearBatchFlags();
+                clearSheetInline();
                 gs.error('[seed] final reprocess failed run=' + SEED_RUN_ID + ': ' + e);
             });
 

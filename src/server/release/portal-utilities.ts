@@ -1,10 +1,11 @@
-import { gs } from '@servicenow/glide';
+import { gs, GlideDateTime } from '@servicenow/glide';
 import { GR, getById, findOne, each, str, inChunks } from '../lib/gr.ts';
 import { T } from '../lib/tables.ts';
-import { sha256, parseJson, nowValue } from '../lib/util.ts';
+import { sha256, parseJson, nowValue, propBool } from '../lib/util.ts';
 import { assetUrl, CANDIDATES_ASSET } from '../registry/registry.ts';
 import { compilePortalUtilities, COMPILER_VERSION } from '../compiler/compiler.ts';
 import { HOST_CANDIDATES } from '../compiler/host-candidates.ts';
+import { sheetInlineForced } from '../lib/session-flags.ts';
 import { flattenRegions } from '../runtime/portal-service.ts';
 import type { Manifest } from '../runtime/portal-service.ts';
 import type { BuildRef, ComponentRef, PortalUtilities } from '../../shared/contracts';
@@ -21,6 +22,15 @@ import type { BuildRef, ComponentRef, PortalUtilities } from '../../shared/contr
  *
  * Until then the manifest keeps the previous sheet, covering only the builds whose utilities did not
  * change (their keys are content hashes); everything else falls back to its own utilities sheet.
+ *
+ * Background mode (x_312987_portal.portal_sheet.background, on by default): instead of compiling
+ * at the end of the save's script, queue the x_312987_portal.portal_sheet.compile event (gs.eventQueue,
+ * so it doesn't depend on business rules) on the sequential x_312987_portal.portal_sheet queue, once
+ * per portal while the release's sheet_pending marker is set. The save returns with the interim
+ * manifest above (the changed build uses its own sheet); the event's script action
+ * (compileSheetInBackground in release-service.ts) clears the marker, re-plans from the stored
+ * manifest, compiles, and patches `utilities` on the current release. Seeds, Studio's Reprocess and
+ * reprocessAll stay inline.
  */
 
 export const PORTAL_UTILITIES_ASSET = 'portal-utilities.css';
@@ -104,6 +114,35 @@ export function descriptor(releaseId: string, hash: string, covers: string[]): P
 /** Portals whose sheet compile is queued in this script: portal sys_id → union hash. */
 const queued: Record<string, string> = {};
 
+/** Portals whose background compile event was queued in this script. */
+const queuedEvents: Record<string, boolean> = {};
+
+export const SHEET_EVENT = 'x_312987_portal.portal_sheet.compile';
+/** Sequential custom event queue (sheet-rules.now.ts), polled every 2 s. */
+export const SHEET_QUEUE = 'x_312987_portal.portal_sheet';
+
+/** A pending marker older than this is ignored (its event was lost or its queue is stuck). */
+const PENDING_STALE_MS = 3 * 60 * 1000;
+
+/**
+ * Compiles in this script run inline whatever the property says: set by the background job itself
+ * (its compiles must not re-queue), Studio's Reprocess and reprocessAll.
+ */
+let inlineScript = false;
+
+export function compileSheetsInline(): void {
+    inlineScript = true;
+}
+
+/**
+ * Compile changed sheets in a background event instead of in this script? Yes unless
+ * x_312987_portal.portal_sheet.background is false (default true), and never in a seed (session flag
+ * x_312987_portal.sheet_inline: the seed reports timings once the sheet is compiled) or an inline script.
+ */
+export function sheetInBackground(): boolean {
+    return !inlineScript && !sheetInlineForced() && propBool('portal_sheet.background', true);
+}
+
 /**
  * Queued compiles run one after another. Started together they interleave (Tailwind's compile() is
  * asynchronous), so a reprocess of every portal measured each compile as the whole burst.
@@ -143,7 +182,7 @@ export type SheetSaved = (portalId: string, plan: UtilitiesPlan) => void;
 
 /**
  * utilitiesDescriptor, and queue the sheet compile when the union changed; `saved` runs after the
- * sheet is stored.
+ * sheet is stored. In background mode the compile is queued as an event instead (queueSheetEvent).
  */
 export function utilitiesFor(
     portalId: string,
@@ -152,11 +191,83 @@ export function utilitiesFor(
     saved: SheetSaved
 ): PortalUtilities | null {
     const d = utilitiesDescriptor(release, plan);
-    if (d.compile) queueCompile(portalId, plan, saved);
+    if (d.compile) {
+        if (sheetInBackground()) queueSheetEvent(portalId, release);
+        else queueCompile(portalId, plan, saved);
+    }
     return d.utilities;
 }
 
-function queueCompile(portalId: string, plan: UtilitiesPlan, saved: SheetSaved): void {
+/** Is a background compile already queued for the release (a fresh sheet_pending marker)? */
+function pendingMarker(release: GR): boolean {
+    const at = str(release, 'sheet_pending');
+    if (!at) return false;
+    const age = new GlideDateTime().getNumericValue() - new GlideDateTime(at).getNumericValue();
+    return age >= 0 && age < PENDING_STALE_MS;
+}
+
+/** Write (a date-time value) or clear ('') the release's sheet_pending marker, without running rules. */
+function writeMarker(releaseId: string, value: string): void {
+    const r = getById(T.release, releaseId);
+    if (!r || str(r, 'sheet_pending') === value) return;
+    r.setValue('sheet_pending', value);
+    r.setWorkflow(false);
+    r.update();
+}
+
+/**
+ * Background mode: queue ONE compile event per portal. The first save that needs a recompile queues
+ * the event and sets the release's sheet_pending marker; later saves see the marker and queue nothing
+ * (the job plans from the data as it is when it starts, so it includes them). The job clears the
+ * marker when it starts, so a save made while it compiles queues a follow-up job. A portal without a
+ * release yet has no marker: it just queues.
+ */
+function queueSheetEvent(portalId: string, release: GR | null): void {
+    if (queuedEvents[portalId]) return;
+    queuedEvents[portalId] = true;
+    const fresh = release ? getById(T.release, release.getUniqueValue()) : null;
+    if (fresh && pendingMarker(fresh)) return;
+    const portal = getById(T.portal, portalId);
+    if (!portal) return;
+    if (fresh) writeMarker(fresh.getUniqueValue(), nowValue());
+    // parm2: when it was queued (ms), so the job can log the queue latency.
+    gs.eventQueue(SHEET_EVENT, portal, portalId, String(Date.now()), SHEET_QUEUE);
+    gs.info(`[rp] portal sheet (background) ${portalId}: queued`);
+}
+
+/** The background job, as it starts: clear the marker, so saves from now on queue a follow-up job. */
+export function clearSheetPending(releaseId: string): void {
+    writeMarker(releaseId, '');
+}
+
+/**
+ * The background job (release-service.ts compileSheetInBackground): compile `plan` at the end of this
+ * script, then run `saved` (unless `superseded`). `started` (job start) and `queuedAt` (event queue time, 0 when unknown)
+ * only feed the timing log.
+ */
+export function compileInBackground(
+    portalId: string,
+    plan: UtilitiesPlan,
+    saved: SheetSaved,
+    started: number,
+    queuedAt: number,
+    superseded: (portalId: string, plan: UtilitiesPlan) => boolean
+): void {
+    inlineScript = true;
+    queueCompile(portalId, plan, saved, { started, queuedAt, superseded });
+}
+
+interface JobTiming {
+    started: number;
+    queuedAt: number;
+    /**
+     * Checked after the compile, before the sheet is written: true when another job already wrote the
+     * sheet the portal needs now (the default event queue can run two jobs at once).
+     */
+    superseded: (portalId: string, plan: UtilitiesPlan) => boolean;
+}
+
+function queueCompile(portalId: string, plan: UtilitiesPlan, saved: SheetSaved, job?: JobTiming): void {
     if (queued[portalId] === plan.hash) return;
     queued[portalId] = plan.hash;
     // Settles at the end of the outermost script (the instance's Promise semantics), like the
@@ -168,6 +279,13 @@ function queueCompile(portalId: string, plan: UtilitiesPlan, saved: SheetSaved):
             return compilePortalUtilities(plan.candidates).then((css) => {
                 if (queued[portalId] !== plan.hash) return;
                 const ms = Date.now() - started;
+                if (job && job.superseded(portalId, plan)) {
+                    delete queued[portalId];
+                    gs.info(
+                        `[rp] portal sheet (background) ${portalId}: compiled in ${ms} ms, but a newer job already wrote the current sheet; discarded`
+                    );
+                    return;
+                }
                 const release = findOne(T.release, `portal=${portalId}`);
                 if (!release) return;
                 const r = getById(T.release, release.getUniqueValue());
@@ -183,6 +301,7 @@ function queueCompile(portalId: string, plan: UtilitiesPlan, saved: SheetSaved):
                         ms,
                         compiler: COMPILER_VERSION,
                         compiledAt: nowValue(),
+                        background: !!job,
                     })
                 );
                 r.update();
@@ -191,6 +310,11 @@ function queueCompile(portalId: string, plan: UtilitiesPlan, saved: SheetSaved):
                     `[rp] portal utilities ${portalId}: ${plan.candidates.length} candidates, ${plan.builds} builds, ${css.length} bytes, ${ms} ms`
                 );
                 saved(portalId, plan);
+                if (job)
+                    gs.info(
+                        `[rp] portal sheet (background) ${portalId} compiled in ${ms} ms (job ${Date.now() - job.started} ms, ` +
+                            `queue wait ${job.queuedAt ? job.started - job.queuedAt + ' ms' : 'unknown'})`
+                    );
             });
         })
         .then(null, (e: unknown) => {

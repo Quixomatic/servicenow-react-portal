@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.25.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.26.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     // Load every module the deferred steps use NOW, while the script runs in this app's scope. Promise
     // callbacks run when the outermost script finishes, and after real compiles (new build_asset inserts
@@ -46,6 +46,14 @@
     seedSession.putClientData(SKIP_COMPILE, 'true');
     seedSession.putClientData(SKIP_REPROCESS, 'true');
     seedSession.putClientData(SKIP_INSTANCE_CSS, 'true');
+    // Portal sheets compile inline in this script even when x_312987_portal.portal_sheet.background is
+    // on: the final reprocess waits for them, so "[seed] done" timings include the sheet. Cleared at the
+    // end (separately from the batch flags, which clear before the reprocess).
+    var SHEET_INLINE = 'x_312987_portal.sheet_inline';
+    seedSession.putClientData(SHEET_INLINE, 'true');
+    function clearSheetInline() {
+        seedSession.putClientData(SHEET_INLINE, '');
+    }
     function clearBatchFlags() {
         seedSession.putClientData(SKIP_COMPILE, '');
         seedSession.putClientData(SKIP_REPROCESS, '');
@@ -650,6 +658,7 @@
                     );
                 }
                 mark('reprocess');
+                clearSheetInline(); // the reprocess above queued its sheet compiles inline
                 // Portal structure is in place: record which template produced it (scoped gs.setProperty
                 // creates the property in this scope when missing). Written before the done line.
                 if (SEED_MODE === 'portals' || SEED_MODE === 'full') {
@@ -684,6 +693,7 @@
             })
             .then(null, function (e) {
                 clearBatchFlags();
+                clearSheetInline();
                 gs.error('[seed] final reprocess failed run=' + SEED_RUN_ID + ': ' + e);
             });
 
