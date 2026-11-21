@@ -12,8 +12,13 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.23.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.24.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
+    // Load every module the deferred steps use NOW, while the script runs in this app's scope. Promise
+    // callbacks run when the outermost script finishes, and after real compiles (new build_asset inserts
+    // on sys_metadata) a module first required there resolved against the global module namespace:
+    // 'Module package "es.latest.global.module/x-312987-react-portal/…/package.json" does not exist'.
+    var instanceStyle = require(ROOT + 'design/instance-style.ts');
     var T = 'x_312987_portal_';
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).
     var UC_ITIL = '2f137fb2eb303010e0ef83c45e52287c';
@@ -46,6 +51,16 @@
     var seedStats = { written: 0, compiled: 0, upToDate: 0, failed: 0, portals: 0, byTable: {} };
     function mark(label) {
         seedTimes.push(label + ' ' + (Date.now() - seedT0) + 'ms');
+    }
+    // Progress for `npm run seed` (it polls syslog for "[seed] progress run=<id> …" while the exec
+    // runs): at most one line every 3 s unless forced (phase changes), and never fatal.
+    var seedProgressAt = 0;
+    function seedProgress(text, force) {
+        try {
+            if (!force && Date.now() - seedProgressAt < 3000) return;
+            seedProgressAt = Date.now();
+            gs.info('[seed] progress run=' + SEED_RUN_ID + ' ' + text);
+        } catch (e) {}
     }
     try {
         // Stored vs wanted, ignoring formatting the platform adds: JSON fields compare by canonical
@@ -435,8 +450,12 @@
         }
 
         var C = {};
+        var seedWriteTotal = Object.keys(components).length;
+        var seedWriteN = 0;
         for (var key in components) {
             var c = components[key];
+            seedWriteN++;
+            seedProgress('writing ' + seedWriteN + '/' + seedWriteTotal + ' ' + key, seedWriteN === 1);
             // Saving the record triggers "RP: Compile component on save" (server compiler).
             // Map keys: "<key>" = app/<key>; "<ns>/<key>" = another namespace (components/@<ns>/<key>/).
             var cns = c.namespace || 'app';
@@ -496,12 +515,19 @@
         var importLog = [];
         var importChain = Promise.resolve();
         mark('records');
+        var seedCompileTotal = Object.keys(themeIds).length + Object.keys(components).length;
+        var seedCompileN = 0;
+        importChain = importChain.then(function () {
+            seedProgress('compiling 0/' + seedCompileTotal, true);
+        });
         // Themes compile too (their compile-on-save rule is off during the seed).
         Object.keys(themeIds).forEach(function (tk) {
             importChain = importChain.then(function () {
                 return builds.compileOwner(owners.loadOwner('theme', themeIds[tk])).then(function (b) {
                     if (b.upToDate) seedStats.upToDate++;
                     else seedStats.compiled++;
+                    seedCompileN++;
+                    seedProgress('compiled ' + seedCompileN + '/' + seedCompileTotal + ' theme ' + tk);
                 });
             });
         });
@@ -514,6 +540,11 @@
                     if (b.upToDate) seedStats.upToDate++;
                     else if (errs.length) seedStats.failed++;
                     else seedStats.compiled++;
+                    seedCompileN++;
+                    seedProgress(
+                        'compiled ' + seedCompileN + '/' + seedCompileTotal + ' ' + key,
+                        seedCompileN === seedCompileTotal
+                    );
                     importLog.push(
                         key +
                             ': ' +
@@ -544,7 +575,7 @@
                 // Instance CSS of every placement the seed wrote (grid layout, style tokens, classes,
                 // x-css-var block options): the placement business rule is suppressed by the batch flag,
                 // so compile here, before the reprocess ships it in the manifests.
-                var instanceStyle = require(ROOT + 'design/instance-style.ts');
+                seedProgress('instance css ' + seedPlacements.length + ' placements', true);
                 return Promise.all(
                     seedPlacements.map(function (id) {
                         return instanceStyle.refreshInstanceCss(id).then(null, function (e) {
@@ -561,6 +592,7 @@
                 // didn't reprocess: the skip flag is still on). The flags are cleared first so a failure
                 // here can't leave the session suppressing compiles.
                 clearBatchFlags();
+                seedProgress('reprocessing portals', true);
                 var relLog = [];
                 var pgr = new GlideRecord(T + 'portal');
                 pgr.addActiveQuery();
@@ -614,6 +646,8 @@
                 clearBatchFlags();
                 gs.error('[seed] final reprocess failed run=' + SEED_RUN_ID + ': ' + e);
             });
+
+        if (SEED_MODE !== 'components') seedProgress('writing portals, pages and menus', true);
 
         /* ---------------- Portals, pages, placements ---------------- */
 

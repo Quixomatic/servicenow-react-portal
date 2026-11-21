@@ -1489,6 +1489,10 @@ declare global {
                         table: 'sys_module';
                         id: 'cc60548c79ad47bab7da2b55749d78db';
                     };
+                    'src_server_compiler_host-candidates_ts': {
+                        table: 'sys_module';
+                        id: '108ebc710ec144ab931b8dc1b0be8bab';
+                    };
                     'src_server_compiler_variant-layer_ts': {
                         table: 'sys_module';
                         id: 'eecc22f14c704d85a8980a302b5c3ce0';
@@ -1604,6 +1608,10 @@ declare global {
                     src_server_registry_registry_ts: {
                         table: 'sys_module';
                         id: '91726c31c83f4cdb8cab4700c931d685';
+                    };
+                    'src_server_release_portal-utilities_ts': {
+                        table: 'sys_module';
+                        id: '4fd10cb40d9e48e7aa01fbaaeb922438';
                     };
                     'src_server_release_release-service_ts': {
                         table: 'sys_module';
@@ -4234,6 +4242,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation';
+                        id: '214a592f10744d81b62b1897012b2ac2';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'utilities_hash';
+                            language: 'en';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
                         id: '216273ce3c2e48739348d22ff30a77de';
                         key: {
                             name: 'x_312987_portal_component';
@@ -5864,6 +5881,14 @@ declare global {
                     },
                     {
                         table: 'sys_dictionary';
+                        id: '361aa120e1c54f0babc4ef324ea43644';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'utilities_meta';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
                         id: '362fe40af9764bceb6473dd5d774174e';
                         key: {
                             name: 'x_312987_portal_vrule_uc_no';
@@ -6587,6 +6612,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '3df779a2f1934e04bb9c276573fd9e5b';
+                        deleted: true;
                         key: {
                             sys_ui_section: {
                                 id: '06b26a19a3214f3896acc18761876d70';
@@ -7383,6 +7409,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '47dff86ccb394037a8066744d07d17bf';
+                        key: {
+                            sys_ui_section: {
+                                id: '06b26a19a3214f3896acc18761876d70';
+                                key: {
+                                    name: 'x_312987_portal_release';
+                                    caption: 'Release';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'utilities_meta';
+                            position: '11';
+                        };
+                    },
+                    {
                         table: 'sys_ui_list_element';
                         id: '481c99430426412b95535b597a64adaf';
                         key: {
@@ -7702,6 +7750,14 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_dictionary';
+                        id: '4a4ee3959f824e08bf60fc497b0d6cc9';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'utilities_hash';
+                        };
+                    },
+                    {
                         table: 'sys_ui_element';
                         id: '4a57fd59143449229c4bf18a29e53e74';
                         key: {
@@ -7815,6 +7871,14 @@ declare global {
                             };
                             element: 'badge';
                             position: '18';
+                        };
+                    },
+                    {
+                        table: 'sys_dictionary';
+                        id: '4b70118c742f46969a0cc680fd2e57f8';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'utilities_css';
                         };
                     },
                     {
@@ -7988,6 +8052,28 @@ declare global {
                                     name: 'x_312987_portal.designer';
                                 };
                             };
+                        };
+                    },
+                    {
+                        table: 'sys_ui_element';
+                        id: '4d029a5ab69f46f5898d43b7af81270a';
+                        key: {
+                            sys_ui_section: {
+                                id: '06b26a19a3214f3896acc18761876d70';
+                                key: {
+                                    name: 'x_312987_portal_release';
+                                    caption: 'Release';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'manifest_json';
+                            position: '13';
                         };
                     },
                     {
@@ -11250,6 +11336,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: '763afb654bfa48eda048162e4b5fbd2f';
+                        key: {
+                            sys_ui_section: {
+                                id: '06b26a19a3214f3896acc18761876d70';
+                                key: {
+                                    name: 'x_312987_portal_release';
+                                    caption: 'Release';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'utilities_css';
+                            position: '14';
+                        };
+                    },
+                    {
                         table: 'sys_dictionary';
                         id: '76539af56ae74d2c899c659bd12512fe';
                         key: {
@@ -11347,6 +11455,15 @@ declare global {
                         key: {
                             name: 'x_312987_portal_component';
                             element: 'placeable';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: '77aae5b63fc04df2b26e5e2ef55e0ad5';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'utilities_meta';
+                            language: 'en';
                         };
                     },
                     {
@@ -12674,6 +12791,7 @@ declare global {
                     {
                         table: 'sys_ui_element';
                         id: '84aedf8ec42a4f5281115fe4a7c33420';
+                        deleted: true;
                         key: {
                             sys_ui_section: {
                                 id: '06b26a19a3214f3896acc18761876d70';
@@ -15939,6 +16057,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'b0050d3a71c347218fab118d47196824';
+                        key: {
+                            sys_ui_section: {
+                                id: '06b26a19a3214f3896acc18761876d70';
+                                key: {
+                                    name: 'x_312987_portal_release';
+                                    caption: 'Release';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'utilities_hash';
+                            position: '10';
+                        };
+                    },
+                    {
                         table: 'sys_security_acl_role';
                         id: 'b0724b34d13d4a7b860f2fbb9ee271b8';
                         key: {
@@ -19149,6 +19289,28 @@ declare global {
                         };
                     },
                     {
+                        table: 'sys_ui_element';
+                        id: 'd8f7476fde314551bc90e8420acd5be6';
+                        key: {
+                            sys_ui_section: {
+                                id: '06b26a19a3214f3896acc18761876d70';
+                                key: {
+                                    name: 'x_312987_portal_release';
+                                    caption: 'Release';
+                                    view: {
+                                        id: 'Default view';
+                                        key: {
+                                            name: 'NULL';
+                                        };
+                                    };
+                                    sys_domain: 'global';
+                                };
+                            };
+                            element: 'notes';
+                            position: '12';
+                        };
+                    },
+                    {
                         table: 'sys_documentation';
                         id: 'd8fec3984ebb4d1c944e6e7d348e70b7';
                         key: {
@@ -20192,6 +20354,15 @@ declare global {
                         key: {
                             name: 'x_312987_portal_doc_collection';
                             element: 'active';
+                        };
+                    },
+                    {
+                        table: 'sys_documentation';
+                        id: 'e7dfe64088424997a7348eb8876be3ff';
+                        key: {
+                            name: 'x_312987_portal_release';
+                            element: 'utilities_css';
+                            language: 'en';
                         };
                     },
                     {

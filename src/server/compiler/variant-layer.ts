@@ -9,7 +9,8 @@
  * specificity. With the variants in their own later layer, any variant from any sheet beats any
  * base utility from any sheet, which restores Tailwind's single-sheet guarantee across sheets.
  *
- * Layer order: theme, base, components, utilities, rp-variants. Widget styles.css stays unlayered.
+ * Layer order: theme, base, components, utilities, rp-variants, rp-portal, rp-instance, rp-instance-variants.
+ * Widget styles.css stays unlayered.
  *
  * Rules whose declarations are all !important (`max-sm:flex!`) stay in `utilities`: for important
  * declarations the layer order flips (earlier layers win), so moving them would let an important
@@ -21,7 +22,29 @@
  */
 
 export const VARIANT_LAYER = 'rp-variants';
-export const LAYER_ORDER = 'theme, base, components, utilities, ' + VARIANT_LAYER;
+/**
+ * The portal utilities sheet (one per portal, compiled at reprocess) sits in its own last layer. It is
+ * one correctly ordered Tailwind sheet, so it needs no variant pass: every rule in it beats the same
+ * class re-emitted by the framework sheet or a per-component fallback sheet, base and variant alike.
+ */
+export const PORTAL_LAYER = 'rp-portal';
+/**
+ * Placement classes (instance CSS, design/instance-style.ts) sit above the portal sheet, so a class set
+ * on a placement still overrides the component's own classes on the same element: their utilities in
+ * rp-instance, their variants in rp-instance-variants (renameLayers).
+ */
+export const INSTANCE_LAYER = 'rp-instance';
+export const INSTANCE_VARIANT_LAYER = 'rp-instance-variants';
+export const LAYER_ORDER = [
+    'theme',
+    'base',
+    'components',
+    'utilities',
+    VARIANT_LAYER,
+    PORTAL_LAYER,
+    INSTANCE_LAYER,
+    INSTANCE_VARIANT_LAYER,
+].join(', ');
 
 interface CssBlock {
     kind: 'block';
@@ -272,13 +295,21 @@ function splitNodes(nodes: CssNode[]): Split {
     return out;
 }
 
-/** `@layer a, b, utilities;` statements gain rp-variants right after utilities. */
+/** `@layer a, b, utilities;` statements gain rp-variants (then rp-portal) right after utilities. */
 function addToStatement(text: string): string {
     return text.replace(/@layer\s+([^;{}]+);/gi, (whole: string, list: string) => {
         const names = list.split(',').map((s) => s.trim());
-        if (names.indexOf('utilities') < 0 || names.indexOf(VARIANT_LAYER) >= 0) return whole;
-        names.splice(names.indexOf('utilities') + 1, 0, VARIANT_LAYER);
-        return '@layer ' + names.join(', ') + ';';
+        if (names.indexOf('utilities') < 0) return whole;
+        let changed = false;
+        if (names.indexOf(VARIANT_LAYER) < 0) {
+            names.splice(names.indexOf('utilities') + 1, 0, VARIANT_LAYER);
+            changed = true;
+        }
+        if (names.indexOf(PORTAL_LAYER) < 0) {
+            names.splice(names.indexOf(VARIANT_LAYER) + 1, 0, PORTAL_LAYER);
+            changed = true;
+        }
+        return changed ? '@layer ' + names.join(', ') + ';' : whole;
     });
 }
 
@@ -320,4 +351,25 @@ export function moveVariantsToLayer(css: string): string {
     if (!css || css.indexOf('utilities') < 0) return css;
     const pretty = css.indexOf('\n') >= 0;
     return print(transform(parse(css), pretty));
+}
+
+function renameIn(nodes: CssNode[], map: Record<string, string>): CssNode[] {
+    return nodes.map((node) => {
+        if (node.kind !== 'block') return node;
+        const m = /^\s*@layer\s+([\w-]+)\s*$/i.exec(stripComments(node.prelude));
+        if (m && map[m[1]]) return { kind: 'block', prelude: '@layer ' + map[m[1]] + ' ', children: node.children };
+        const at = atName(node.prelude);
+        if (at === 'media' || at === 'supports' || at === 'container' || at === 'layer')
+            return { kind: 'block', prelude: node.prelude, children: renameIn(node.children, map) };
+        return node;
+    });
+}
+
+/**
+ * Rename layer blocks (`@layer utilities { … }` → `@layer rp-instance { … }`). Layer statements are left
+ * alone: the compiler's statement already lists every layer in LAYER_ORDER.
+ */
+export function renameLayers(css: string, map: Record<string, string>): string {
+    if (!css) return css;
+    return print(renameIn(parse(css), map));
 }

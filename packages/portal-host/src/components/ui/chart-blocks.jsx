@@ -202,11 +202,16 @@ function activeIndexOf(state) {
     return Number.isFinite(n) ? n : -1;
 }
 
-const HOVER_BARS =
-    '[&_.recharts-bar-rectangle]:transition-opacity [&:has(.recharts-bar-rectangle:hover)_.recharts-bar-rectangle:not(:hover)]:opacity-40';
+// Hover dimming without :has(): Recharts 3 renders every bar of every series inside one z-index layer
+// (recharts-zIndex-layer_300, DefaultZIndexes.bar) and a pie's sectors inside .recharts-pie. An SVG <g>
+// is :hover only while the pointer is over one of its shapes, so "the layer is hovered" means "a bar
+// (sector) is hovered", like the :has(.recharts-bar-rectangle:hover) rule it replaces, and the browser
+// no longer re-evaluates a :has() over the chart on every DOM change. String.raw keeps the `\_` (a
+// literal underscore in a Tailwind arbitrary variant) identical in the source Tailwind scans and at runtime.
+const HOVER_BARS = String.raw`[&_.recharts-bar-rectangle]:transition-opacity [&_.recharts-zIndex-layer\_300:hover_.recharts-bar-rectangle:not(:hover)]:opacity-40`;
 const CLICK_BARS = '[&_.recharts-bar-rectangle]:cursor-pointer';
 const HOVER_SECTORS =
-    '[&_.recharts-pie-sector]:transition-opacity [&:has(.recharts-pie-sector:hover)_.recharts-pie-sector:not(:hover)]:opacity-45';
+    '[&_.recharts-pie-sector]:transition-opacity [&_.recharts-pie:hover_.recharts-pie-sector:not(:hover)]:opacity-45';
 const CLICK_SECTORS = '[&_.recharts-pie-sector]:cursor-pointer';
 
 /**

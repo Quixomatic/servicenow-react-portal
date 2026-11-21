@@ -4,6 +4,7 @@ import { T } from '../lib/tables.ts';
 import { notFound, rpError } from '../lib/errors.ts';
 import { isUsableBuild } from '../registry/registry.ts';
 import { canAccessPortal, hasStudioCapability } from '../security/access.ts';
+import { PORTAL_UTILITIES_ASSET, portalUtilitiesCss } from '../release/portal-utilities.ts';
 
 /**
  * RPAssetService: delivers compiled build assets (JS/CSS) with correct MIME types and
@@ -16,6 +17,9 @@ import { canAccessPortal, hasStudioCapability } from '../security/access.ts';
  *   (or of any active component/theme before its portal is first processed).
  *   Source maps are never served to consumers.
  * The URL carries ?v=<content hash>, so overwriting a build changes the URL.
+ *
+ * A release's portal utilities sheet is served the same way: /assets/<release id>/portal-utilities.css,
+ * to studio users and to users who can access the release's portal.
  */
 
 export interface AssetResponse {
@@ -27,6 +31,7 @@ export interface AssetResponse {
 
 export function getAsset(buildId: string, path: string): AssetResponse {
     if (!gs.isLoggedIn()) throw rpError(401, 'unauthenticated', 'Login required');
+    if (path === PORTAL_UTILITIES_ASSET) return portalSheet(buildId);
     const build = getById(T.build, buildId);
     if (!build || !isUsableBuild(build)) throw notFound('Asset not found');
     const asset = findOne(T.buildAsset, `build=${buildId}^path=${path}`);
@@ -63,4 +68,19 @@ function consumerMayFetch(build: GR): boolean {
     // Portal not processed yet: the build of any active component or theme.
     const owner = getById(T.component, str(build, 'component')) || getById(T.theme, str(build, 'theme'));
     return !!owner && bool(owner, 'active');
+}
+
+function portalSheet(releaseId: string): AssetResponse {
+    const sheet = portalUtilitiesCss(releaseId);
+    if (!sheet) throw notFound('Asset not found');
+    if (!hasStudioCapability('any')) {
+        const portal = getById(T.portal, str(sheet.release, 'portal'));
+        if (!portal || !canAccessPortal(portal)) throw notFound('Asset not found');
+    }
+    return {
+        content: sheet.css,
+        mimeType: 'text/css',
+        hash: sheet.hash,
+        cacheControl: 'private, max-age=31536000, immutable',
+    };
 }

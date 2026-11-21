@@ -3,22 +3,28 @@
 // overlay layer, so dialogs, menus and popovers get them too.
 //
 // Load order inside the shadow root:
-//   theme     theme stylesheet(s): base styles for the portal          (first)
-//   framework the host's own CSS (Tailwind + shadcn), a <style> injected by the host view
-//             (runtime/framework-css.js), so widget utilities win equal-specificity ties
-//   widget    one sheet per component build, scoped by [data-rp-widget]
-//   instance  one sheet per placement (placement.css: classes, style tokens, grid layout,
-//             responsive option variables), unlayered, so it wins over Tailwind utilities
-//   tokens    theme token variables (:host { --primary: … })            (last)
+//   theme      theme stylesheet(s): base styles for the portal          (first)
+//   framework  the host's own CSS (Tailwind + shadcn), a <style> injected by the host view
+//              (runtime/framework-css.js); always present, so the host never loses its styles
+//   fallback   per-component Tailwind utilities sheets of builds the portal sheet doesn't cover
+//              (a dynamic model outside the manifest, a Studio edit until its reprocess)
+//   utilities  the portal utilities sheet: ONE Tailwind sheet for every component of the portal plus
+//              the host's classes, compiled at reprocess, in @layer rp-portal
+//   widget     author CSS per component build (styles.css, unlayered), scoped by [data-rp-widget]
+//   instance   one sheet per placement (placement.css: classes, style tokens, grid layout,
+//              responsive option variables), unlayered, so it wins over Tailwind utilities
+//   tokens     theme token variables (:host { --primary: … })            (last)
 //
-// Cascade layers (merged across all sheets): theme, base, components, utilities, rp-variants.
-// Every Tailwind sheet (framework, widget builds, instance classes) has its variant rules (sm:,
-// hover:, dark:, data-[…]:, …) in rp-variants, so a variant in any sheet beats a base utility in
-// any other sheet regardless of load order. Widget styles.css stays unlayered (beats all layers).
+// Cascade layers (merged across all sheets): theme, base, components, utilities, rp-variants,
+// rp-portal, rp-instance, rp-instance-variants (placement classes, above the portal sheet). The portal sheet is one correctly ordered Tailwind sheet in the last layer, so every
+// class it holds beats the same class re-emitted by the framework or a fallback sheet, base and
+// variant alike. The framework and fallback sheets keep their variant rules in rp-variants (a variant
+// in any of them beats a base utility in any other). Widget styles.css stays unlayered (beats all
+// layers).
 
 import { recordStyle } from './diagnostics';
 
-const SLOT_ORDER = ['theme', 'framework', 'widget', 'instance', 'tokens'];
+const SLOT_ORDER = ['theme', 'framework', 'fallback', 'utilities', 'widget', 'instance', 'tokens'];
 
 // Reference counts for shared sheets (a placement's instance CSS), per style target.
 const refCounts = new WeakMap(); // target -> Map(key -> count)

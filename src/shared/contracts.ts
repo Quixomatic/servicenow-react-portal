@@ -38,8 +38,34 @@ export interface BuildRef {
     id: string;
     /** Same-origin URL of the ES module entry, or null if the build has no JS. */
     js: string | null;
-    /** Same-origin URL of the build's CSS, or null. */
+    /**
+     * Same-origin URL of the build's CSS, or null: the author CSS (styles.css and imported .css). Pre-v6
+     * builds (no `utilities`) have their Tailwind utilities in this sheet too.
+     */
     css: string | null;
+    /**
+     * Same-origin URL of the build's own Tailwind utilities sheet (compiler v6+). The host skips it when
+     * the portal utilities sheet covers the build (PortalUtilities.covers has utilitiesKey).
+     */
+    utilities?: string | null;
+    /** Content key of the utilities sheet (16 hex characters; also its URL version). */
+    utilitiesKey?: string;
+}
+
+/**
+ * The portal utilities sheet (manifest v5): one Tailwind sheet in @layer rp-portal, compiled at
+ * reprocess from the union of the valid candidates of every build in the portal's manifest plus the
+ * host's classes. A build is covered when its utilitiesKey is in `covers`; the host then skips the
+ * build's own utilities sheet. Anything else (a build outside the manifest, a newer compile than the
+ * sheet) falls back to its own utilities sheet.
+ */
+export interface PortalUtilities {
+    /** Same-origin URL of the sheet. */
+    css: string;
+    /** Content hash of the candidate union (and compiler version) the sheet was compiled from. */
+    hash: string;
+    /** utilitiesKey of every build the sheet covers, sorted. */
+    covers: string[];
 }
 
 export interface RegionDef {
@@ -223,6 +249,8 @@ export interface BootstrapData {
     layoutOptions: Record<string, unknown>;
     /** Portal-level placements (header, sidebar, footer…); stay mounted across navigation. */
     regions: RegionMap;
+    /** The portal utilities sheet, or null (not compiled yet, live manifest): every build falls back. */
+    utilities: PortalUtilities | null;
     pages: PageSummary[];
     /**
      * The portal's menus by key (primary, footer, account…), already filtered for this user: inactive

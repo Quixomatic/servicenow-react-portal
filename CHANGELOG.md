@@ -2,6 +2,50 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.24.0] - 2026-11-20
+
+One Tailwind utilities sheet per portal (compiler v6), which fixes cross-widget class
+collisions at the root, plus live progress output for the CLI tools.
+
+### Added: per-portal utilities sheet
+- **One Tailwind sheet per portal,** compiled at reprocess from the union of every component's valid classes plus the host's. It lives in a new top `rp-portal` layer, so cross-widget ties resolve in Tailwind order (`ps-4` vs another widget's `px-2`, host `flex-row` vs a widget's `flex-col`) with no `!` needed.
+- **Compiled only when needed:** the sheet recompiles only when a portal's class set changes (sp ~4.3 s, app ~5.4 s, inline), and is otherwise reused by hash (reprocess +0.2–0.3 s). Queued compiles run one at a time.
+- **Compiler v6** (`rp-server-compiler/6`): only real utilities are kept (65,009 scraped tokens become 2,157 classes, byte-identical output). Each build ships:
+  - `index.css` (author CSS);
+  - `utilities.css` (its own sheet, the fallback);
+  - `tailwind-candidates.json`.
+- **Host:** the portal sheet is injected once, and covered builds no longer download their own utilities.
+
+  | Page | Widget CSS before | After |
+  |---|---|---|
+  | Chart gallery | 908 KB | 7 KB + one cached 270 KB portal sheet |
+  | sp home | 306 KB | 21 KB + one cached 170 KB portal sheet |
+
+- **Fallbacks:** builds keep their own sheet wherever the portal sheet doesn't cover them yet: Studio preview, a component saved since the last reprocess, models outside the manifest, pre-v6 builds.
+- **The host never loses its styles:** the framework CSS is injected as before. `build:css` generates `host-candidates.ts` (962 classes), checking each class against the server's input, and the build fails on any difference.
+- **Placement classes** compile into new top layers `rp-instance` / `rp-instance-variants`, so they keep overriding component classes.
+- **Layer order:** `theme, base, components, utilities, rp-variants, rp-portal, rp-instance, rp-instance-variants`.
+- **Chart hover dimming and frame stacking no longer use `:has()`;** framework `:has()` rules go from 20 to 15. The host-kit shadcn components keep theirs.
+- **Manifest v5:** a `utilities` descriptor and `BuildRef.utilities` / `utilitiesKey`. New release columns: `utilities_css`, `utilities_hash`, `utilities_meta`.
+
+### Added: progress output for the CLI tools
+- **`npm run seed`** shows an overall bar, the phase (writing records, compiling 12/30 · key, instance CSS, reprocessing portals), elapsed time and an ETA, then a summary table. The seed template logs throttled `[seed] progress` lines, which the runner polls every 4 s.
+- **`pnpm run deploy`** (host) shows phases (tailwind, variant layer, host candidates, babel verify, snc), a webpack percentage bar with the module count, and the asset upload phase. The full log goes to `.deploy.log`, with the tail printed on failure. Known source-map / attachment refusals are counted; any other refused create is listed as a warning. `pnpm run deploy:raw` keeps the plain chain.
+- **New `npm run install:app`:** global `now-sdk build && install` with phases and the install percentage, logging to `.install.log`. Flags: `--skip-build`, `--build-only`, `--cwd`.
+- **Also:** `docs:pull` and `vendor:compiler` show progress.
+- **Flags** `--progress=tty|lines|off` and `--quiet`, and `NO_COLOR` is respected. An in-place bar in a terminal, compact lines when output is captured. No new dependencies; the shared helper is `scripts/lib/progress.mjs`.
+
+### Fixed
+- **The seed** loads `design/instance-style.ts` up front. After real compiles, a first require inside a deferred callback resolved against the global module namespace and failed.
+
+### Changed
+- **Social Engagement** drops its `ps-4!` workaround.
+- **sp home:** two latent class collisions now resolve as written. The sidebar menu sits ~16px higher (`py-0` wins over another sheet's `p-2`), and the hero subtitle gets its 4px `mt-1`.
+
+### Notes
+- **The full seed after this compiler change** recompiled every component (~7.5 min), a one-off per compiler version.
+- Runtime Tests: 33/33.
+
 ## [1.23.0] - 2026-11-20
 
 The Chart gallery: 54 dashboard chart blocks across 10 families, rebuilt independently from

@@ -1,6 +1,6 @@
 {
     "name": "@x-312987/portal-host",
-    "version": "1.23.0",
+    "version": "1.24.0",
     "private": false,
     "description": "React Portal host component",
     "keywords": [
@@ -14,12 +14,13 @@
     },
     "module": "src/index.js",
     "scripts": {
-        "build:css": "tailwindcss -i src/styles/tailwind.css -o src/styles/tailwind.generated.css --minify && node scripts/variant-layer.mjs src/styles/tailwind.generated.css",
+        "build:css": "tailwindcss -i src/styles/tailwind.css -o src/styles/tailwind.generated.css --minify && node scripts/variant-layer.mjs src/styles/tailwind.generated.css && node scripts/host-candidates.mjs",
         "dev": "pnpm build:css && snc ui-component develop --port 8081",
         "vendor:rte": "node scripts/vendor-rte.mjs",
         "vendor:charts": "node scripts/vendor-charts.mjs",
         "verify": "patch-servicenow-babel --verify && servicenow-shadcn-fix --check",
-        "deploy": "pnpm build:css && patch-servicenow-babel --verify && snc ui-component deploy"
+        "deploy": "node scripts/deploy.mjs",
+        "deploy:raw": "pnpm build:css && patch-servicenow-babel --verify && snc ui-component deploy"
     },
     "imports": {
         "#/*": "./src/*"

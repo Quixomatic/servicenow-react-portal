@@ -9,6 +9,8 @@ import { compilerInputs, serverScriptOf } from '../source/project-files.ts';
 import { compileComponent, COMPILER_VERSION, ENTRY, CompileResult } from '../compiler/compiler.ts';
 import { replaceDependencies, flagDependents } from './dependency-service.ts';
 import {
+    UTILITIES_ASSET,
+    CANDIDATES_ASSET,
     componentRef,
     themeRef,
     buildRef,
@@ -336,6 +338,22 @@ export function compileOwner(owner: Owner, force = false): Promise<BuildSummary>
             assets.push({ path: 'index.js', kind: 'js', content: result.js, mimeType: 'text/javascript' });
             if (result.css.trim())
                 assets.push({ path: 'index.css', kind: 'css', content: result.css, mimeType: 'text/css' });
+            // The component's own Tailwind sheet: injected only when no portal sheet covers the build.
+            if (result.utilities.trim())
+                assets.push({
+                    path: UTILITIES_ASSET,
+                    kind: 'css',
+                    content: result.utilities,
+                    mimeType: 'text/css',
+                });
+            // The valid candidates, read at portal reprocess to build the portal utilities sheet.
+            if (result.candidates.length)
+                assets.push({
+                    path: CANDIDATES_ASSET,
+                    kind: 'other',
+                    content: JSON.stringify(result.candidates),
+                    mimeType: 'application/json',
+                });
         }
         // Reload: a concurrent save may have advanced the revision while compiling.
         const fresh = loadOwner(owner.type, owner.id);

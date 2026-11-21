@@ -33,6 +33,7 @@ import { useNavHistoryStore, useScrollRestoration } from '#/runtime/nav-history'
 import { createInstanceInitStore, onLoadIds } from '#/runtime/instance-init';
 import { loadCss } from '#/runtime/loader';
 import { useThemeStyles } from '#/runtime/theme';
+import { loadPortalUtilities, portalCovers, usePortalUtilities } from '#/runtime/portal-utilities';
 import {
     LayoutHost,
     PagePlacements,
@@ -176,6 +177,8 @@ export function createPortalRouter({
         menus: boot.menus || null,
         theme: boot.theme,
         release: boot.release,
+        /** The portal utilities sheet ({ css, hash, covers }) or null (runtime/portal-utilities.js). */
+        utilities: boot.utilities || null,
         navigate,
         locationStore,
         get router() {
@@ -207,7 +210,11 @@ export function createPortalRouter({
         const theme = data.theme || {};
         await Promise.all([
             theme.cssText == null ? Promise.all((theme.css || []).map((url) => loadCss(url).catch(() => null))) : null,
-            prefetchBuilds([data.layout].concat(placementsOf(data.regions).map((p) => p.component))),
+            loadPortalUtilities(data.utilities),
+            prefetchBuilds(
+                [data.layout].concat(placementsOf(data.regions).map((p) => p.component)),
+                portalCovers(data.utilities, true)
+            ),
         ]);
         initStore.fetch(slug, resolvePath(data.portal, ''), onLoadIds(data.regions), 'portal');
         return null;
@@ -216,7 +223,10 @@ export function createPortalRouter({
     async function pageLoader({ location }) {
         const path = resolvePath(boot.portal, pathOf(location.pathname));
         const data = await queryClient.ensureQueryData(pageQuery(slug, path));
-        await prefetchBuilds([data.layout].concat(placementsOf(data.regions).map((p) => p.component)));
+        await prefetchBuilds(
+            [data.layout].concat(placementsOf(data.regions).map((p) => p.component)),
+            portalCovers(boot.utilities)
+        );
         initStore.fetch(slug, path, onLoadIds(data.regions), 'page');
         return withPath(data, path);
     }
@@ -224,6 +234,7 @@ export function createPortalRouter({
     function PortalShell() {
         useDiagCounter('RouterRoot');
         const themeReady = useThemeStyles(target, boot.theme);
+        usePortalUtilities(target, boot.utilities);
         return (
             <PortalContext.Provider value={portalValue}>
                 <InstanceInitContext.Provider value={initStore}>

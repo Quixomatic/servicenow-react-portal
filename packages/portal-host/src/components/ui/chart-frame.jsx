@@ -79,9 +79,11 @@ const frameVariants = cva(
                 lg: '[--frame-panel-px-base:--spacing(5)] [--frame-panel-py-base:--spacing(5)] [--frame-panel-header-px-base:--spacing(5)] [--frame-panel-header-py-base:--spacing(2.5)] [--frame-panel-footer-px-base:--spacing(5)] [--frame-panel-footer-py-base:--spacing(2.5)]',
             },
             stacked: {
+                // "A panel followed by a panel" as "a panel that isn't the last panel" (panels sit next
+                // to each other): no :has(+…) for the browser to re-evaluate on every DOM change.
                 true: [
-                    'gap-0 *:has-[+[data-slot=frame-panel]]:rounded-b-none',
-                    '*:has-[+[data-slot=frame-panel]]:before:hidden',
+                    'gap-0 *:[[data-slot=frame-panel]:not(:nth-last-child(1_of_[data-slot=frame-panel]))]:rounded-b-none',
+                    '*:[[data-slot=frame-panel]:not(:nth-last-child(1_of_[data-slot=frame-panel]))]:before:hidden',
                     '*:[[data-slot=frame-panel]+[data-slot=frame-panel]]:rounded-t-none',
                     '*:[[data-slot=frame-panel]+[data-slot=frame-panel]]:border-t-0',
                 ],
@@ -91,8 +93,10 @@ const frameVariants = cva(
                     'data-[spacing=lg]:*:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-2',
                 ],
             },
+            // dense: the first panel overlaps the frame border when it is the first child (a FrameHeader,
+            // when present, is the first child), which replaces a :not(:has(header)) rule.
             dense: {
-                true: 'p-0 gap-0 border-[var(--frame-border-color)] [--frame-panel-radius:var(--frame-radius)] [&_[data-slot=frame-panel]]:-mx-px [&_[data-slot=frame-panel]]:before:hidden [&_[data-slot=frame-panel]:last-child]:-mb-px [&:not(:has([data-slot=frame-panel-header]))_[data-slot=frame-panel]:is(:first-child)]:-mt-px',
+                true: 'p-0 gap-0 border-[var(--frame-border-color)] [--frame-panel-radius:var(--frame-radius)] [&_[data-slot=frame-panel]]:-mx-px [&_[data-slot=frame-panel]]:before:hidden [&_[data-slot=frame-panel]:last-child]:-mb-px [&_[data-slot=frame-panel]:first-child]:-mt-px',
                 false: '',
             },
         },

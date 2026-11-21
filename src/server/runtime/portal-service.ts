@@ -15,6 +15,7 @@ import type {
     ComponentRef,
     ContentWidth,
     PlacementRef,
+    PortalUtilities,
     RegionDef,
     RegionMap,
     ResolvePageData,
@@ -34,7 +35,9 @@ import type {
 // layout / classes / instance css per placement.
 // v3: menus — menu definitions by key (x_312987_portal_menu / _menu_item).
 // v4: embedded widgets — ComponentImport gains name, serverMode and importers (direct import edges).
-export const MANIFEST_VERSION = 4;
+// v5: one utilities sheet per portal — Manifest.utilities (PortalUtilities); BuildRef gains utilities
+//     and utilitiesKey (the build's own Tailwind sheet, now separate from its author CSS).
+export const MANIFEST_VERSION = 5;
 
 /** Maximum block nesting depth (a block inside a block inside …). */
 export const MAX_BLOCK_DEPTH = 6;
@@ -63,6 +66,11 @@ export interface Manifest {
     pages: ManifestPage[];
     /** Active menus by key, unfiltered; bootstrap and $sp.getMenu() resolve them per user. */
     menus: Record<string, ManifestMenu>;
+    /**
+     * The portal utilities sheet. Set by processPortal (release/portal-utilities.ts); null in a
+     * live-assembled manifest, where every build uses its own utilities sheet.
+     */
+    utilities: PortalUtilities | null;
 }
 
 export function findPortalBySlug(slug: string): GR | null {
@@ -229,6 +237,7 @@ function assembleManifestNow(portal: GR): Manifest {
         regions: placementsFor(`portal=${portalId}^pageISEMPTY`, layouts),
         pages,
         menus: assembleMenus(portalId),
+        utilities: null,
     };
 }
 
@@ -265,6 +274,7 @@ export function bootstrap(slug: string): { data: BootstrapData; release: Resolve
             layout: manifest.defaultLayoutId ? manifest.layouts[manifest.defaultLayoutId] || null : null,
             layoutOptions: effectiveLayoutOptions(manifest, manifest.defaultLayoutId, null),
             regions: manifest.regions,
+            utilities: manifest.utilities || null,
             pages: manifest.pages
                 .filter((p) => canAccessManifestPage(manifest.portal.id, p))
                 .map((p) => ({ id: p.id, route: p.route, title: p.title })),

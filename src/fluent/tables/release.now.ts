@@ -54,6 +54,24 @@ export const x_312987_portal_release = Table({
             cascadeRule: 'clear',
         }),
         notes: MultiLineTextColumn({ label: 'Notes', maxLength: 4000 }),
+        utilities_css: MultiLineTextColumn({
+            label: 'Portal utilities sheet',
+            maxLength: 5000000,
+            readOnly: true,
+            hint: 'One Tailwind sheet for every component of the portal plus the host, in @layer rp-portal',
+        }),
+        utilities_hash: StringColumn({
+            label: 'Portal utilities hash',
+            maxLength: 64,
+            readOnly: true,
+            hint: 'Hash of the candidate union the sheet was compiled from; an unchanged union reuses the sheet',
+        }),
+        utilities_meta: JsonColumn({
+            label: 'Portal utilities info',
+            maxLength: 4000,
+            readOnly: true,
+            hint: 'Candidates, bytes, compile time and when it was compiled',
+        }),
     },
 });
 
@@ -81,8 +99,11 @@ Form({
                     layout: 'one-column',
                     elements: [
                         { field: 'problems_json', type: 'table_field' },
+                        { field: 'utilities_hash', type: 'table_field' },
+                        { field: 'utilities_meta', type: 'table_field' },
                         { field: 'notes', type: 'table_field' },
                         { field: 'manifest_json', type: 'table_field' },
+                        { field: 'utilities_css', type: 'table_field' },
                     ],
                 },
             ],

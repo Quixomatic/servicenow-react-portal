@@ -10,6 +10,7 @@ packages/*/target/
 src/fluent/generated/
 packages/global-helpers/src/fluent/generated/
 src/server/icons/
+src/server/compiler/host-candidates.ts
 packages/portal-host/src/styles/tailwind.generated.css
 scripts/seed-demo.js
 docs/primitives/catalog.json

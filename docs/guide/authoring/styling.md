@@ -1,6 +1,6 @@
 ---
 title: Styling
-description: styles.css, server-compiled Tailwind v4, theme tokens, dark mode, cascade layers and the rp-variants layer.
+description: styles.css, server-compiled Tailwind v4, theme tokens, dark mode, cascade layers, the rp-variants layer and the one utilities sheet per portal.
 section: Authoring components
 order: 2
 tags: [css, tailwind, layers, dark-mode]
@@ -44,26 +44,56 @@ Turn `tailwind` off for components that only use `styles.css` (the seed layouts 
 All Tailwind sheets in the shadow root share one layer order:
 
 ```css
-@layer theme, base, components, utilities, rp-variants;
+@layer theme, base, components, utilities, rp-variants, rp-portal, rp-instance, rp-instance-variants;
 ```
 
-Every component build ships its own Tailwind sheet, and same-named layers **merge** across `<style>` sheets. Inside one sheet Tailwind orders base utilities before variants, but across sheets a later widget's `.hidden` used to beat an earlier widget's `sm:block` at equal specificity.
+Every component build has its own Tailwind sheet, and same-named layers **merge** across `<style>` sheets. Inside one sheet Tailwind orders base utilities before variants, but across sheets a later widget's `.hidden` used to beat an earlier widget's `sm:block` at equal specificity.
 
 The compiler (compiler `rp-server-compiler/5`) fixes this by moving **variant rules** (`sm:`, `max-sm:`, `@container`, `hover:`, `focus-visible:`, `group-*`, `peer-*`, `data-[…]:`, `aria-*`, `dark:`, `[&>svg]:`…) out of `utilities` into a later **`rp-variants`** layer. Any variant from any sheet now beats any base utility from any sheet. The same pass runs on the host's framework CSS and on placement classes.
 
-Exceptions and limits:
+Exceptions and limits of the variant layer alone:
 
 - Rules whose declarations are all `!important` (`max-sm:flex!`) stay in `utilities`, because the layer order flips for important declarations.
-- A variant can still lose to a conflicting **variant** in a later sheet (e.g. `md:hidden` in one widget versus `sm:flex` in another).
+- A base utility can still lose to a conflicting base utility in a later sheet (`px-2` versus `ps-4`), and a variant to a conflicting variant (`md:hidden` versus `sm:flex`).
 - `styles.css` stays unlayered and beats all of it.
+
+The portal utilities sheet removes those limits on portal pages. **Placement classes** (the classes you set on a placement in the designer) compile into the last two layers, `rp-instance` and `rp-instance-variants`, so they still override the component's own classes on the same element.
+
+## One utilities sheet per portal
+
+On a portal page, the Tailwind utilities of every component come from **one sheet**, compiled at reprocess:
+
+- It holds the union of every build in the portal's manifest (layouts, placements, blocks and their imports) plus the host's own classes.
+- It's in Tailwind's own order, so `px-2` sorts before `ps-4`, `flex-col` before `md:flex-row`, and base before variants, exactly as in a single-sheet Tailwind project.
+- It sits in the last layer, `rp-portal`, so each class in it beats the same class re-emitted by the host's framework sheet or by a component's fallback sheet.
+- You don't need `!` to win a cross-widget tie any more.
+
+A component's own Tailwind sheet (`utilities.css`) is used only as a **fallback**, when the portal sheet doesn't cover the build:
+
+- Studio preview;
+- a component you just saved, until its portal reprocess finishes (seconds);
+- a model outside the portal's manifest.
+
+Fallback sheets sort before the portal sheet. During that window a brand-new class in the component you're editing can lose a tie against the portal sheet; the next reprocess fixes it. Your `styles.css` is unaffected: it's injected on its own and stays unlayered.
+
+The sheet recompiles only when the portal's set of valid classes changes, i.e. when a component starts or stops using a utility. Editing text or logic never recompiles it. Timings on dev189813 (union of valid classes plus the host's):
+
+| Portal | Raw candidates + variant pass (spike) | Valid candidates + host classes, `rp-portal` (as built) |
+|---|---|---|
+| sp | 29,108 candidates, 9.98 s, 106 KB | 1,531 classes (962 from the host), 4.27 s, 170 KB |
+| app | 45,095 candidates, 15.27 s, 221 KB | 2,431 classes (962 from the host), 5.45 s, 270 KB |
+
+An unchanged union adds about 0.2–0.3 s to a reprocess (reading the candidate lists and hashing them).
 
 ## Order of sheets in the shadow root
 
 | Slot | What |
 |---|---|
 | theme | The theme stylesheet |
-| framework | The host's Tailwind + shadcn CSS (a `<style>`, not an adopted sheet) |
-| widget | One sheet per component build (imports' CSS first) |
+| framework | The host's Tailwind + shadcn CSS (a `<style>`, not an adopted sheet); always present |
+| fallback | A component's own Tailwind sheet, only when the portal sheet doesn't cover its build |
+| utilities | The portal utilities sheet (`@layer rp-portal`) |
+| widget | Author CSS (`styles.css`), one sheet per component build (imports' CSS first) |
 | instance | One sheet per placement: classes, style tokens, grid layout, `x-css-var` options |
 | tokens | Theme token variables (`:host { --primary: … }`), last |
 

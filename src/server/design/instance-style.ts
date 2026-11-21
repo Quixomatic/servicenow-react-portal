@@ -1,7 +1,7 @@
 import { GR, getById, str } from '../lib/gr.ts';
 import { T } from '../lib/tables.ts';
 import { parseJson, isPlainObject } from '../lib/util.ts';
-import { compileTailwind, SHADCN_COLORS } from '../compiler/compiler.ts';
+import { compileInstanceTailwind, SHADCN_COLORS } from '../compiler/compiler.ts';
 import { UNSAFE_CSS as UNSAFE, classTokens } from '../lib/css-safe.ts';
 
 export { classTokens };
@@ -160,7 +160,7 @@ export function buildInstanceCss(pl: GR): Promise<string> {
     });
     const tokens = classTokens(str(pl, 'classes'));
     if (!tokens.length) return Promise.resolve(rules);
-    return compileTailwind(tokens).then(
+    return compileInstanceTailwind(tokens).then(
         (utilities) => [`/* instance classes */\n${utilities}`, rules].filter((s) => s.trim()).join('\n'),
         () => rules
     );

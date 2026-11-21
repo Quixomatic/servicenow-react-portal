@@ -1,6 +1,12 @@
-// Component loader (spec §8.4). A component build is { id, js, css }: js is the URL of an ES
-// module whose default export is the component, css the URL of its stylesheet. Both are cached
-// for the page load (module level), so remounts and Back navigation are instant.
+// Component loader (spec §8.4). A component build is { id, js, css, utilities?, utilitiesKey? }: js is
+// the URL of an ES module whose default export is the component, css the URL of its author CSS,
+// utilities the URL of its own Tailwind utilities sheet (compiler v6+; older builds have their
+// utilities inside css). Everything is cached for the page load (module level), so remounts and Back
+// navigation are instant.
+//
+// Portal utilities sheet (one per portal, manifest v5): a build whose utilitiesKey is in the portal
+// sheet's covers needs no utilities sheet of its own. loadComponent(ref, covers) skips downloading
+// those, and returns the uncovered utilities (utilitiesText) apart from the author CSS (authorText).
 //
 // The same path serves mock Blob URLs today and the runtime asset API
 // (/api/x_312987_portal/rp/assets/{build}/{file}) later.
@@ -148,23 +154,47 @@ function toLoaded(build, mod, cssText) {
     return { Component, cssText: cssText || '' };
 }
 
-/** Already loaded? Returns { Component, cssText } synchronously, or null. */
+/** Already loaded? Returns { Component, cssText } synchronously, or null. cssText: utilities + author CSS. */
 export function peekBuild(build) {
     if (!build || !build.js || !modules.has(build.js)) return null;
     if (build.css && !cssTexts.has(build.css)) return null;
+    if (build.utilities && !cssTexts.has(build.utilities)) return null;
     try {
-        return toLoaded(build, modules.get(build.js), build.css ? cssTexts.get(build.css) : '');
+        return toLoaded(build, modules.get(build.js), ownCss(build, null));
     } catch (error) {
         return null;
     }
 }
 
-/** Load a build's JS and CSS in parallel. Resolves to { Component, cssText }. */
+/** Load a build's JS and CSS in parallel. Resolves to { Component, cssText } (utilities + author CSS). */
 export function loadBuild(build) {
     if (!build || !build.js) return Promise.reject(new Error('Component has no build (nothing compiled yet)'));
-    return Promise.all([importModule(build.js), build.css ? loadCss(build.css) : Promise.resolve('')]).then(
-        ([mod, css]) => toLoaded(build, mod, css)
-    );
+    return Promise.all([
+        importModule(build.js),
+        build.css ? loadCss(build.css) : Promise.resolve(''),
+        build.utilities ? loadCss(build.utilities) : Promise.resolve(''),
+    ]).then(([mod]) => toLoaded(build, mod, ownCss(build, null)));
+}
+
+// ---- utilities sheets ------------------------------------------------------------------------
+
+/** Is the build's own utilities sheet covered by the portal sheet (covers: Set of keys, or null)? */
+export function isCovered(build, covers) {
+    return !!(covers && build && build.utilities && build.utilitiesKey && covers.has(build.utilitiesKey));
+}
+
+/** The utilities sheet URL a build still needs given `covers`, or null. */
+function neededUtilities(build, covers) {
+    return build && build.utilities && !isCovered(build, covers) ? build.utilities : null;
+}
+
+/** A build's uncovered utilities + author CSS, from the cache (missing texts read as ''). */
+function ownCss(build, covers) {
+    const util = neededUtilities(build, covers);
+    const parts = [];
+    if (util && cssTexts.get(util)) parts.push(cssTexts.get(util));
+    if (build.css && cssTexts.get(build.css)) parts.push(cssTexts.get(build.css));
+    return parts.join('\n');
 }
 
 // ---- record imports -------------------------------------------------------------------------
@@ -233,11 +263,13 @@ export function esModule(ns) {
 }
 
 /** Start downloading an import's JS source and CSS without evaluating anything. */
-function prefetchImport(imp) {
+function prefetchImport(imp, covers) {
     const build = imp.build;
     if (!build) return;
     if (needsToken(build.js) && !modules.has(build.js)) prefetchSource(build.js).catch(() => {});
     if (build.css) loadCss(build.css).catch(() => {});
+    const util = neededUtilities(build, covers);
+    if (util) loadCss(util).catch(() => {});
 }
 
 /**
@@ -291,24 +323,56 @@ function combineCss(parts) {
         .join('\n');
 }
 
-function importsCss(imports) {
-    return imports.map((imp) => {
-        const loaded = importsLoaded.get(importKey(imp));
-        return { label: imp.specifier, text: loaded ? loaded.cssText : '' };
-    });
+/**
+ * The CSS of a component and its imports (dependencies first), from the cache:
+ *   utilitiesText  the uncovered Tailwind utilities sheets;
+ *   authorText     the author CSS;
+ *   cssText        both, per build (utilities then author), as one sheet: what callers that inject a
+ *                  single sheet use (Studio preview, docs, view rules); without covers it is the
+ *                  complete CSS, as before the portal sheet existed.
+ */
+function cssOf(ref, imports, covers) {
+    const builds = imports
+        .map((imp) => ({ label: imp.specifier, build: imp.build }))
+        .concat([{ label: ref.uniqueId || ref.build.id, build: ref.build }]);
+    const utilities = [];
+    const author = [];
+    const both = [];
+    for (const { label, build } of builds) {
+        const util = neededUtilities(build, covers);
+        const u = util ? cssTexts.get(util) || '' : '';
+        const a = build.css ? cssTexts.get(build.css) || '' : '';
+        utilities.push({ label, text: u });
+        author.push({ label, text: a });
+        both.push({ label, text: [u, a].filter((t) => t && t.trim()).join('\n') });
+    }
+    return { utilitiesText: combineCss(utilities), authorText: combineCss(author), cssText: combineCss(both) };
+}
+
+/** Every utilities sheet the component and its imports still need, given `covers`. */
+function neededSheets(ref, imports, covers) {
+    const urls = [];
+    for (const b of imports.map((imp) => imp.build).concat([ref.build])) {
+        const util = neededUtilities(b, covers);
+        if (util && urls.indexOf(util) < 0) urls.push(util);
+    }
+    return urls;
 }
 
 /**
  * Load a component's record imports in dependency order, registering each module under its
- * specifier, then the component itself. Resolves to { Component, cssText, imports } where cssText
- * is the imports' CSS (dependencies first) followed by the component's own, and imports lists
- * { specifier, buildId, cssText } for callers that inject per build.
+ * specifier, then the component itself. Resolves to
+ *   { Component, cssText, utilitiesText, authorText, imports }
+ * (see cssOf); imports lists { specifier, buildId, cssText } for callers that inject per build.
+ *
+ * covers (optional): the Set of utilities keys the portal sheet covers in the caller's shadow root.
+ * Covered builds' utilities sheets are neither downloaded nor returned.
  *
  * Imports load in parallel (network) but register strictly in manifest order, and every import is
  * registered before the dependent module is evaluated. Builds are deduped and cached per page load.
  * An import without a build fails the component with a clear message.
  */
-export function loadComponent(ref) {
+export function loadComponent(ref, covers) {
     const build = ref && ref.build;
     if (!build || !build.js) return Promise.reject(new Error('Component has no build (nothing compiled yet)'));
     const imports = usableImports(ref);
@@ -317,13 +381,18 @@ export function loadComponent(ref) {
         return Promise.reject(
             new Error(`Import ${missing.specifier} has no build (compile ${missing.uniqueId || missing.id} first)`)
         );
+    const cover = covers || null;
 
     // Download everything now (sources + CSS in parallel), then evaluate strictly in manifest order:
     // a compiled module reads the registry when it evaluates, so each import is registered before
     // anything that depends on it runs.
-    imports.forEach(prefetchImport);
+    imports.forEach((imp) => prefetchImport(imp, cover));
     if (needsToken(build.js) && !modules.has(build.js)) prefetchSource(build.js).catch(() => {});
-    const own = Promise.all([build.css ? loadCss(build.css) : Promise.resolve('')]);
+    const own = Promise.all(
+        [build.css ? loadCss(build.css) : Promise.resolve('')].concat(
+            neededSheets(ref, imports, cover).map((url) => loadCss(url))
+        )
+    );
     let chain = Promise.resolve();
     imports.forEach((imp) => {
         chain = chain.then(() =>
@@ -335,14 +404,11 @@ export function loadComponent(ref) {
     });
     return chain
         .then(() => Promise.all([importModule(build.js), own]))
-        .then(([mod, [css]]) => {
-            const loaded = toLoaded(build, mod, css);
+        .then(([mod]) => {
+            const loaded = toLoaded(build, mod, '');
             return {
                 Component: loaded.Component,
-                cssText: combineCss([
-                    ...importsCss(imports),
-                    { label: ref.uniqueId || build.id, text: loaded.cssText },
-                ]),
+                ...cssOf(ref, imports, cover),
                 imports: imports.map((imp) => ({
                     specifier: imp.specifier,
                     buildId: importKey(imp),
@@ -354,23 +420,27 @@ export function loadComponent(ref) {
 
 /**
  * Synchronous cache hit for loadComponent: the component and every import already loaded this page
- * load (and registered). Returns the same shape as loadComponent, or null.
+ * load (and registered), and every utilities sheet it needs given `covers`. Same shape, or null.
  */
-export function peekComponent(ref) {
+export function peekComponent(ref, covers) {
     const build = ref && ref.build;
     if (!build || !build.js || !modules.has(build.js)) return null;
     if (build.css && !cssTexts.has(build.css)) return null;
+    const cover = covers || null;
     const imports = usableImports(ref);
     for (const imp of imports) {
+        if (!importsLoaded.has(importKey(imp))) return null;
+    }
+    if (neededSheets(ref, imports, cover).some((url) => !cssTexts.has(url))) return null;
+    for (const imp of imports) {
         const key = importKey(imp);
-        if (!importsLoaded.has(key)) return null;
         if (registeredBy.get(imp.specifier) !== key) registerImport(imp.specifier, key, importsLoaded.get(key).mod);
     }
     try {
-        const loaded = toLoaded(build, modules.get(build.js), build.css ? cssTexts.get(build.css) : '');
+        const loaded = toLoaded(build, modules.get(build.js), '');
         return {
             Component: loaded.Component,
-            cssText: combineCss([...importsCss(imports), { label: ref.uniqueId || build.id, text: loaded.cssText }]),
+            ...cssOf(ref, imports, cover),
             imports: imports.map((imp) => ({
                 specifier: imp.specifier,
                 buildId: importKey(imp),

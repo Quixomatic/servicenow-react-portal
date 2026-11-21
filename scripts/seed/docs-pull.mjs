@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path';
 import { here } from './seed-lib.mjs';
 import { DOCS_ROOT, DOCS_REMOTE, loadDocs, parseFrontmatter } from './docs-lib.mjs';
 import { frontmatterValue } from '../../src/server/docs/docs-text.ts';
+import { createProgress } from '../lib/progress.mjs';
 
 const repoRoot = join(here, '..', '..');
 const NAV_FILE = join(DOCS_ROOT, '_nav.json');
@@ -33,13 +34,15 @@ const valueOf = (n) => {
     if (!a) return null;
     return a.includes('=') ? a.slice(a.indexOf('=') + 1) : argv[argv.indexOf(a) + 1] || '';
 };
-const KNOWN = ['--dry-run', '--all', '--only', '--help', '-h'];
+const KNOWN = ['--dry-run', '--all', '--only', '--help', '-h', '--quiet', '--progress'];
 if (flag('--help') || flag('-h')) {
     console.log(`npm run docs:pull -- [flags]
   (no flags)     pull every page edited in Studio (and Studio-created / deactivated pages)
   --all          pull every page on the instance
   --only a,b     just these doc paths (e.g. concepts/layouts)
-  --dry-run      show what would be written, write nothing`);
+  --dry-run      show what would be written, write nothing
+  --progress=M   tty | lines | off (status line while reading the instance)
+  --quiet        no status line or chatter: warnings, errors and results only`);
     process.exit(0);
 }
 const unknown = argv.filter((a) => a.startsWith('-') && !KNOWN.includes(a.split('=')[0]));
@@ -55,7 +58,14 @@ const ONLY =
               .split(',')
               .map((s) => s.trim().replace(/\.md$/, ''))
               .filter(Boolean);
-const log = (...a) => console.log(...a);
+let P;
+try {
+    P = createProgress({ argv });
+} catch (e) {
+    console.error(e.message + '. Nothing was written.');
+    process.exit(1);
+}
+const log = (...a) => P.log(...a);
 
 /* ---------------- now-sdk query (as run-seed.mjs: spawned via node, no shell) ---------------- */
 
@@ -84,7 +94,7 @@ function sdk(args) {
     });
 }
 
-async function query(table, q, fields, pageSize) {
+async function query(table, q, fields, pageSize, onPage) {
     const records = [];
     let offset = 0;
     for (;;) {
@@ -113,6 +123,7 @@ async function query(table, q, fields, pageSize) {
         }
         if (!j.ok) throw new Error(`now-sdk query ${table} failed: ${JSON.stringify(j).slice(0, 800)}`);
         records.push(...j.records);
+        if (onPage) onPage(records.length);
         if (!j.hasMore || !j.records.length) return records;
         offset = j.nextOffset != null ? j.nextOffset : offset + j.records.length;
     }
@@ -165,7 +176,7 @@ function fileText(row, position, existing) {
 /* ---------------- Main ---------------- */
 
 async function main() {
-    log('Reading doc pages from the instance…');
+    if (P.mode === 'off') log('Reading doc pages from the instance…');
     const fields = [
         'path',
         'title',
@@ -183,13 +194,25 @@ async function main() {
         'origin',
         'doc_section',
     ];
-    const rows = await query('x_312987_portal_doc', DOCS_REMOTE.pagesQuery, fields, 40);
-    const sectionRows = await query(
-        'x_312987_portal_doc_section',
-        DOCS_REMOTE.sectionsQuery,
-        DOCS_REMOTE.sectionFields.concat(['icon']),
-        200
-    );
+    // Status line while the pages (40 per request, with their markdown) and sections are read.
+    const task = P.task('Reading doc pages from the instance');
+    let rows;
+    let sectionRows;
+    try {
+        rows = await query('x_312987_portal_doc', DOCS_REMOTE.pagesQuery, fields, 40, (n) =>
+            task.update(`${n} pages`, String(n))
+        );
+        task.update(`sections (${rows.length} pages read)`, 'sections');
+        sectionRows = await query(
+            'x_312987_portal_doc_section',
+            DOCS_REMOTE.sectionsQuery,
+            DOCS_REMOTE.sectionFields.concat(['icon']),
+            200
+        );
+    } finally {
+        P.clear();
+    }
+    log(`  ${rows.length} pages, ${sectionRows.length} sections on the instance`);
     // Each page's section comes from its section row (the page's own strings are "as of its last
     // content write"). Pages of an inactive section leave the nav like deactivated pages.
     const sectionById = {};
@@ -431,6 +454,7 @@ async function main() {
 }
 
 main().catch((e) => {
+    P.clear();
     console.error(e.stack || String(e));
     process.exitCode = 1;
 });

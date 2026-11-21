@@ -23,7 +23,8 @@ import {
     useWidgetInstance,
 } from './contexts';
 import { loadComponent, peekComponent } from './loader';
-import { acquireStyle, ensureStyle, styleTarget } from './styles';
+import { portalCovers } from './portal-utilities';
+import { acquireStyle, ensureStyle, removeStyle, styleTarget } from './styles';
 import { executeInstance } from './api';
 import { useInstanceRecord } from './instance-init';
 import { useDiagCounter } from './diag-hooks';
@@ -181,23 +182,31 @@ export function WidgetPlaceholder({ label, error, onRetry }) {
 
 // ---- module loading -------------------------------------------------------------------------
 
-/** Loads a component's build. { status: 'loading'|'ready'|'error'|'empty', Component, cssText, error } */
+/**
+ * Loads a component's build.
+ * { status: 'loading'|'ready'|'error'|'empty', Component, cssText, utilitiesText, authorText, error }
+ * Builds the portal utilities sheet covers skip their own utilities sheet (portal-utilities.js).
+ */
 export function useComponentModule(componentRef) {
     const build = componentRef && componentRef.build;
     const imports = componentRef && Array.isArray(componentRef.imports) ? componentRef.imports : null;
+    const portal = useContext(PortalContext);
+    const covers = portalCovers(portal && portal.utilities);
+    const coversRef = useRef(covers);
+    coversRef.current = covers;
     const key = build
-        ? `${build.id}|${build.js}|${build.css}|${imports ? imports.map((i) => (i.build ? i.build.id : '-')).join(',') : ''}`
+        ? `${build.id}|${build.js}|${build.css}|${build.utilities || ''}|${imports ? imports.map((i) => (i.build ? `${i.build.id}:${i.build.utilitiesKey || ''}` : '-')).join(',') : ''}|${covers ? portal.utilities.hash : ''}`
         : '';
     const refNow = useRef(componentRef);
     refNow.current = componentRef;
-    const [state, setState] = useState(() => initialState(componentRef));
+    const [state, setState] = useState(() => initialState(componentRef, covers));
 
     useEffect(() => {
         if (!build || !build.js) {
             setState((prev) => (prev.status === 'empty' ? prev : { status: 'empty' }));
             return undefined;
         }
-        const cached = peekComponent(refNow.current);
+        const cached = peekComponent(refNow.current, coversRef.current);
         if (cached) {
             setState((prev) =>
                 prev.status === 'ready' && prev.Component === cached.Component ? prev : { status: 'ready', ...cached }
@@ -206,7 +215,7 @@ export function useComponentModule(componentRef) {
         }
         let alive = true;
         setState({ status: 'loading' });
-        loadComponent(refNow.current).then(
+        loadComponent(refNow.current, coversRef.current).then(
             (loaded) => alive && setState({ status: 'ready', ...loaded }),
             (error) => alive && setState({ status: 'error', error })
         );
@@ -219,17 +228,22 @@ export function useComponentModule(componentRef) {
     return state;
 }
 
-function initialState(componentRef) {
+function initialState(componentRef, covers) {
     const build = componentRef && componentRef.build;
     if (!build || !build.js) return { status: 'empty' };
-    const cached = peekComponent(componentRef);
+    const cached = peekComponent(componentRef, covers);
     return cached ? { status: 'ready', ...cached } : { status: 'loading' };
 }
 
-/** Prefetch builds (JS + CSS) so a page renders complete; failures surface later in the slot. */
-export function prefetchBuilds(componentRefs) {
+/**
+ * Prefetch builds (JS + CSS) so a page renders complete; failures surface later in the slot.
+ * covers: the portal sheet's keys, so covered builds' utilities sheets aren't downloaded.
+ */
+export function prefetchBuilds(componentRefs, covers) {
     return Promise.all(
-        (componentRefs || []).filter((c) => c && c.build && c.build.js).map((c) => loadComponent(c).catch(() => null))
+        (componentRefs || [])
+            .filter((c) => c && c.build && c.build.js)
+            .map((c) => loadComponent(c, covers || null).catch(() => null))
     );
 }
 
@@ -295,11 +309,17 @@ function WidgetSlotInner({ placement, component, scope, label, parentId, zone, l
     const targetOf = () =>
         ref.current ? styleTarget(ref.current) : portal && portal.shadowRoot ? portal.shadowRoot : null;
 
+    // Uncovered Tailwind utilities go in the fallback slot (before the portal sheet), author CSS in the
+    // widget slot. A build the portal sheet covers has no utilities text here.
     useLayoutEffect(() => {
-        if (loaded.status === 'ready' && loaded.cssText)
-            ensureStyle(targetOf(), `widget:${buildId}`, loaded.cssText, 'widget');
+        if (loaded.status !== 'ready') return;
+        const target = targetOf();
+        // Covered (e.g. the portal sheet arrived after a fallback): drop the build's fallback sheet.
+        if (loaded.utilitiesText) ensureStyle(target, `widget-utilities:${buildId}`, loaded.utilitiesText, 'fallback');
+        else removeStyle(target, `widget-utilities:${buildId}`);
+        if (loaded.authorText) ensureStyle(target, `widget:${buildId}`, loaded.authorText, 'widget');
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loaded.status, loaded.cssText, buildId]);
+    }, [loaded.status, loaded.utilitiesText, loaded.authorText, buildId]);
 
     // Instance CSS (classes, style tokens, grid layout, responsive option variables): once per
     // placement, updated when it changes, removed when the placement is gone.

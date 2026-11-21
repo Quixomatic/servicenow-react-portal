@@ -57,12 +57,25 @@ Every sheet is a `<style data-rp="<key>" data-rp-slot="<slot>">`, kept in slot o
 | Slot | What |
 |---|---|
 | `theme` | Theme stylesheet(s) |
-| `framework` | The host's Tailwind + shadcn CSS (a `<style>`, never an adopted sheet: adopted sheets sort after everything) |
-| `widget` | One per component build |
+| `framework` | The host's Tailwind + shadcn CSS (a `<style>`, never an adopted sheet: adopted sheets sort after everything). Always injected, so the host never loses its styles |
+| `fallback` | The own Tailwind sheet (`utilities.css`) of each build the portal sheet doesn't cover |
+| `utilities` | The **portal utilities sheet**: one Tailwind sheet for every component of the portal plus the host's classes, in `@layer rp-portal` |
+| `widget` | Author CSS (`styles.css`), one per component build |
 | `instance` | One per placement (reference-counted) |
 | `tokens` | Theme token variables, last |
 
-The renderer mirrors `<style>` elements and the host's classes (`dark`) into the **overlay layer**, so floating UI is styled and themed. Layer order across all Tailwind sheets: `theme, base, components, utilities, rp-variants`.
+The renderer mirrors `<style>` elements and the host's classes (`dark`) into the **overlay layer**, so floating UI is styled and themed. Layer order across all Tailwind sheets: `theme, base, components, utilities, rp-variants, rp-portal, rp-instance, rp-instance-variants` (placement classes in the last two).
+
+### Portal utilities sheet
+
+The bootstrap carries `utilities: { css, hash, covers }` (or null). The root route loader downloads the sheet alongside the theme, and `PortalShell` injects it (`usePortalUtilities`, `runtime/portal-utilities.js`).
+
+**The rule:** a build's own `utilities.css` is skipped exactly when its `utilitiesKey` is in `covers` **and** the portal sheet is loaded into the same shadow root. The key is the first 16 hex characters of the content hash of the build's utilities sheet, so the rule is correct by construction: identical utilities means its classes are already in the union.
+
+- **Covered builds** inject only their author CSS (`widget` slot). Their utilities sheet isn't even downloaded: `loadComponent(ref, covers)` / `prefetchBuilds(refs, covers)` skip it.
+- **Fallback.** Everything else injects its own utilities sheet into the `fallback` slot, before the portal sheet. That covers a build compiled after the last reprocess (a Studio save until its reprocess finishes), a model outside the manifest, the designer on a live (unprocessed) manifest, and a pre-v6 build with no `utilitiesKey`. Because fallback sheets sort before the portal sheet, the portal sheet keeps authority over the rest of the page; in that window a fallback build's new class can lose to a conflicting class in the portal sheet.
+- **No portal.** Studio preview, docs and view rules call `loadComponent(ref)` without covers and inject the complete `cssText` as before.
+- **Failure.** If the sheet is missing or fails to load, covers are null and every build falls back. The framework CSS is untouched in every case.
 
 ## Framing
 
@@ -93,7 +106,7 @@ snc ui-component develop --port 8095           # or any port
 ```
 
 - `?rpmock=1` uses in-browser mock data (`runtime/mock`), including a mock AMB bus and a mock Studio API. Without it, the dev server proxies `/api` to the instance. `?rpmock=0` / `localStorage.rpmock` persist the choice.
-- `pnpm run deploy` = `build:css` (Tailwind CLI + variant layer) → `patch-servicenow-babel --verify` → `snc ui-component deploy`.
+- `pnpm run deploy` = `build:css` (Tailwind CLI + variant layer + `host-candidates.mjs`, which regenerates `src/server/compiler/host-candidates.ts` and fails on any host class the server would compile differently) → `patch-servicenow-babel --verify` → `snc ui-component deploy`.
 
 ## Related
 

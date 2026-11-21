@@ -894,7 +894,7 @@ export function SocialEngagement({
                             </caption>
                             <thead>
                                 <tr className="border-b">
-                                    <th className={`${th} ${thc()} ps-4! text-start`}>Channel</th>
+                                    <th className={`${th} ${thc()} ps-4 text-start`}>Channel</th>
                                     <th className={`${th} ${thc()} text-end @max-2xl:hidden`}>Posts</th>
                                     <th className={`${th} ${thc('impressions')} text-end @max-2xl:hidden`}>
                                         Impressions
@@ -927,7 +927,7 @@ export function SocialEngagement({
                                             className="border-b transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
                                             {...spotProps(t.channel.key)}
                                         >
-                                            <td className={`${td} ps-4!`}>
+                                            <td className={`${td} ps-4`}>
                                                 <span className="flex h-5 min-w-0 items-center gap-2">
                                                     <LineSwatch
                                                         className="h-0.5 w-3"
@@ -990,7 +990,7 @@ export function SocialEngagement({
                             </tbody>
                             <tfoot>
                                 <tr className="bg-muted/30 font-medium">
-                                    <td className={`${td} ps-4!`}>
+                                    <td className={`${td} ps-4`}>
                                         <span className="flex h-5 items-center">
                                             <span className={TRIM}>All channels</span>
                                         </span>

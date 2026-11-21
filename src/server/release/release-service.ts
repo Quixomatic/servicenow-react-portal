@@ -7,6 +7,7 @@ import { requireStudio } from '../security/access.ts';
 import { assembleManifest, Manifest, flattenRegions } from '../runtime/portal-service.ts';
 import { buildOf } from '../registry/registry.ts';
 import { reprocessSuppressed } from '../lib/session-flags.ts';
+import { planUtilities, utilitiesFor } from './portal-utilities.ts';
 import type { ReleaseSummary, PlacementRef } from '../../shared/contracts';
 
 /**
@@ -132,10 +133,15 @@ export function processPortal(portalId: string, force = false): ReleaseSummary |
     const portal = getById(T.portal, portalId);
     if (!portal) return null;
     const manifest = assembleManifest(portal);
+    let r = releaseOf(portalId);
+    // The portal utilities sheet: reused while the candidate union is unchanged; otherwise compiled at
+    // the end of this script, after which the portal is reprocessed again (portal-utilities.ts).
+    manifest.utilities = utilitiesFor(portalId, r, planUtilities(manifest), (id) => {
+        processPortal(id);
+    });
     const hash = sha256(canonicalJson(manifest));
     const problems = manifestProblems(manifest);
 
-    let r = releaseOf(portalId);
     if (r && !force && str(r, 'manifest_hash') === hash) return releaseSummary(r);
 
     if (!r) {

@@ -25,6 +25,15 @@ import { planPortals } from './seed-plan.mjs';
 // Skipped with --no-docs, and on --only runs unless --docs is given; --docs adds it (diff-based) to an --only run; --docs-all rewrites every page.
 // Pages edited in Studio (content_hash ≠ seed_hash) are never overwritten unless --docs-force: classifyDocs in docs-lib.mjs.
 import { loadDocs, renderDocsSeed, classifyDocs, planDocsExtras, DOCS_REMOTE } from './docs-lib.mjs';
+// Terminal progress (status line / heartbeat lines, --progress, --quiet): scripts/lib/progress.mjs.
+import {
+    createProgress,
+    estimateRemaining,
+    formatBytes,
+    formatDuration,
+    renderBar,
+    renderTable,
+} from '../lib/progress.mjs';
 
 const repoRoot = join(here, '..', '..');
 const argv = process.argv.slice(2);
@@ -50,6 +59,8 @@ const KNOWN_FLAGS = [
     '--docs-all',
     '--docs-force',
     '--no-docs',
+    '--quiet',
+    '--progress',
 ];
 if (flag('--help') || flag('-h')) {
     console.log(`npm run seed -- [flags]
@@ -67,7 +78,10 @@ if (flag('--help') || flag('-h')) {
                      (an exec that still fails with "Program too complex" is halved and retried
                      automatically: nothing ran, so the retry is safe)
   --wait-minutes N   how long to wait on a run that didn't answer (default 30)
-  --keep             keep the generated part files`);
+  --keep             keep the generated part files
+  --progress=MODE    tty (animated status line), lines (a plain line on change / every ~10 s) or off;
+                     default: tty in a terminal, lines when the output is captured
+  --quiet            no status line or step chatter: warnings, errors and the summary only`);
     process.exit(0);
 }
 const unknownFlags = argv.filter((a) => a.startsWith('-') && !KNOWN_FLAGS.includes(a.split('=')[0]));
@@ -107,9 +121,28 @@ const WAIT_MS = Number(valueOf('--wait-minutes') || 30) * 60000;
 const PROPERTY = 'x_312987_portal.seed.template_hash';
 const T = 'x_312987_portal_';
 
+let P;
+try {
+    // Lines mode: a new line per real change at most every 5 s (syslog is polled every 4 s).
+    P = createProgress({ argv, minGapMs: 5000 });
+} catch (e) {
+    console.error(e.message + '. Nothing was run.');
+    process.exit(1);
+}
 const t0 = Date.now();
 const secs = (ms) => (ms / 1000).toFixed(1) + 's';
-const log = (...a) => console.log(...a);
+const log = (...a) => P.log(...a);
+// Syslog poll interval while a step runs: 4 s with a status line, the old 10 s with --progress=off.
+const POLL_MS = P.mode === 'off' ? 10000 : 4000;
+/** Run `fn` with a timed status line ("Reading … · 3.2s"); the line is cleared when it settles. */
+async function withStatus(label, fn) {
+    const task = P.task(label);
+    try {
+        return await fn(task);
+    } finally {
+        P.clear();
+    }
+}
 
 /* ---------------- now-sdk (spawned via node, no shell: encoded queries carry ^) ---------------- */
 
@@ -256,13 +289,39 @@ const mapKey = (r) => (r.namespace === 'app' ? r.key : `${r.namespace}/${r.key}`
 
 async function readInstance(namespaces = ['app']) {
     const ns = 'namespaceIN' + namespaces.join(',');
-    const [comps, files, builds, props] = await Promise.all([
-        query(T + 'component', ns, ['sys_id', 'unique_id'].concat(FIELDS)),
-        query(T + 'source_file', 'component.' + ns, ['sys_id', 'component', 'path', 'target', 'content_text'], 200),
-        query(T + 'build', 'component.' + ns, ['sys_id', 'component', 'state', 'last_error', 'compiler_version'], 200),
-        query('sys_properties', 'name=' + PROPERTY, ['name', 'value']),
-    ]);
-    return { comps, files, builds, markerHash: props.length ? props[0].value : '' };
+    return withStatus('Reading components, source files and builds from the instance', async (task) => {
+        let settled = 0;
+        const track = (name, p) =>
+            p.then((rows) => {
+                settled++;
+                task.update(`${settled}/4 tables (${name}: ${rows.length} rows)`, String(settled));
+                return rows;
+            });
+        task.update('0/4 tables', '0');
+        const [comps, files, builds, props] = await Promise.all([
+            track('components', query(T + 'component', ns, ['sys_id', 'unique_id'].concat(FIELDS))),
+            track(
+                'source files',
+                query(
+                    T + 'source_file',
+                    'component.' + ns,
+                    ['sys_id', 'component', 'path', 'target', 'content_text'],
+                    200
+                )
+            ),
+            track(
+                'builds',
+                query(
+                    T + 'build',
+                    'component.' + ns,
+                    ['sys_id', 'component', 'state', 'last_error', 'compiler_version'],
+                    200
+                )
+            ),
+            track('marker', query('sys_properties', 'name=' + PROPERTY, ['name', 'value'])),
+        ]);
+        return { comps, files, builds, markerHash: props.length ? props[0].value : '' };
+    });
 }
 
 function diffComponents(ordered, inst) {
@@ -341,16 +400,105 @@ async function syslogFor(runId, sinceMs) {
     ]);
 }
 
+/* ---------------- Progress (status line while a step runs) ---------------- */
+
+// "[seed] progress run=<id> <text>" lines (seed-template.js seedProgress): the furthest one wins.
+const PHASE_RANK = { writing: 1, portals: 2, compiling: 3, css: 4, reprocess: 5 };
+function parseProgress(lines) {
+    let best = null;
+    for (const l of lines) {
+        const m = /^\[seed\] progress run=\S+ (.*)$/.exec(l.message || '');
+        if (!m) continue;
+        const text = m[1];
+        const counted = /^(writing|compiling|compiled) (\d+)\/(\d+)(?: (.*))?$/.exec(text);
+        let p;
+        if (counted)
+            p = {
+                phase: counted[1] === 'writing' ? 'writing' : 'compiling',
+                n: Number(counted[2]),
+                total: Number(counted[3]),
+                item: counted[4] || '',
+            };
+        else if (/^writing portals/.test(text)) p = { phase: 'portals', n: 0, total: 0, item: '' };
+        else if (/^instance css/.test(text)) p = { phase: 'css', n: 0, total: 0, item: text.slice(13) };
+        else if (/^reprocessing/.test(text)) p = { phase: 'reprocess', n: 0, total: 0, item: '' };
+        else continue;
+        p.rank = PHASE_RANK[p.phase];
+        if (!best || p.rank > best.rank || (p.rank === best.rank && p.n > best.n)) best = p;
+    }
+    return best;
+}
+// Share of a step done at a progress line (records ~25 %, compiles ~55 %, css + reprocess the rest).
+function stepFraction(p) {
+    if (!p) return 0.02;
+    const f = p.total ? p.n / p.total : 0;
+    if (p.phase === 'writing') return 0.25 * f;
+    if (p.phase === 'portals') return 0.3;
+    if (p.phase === 'compiling') return 0.35 + 0.55 * f;
+    if (p.phase === 'css') return 0.92;
+    return 0.96;
+}
+function phaseText(p, execDone) {
+    if (!p) return execDone ? 'waiting for the done line' : 'running the exec';
+    if (p.phase === 'writing')
+        return `writing records ${p.n}/${p.total}${p.item ? ' ' + P.sym.dot + ' ' + p.item : ''}`;
+    if (p.phase === 'portals') return 'writing portals, pages and menus';
+    if (p.phase === 'compiling') return `compiled ${p.n}/${p.total}${p.item ? ' ' + P.sym.dot + ' ' + p.item : ''}`;
+    if (p.phase === 'css') return `instance css (${p.item})`;
+    return 'reprocessing portals';
+}
+// ETA weights: a components step ~ its component count, a portals step ~8, a docs step ~3.
+const unitsOf = (s) => (s.mode === 'components' ? s.keys.length + 2 : s.mode === 'portals' ? 8 : 3);
+const stepName = (s) =>
+    s.mode === 'components' ? `components (${s.keys.length})` : s.mode === 'portals' ? 'portals' : s.mode;
+// Set by main before the step loop: { steps, index (0-based), started }.
+let RUN = null;
+
 async function runStep(step, index, total) {
     const label = `step ${index}/${total} (${step.mode}${step.keys.length ? ', ' + step.keys.length + ' components' : ''}${step.reprocess ? ', reprocess' : ''})`;
     const file = join(tmpdir(), 'react-portal-seed', step.runId + '.js');
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, step.script);
-    log(`\n>> ${label}: run ${step.runId}, ${(bytes(step.script) / 1024).toFixed(0)} KB`);
+    log(
+        `\n${P.sym.run} ${P.c.bold(`[${index}/${total}] ${stepName(step)}`)}${step.reprocess ? ', reprocess' : ''} ${P.sym.dot} run ${step.runId} ${P.sym.dot} ${(bytes(step.script) / 1024).toFixed(0)} KB`
+    );
     const started = Date.now();
-    const r = await sdk(['exec', '--file', file, '--reason', `npm run seed ${step.runId} (${step.mode})`], {
+    // Status line: overall bar, this step's phase (from the run's "[seed] progress" syslog lines),
+    // elapsed and an ETA from the throughput so far. Polled while the exec runs, too (read-only).
+    const prog = { p: null, execDone: false };
+    const show = () => {
+        if (P.mode === 'off' || !RUN) return;
+        const doneUnits =
+            RUN.steps.slice(0, RUN.index).reduce((n, s) => n + unitsOf(s), 0) + stepFraction(prog.p) * unitsOf(step);
+        const totalUnits = RUN.steps.reduce((n, s) => n + unitsOf(s), 0);
+        P.status(
+            () => {
+                const elapsed = Date.now() - RUN.started;
+                const left = estimateRemaining(doneUnits, totalUnits, elapsed, 15000);
+                return `[${index}/${total}] ${P.c.cyan(renderBar(doneUnits / totalUnits, 16))} ${stepName(step)} ${P.sym.dot} ${phaseText(prog.p, prog.execDone)} ${P.sym.dot} ${formatDuration(elapsed)} elapsed${left != null ? ' ' + P.sym.dot + ' ~' + formatDuration(left) + ' left' : ''}`;
+            },
+            { key: prog.p ? prog.p.phase + ' ' + prog.p.n : String(prog.execDone) }
+        );
+    };
+    show();
+    const execP = sdk(['exec', '--file', file, '--reason', `npm run seed ${step.runId} (${step.mode})`], {
         echo: false,
+    }).then((res) => {
+        prog.execDone = true;
+        return res;
     });
+    if (P.mode !== 'off') {
+        for (;;) {
+            const settled = await Promise.race([execP.then(() => true), sleep(POLL_MS).then(() => false)]);
+            if (settled || prog.execDone) break;
+            try {
+                prog.p = parseProgress(await syslogFor(step.runId, started)) || prog.p;
+            } catch (e) {}
+            show();
+        }
+    }
+    const r = await execP;
+    show();
     const text = (r.out + '\n' + r.err).trim();
     const noResponse =
         /did not return a script execution response|timed?\s*out|timeout|ETIMEDOUT|ECONNRESET|socket hang up/i.test(
@@ -375,6 +523,8 @@ async function runStep(step, index, total) {
     let lastNote = 0;
     for (;;) {
         const lines = await syslogFor(step.runId, started);
+        prog.p = parseProgress(lines) || prog.p;
+        show();
         const done = lines.find((l) => l.message.startsWith('[seed] done'));
         const failed = lines.find((l) => /^\[seed\] (final reprocess failed|failed)/.test(l.message));
         if (failed) {
@@ -389,13 +539,15 @@ async function runStep(step, index, total) {
             throw new Error(
                 `${label}: no "[seed] done run=${step.runId}" in syslog after ${secs(Date.now() - started)}. Not re-running; check syslog / Script Execution History. Seed file: ${file}`
             );
-        if (Date.now() - lastNote > 60000) {
+        // The status line shows the wait; without one (--progress=off), the old minute notes.
+        if (P.mode === 'off' && Date.now() - lastNote > 60000) {
             log(`   waiting for [seed] done run=${step.runId} … ${secs(Date.now() - started)}`);
             lastNote = Date.now();
         }
-        await new Promise((res) => setTimeout(res, 10000));
+        await sleep(POLL_MS);
     }
 }
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
 function printDone(message) {
     // "[seed] done (mode) run=<id>: <counts> | <portal revisions> | <timings>"
@@ -405,7 +557,31 @@ function printDone(message) {
     if (revs) log('   portals: ' + revs);
     if (times) log('   timings: ' + times);
     const m = counts.match(/(\d+) failed/);
-    if (m && Number(m[1]) > 0) log('   WARNING: compiles failed; see the "[seed] compiles" syslog line');
+    if (m && Number(m[1]) > 0) P.warn('   WARNING: compiles failed; see the "[seed] compiles" syslog line');
+}
+
+/** Final table: one row per exec, counts from its "[seed] done" line. */
+function printSummary(steps, results) {
+    const num = (msg, re) => {
+        const m = re.exec(msg || '');
+        return m ? m[1] : '';
+    };
+    const rows = [['#', 'step', 'time', 'written', 'compiled', 'up to date', 'failed', 'portals']];
+    results.forEach((res, i) => {
+        const msg = res.message;
+        rows.push([
+            String(i + 1),
+            stepName(steps[i]),
+            formatDuration(res.ms),
+            num(msg, /(\d+) records written/) || num(msg, /(\d+) docs written/),
+            num(msg, /(\d+) compiled/),
+            num(msg, /(\d+) up to date/),
+            num(msg, /(\d+) failed/),
+            num(msg, /(\d+) portals reprocessed/),
+        ]);
+    });
+    P.out('\n' + P.c.bold('Summary'));
+    P.out(renderTable(rows));
 }
 
 /* ---------------- Docs ---------------- */
@@ -431,8 +607,12 @@ async function planDocs() {
     let remoteSections;
     try {
         // Collection react-portal only (plus rows from before doc collections, which belong to it).
-        remote = await query(T + 'doc', DOCS_REMOTE.pagesQuery, DOCS_REMOTE.pageFields, 200);
-        remoteSections = await query(T + 'doc_section', DOCS_REMOTE.sectionsQuery, DOCS_REMOTE.sectionFields, 200);
+        await withStatus('Reading doc pages and sections from the instance', async (task) => {
+            task.update('pages');
+            remote = await query(T + 'doc', DOCS_REMOTE.pagesQuery, DOCS_REMOTE.pageFields, 200);
+            task.update(`sections (${remote.length} pages read)`);
+            remoteSections = await query(T + 'doc_section', DOCS_REMOTE.sectionsQuery, DOCS_REMOTE.sectionFields, 200);
+        });
     } catch (e) {
         log(
             `\nDocs: skipped, x_312987_portal_doc isn't readable (install the app first?): ${String(e.message).slice(0, 160)}`
@@ -517,7 +697,9 @@ async function printPortalsPlan(script) {
     log('\nPortals step plan (simulated locally against the instance; nothing is written):');
     let plan;
     try {
-        plan = await planPortals({ script, query: (t, q, f) => query(t, q, f, 200) });
+        plan = await withStatus('Simulating the portals step against the instance rows', () =>
+            planPortals({ script, query: (t, q, f) => query(t, q, f, 200) })
+        );
     } catch (e) {
         log(`  plan unavailable: ${String(e.message || e).slice(0, 600)}`);
         return;
@@ -552,7 +734,7 @@ async function main() {
         if (unknown.length) throw new Error(`--only: no seed folder for ${unknown.join(', ')}`);
     }
 
-    log(`Reading app/* components, source files and builds from the instance…`);
+    if (P.mode === 'off') log(`Reading app/* components, source files and builds from the instance…`);
     const inst = await readInstance(Array.from(new Set(Object.values(ordered).map((c) => c.namespace || 'app'))));
     const diff = diffComponents(ordered, inst);
     log(
@@ -563,7 +745,7 @@ async function main() {
         log(`\nChanged components (${diff.changed.length}):`);
         for (const c of diff.changed) log(`  ${c.key.padEnd(24)} ${c.reasons.join('; ')}`);
     } else log('\nComponents: instance matches every local folder.');
-    for (const w of diff.warnings) log('  WARNING ' + w);
+    for (const w of diff.warnings) P.warn('  WARNING ' + w);
     if (diff.stale.length) log(`  Instance-only (no seed folder; never deleted): ${diff.stale.join(', ')}`);
 
     const templateChanged = inst.markerHash !== tHash;
@@ -605,12 +787,27 @@ async function main() {
         log('\nnothing to seed');
         return;
     }
-    log(`\nPlan (${steps.length} exec${steps.length > 1 ? 's' : ''}, one reprocess at the end):`);
-    steps.forEach((s, i) =>
-        log(
-            `  ${i + 1}. ${s.mode}${s.keys.length ? ' [' + s.keys.join(', ') + ']' : ''}, ${(bytes(s.script) / 1024).toFixed(0)} KB${s.reprocess ? ', reprocess' : ''}`
-        )
+    const planBytes = steps.reduce((n, s) => n + bytes(s.script), 0);
+    log(
+        `\n${P.c.bold('Plan')} (${steps.length} exec${steps.length > 1 ? 's' : ''}, one reprocess at the end) ${P.sym.dot} ${keys.length} component${keys.length === 1 ? '' : 's'}${portals ? ' + portals' : ''} ${P.sym.dot} ${formatBytes(planBytes)}`
     );
+    const nameWidth = Math.max(...steps.map((s) => stepName(s).length));
+    const listWidth = Math.max(60, (process.stdout.columns || 120) - 8);
+    steps.forEach((s, i) => {
+        log(
+            `  ${String(i + 1).padStart(String(steps.length).length)}. ${stepName(s).padEnd(nameWidth)}  ${formatBytes(bytes(s.script)).padStart(7)}${s.reprocess ? '  ' + P.c.yellow('reprocess') : ''}`
+        );
+        // The component keys, wrapped under the step.
+        let line = '';
+        for (const k of s.keys) {
+            const piece = (line ? ', ' : '') + k;
+            if (line && line.length + piece.length > listWidth) {
+                log(P.c.dim('       ' + line + ','));
+                line = k;
+            } else line += piece;
+        }
+        if (line) log(P.c.dim('       ' + line));
+    });
     if (DRY) {
         const portalStep = steps.find((s) => s.mode === 'portals');
         if (portalStep) await printPortalsPlan(portalStep.script);
@@ -619,13 +816,17 @@ async function main() {
     }
 
     const results = [];
+    RUN = { steps, index: 0, started: Date.now() };
     for (let i = 0; i < steps.length; i++) {
+        RUN.index = i;
         try {
             const res = await runStep(steps[i], i + 1, steps.length);
+            P.clear();
             results.push(res);
-            log(`   done in ${secs(res.ms)}`);
+            log(`${P.sym.ok} [${i + 1}/${steps.length}] ${stepName(steps[i])} done in ${secs(res.ms)}`);
             printDone(res.message);
         } catch (e) {
+            P.clear();
             // Too complex to compile: halve the step and retry it (only the second half keeps the
             // step's reprocess flag, so the final reprocess still runs once, last).
             if (e.tooComplex && steps[i].mode === 'components' && steps[i].keys.length > 1) {
@@ -642,21 +843,24 @@ async function main() {
                 i--;
                 continue;
             }
-            log(`\nSTOPPED: ${e.message}`);
+            if (results.length) printSummary(steps, results);
+            P.warn(`\n${P.sym.fail} STOPPED: ${e.message}`);
             if (i > 0 || !steps[i].reprocess)
-                log(
+                P.warn(
                     'Earlier parts wrote records but portals were NOT reprocessed: fix the cause, then `npm run seed` (add --reprocess if nothing else is left to seed).'
                 );
             process.exitCode = 1;
             return;
         }
     }
-    log(
-        `\nSeeded ${keys.length} component(s)${portals ? ' + portals' : ''} in ${steps.length} exec(s), ${secs(Date.now() - t0)} total.`
+    printSummary(steps, results);
+    P.out(
+        `\n${P.sym.ok} Seeded ${keys.length} component(s)${portals ? ' + portals' : ''} in ${steps.length} exec(s), ${secs(Date.now() - t0)} total.`
     );
 }
 
 main().catch((e) => {
+    P.clear();
     console.error(e.stack || String(e));
     process.exitCode = 1;
 });

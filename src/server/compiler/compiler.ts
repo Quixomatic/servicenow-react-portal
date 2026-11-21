@@ -1,6 +1,20 @@
 import { transform, version as sucraseVersion } from './vendor/sucrase.js';
-import { compile as tailwindCompile, sheets as tailwindSheets, version as tailwindVersion } from './vendor/tailwind.js';
-import { moveVariantsToLayer, LAYER_ORDER } from './variant-layer.ts';
+import {
+    compile as tailwindCompile,
+    loadDesignSystem,
+    sheets as tailwindSheets,
+    version as tailwindVersion,
+} from './vendor/tailwind.js';
+import type { TailwindDesignSystem, TailwindOptions } from './vendor/tailwind.js';
+import {
+    moveVariantsToLayer,
+    renameLayers,
+    LAYER_ORDER,
+    PORTAL_LAYER,
+    VARIANT_LAYER,
+    INSTANCE_LAYER,
+    INSTANCE_VARIANT_LAYER,
+} from './variant-layer.ts';
 
 /**
  * RPCompiler: server-side component compiler (runs in the instance's JavaScript engine, no
@@ -10,12 +24,16 @@ import { moveVariantsToLayer, LAYER_ORDER } from './variant-layer.ts';
  *   TSX/TS/JSX → Sucrase (typescript + jsx + imports → CommonJS-style module per file)
  *   main.tsx + relative imports → one ES module (small linker below)
  *   react, react-dom, react/jsx-runtime, @portal/runtime, components:*, utilities:* → host registry
- *   Tailwind v4 compile() over the classes used, then the author's CSS appended after it
+ *   Tailwind v4: the source's candidate class names, filtered to the ones that are utilities
+ *   (`candidates`), compiled into the component's own utilities sheet (`utilities`, the fallback when
+ *   no portal sheet covers the build); the author's CSS stays separate (`css`)
  *
- * Output (one build): index.js (default export = the component) and index.css.
+ * Output (one build): index.js (default export = the component), index.css (author CSS),
+ * utilities.css (Tailwind) and tailwind-candidates.json (the valid candidates, unioned per portal at
+ * reprocess into one portal utilities sheet: compilePortalUtilities).
  */
 
-export const COMPILER_VERSION = `rp-server-compiler/5 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`;
+export const COMPILER_VERSION = `rp-server-compiler/6 (sucrase ${sucraseVersion}, tailwindcss ${tailwindVersion})`;
 export const ENTRY = 'main.tsx';
 
 export interface CompilerFile {
@@ -50,7 +68,12 @@ export interface CompileDependency {
 export interface CompileResult {
     ok: boolean;
     js: string;
+    /** The author's CSS (styles.css, then imported .css files); unlayered. */
     css: string;
+    /** The component's own Tailwind utilities sheet ('' without Tailwind or without utilities). */
+    utilities: string;
+    /** Valid Tailwind candidates (sorted), for the portal utilities sheet. */
+    candidates: string[];
     dependencies: CompileDependency[];
     diagnostics: { errors: Diagnostic[]; warnings: Diagnostic[] };
     compilerVersion: string;
@@ -287,22 +310,35 @@ export const SHADCN_COLORS = [
     'sidebar-ring',
 ];
 
-export const TAILWIND_INPUT = [
-    // rp-variants: variant rules move there after the build (variant-layer.ts), so a variant from
-    // any sheet in the shadow root beats a base utility from any other sheet.
-    `@layer ${LAYER_ORDER};`,
-    '@import "tailwindcss/theme" layer(theme);',
-    '@import "tailwindcss/utilities" layer(utilities);',
-    // Widgets render inside the host's shadow root; dark mode keys off the host's .dark class.
-    '@custom-variant dark (&:where(:host(.dark), :host(.dark) *, .dark, .dark *));',
-    '@theme inline {',
-    ...SHADCN_COLORS.map((c) => `  --color-${c}: var(--${c});`),
-    '  --radius-sm: calc(var(--radius) - 4px);',
-    '  --radius-md: calc(var(--radius) - 2px);',
-    '  --radius-lg: var(--radius);',
-    '  --radius-xl: calc(var(--radius) + 4px);',
-    '}',
-].join('\n');
+function tailwindInput(utilitiesLayer: string, hostCss: boolean): string {
+    return [
+        // rp-variants: in component sheets, variant rules move there after the build (variant-layer.ts),
+        // so a variant from any sheet in the shadow root beats a base utility from any other sheet.
+        // rp-portal: the portal sheet's own layer, last.
+        `@layer ${LAYER_ORDER};`,
+        '@import "tailwindcss/theme" layer(theme);',
+        // The portal sheet also compiles the host's classes, so it imports what the host's framework
+        // CSS imports (packages/portal-host/src/styles/tailwind.css): tw-animate-css utilities and
+        // shadcn's keyframes, utilities and data-* variants.
+        ...(hostCss ? ['@import "tw-animate-css";', '@import "shadcn/tailwind.css";'] : []),
+        `@import "tailwindcss/utilities" layer(${utilitiesLayer});`,
+        // Widgets render inside the host's shadow root; dark mode keys off the host's .dark class.
+        '@custom-variant dark (&:where(:host(.dark), :host(.dark) *, .dark, .dark *));',
+        '@theme inline {',
+        ...SHADCN_COLORS.map((c) => `  --color-${c}: var(--${c});`),
+        '  --radius-sm: calc(var(--radius) - 4px);',
+        '  --radius-md: calc(var(--radius) - 2px);',
+        '  --radius-lg: var(--radius);',
+        '  --radius-xl: calc(var(--radius) + 4px);',
+        '}',
+    ].join('\n');
+}
+
+/** Input of every component's own utilities sheet (and of instance classes: design/instance-style.ts). */
+export const TAILWIND_INPUT = tailwindInput('utilities', false);
+
+/** Input of the portal utilities sheet: the host's CSS packages too, utilities in @layer rp-portal. */
+export const PORTAL_TAILWIND_INPUT = tailwindInput(PORTAL_LAYER, true);
 
 /**
  * Candidate class names from source text (Tailwind's own extractor is native Rust; this
@@ -353,15 +389,75 @@ export function extractCandidates(sources: string[]): string[] {
     return Object.keys(set);
 }
 
-export function compileTailwind(candidates: string[]): Promise<string> {
-    return tailwindCompile(TAILWIND_INPUT, {
+function tailwindOptions(polyfills?: number): TailwindOptions {
+    const options: TailwindOptions = {
         base: '/',
         loadStylesheet: (id, base) => {
             const content = tailwindSheets[id];
             if (content === undefined) return Promise.reject(new Error(`Unknown stylesheet ${id}`));
             return Promise.resolve({ content, base, path: id });
         },
-    }).then((c) => moveVariantsToLayer(c.build(candidates)));
+    };
+    if (polyfills !== undefined) options.polyfills = polyfills;
+    return options;
+}
+
+/** A component's own utilities sheet: Tailwind's output with variant rules moved to rp-variants. */
+export function compileTailwind(candidates: string[]): Promise<string> {
+    return tailwindCompile(TAILWIND_INPUT, tailwindOptions()).then((c) => moveVariantsToLayer(c.build(candidates)));
+}
+
+/**
+ * Placement classes (instance CSS): a component sheet whose layers are renamed to rp-instance /
+ * rp-instance-variants, above the portal sheet, so a placement's classes still beat the component's.
+ */
+export function compileInstanceTailwind(candidates: string[]): Promise<string> {
+    return compileTailwind(candidates).then((css) =>
+        renameLayers(css, { utilities: INSTANCE_LAYER, [VARIANT_LAYER]: INSTANCE_VARIANT_LAYER })
+    );
+}
+
+/**
+ * The portal utilities sheet: one Tailwind build over the union of a portal's candidates (every
+ * component build in its manifest plus the host's classes), in @layer rp-portal. No variant pass:
+ * inside one sheet Tailwind's own order is right, and the layer puts it above every other sheet.
+ * Polyfills: @property fallbacks only (needed in shadow roots); the color-mix fallbacks are skipped
+ * (about 8% faster and 12% smaller on the instance).
+ */
+export function compilePortalUtilities(candidates: string[]): Promise<string> {
+    return tailwindCompile(PORTAL_TAILWIND_INPUT, tailwindOptions(1)).then((c) => c.build(candidates));
+}
+
+/**
+ * The design system of the portal input, loaded once per script (a seed compiles hundreds of
+ * components in one script). Used only to tell utilities from other words.
+ */
+let designSystem: Promise<TailwindDesignSystem> | null = null;
+
+function portalDesignSystem(): Promise<TailwindDesignSystem> {
+    if (!designSystem) {
+        designSystem = loadDesignSystem(PORTAL_TAILWIND_INPUT, tailwindOptions());
+        designSystem.then(null, () => (designSystem = null));
+    }
+    return designSystem;
+}
+
+/**
+ * The candidates that are Tailwind utilities, sorted. extractCandidates over-collects every word of
+ * the source: a portal union of raw candidates was about 20 times larger and took 10-15 s to compile
+ * on the instance, for byte-identical output. Checked against the portal input (a superset of the
+ * component input), so classes from the host's CSS packages count too.
+ */
+export function validCandidates(candidates: string[]): Promise<string[]> {
+    if (!candidates.length) return Promise.resolve([]);
+    return portalDesignSystem().then((ds) => {
+        const css = ds.candidatesToCss(candidates);
+        const out: string[] = [];
+        for (let i = 0; i < candidates.length; i++) {
+            if (css[i] !== null && css[i] !== undefined) out.push(candidates[i]);
+        }
+        return out.sort();
+    });
 }
 
 /* ---------------- Entry point ---------------- */
@@ -380,6 +476,8 @@ export function compileComponent(input: CompileInput): Promise<CompileResult> {
         ok: false,
         js: '',
         css: '',
+        utilities: '',
+        candidates: [],
         dependencies: [],
         diagnostics: { errors: [], warnings: [] },
         compilerVersion: COMPILER_VERSION,
@@ -411,19 +509,21 @@ export function compileComponent(input: CompileInput): Promise<CompileResult> {
         authorCss.push(`/* styles.css */\n${byPath['styles.css'].content}`);
     for (const p of linked.styles) if (p !== 'styles.css') authorCss.push(`/* ${p} */\n${byPath[p].content}`);
 
-    if (!input.tailwind) {
-        result.css = authorCss.join('\n\n');
-        return Promise.resolve(finish());
-    }
-    const candidates = extractCandidates(linked.order.map((p) => byPath[p].content));
-    return compileTailwind(candidates).then(
-        (tw) => {
-            result.css = [`/* tailwind v${tailwindVersion} utilities */\n${tw}`].concat(authorCss).join('\n\n');
-            return finish();
-        },
-        (e) => {
-            result.diagnostics.errors.push({ file: 'tailwind', message: String((e && e.message) || e) });
-            return finish();
-        }
-    );
+    result.css = authorCss.join('\n\n');
+    if (!input.tailwind) return Promise.resolve(finish());
+    return validCandidates(extractCandidates(linked.order.map((p) => byPath[p].content)))
+        .then((valid) => {
+            result.candidates = valid;
+            return valid.length ? compileTailwind(valid) : '';
+        })
+        .then(
+            (tw) => {
+                result.utilities = tw.trim() ? `/* tailwind v${tailwindVersion} utilities */\n${tw}` : '';
+                return finish();
+            },
+            (e) => {
+                result.diagnostics.errors.push({ file: 'tailwind', message: String((e && e.message) || e) });
+                return finish();
+            }
+        );
 }

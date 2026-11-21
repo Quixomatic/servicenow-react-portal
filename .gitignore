@@ -11,3 +11,6 @@ target/
 .plans/
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+# CLI progress logs (scripts/install-app.mjs, packages/portal-host/scripts/deploy.mjs)
+.install.log
+.deploy.log

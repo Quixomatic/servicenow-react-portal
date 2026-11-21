@@ -1,6 +1,6 @@
 {
     "name": "x-312987-react-portal",
-    "version": "1.23.0",
+    "version": "1.24.0",
     "description": "Service Portal with modern tooling",
     "license": "UNLICENSED",
     "imports": {
@@ -9,6 +9,7 @@
     "scripts": {
         "build": "now-sdk build",
         "deploy": "now-sdk install",
+        "install:app": "node scripts/install-app.mjs",
         "transform": "now-sdk transform",
         "types": "now-sdk dependencies",
         "dev": "now-sdk run dev",

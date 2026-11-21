@@ -54,19 +54,37 @@ export function isUsableBuild(build: GR | null): boolean {
     return str(build, 'state') === 'ready' && parseInt(str(build, 'built_revision'), 10) > 0;
 }
 
-/** Entry assets of a build: the JS asset named index.* (else the first JS) and the first CSS asset. */
+/** A component build's own Tailwind utilities sheet (compiler v6+); the fallback for the portal sheet. */
+export const UTILITIES_ASSET = 'utilities.css';
+/** A component build's valid Tailwind candidates (JSON array), unioned into the portal sheet. */
+export const CANDIDATES_ASSET = 'tailwind-candidates.json';
+
+/**
+ * Entry assets of a build: the JS asset named index.* (else the first JS), the author CSS (index.css,
+ * else the first other CSS asset: theme.css, or a pre-v6 build's combined sheet) and the Tailwind
+ * utilities sheet with its key (the first 16 characters of its content hash, also its URL version).
+ */
 export function buildRef(build: GR | null): BuildRef | null {
     if (!isUsableBuild(build)) return null;
     const id = build.getUniqueValue();
     const js =
         findOne(T.buildAsset, `build=${id}^kind=js^pathSTARTSWITHindex.`) ||
         findOne(T.buildAsset, `build=${id}^kind=js`, 'path');
-    const css = findOne(T.buildAsset, `build=${id}^kind=css`, 'path');
-    return {
+    const css =
+        findOne(T.buildAsset, `build=${id}^kind=css^path=index.css`) ||
+        findOne(T.buildAsset, `build=${id}^kind=css^path!=${UTILITIES_ASSET}`, 'path');
+    const utilities = findOne(T.buildAsset, `build=${id}^kind=css^path=${UTILITIES_ASSET}`);
+    const ref: BuildRef = {
         id,
         js: js ? assetUrl(id, str(js, 'path'), str(js, 'hash').substring(0, 16)) : null,
         css: css ? assetUrl(id, str(css, 'path'), str(css, 'hash').substring(0, 16)) : null,
     };
+    if (utilities) {
+        const key = str(utilities, 'hash').substring(0, 16);
+        ref.utilities = assetUrl(id, UTILITIES_ASSET, key);
+        ref.utilitiesKey = key;
+    }
+    return ref;
 }
 
 /** The single build record of an owner, or null. */
@@ -161,7 +179,13 @@ function currentBuild(compId: string): CurrentBuild | null {
 }
 
 function copyBuildRef(ref: BuildRef | null): BuildRef | null {
-    return ref ? { id: ref.id, js: ref.js, css: ref.css } : null;
+    if (!ref) return null;
+    const copy: BuildRef = { id: ref.id, js: ref.js, css: ref.css };
+    if (ref.utilities) {
+        copy.utilities = ref.utilities;
+        copy.utilitiesKey = ref.utilitiesKey;
+    }
+    return copy;
 }
 
 /** The owner component sys_id of a build ('' when the owner key is empty; null when no such build). */
