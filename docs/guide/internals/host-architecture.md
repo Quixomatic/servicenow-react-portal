@@ -64,7 +64,7 @@ Every sheet is a `<style data-rp="<key>" data-rp-slot="<slot>">`, kept in slot o
 | `instance` | One per placement (reference-counted) |
 | `tokens` | Theme token variables, last |
 
-The renderer mirrors `<style>` elements and the host's classes (`dark`) into the **overlay layer**, so floating UI is styled and themed. Layer order across all Tailwind sheets: `theme, base, components, utilities, rp-variants, rp-portal, rp-instance, rp-instance-variants` (placement classes in the last two).
+The renderer mirrors `<style>` elements and the host's classes (`dark`) into the **overlay layer**, so floating UI is styled and themed. It re-clones the root's sheets whenever a `<style>` is added or removed, but it doesn't see text changes, so `ensureStyle` re-inserts a sheet whose text it updates. The overlay copies are effectively free: Chrome parses identical inline style text once and shares it (blocking the copies changed neither the parse count nor style recalc), so there's no gain in moving the slots to adopted sheets, which would also sort after every `<style>` and break the slot order. Layer order across all Tailwind sheets: `theme, base, components, utilities, rp-variants, rp-portal, rp-instance, rp-instance-variants` (placement classes in the last two).
 
 ### Portal utilities sheet
 

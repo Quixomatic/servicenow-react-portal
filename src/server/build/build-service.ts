@@ -205,6 +205,10 @@ export function applyCompileResult(owner: Owner, build: GR, req: CompleteBuildRe
         return buildSummary(build);
     }
 
+    // What portals see of this build: its entry assets and record import edges, before and after.
+    const refBefore = JSON.stringify(buildRef(build));
+    const depsBefore = importEdges(buildId);
+
     const assets = Array.isArray(req.assets) ? req.assets : [];
     const keep: Record<string, boolean> = {};
     for (const a of assets) {
@@ -248,9 +252,28 @@ export function applyCompileResult(owner: Owner, build: GR, req: CompleteBuildRe
     build.setValue('source_snapshot_json', JSON.stringify(snap.files));
     build.update();
 
+    // Identical output (same entry asset hashes, same import edges): no portal manifest changes and
+    // importers need no rebuild, so nothing is reprocessed. (Record fields that feed manifests, such
+    // as default options, reprocess through their own rule or the Studio save.)
+    const after = buildRef(build);
+    const sameDeps = importEdges(buildId) === depsBefore;
+    if (sameDeps && JSON.stringify(after) === refBefore) return buildSummary(build);
+
     flagDependents(owner.type, owner.id);
-    reprocessForOwner(owner.type, owner.id);
+    // Only the entry assets changed (usable before and after, same import edges): portals can patch
+    // this component's BuildRefs into their stored manifests instead of reassembling them.
+    const patchable = owner.type === 'component' && sameDeps && refBefore !== 'null' && !!after;
+    reprocessForOwner(owner.type, owner.id, 'build', patchable ? after : null);
     return buildSummary(build);
+}
+
+/** A build's record import edges (specifier → target build), in the order manifests list them. */
+function importEdges(buildId: string): string {
+    const out: string[] = [];
+    each(T.buildDep, `build=${buildId}^kind=component`, (d) =>
+        out.push(`${str(d, 'specifier')}|${str(d, 'target_build')}`)
+    );
+    return out.join('\n');
 }
 
 /**

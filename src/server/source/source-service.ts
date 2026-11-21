@@ -8,7 +8,8 @@ import { COMPONENT_IDENTITY_LOCKED } from '../automation/component-rules.ts';
 import { requireStudio } from '../security/access.ts';
 import { loadOwner, Owner, OwnerType } from './owner.ts';
 import { gs } from '@servicenow/glide';
-import { clearSessionFlag } from '../lib/session-flags.ts';
+import { clearSessionFlag, SKIP_REPROCESS_KEY } from '../lib/session-flags.ts';
+import { reprocessForOwner } from '../release/release-service.ts';
 import { compileOwner, buildSummary, runtimeAbiVersion } from '../build/build-service.ts';
 import { compileComponent, CompilerFile } from '../compiler/compiler.ts';
 import {
@@ -173,6 +174,22 @@ function setSkipCompile(on: boolean): void {
     else clearSessionFlag(SKIP_COMPILE_KEY);
 }
 
+function setSkipReprocess(on: boolean): void {
+    const session: any = gs.getSession();
+    if (on) session.putClientData(SKIP_REPROCESS_KEY, 'true');
+    else clearSessionFlag(SKIP_REPROCESS_KEY);
+}
+
+/** The owner record's fields that portal manifests read (componentRef / themeRef), as one string. */
+const MANIFEST_FIELDS: Record<OwnerType, string[]> = {
+    component: ['name', 'kind', 'active', 'server_mode', 'regions_json', 'default_options_json', 'unique_id'],
+    theme: ['name', 'key', 'active', 'tokens_json', 'stylesheet'],
+};
+
+function manifestFieldsOf(type: OwnerType, gr: any): string {
+    return JSON.stringify(MANIFEST_FIELDS[type].map((f) => str(gr, f)));
+}
+
 export function compileSuppressed(): boolean {
     const session: any = gs.getSession();
     return String(session.getClientData(SKIP_COMPILE_KEY) || '') === 'true';
@@ -272,7 +289,13 @@ export function save(type: OwnerType, id: string, req: SaveRequest): Promise<Sav
         ops.push({ path, dto: f });
     }
 
+    // The writes run with the compile-on-save AND the reprocess rules suspended: the save compiles once
+    // below, and the portals reprocess exactly once (by the compile, or here when only the record's
+    // manifest fields changed). Without the reprocess flag, a theme save reprocessed its portals from
+    // the theme rule and again from the compile.
+    const manifestBefore = manifestFieldsOf(type, owner.gr);
     setSkipCompile(true);
+    setSkipReprocess(true);
     try {
         let ownerDirty = false;
         if (req.meta && isPlainObject(req.meta)) {
@@ -312,20 +335,51 @@ export function save(type: OwnerType, id: string, req: SaveRequest): Promise<Sav
             if (existing) gr.update();
             else gr.insert();
         }
+    } catch (e) {
+        setSkipReprocess(false);
+        throw e;
     } finally {
         setSkipCompile(false);
     }
 
     owner = loadOwner(type, id); // pick up the revision advanced by business rules
-    return compileOwner(owner).then((build) => {
-        const fresh = loadOwner(type, id);
-        return {
-            revision: int(fresh.gr, 'source_revision'),
-            build,
-            files: virtualFiles(fresh).concat(listExtraFiles(fresh, true)),
-            registry: { runtimeAbiVersion: runtimeAbiVersion() },
-        };
-    });
+    // Record fields that manifests carry (name, kind, active, defaults, tokens, stylesheet…) changed:
+    // the compile can't patch those in, so it stays quiet and the portals reprocess in full once after
+    // it. Otherwise the compile reprocesses (or patches) only if its output changed.
+    const metaChanged = manifestFieldsOf(type, owner.gr) !== manifestBefore;
+    if (!metaChanged) setSkipReprocess(false);
+    const finish = () => {
+        if (!metaChanged) return;
+        setSkipReprocess(false);
+        reprocessForOwner(type, id, 'record');
+    };
+    let compiling: Promise<SaveData['build']>;
+    try {
+        compiling = compileOwner(owner);
+    } catch (e) {
+        finish();
+        throw e;
+    }
+    return compiling
+        .then(
+            (build) => {
+                finish();
+                return build;
+            },
+            (e) => {
+                finish();
+                throw e;
+            }
+        )
+        .then((build) => {
+            const fresh = loadOwner(type, id);
+            return {
+                revision: int(fresh.gr, 'source_revision'),
+                build,
+                files: virtualFiles(fresh).concat(listExtraFiles(fresh, true)),
+                registry: { runtimeAbiVersion: runtimeAbiVersion() },
+            };
+        });
 }
 
 /**

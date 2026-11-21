@@ -2,6 +2,45 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.25.0] - 2026-11-21
+
+Faster saves everywhere in Studio and the page designer, and steadier cold page loads.
+
+### Performance: saves
+
+| Save (median, client) | Before | Now |
+|---|---|---|
+| Widget text | 4.3 s | 1.6 s |
+| Widget adding a new class | 11.4 s | 6.5 s |
+| charts/chart-kit | 6.1 s | 3.0 s |
+| app/field | 12.7 s | 6.3 s |
+| Designer add / move / options / delete | ~3.3 s | 1.05–1.2 s |
+| Theme | 6.7 s | 1.2 s |
+| Menu item | 3.3 s | 1.0 s |
+
+- **Designer placement class and style edits now reach the live portal.** The instance CSS compiles once, then the portal reprocesses once. Before, the release lagged one edit behind and never showed the change (now visible after ~2.6 s).
+- **Studio saves reprocess their portals once** instead of twice (themes, component settings).
+- **A portal sheet compile updates only the manifest's `utilities`** instead of reassembling the whole manifest.
+- **Bulk manifest assembly:** components, builds, asset metadata and import edges load in about 20 queries instead of ~1,270, and each import tree is walked once (sp 2.5 s → 0.5 s, app 2.2 s → 0.4 s). Byte-identical to the previous path, verified on every portal. `x_312987_portal.release.fast_assemble=false` turns it off.
+- **Incremental manifest patch:** a compile that only changes a component's entry assets rewrites its BuildRefs in the stored manifests instead of reassembling them. Verified equal to a full assembly. `x_312987_portal.release.incremental=false` turns it off; `x_312987_portal.release.verify_patch=true` checks every patch against a full assembly.
+- **Fewer reprocesses:** a recompile with identical output reprocesses nothing and flags no importers, and a component change reprocesses only the portals that use it. Import order in manifests stays stable across compiles.
+- **`npm run seed`:** a single-exec run reprocesses only the portals it touched and refreshes instance CSS only for the placements it wrote. A no-op run: ~9 s → 0.34 s of server work.
+
+### Performance: page load
+- **The cold-load race is fixed:** page prefetch assumes portal-sheet coverage up front, as the root loader already did. Before, about half of cold loads also downloaded every component's own `utilities.css`. The Chart gallery now makes a steady 84–87 requests instead of up to 154, and the ~7.5 s slow case is gone.
+
+### Fixed
+- **Dialogs, menus and popovers** now pick up theme, token, portal-utilities and placement CSS changes made in place. The overlay layer kept its old copy until some other sheet was added.
+
+### Internal
+- New `distinctRows()` helper (GlideAggregate) in `gr.ts`, used in the registry preload, `importersOf`, `flagDependents`, dependency validation and the portal lookups.
+- New session flag `x_312987_portal.skip_instance_css`; new seed placeholder `__SEED_REPROCESS_SCOPE__`.
+- Docs: `internals/host-architecture.md` explains the overlay re-insert and why adopted sheets aren't worth it (CSS parsing is ~15–25 ms per page).
+
+### Notes
+- No Fluent changes (keys.ts unchanged).
+- Test data stays for re-measuring: the perf-probe component, page and menu (deactivated).
+
 ## [1.24.0] - 2026-11-20
 
 One Tailwind utilities sheet per portal (compiler v6), which fixes cross-widget class

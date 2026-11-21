@@ -146,7 +146,10 @@ function sandbox(db, ops, touched, queries) {
         };
     }
     const stubs = {
-        'release/release-service.ts': { processPortal: () => ({ revision: '(plan)', problems: [] }) },
+        'release/release-service.ts': {
+            processPortal: () => ({ revision: '(plan)', problems: [] }),
+            portalsForOwner: () => [],
+        },
         'build/build-service.ts': { compileOwner: () => Promise.resolve({ upToDate: true }) },
         'source/owner.ts': { loadOwner: () => ({}) },
         'design/instance-style.ts': { refreshInstanceCss: () => Promise.resolve(false) },

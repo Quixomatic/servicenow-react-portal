@@ -225,7 +225,7 @@ export function createPortalRouter({
         const data = await queryClient.ensureQueryData(pageQuery(slug, path));
         await prefetchBuilds(
             [data.layout].concat(placementsOf(data.regions).map((p) => p.component)),
-            portalCovers(boot.utilities)
+            portalCovers(boot.utilities, true)
         );
         initStore.fetch(slug, path, onLoadIds(data.regions), 'page');
         return withPath(data, path);

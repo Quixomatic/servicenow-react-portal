@@ -146,14 +146,17 @@ export const newRunId = (prefix) => {
  *   components ordered { key: component } to inject ({} for portals)
  *   reprocess  false → the run skips the final portal reprocess (an intermediate part)
  *   runId      tagged into the "[seed] done" / failure syslog lines
+ *   reprocessScope 'all' (default): the final reprocess covers every active portal; 'touched': only
+ *              the portals this exec's writes and compiles affect (safe only when one exec does everything)
  */
-export function renderSeed({ mode, components, reprocess, runId, template = loadTemplate() }) {
+export function renderSeed({ mode, components, reprocess, runId, template = loadTemplate(), reprocessScope = 'all' }) {
     // A function replacement: a string one would expand $' / $& / $$ found in component sources (e.g. ['$', '$j']).
     const componentsJson = JSON.stringify(components, null, 1);
     return template
         .replace('__COMPONENTS_JSON__', () => componentsJson)
         .replace('__SEED_MODE__', mode)
         .replace('__SEED_REPROCESS__', reprocess ? 'yes' : 'no')
+        .replace('__SEED_REPROCESS_SCOPE__', reprocessScope === 'touched' ? 'touched' : 'all')
         .replace('__SEED_RUN_ID__', runId)
         .replace('__SEED_TEMPLATE_HASH__', templateHash(template));
 }

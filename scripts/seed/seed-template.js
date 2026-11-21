@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.24.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.25.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     // Load every module the deferred steps use NOW, while the script runs in this app's scope. Promise
     // callbacks run when the outermost script finishes, and after real compiles (new build_asset inserts
@@ -40,12 +40,25 @@
     var seedSession = gs.getSession();
     var SKIP_COMPILE = 'x_312987_portal.skip_compile';
     var SKIP_REPROCESS = 'x_312987_portal.skip_reprocess';
+    // The placement rule's instance CSS compile is off too: the seed compiles the placements it wrote
+    // (and those of components it changed) once, before the reprocess.
+    var SKIP_INSTANCE_CSS = 'x_312987_portal.skip_instance_css';
     seedSession.putClientData(SKIP_COMPILE, 'true');
     seedSession.putClientData(SKIP_REPROCESS, 'true');
+    seedSession.putClientData(SKIP_INSTANCE_CSS, 'true');
     function clearBatchFlags() {
         seedSession.putClientData(SKIP_COMPILE, '');
         seedSession.putClientData(SKIP_REPROCESS, '');
+        seedSession.putClientData(SKIP_INSTANCE_CSS, '');
     }
+    // What the final reprocess covers. 'all': every active portal (multi-exec runs and --reprocess,
+    // whose earlier parts this exec can't see). 'touched': only the portals whose records this run
+    // wrote, plus the portals whose manifests use a theme or component it changed or recompiled.
+    var REPROCESS_SCOPE = '__SEED_REPROCESS_SCOPE__';
+    var seedTouchedPortals = {};
+    var seedChangedOwners = {}; // 'component:<id>' / 'theme:<id>' → true (record written or recompiled)
+    var seedWrittenComponents = {}; // component records this run wrote (their placements' CSS is refreshed)
+    var seedLastWritten = false; // whether the last upsert wrote
     var seedT0 = Date.now();
     var seedTimes = [];
     var seedStats = { written: 0, compiled: 0, upToDate: 0, failed: 0, portals: 0, byTable: {} };
@@ -117,7 +130,10 @@
             if (dirty) {
                 seedStats.written++;
                 seedStats.byTable[table] = (seedStats.byTable[table] || 0) + 1;
+                if (table === 'component' || table === 'theme') seedChangedOwners[table + ':' + id] = true;
+                if (table === 'component') seedWrittenComponents[id] = true;
             }
+            seedLastWritten = dirty;
             return id;
         }
 
@@ -526,6 +542,7 @@
                 return builds.compileOwner(owners.loadOwner('theme', themeIds[tk])).then(function (b) {
                     if (b.upToDate) seedStats.upToDate++;
                     else seedStats.compiled++;
+                    if (!b.upToDate) seedChangedOwners['theme:' + themeIds[tk]] = true;
                     seedCompileN++;
                     seedProgress('compiled ' + seedCompileN + '/' + seedCompileTotal + ' theme ' + tk);
                 });
@@ -540,6 +557,7 @@
                     if (b.upToDate) seedStats.upToDate++;
                     else if (errs.length) seedStats.failed++;
                     else seedStats.compiled++;
+                    if (!b.upToDate) seedChangedOwners['component:' + C[key]] = true;
                     seedCompileN++;
                     seedProgress(
                         'compiled ' + seedCompileN + '/' + seedCompileTotal + ' ' + key,
@@ -572,12 +590,24 @@
                 }
             )
             .then(function () {
-                // Instance CSS of every placement the seed wrote (grid layout, style tokens, classes,
-                // x-css-var block options): the placement business rule is suppressed by the batch flag,
-                // so compile here, before the reprocess ships it in the manifests.
-                seedProgress('instance css ' + seedPlacements.length + ' placements', true);
+                // Instance CSS (grid layout, style tokens, classes, x-css-var block options) of every
+                // placement the seed wrote, plus the active placements of components whose record it
+                // wrote (their defaults and options schema feed the CSS): the placement rule's compile
+                // is suppressed by the batch flag, so compile here, once, before the reprocess.
+                var cssIds = {};
+                for (var sp = 0; sp < seedPlacements.length; sp++) cssIds[seedPlacements[sp]] = true;
+                var changedComps = Object.keys(seedWrittenComponents);
+                if (changedComps.length) {
+                    var cpl = new GlideRecord(T + 'placement');
+                    cpl.addQuery('component', 'IN', changedComps.join(','));
+                    cpl.addActiveQuery();
+                    cpl.query();
+                    while (cpl.next()) cssIds[cpl.getUniqueValue()] = true;
+                }
+                var cssList = Object.keys(cssIds);
+                seedProgress('instance css ' + cssList.length + ' placements', true);
                 return Promise.all(
-                    seedPlacements.map(function (id) {
+                    cssList.map(function (id) {
                         return instanceStyle.refreshInstanceCss(id).then(null, function (e) {
                             gs.error('[seed] instance CSS failed for placement ' + id + ': ' + e);
                             return false;
@@ -598,6 +628,16 @@
                 pgr.addActiveQuery();
                 // --part runs skip this (the closing --portals run reprocesses once); --only runs keep it.
                 if ('__SEED_REPROCESS__' === 'no') pgr.addQuery('sys_id', 'NULL');
+                else if (REPROCESS_SCOPE !== 'all') {
+                    var targets = {};
+                    for (var tp in seedTouchedPortals) targets[tp] = true;
+                    for (var ok in seedChangedOwners) {
+                        var colon = ok.indexOf(':');
+                        var users = releases.portalsForOwner(ok.substring(0, colon), ok.substring(colon + 1), true);
+                        for (var u = 0; u < users.length; u++) targets[users[u]] = true;
+                    }
+                    pgr.addQuery('sys_id', 'IN', Object.keys(targets).join(',') || 'NULL');
+                }
                 pgr.query();
                 while (pgr.next()) {
                     var rel = releases.processPortal(pgr.getUniqueValue(), false); // writes only when the manifest hash changed
@@ -708,7 +748,7 @@
                     classes: w.classes || '',
                 });
                 if (kept) kept[id] = true;
-                seedPlacements.push(id);
+                if (seedLastWritten) seedPlacements.push(id);
                 if (w.children) for (var zone in w.children) placeAll(pid, pageId, id, w.children[zone], zone, kept);
             }
         }
@@ -787,6 +827,7 @@
                 if (keep[stale.getUniqueValue()]) continue;
                 stale.setValue('active', false);
                 stale.update();
+                seedStats.deactivated = (seedStats.deactivated || 0) + 1;
                 counts.deactivated = (counts.deactivated || 0) + 1;
             }
         }
@@ -819,6 +860,13 @@
 
         function seedPortal(def) {
             if (SEED_MODE === 'components') return ''; // build-seed --only: components only, no portal structure
+            var writesBefore = seedStats.written + (seedStats.deactivated || 0);
+            var pid = seedPortalRecords(def);
+            if (seedStats.written + (seedStats.deactivated || 0) !== writesBefore) seedTouchedPortals[pid] = true;
+            return pid;
+        }
+
+        function seedPortalRecords(def) {
             if (!new GlideRecord(T + 'placement').isValidField('seed_slot'))
                 throw new Error(
                     'x_312987_portal_placement.seed_slot is missing: install the app before seeding portals'
@@ -864,6 +912,7 @@
                         if (keptPl[stalePl.getUniqueValue()]) continue;
                         stalePl.setValue('active', false);
                         stalePl.update();
+                        seedStats.deactivated = (seedStats.deactivated || 0) + 1;
                         log.push(
                             '  ' +
                                 def.slug +
@@ -900,6 +949,7 @@
                     options_json: pw.options,
                 });
                 keepPw[pwId] = true;
+                if (seedLastWritten) seedPlacements.push(pwId);
             }
             // Seed-managed portal-level placements no longer listed (e.g. sp's old site-header /
             // nav-sidebar / site-footer after it moved to the app shell) are deactivated, not deleted.
@@ -910,6 +960,7 @@
                 if (keepPw[stalePw.getUniqueValue()]) continue;
                 stalePw.setValue('active', false);
                 stalePw.update();
+                seedStats.deactivated = (seedStats.deactivated || 0) + 1;
                 log.push(
                     '  deactivated portal placement ' +
                         stalePw.getValue('region') +

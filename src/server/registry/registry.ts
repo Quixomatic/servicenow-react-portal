@@ -1,4 +1,4 @@
-import { GR, getById, findOne, str, bool } from '../lib/gr.ts';
+import { GR, getById, findOne, str, bool, distinctRows, inChunks } from '../lib/gr.ts';
 import { T, RUNTIME_API_BASE } from '../lib/tables.ts';
 import { parseJson, isPlainObject } from '../lib/util.ts';
 import { each } from '../lib/gr.ts';
@@ -87,6 +87,41 @@ export function buildRef(build: GR | null): BuildRef | null {
     return ref;
 }
 
+/** An asset's identity, without its content (enough to build a BuildRef). */
+interface AssetMeta {
+    path: string;
+    kind: string;
+    hash: string;
+}
+
+/**
+ * buildRef() from already-loaded asset metadata (bulk preload). Same picks as buildRef's queries;
+ * where those take "the first match" without an order, this takes the first by path.
+ */
+function refFromAssets(id: string, assets: AssetMeta[]): BuildRef {
+    const sorted = assets.slice().sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    const pick = (test: (a: AssetMeta) => boolean): AssetMeta | null => {
+        for (const a of sorted) if (test(a)) return a;
+        return null;
+    };
+    const js = pick((a) => a.kind === 'js' && a.path.indexOf('index.') === 0) || pick((a) => a.kind === 'js');
+    const css =
+        pick((a) => a.kind === 'css' && a.path === 'index.css') ||
+        pick((a) => a.kind === 'css' && a.path !== UTILITIES_ASSET);
+    const utilities = pick((a) => a.kind === 'css' && a.path === UTILITIES_ASSET);
+    const ref: BuildRef = {
+        id,
+        js: js ? assetUrl(id, js.path, js.hash.substring(0, 16)) : null,
+        css: css ? assetUrl(id, css.path, css.hash.substring(0, 16)) : null,
+    };
+    if (utilities) {
+        const key = utilities.hash.substring(0, 16);
+        ref.utilities = assetUrl(id, UTILITIES_ASSET, key);
+        ref.utilitiesKey = key;
+    }
+    return ref;
+}
+
 /** The single build record of an owner, or null. */
 export function buildOf(ownerType: 'component' | 'theme', ownerId: string): GR | null {
     return findOne(T.build, `owner_key=${ownerType}:${ownerId}`);
@@ -120,6 +155,10 @@ interface RegistryCache {
     builds: Record<string, CurrentBuild | null>;
     owners: Record<string, string | null>;
     deps: Record<string, DepEdge[]>;
+    /** componentImports results by build (only once preloadRegistry ran: the bulk path). */
+    imports: Record<string, ComponentImport[]>;
+    /** Set by preloadRegistry: the bulk path, which also memoizes import trees. */
+    bulk: boolean;
 }
 
 /**
@@ -136,12 +175,167 @@ let cache: RegistryCache | null = null;
  */
 export function withRegistryCache<R>(fn: () => R): R {
     if (cache) return fn();
-    cache = { components: {}, infos: {}, builds: {}, owners: {}, deps: {} };
+    cache = { components: {}, infos: {}, builds: {}, owners: {}, deps: {}, imports: {}, bulk: false };
     try {
         return fn();
     } finally {
         cache = null;
     }
+}
+
+/**
+ * A read-only copy of some fields of a record, read in a bulk query. It answers getValue() /
+ * getUniqueValue() like a GlideRecord; any other field loads the real record once (getById).
+ */
+export class RecordSnapshot {
+    private real: GR | null | undefined;
+    constructor(
+        private table: string,
+        private id: string,
+        private values: Record<string, string | null>
+    ) {}
+    static of(table: string, gr: GR, fields: string[]): RecordSnapshot {
+        const values: Record<string, string | null> = {};
+        for (const f of fields) {
+            const v = gr.getValue(f);
+            values[f] = v === null || v === undefined ? null : String(v);
+        }
+        return new RecordSnapshot(table, gr.getUniqueValue(), values);
+    }
+    getUniqueValue(): string {
+        return this.id;
+    }
+    getValue(field: string): string | null {
+        if (field in this.values) return this.values[field];
+        if (field === 'sys_id') return this.id;
+        if (this.real === undefined) this.real = getById(this.table, this.id);
+        return this.real ? this.real.getValue(field) : null;
+    }
+    getDisplayValue(field: string): string {
+        if (this.real === undefined) this.real = getById(this.table, this.id);
+        return this.real ? String(this.real.getDisplayValue(field) || '') : '';
+    }
+    isValidRecord(): boolean {
+        return true;
+    }
+}
+
+/** The component fields a manifest reads (componentRef, placements, layouts, imports). */
+const COMPONENT_FIELDS = [
+    'unique_id',
+    'name',
+    'kind',
+    'server_mode',
+    'active',
+    'regions_json',
+    'default_options_json',
+    'options_schema_json',
+];
+
+/**
+ * Bulk-load the registry records a manifest needs into the withRegistryCache cache: the given
+ * components, their builds and entry assets (metadata only), their record import edges, and the same
+ * for every imported component, transitively. A handful of IN queries per import depth instead of
+ * several findOne per build and per edge. The lazy lookups then read the cache; anything not
+ * preloaded still falls back to its own query, so the result is the same either way.
+ */
+export function preloadRegistry(componentIds: string[]): void {
+    const c = cache;
+    if (!c) return;
+    c.bulk = true;
+    const pendingRef: Record<string, boolean> = {};
+    const assetsOf: Record<string, AssetMeta[]> = {};
+    // A build becomes its component's current build only while that component is still to be loaded
+    // here (a target build), or when it is the answer to the owner query of a component being loaded.
+    const register = (b: GR, asOwnerAnswer: boolean) => {
+        const bid = b.getUniqueValue();
+        const ownerKey = str(b, 'owner_key');
+        const owner = ownerKey.replace(/^component:/, '');
+        c.owners[bid] = owner;
+        if (ownerKey.indexOf('component:') !== 0 || owner in c.builds) return;
+        if (!asOwnerAnswer && owner in c.components) return;
+        c.builds[owner] = { id: bid, ref: null };
+        if (isUsableBuild(b)) pendingRef[bid] = true;
+    };
+    let todo = unique(componentIds).filter((id) => !(id in c.components));
+    for (let depth = 0; todo.length && depth < 16; depth++) {
+        // Components.
+        for (const chunk of inChunks(todo)) {
+            each(T.component, `sys_idIN${chunk}`, (gr) => {
+                c.components[gr.getUniqueValue()] = RecordSnapshot.of(T.component, gr, COMPONENT_FIELDS);
+            });
+        }
+        for (const id of todo) if (!(id in c.components)) c.components[id] = null;
+        // Their builds (components reached through an import already have theirs: the import's target).
+        const noBuild = todo.filter((id) => !(id in c.builds));
+        for (const chunk of inChunks(noBuild.map((id) => 'component:' + id))) {
+            each(T.build, `owner_keyIN${chunk}`, (b) => register(b, true));
+        }
+        for (const id of noBuild) if (!(id in c.builds)) c.builds[id] = null;
+        const buildIds: string[] = [];
+        for (const id of todo) {
+            const b = c.builds[id];
+            if (b) buildIds.push(b.id);
+        }
+        // Entry assets of the usable builds: path, kind and hash only (never the content).
+        const needRef = buildIds.filter((bid) => pendingRef[bid]);
+        for (const chunk of inChunks(needRef)) {
+            for (const row of distinctRows(T.buildAsset, `buildIN${chunk}^kindINjs,css`, [
+                'build',
+                'path',
+                'kind',
+                'hash',
+            ])) {
+                (assetsOf[row.build] = assetsOf[row.build] || []).push({
+                    path: row.path,
+                    kind: row.kind,
+                    hash: row.hash,
+                });
+            }
+        }
+        for (const id of todo) {
+            const b = c.builds[id];
+            if (b && pendingRef[b.id]) {
+                b.ref = refFromAssets(b.id, assetsOf[b.id] || []);
+                delete pendingRef[b.id];
+            }
+        }
+        // Record import edges, in sys_id order per build (the order of componentDeps' own query).
+        const needDeps = buildIds.filter((bid) => !(bid in c.deps));
+        const rows: Record<string, string>[] = [];
+        for (const chunk of inChunks(needDeps)) {
+            for (const row of distinctRows(T.buildDep, `buildIN${chunk}^kind=component`, [
+                'build',
+                'sys_id',
+                'specifier',
+                'target_build',
+            ]))
+                rows.push(row);
+        }
+        const unknownTargets = unique(rows.map((r) => r.target_build)).filter((t) => t && !(t in c.owners));
+        for (const chunk of inChunks(unknownTargets)) each(T.build, `sys_idIN${chunk}`, (b) => register(b, false));
+        for (const t of unknownTargets) if (!(t in c.owners)) c.owners[t] = null;
+        const next: Record<string, boolean> = {};
+        for (const bid of needDeps) c.deps[bid] = [];
+        for (const r of rows) {
+            const owner = r.target_build ? c.owners[r.target_build] : null;
+            if (owner === null || owner === undefined) continue;
+            c.deps[r.build].push({ specifier: r.specifier, compId: owner });
+            if (owner && !(owner in c.components)) next[owner] = true;
+        }
+        todo = Object.keys(next);
+    }
+}
+
+function unique(list: string[]): string[] {
+    const seen: Record<string, boolean> = {};
+    const out: string[] = [];
+    for (const v of list) {
+        if (!v || seen[v]) continue;
+        seen[v] = true;
+        out.push(v);
+    }
+    return out;
 }
 
 /** A component record by sys_id (memoized inside withRegistryCache). Treat it as read-only. */
@@ -178,7 +372,7 @@ function currentBuild(compId: string): CurrentBuild | null {
     return cache.builds[compId];
 }
 
-function copyBuildRef(ref: BuildRef | null): BuildRef | null {
+export function copyBuildRef(ref: BuildRef | null): BuildRef | null {
     if (!ref) return null;
     const copy: BuildRef = { id: ref.id, js: ref.js, css: ref.css };
     if (ref.utilities) {
@@ -282,12 +476,34 @@ export function componentRef(component: GR, build?: GR | null): ComponentRef {
  * so a request can't skip an intermediate component (§5.1 of .plans/embedded-widgets.md).
  */
 export function componentImports(buildId: string): ComponentImport[] {
+    if (!cache || !cache.bulk) return walkImports(buildId, false);
+    // Bulk path: each build's tree is walked once per assembly (widgets share primitives, and one
+    // component is often placed many times), and every caller gets its own copy.
+    if (!(buildId in cache.imports)) cache.imports[buildId] = walkImports(buildId, true);
+    return cache.imports[buildId].map((imp) => ({
+        ...imp,
+        build: copyBuildRef(imp.build),
+        importers: imp.importers ? imp.importers.slice() : imp.importers,
+    }));
+}
+
+/**
+ * The walk behind componentImports. `pruned` skips a build already walked at the same or a smaller
+ * depth: its subtree's imports and importer edges are all in place by then, so walking it again (once
+ * per path through a shared primitive) adds nothing. Without it the walk is the original one.
+ */
+function walkImports(buildId: string, pruned: boolean): ComponentImport[] {
     const out: ComponentImport[] = [];
     const placed: Record<string, ComponentImport> = {};
     const visiting: Record<string, boolean> = {};
+    const walkedAt: Record<string, number> = {};
     const rootOwner = buildOwner(buildId) || '';
     const visit = (bId: string, ownerId: string, depth: number) => {
         if (depth > 12 || visiting[bId]) return;
+        if (pruned) {
+            if (bId in walkedAt && walkedAt[bId] <= depth) return;
+            walkedAt[bId] = depth;
+        }
         visiting[bId] = true;
         for (const dep of componentDeps(bId)) {
             const compId = dep.compId;

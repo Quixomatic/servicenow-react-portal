@@ -51,6 +51,40 @@ export function count(table: string, encodedQuery: string): number {
     return ga.next() ? parseInt(ga.getAggregate('COUNT'), 10) || 0 : 0;
 }
 
+/**
+ * The distinct combinations of `fields` among the rows matching a query, ordered by those fields in
+ * sequence: one GlideAggregate GROUP BY, so no GlideRecord rows are built and no other column (such
+ * as a large content field) is read. Group by sys_id too when duplicate rows must stay separate.
+ * Empty values come back as ''.
+ */
+export function distinctRows(table: string, encodedQuery: string, fields: string[]): Record<string, string>[] {
+    const ga: any = new GlideAggregate(table);
+    if (encodedQuery) ga.addEncodedQuery(encodedQuery);
+    for (const f of fields) {
+        ga.groupBy(f);
+        ga.orderBy(f);
+    }
+    ga.addAggregate('COUNT');
+    ga.query();
+    const out: Record<string, string>[] = [];
+    while (ga.next()) {
+        const row: Record<string, string> = {};
+        for (const f of fields) {
+            const v = ga.getValue(f);
+            row[f] = v === null || v === undefined ? '' : String(v);
+        }
+        out.push(row);
+    }
+    return out;
+}
+
+/** Split a list of ids into encoded-query IN chunks (keeps each query string a sane size). */
+export function inChunks(ids: string[], size = 400): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size).join(','));
+    return out;
+}
+
 export function exists(table: string, encodedQuery: string): boolean {
     const gr = newGR(table);
     gr.addEncodedQuery(encodedQuery);

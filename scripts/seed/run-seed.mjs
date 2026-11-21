@@ -773,12 +773,23 @@ async function main() {
         if (i > 0) s.runId += '-' + (i + 1);
         const comps = {};
         for (const k of s.keys) comps[k] = ordered[k];
-        s.script = renderSeed({ mode: s.mode, components: comps, reprocess: s.reprocess, runId: s.runId, template });
+        s.script = renderSeed({
+            mode: s.mode,
+            components: comps,
+            reprocess: s.reprocess,
+            runId: s.runId,
+            template,
+            reprocessScope: s.scope || 'all',
+        });
         if (bytes(s.script) > MAX_BYTES + 100 * 1024)
             throw new Error(`step ${i + 1} renders to ${(bytes(s.script) / 1024).toFixed(0)} KB, over budget`);
     };
+    // One exec doing everything reprocesses only what it touched; with several execs (or --reprocess)
+    // the last one can't see what the earlier ones wrote, so it reprocesses every active portal.
+    const scope = steps.length === 1 && !FORCE_REPROCESS ? 'touched' : 'all';
     steps.forEach((s, i) => {
         s.reprocess = i === steps.length - 1;
+        s.scope = scope;
         render(s, i);
     });
     steps.unshift(...docSteps);
@@ -832,8 +843,8 @@ async function main() {
             if (e.tooComplex && steps[i].mode === 'components' && steps[i].keys.length > 1) {
                 const s = steps[i];
                 const mid = Math.ceil(s.keys.length / 2);
-                const a = { mode: s.mode, keys: s.keys.slice(0, mid), reprocess: false };
-                const b = { mode: s.mode, keys: s.keys.slice(mid), reprocess: s.reprocess };
+                const a = { mode: s.mode, keys: s.keys.slice(0, mid), reprocess: false, scope: 'all' };
+                const b = { mode: s.mode, keys: s.keys.slice(mid), reprocess: s.reprocess, scope: 'all' };
                 render(a, i);
                 render(b, i + 1);
                 steps.splice(i, 1, a, b);

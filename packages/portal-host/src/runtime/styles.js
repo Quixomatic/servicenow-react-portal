@@ -1,6 +1,8 @@
 // Style injection into the host's shadow root (spec §9). Every injected sheet is a
 // <style data-rp="<key>" data-rp-slot="<slot>">; the renderer mirrors <style> elements into the
-// overlay layer, so dialogs, menus and popovers get them too.
+// overlay layer, so dialogs, menus and popovers get them too. The overlay copies are clones that
+// Chrome's inline style-text cache parses once (measured 2026-11-20: blocking them changes neither the
+// parse count nor style recalc), so they cost ~0; don't move the slots to adopted sheets for that.
 //
 // Load order inside the shadow root:
 //   theme      theme stylesheet(s): base styles for the portal          (first)
@@ -101,7 +103,13 @@ export function ensureStyle(target, key, cssText, slot) {
     }
     if (el.textContent !== cssText) {
         el.textContent = cssText;
-        action = action || 'update';
+        if (!action) {
+            action = 'update';
+            // The renderer re-clones the root's sheets into the overlay layer only when a <style> is
+            // added or removed (it doesn't see text changes), so re-insert the element in place. The
+            // re-parse is a style-text cache hit.
+            if (el.parentNode === target) target.insertBefore(el, el.nextSibling);
+        }
     }
     if (action) recordStyle({ key, slot, action, bytes: cssText.length });
     return el;

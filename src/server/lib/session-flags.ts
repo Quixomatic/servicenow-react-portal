@@ -10,6 +10,17 @@ export function reprocessSuppressed(): boolean {
 }
 
 /**
+ * Session flag set by writers that compile placement instance CSS themselves (the page designer, the
+ * demo seed): the placement rule then leaves the compile to them, so it runs once per write.
+ */
+export const SKIP_INSTANCE_CSS_KEY = 'x_312987_portal.skip_instance_css';
+
+export function instanceCssSuppressed(): boolean {
+    const session: any = gs.getSession();
+    return String(session.getClientData(SKIP_INSTANCE_CSS_KEY) || '') === 'true';
+}
+
+/**
  * Clear a session client-data key: removed through the global helper app when it's installed,
  * else blanked (the scoped GlideSession has no clearClientData).
  */

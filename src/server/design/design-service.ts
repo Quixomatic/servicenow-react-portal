@@ -9,7 +9,12 @@ import { processPortal } from '../release/release-service.ts';
 import { effectiveRegionNames, blockRegionsOf } from '../runtime/portal-service.ts';
 import { refreshInstanceCss } from './instance-style.ts';
 import type { RegionDef } from '../../shared/contracts';
-import { SKIP_REPROCESS_KEY, reprocessSuppressed, clearSessionFlag } from '../lib/session-flags.ts';
+import {
+    SKIP_REPROCESS_KEY,
+    SKIP_INSTANCE_CSS_KEY,
+    reprocessSuppressed,
+    clearSessionFlag,
+} from '../lib/session-flags.ts';
 import { abortMessageFromSession } from '../automation/guards.ts';
 
 /**
@@ -22,15 +27,26 @@ import { abortMessageFromSession } from '../automation/guards.ts';
 
 export { SKIP_REPROCESS_KEY, reprocessSuppressed };
 
-/** Run `fn` with reprocess rules suspended, then reprocess the given portal once. */
-function batch<R>(portalId: string, fn: () => R): R {
+/**
+ * Run `fn` with reprocess rules suspended, then reprocess the given portal once.
+ *
+ * `styled`: the write changes instance styling. The placement rule's instance CSS compile is then
+ * suspended too, and the reprocess is left to withInstanceCss, which compiles the CSS once and then
+ * reprocesses (reprocessing here first would ship the old CSS). A failed write reprocesses here.
+ */
+function batch<R>(portalId: string, fn: () => R, styled = false): R {
     const session: any = gs.getSession();
     session.putClientData(SKIP_REPROCESS_KEY, 'true');
+    if (styled) session.putClientData(SKIP_INSTANCE_CSS_KEY, 'true');
+    let ok = false;
     try {
-        return fn();
+        const out = fn();
+        ok = true;
+        return out;
     } finally {
         clearSessionFlag(SKIP_REPROCESS_KEY);
-        if (portalId) processPortal(portalId);
+        if (styled) clearSessionFlag(SKIP_INSTANCE_CSS_KEY);
+        if (portalId && (!styled || !ok)) processPortal(portalId);
     }
 }
 
@@ -335,17 +351,37 @@ function abortedMessage(fallback: string): string {
     return abortMessageFromSession('', fallback);
 }
 
-/** Recompile instance CSS for the given placements, reprocess once if any changed, then return `value()`. */
+/**
+ * After a styled batch: compile the given placements' instance CSS (the only compile: the placement
+ * rule stood down), then reprocess the portal once, so the release carries the records' new CSS
+ * (processPortal writes only if the manifest changed), then return `value()`.
+ */
 function withInstanceCss<R>(portalId: string, ids: string[], value: () => R): Promise<R> {
     return ids
         .reduce<Promise<boolean>>(
             (acc, id) => acc.then((changed) => refreshInstanceCss(id).then((c) => changed || c)),
             Promise.resolve(false)
         )
-        .then((changed) => {
-            if (changed && portalId) processPortal(portalId);
-            return value();
-        });
+        .then(
+            () => {
+                if (portalId) processPortal(portalId);
+                return value();
+            },
+            (e) => {
+                if (portalId) processPortal(portalId);
+                throw e;
+            }
+        );
+}
+
+/** True when an update changes a placement's instance styling inputs. */
+function stylesChange(req: StyleReq & { options?: unknown }): boolean {
+    return (
+        req.styleTokens !== undefined ||
+        req.layout !== undefined ||
+        req.classes !== undefined ||
+        req.options !== undefined
+    );
 }
 
 type StyleReq = { styleTokens?: Record<string, unknown>; layout?: Record<string, unknown>; classes?: string };
@@ -386,29 +422,33 @@ export function createPlacement(req: CreateReq): Promise<PlacementDto> {
     if (!req.component || !getById(T.component, String(req.component))) throw badRequest('component is required');
     const region = String(req.region || 'main');
     assertRegion(portalId, pageId, parentId, region);
-    const id = batch(portalId, () => {
-        const pl = newGR(T.placement);
-        pl.initialize();
-        pl.setValue('portal', portalId);
-        if (pageId) pl.setValue('page', pageId);
-        if (parentId) pl.setValue('parent', parentId);
-        pl.setValue('region', region);
-        pl.setValue('component', String(req.component));
-        pl.setValue('order', 99999);
-        pl.setValue('active', true);
-        pl.setValue('options_json', JSON.stringify(isPlainObject(req.options) ? req.options : {}));
-        applyStyle(pl, req);
-        const newId = pl.insert();
-        if (!newId) throw rpError(400, 'invalid', abortedMessage('Could not place the component'));
-        renumber(
-            ownerQueryOf(portalId, pageId),
-            parentId,
-            region,
-            newId,
-            typeof req.index === 'number' ? req.index : null
-        );
-        return newId;
-    });
+    const id = batch(
+        portalId,
+        () => {
+            const pl = newGR(T.placement);
+            pl.initialize();
+            pl.setValue('portal', portalId);
+            if (pageId) pl.setValue('page', pageId);
+            if (parentId) pl.setValue('parent', parentId);
+            pl.setValue('region', region);
+            pl.setValue('component', String(req.component));
+            pl.setValue('order', 99999);
+            pl.setValue('active', true);
+            pl.setValue('options_json', JSON.stringify(isPlainObject(req.options) ? req.options : {}));
+            applyStyle(pl, req);
+            const newId = pl.insert();
+            if (!newId) throw rpError(400, 'invalid', abortedMessage('Could not place the component'));
+            renumber(
+                ownerQueryOf(portalId, pageId),
+                parentId,
+                region,
+                newId,
+                typeof req.index === 'number' ? req.index : null
+            );
+            return newId;
+        },
+        true
+    );
     return withInstanceCss(portalId, [id], () => placementDto(getById(T.placement, id) as GR));
 }
 
@@ -446,33 +486,40 @@ export function updatePlacement(id: string, req: UpdateReq): Promise<PlacementDt
         assertRegion(portalId, toPage, toParent, toRegion);
     }
     const styleIds: string[] = [];
-    batch(portalId, () => {
-        if (req.page !== undefined) pl.setValue('page', toPage || '');
-        if (toParent !== fromParent) pl.setValue('parent', toParent || '');
-        if (req.region !== undefined) pl.setValue('region', toRegion);
-        if (req.options !== undefined)
-            pl.setValue('options_json', JSON.stringify(isPlainObject(req.options) ? req.options : {}));
-        if (req.active !== undefined) pl.setValue('active', !!req.active);
-        if (applyStyle(pl, req) || req.options !== undefined) styleIds.push(id);
-        if (!pl.update()) throw rpError(400, 'invalid', abortedMessage('Could not update the placement'));
-        if (toPage !== fromPage) {
-            for (const d of descendantsOf(id)) {
-                d.setValue('page', toPage || '');
-                if (!d.update()) throw rpError(400, 'invalid', abortedMessage('Could not move a nested placement'));
+    const styled = stylesChange(req);
+    batch(
+        portalId,
+        () => {
+            if (req.page !== undefined) pl.setValue('page', toPage || '');
+            if (toParent !== fromParent) pl.setValue('parent', toParent || '');
+            if (req.region !== undefined) pl.setValue('region', toRegion);
+            if (req.options !== undefined)
+                pl.setValue('options_json', JSON.stringify(isPlainObject(req.options) ? req.options : {}));
+            if (req.active !== undefined) pl.setValue('active', !!req.active);
+            if (applyStyle(pl, req) || req.options !== undefined) styleIds.push(id);
+            if (!pl.update()) throw rpError(400, 'invalid', abortedMessage('Could not update the placement'));
+            if (toPage !== fromPage) {
+                for (const d of descendantsOf(id)) {
+                    d.setValue('page', toPage || '');
+                    if (!d.update()) throw rpError(400, 'invalid', abortedMessage('Could not move a nested placement'));
+                }
             }
-        }
-        if (moved) renumber(ownerQueryOf(portalId, fromPage), fromParent, fromRegion, null, null);
-        if (moved || typeof req.index === 'number') {
-            renumber(
-                ownerQueryOf(portalId, toPage),
-                toParent,
-                toRegion,
-                id,
-                typeof req.index === 'number' ? req.index : null
-            );
-        }
-    });
-    return withInstanceCss(portalId, styleIds, () => placementDto(getById(T.placement, id) as GR));
+            if (moved) renumber(ownerQueryOf(portalId, fromPage), fromParent, fromRegion, null, null);
+            if (moved || typeof req.index === 'number') {
+                renumber(
+                    ownerQueryOf(portalId, toPage),
+                    toParent,
+                    toRegion,
+                    id,
+                    typeof req.index === 'number' ? req.index : null
+                );
+            }
+        },
+        styled
+    );
+    const dto = () => placementDto(getById(T.placement, id) as GR);
+    // Unstyled writes were reprocessed at the end of the batch.
+    return styled ? withInstanceCss(portalId, styleIds, dto) : Promise.resolve(dto());
 }
 
 /**

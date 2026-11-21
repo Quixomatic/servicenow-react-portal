@@ -1,10 +1,18 @@
 import { gs } from '@servicenow/glide';
-import { GR, getById, findOne, each, str, int, bool } from '../lib/gr.ts';
+import { GR, getById, findOne, each, str, int, bool, distinctRows, inChunks } from '../lib/gr.ts';
 import { T } from '../lib/tables.ts';
-import { parseJson, isPlainObject } from '../lib/util.ts';
+import { parseJson, isPlainObject, propBool } from '../lib/util.ts';
 import { matchRoute } from '../lib/paths.ts';
 import { notFound, rpError } from '../lib/errors.ts';
-import { componentRef, componentById, themeRef, withRegistryCache, DEFAULT_REGIONS } from '../registry/registry.ts';
+import {
+    componentRef,
+    componentById,
+    themeRef,
+    withRegistryCache,
+    preloadRegistry,
+    RecordSnapshot,
+    DEFAULT_REGIONS,
+} from '../registry/registry.ts';
 import { parseRegionSpec, resolveRegions, RegionSpecEntry } from '../registry/block-regions.ts';
 import { currentUser } from '../security/user.ts';
 import { assembleMenus, resolveMenus, ManifestMenu, MenuResolveContext } from './menu-service.ts';
@@ -110,31 +118,43 @@ export function placementsFor(ownerQuery: string, layouts: Record<string, Compon
         T.placement,
         `${ownerQuery}^active=true`,
         (pl) => {
-            const comp = componentById(str(pl, 'component'));
-            if (!comp || !bool(comp, 'active')) return;
-            const ref = componentRef(comp);
-            if (ref.kind === 'layout') layouts[ref.id] = ref;
-            const item: PlacementRef = {
-                id: pl.getUniqueValue(),
-                region: str(pl, 'region') || 'main',
-                order: int(pl, 'order', 100),
-                parentId: str(pl, 'parent') || null,
-                component: ref,
-                options: mergeOptions(comp, pl),
-                styleTokens: parseJson<Record<string, unknown>>(str(pl, 'style_tokens_json'), {}) || {},
-                layout: parseJson<PlacementRef['layout']>(str(pl, 'layout_json'), {}) || {},
-                classes: str(pl, 'classes'),
-                css: str(pl, 'instance_css'),
-            };
-            if (ref.kind === 'block') {
-                item.regions = resolveRegions(regionSpecOf(comp), item.options);
-                item.children = {};
-            }
+            const item = placementItem(pl, layouts);
+            if (!item) return;
             items[item.id] = item;
             order.push(item.id);
         },
         ['order', 'sys_created_on']
     );
+    return placementTree(items, order);
+}
+
+/** One placement's PlacementRef (null when its component is missing or inactive). */
+function placementItem(pl: GR, layouts: Record<string, ComponentRef>): PlacementRef | null {
+    const comp = componentById(str(pl, 'component'));
+    if (!comp || !bool(comp, 'active')) return null;
+    const ref = componentRef(comp);
+    if (ref.kind === 'layout') layouts[ref.id] = ref;
+    const item: PlacementRef = {
+        id: pl.getUniqueValue(),
+        region: str(pl, 'region') || 'main',
+        order: int(pl, 'order', 100),
+        parentId: str(pl, 'parent') || null,
+        component: ref,
+        options: mergeOptions(comp, pl),
+        styleTokens: parseJson<Record<string, unknown>>(str(pl, 'style_tokens_json'), {}) || {},
+        layout: parseJson<PlacementRef['layout']>(str(pl, 'layout_json'), {}) || {},
+        classes: str(pl, 'classes'),
+        css: str(pl, 'instance_css'),
+    };
+    if (ref.kind === 'block') {
+        item.regions = resolveRegions(regionSpecOf(comp), item.options);
+        item.children = {};
+    }
+    return item;
+}
+
+/** Group placements (in query order) into regions, and each block's children into its drop zones. */
+function placementTree(items: Record<string, PlacementRef>, order: string[]): RegionMap {
     const root: RegionMap = {};
     for (const id of order) {
         const item = items[id];
@@ -147,6 +167,54 @@ export function placementsFor(ownerQuery: string, layouts: Record<string, Compon
         (parent.children[item.region] = parent.children[item.region] || []).push(item);
     }
     return root;
+}
+
+/** The placement fields a manifest reads. */
+const PLACEMENT_FIELDS = [
+    'page',
+    'component',
+    'region',
+    'order',
+    'parent',
+    'options_json',
+    'style_tokens_json',
+    'layout_json',
+    'classes',
+    'instance_css',
+];
+
+/**
+ * The active placements of many pages in one query, as snapshots grouped by page, each group in the
+ * order placementsFor's own per-page query returns (order, then created).
+ */
+function pagePlacementRows(pageIds: string[]): Record<string, RecordSnapshot[]> {
+    const out: Record<string, RecordSnapshot[]> = {};
+    for (const chunk of inChunks(pageIds)) {
+        each(
+            T.placement,
+            `pageIN${chunk}^active=true`,
+            (pl) => {
+                const snap = RecordSnapshot.of(T.placement, pl, PLACEMENT_FIELDS);
+                const page = str(pl, 'page');
+                (out[page] = out[page] || []).push(snap);
+            },
+            ['order', 'sys_created_on']
+        );
+    }
+    return out;
+}
+
+/** placementsFor over preloaded rows. */
+function placementsFromRows(rows: RecordSnapshot[], layouts: Record<string, ComponentRef>): RegionMap {
+    const items: Record<string, PlacementRef> = {};
+    const order: string[] = [];
+    for (const pl of rows) {
+        const item = placementItem(pl, layouts);
+        if (!item) continue;
+        items[item.id] = item;
+        order.push(item.id);
+    }
+    return placementTree(items, order);
 }
 
 /** Every placement in a region map, depth-first (blocks' children included). */
@@ -175,14 +243,39 @@ export function mergeOptions(component: GR, placement: GR | null): Record<string
  * Assemble a manifest from current records (live mode, and the input to publishing). Registry
  * lookups (components, builds, import edges) are memoized for this one call only: widgets share
  * primitives, so their import trees would otherwise re-query the same records many times.
+ *
+ * `fast` (default: the x_312987_portal.release.fast_assemble property) bulk-loads the portal's
+ * placements and every component, build, entry asset and import edge with a few IN queries first.
+ * The manifest is the same either way (verified per portal by hash); the lazy path stays as the
+ * reference and the fallback.
  */
-export function assembleManifest(portal: GR): Manifest {
-    return withRegistryCache(() => assembleManifestNow(portal));
+export function assembleManifest(portal: GR, fast?: boolean): Manifest {
+    const bulk = fast === undefined ? fastAssembly() : fast;
+    return withRegistryCache(() => assembleManifestNow(portal, bulk));
 }
 
-function assembleManifestNow(portal: GR): Manifest {
+/** Bulk-loaded manifest assembly (B). On unless x_312987_portal.release.fast_assemble is 'false'. */
+export function fastAssembly(): boolean {
+    return propBool('release.fast_assemble', FAST_ASSEMBLY_DEFAULT);
+}
+
+const FAST_ASSEMBLY_DEFAULT = true;
+
+function assembleManifestNow(portal: GR, fast: boolean): Manifest {
     const portalId = portal.getUniqueValue();
     const layouts: Record<string, ComponentRef> = {};
+
+    let pageRows: Record<string, RecordSnapshot[]> | null = null;
+    if (fast) {
+        const pages = distinctRows(T.page, `portal=${portalId}^active=true`, ['sys_id', 'layout_override']);
+        pageRows = pagePlacementRows(pages.map((p) => p.sys_id));
+        const ids = [str(portal, 'default_layout')];
+        for (const p of pages) ids.push(p.layout_override);
+        for (const pid of Object.keys(pageRows)) for (const pl of pageRows[pid]) ids.push(str(pl, 'component'));
+        for (const row of distinctRows(T.placement, `portal=${portalId}^pageISEMPTY^active=true`, ['component']))
+            ids.push(row.component);
+        preloadRegistry(ids);
+    }
 
     const defaultLayout = componentById(str(portal, 'default_layout'));
     let defaultLayoutId: string | null = null;
@@ -205,8 +298,9 @@ function assembleManifestNow(portal: GR): Manifest {
                 layouts[ref.id] = ref;
                 layoutId = ref.id;
             }
+            const pageId = pg.getUniqueValue();
             pages.push({
-                id: pg.getUniqueValue(),
+                id: pageId,
                 route: str(pg, 'route_pattern'),
                 title: str(pg, 'title') || str(pg, 'name'),
                 order: int(pg, 'order', 100),
@@ -214,7 +308,9 @@ function assembleManifestNow(portal: GR): Manifest {
                 access: pageAccessConfig(pg),
                 contentWidth: str(pg, 'content_width') || 'inherit',
                 layoutOptions: plainObject(parseJson<unknown>(str(pg, 'layout_options_json'), {})),
-                regions: placementsFor(`page=${pg.getUniqueValue()}`, layouts),
+                regions: pageRows
+                    ? placementsFromRows(pageRows[pageId] || [], layouts)
+                    : placementsFor(`page=${pageId}`, layouts),
             });
         },
         ['order', 'route_pattern']

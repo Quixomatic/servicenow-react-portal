@@ -2,7 +2,7 @@ import { gs } from '@servicenow/glide';
 import { str } from '../lib/gr.ts';
 import { anyChanged } from './guards.ts';
 import { refreshInstanceCss } from '../design/instance-style.ts';
-import { reprocessSuppressed } from '../lib/session-flags.ts';
+import { reprocessSuppressed, instanceCssSuppressed } from '../lib/session-flags.ts';
 import { processPortal } from '../release/release-service.ts';
 
 /** Fields that feed placement.instance_css. */
@@ -15,6 +15,8 @@ export const INSTANCE_STYLE_FIELDS = ['classes', 'style_tokens_json', 'layout_js
  */
 export function compileInstanceStyle(current: any, previous: any): void {
     if (current.operation() !== 'insert' && !anyChanged(current, INSTANCE_STYLE_FIELDS)) return;
+    // The page designer and the seed compile the placements they write themselves, then reprocess.
+    if (instanceCssSuppressed()) return;
     // Always compile the placement's CSS. Inside a batch (designer write, demo seed) only the
     // portal reprocess is deferred: the batch reprocesses once at its end. (Skipping the compile
     // itself here left seeded placements with an empty instance_css.)

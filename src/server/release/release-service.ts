@@ -1,14 +1,14 @@
 import { gs } from '@servicenow/glide';
-import { GR, newGR, getById, findOne, each, str, int } from '../lib/gr.ts';
+import { GR, newGR, getById, findOne, each, str, int, distinctRows } from '../lib/gr.ts';
 import { T } from '../lib/tables.ts';
 import { notFound } from '../lib/errors.ts';
-import { canonicalJson, sha256, nowValue, parseJson } from '../lib/util.ts';
+import { canonicalJson, sha256, nowValue, parseJson, propBool } from '../lib/util.ts';
 import { requireStudio } from '../security/access.ts';
-import { assembleManifest, Manifest, flattenRegions } from '../runtime/portal-service.ts';
-import { buildOf } from '../registry/registry.ts';
+import { assembleManifest, Manifest, flattenRegions, MANIFEST_VERSION } from '../runtime/portal-service.ts';
+import { buildOf, copyBuildRef } from '../registry/registry.ts';
 import { reprocessSuppressed } from '../lib/session-flags.ts';
-import { planUtilities, utilitiesFor } from './portal-utilities.ts';
-import type { ReleaseSummary, PlacementRef } from '../../shared/contracts';
+import { planUtilities, utilitiesFor, utilitiesDescriptor, descriptor, UtilitiesPlan } from './portal-utilities.ts';
+import type { ReleaseSummary, PlacementRef, ComponentRef, BuildRef } from '../../shared/contracts';
 
 /**
  * RPReleaseService: the compiled form of a portal.
@@ -18,9 +18,28 @@ import type { ReleaseSummary, PlacementRef } from '../../shared/contracts';
  * (business rules on portal/page/placement/theme/component, and every successful compile).
  * Nothing is written when the manifest is unchanged, so update sets only record real changes.
  * There is no release history: reverting an input (version history / update set) reprocesses.
+ *
+ * Two cheaper paths write the same manifest a full reprocess would (each can be checked against a
+ * full assembly with the x_312987_portal.release.verify_patch property):
+ * - patchUtilities: after a portal sheet compile, only `utilities` changes;
+ * - patchPortalBuild: after a compile that changed only one component's entry assets (same import
+ *   edges), only that component's BuildRefs change (placements, layouts, imports[] entries).
+ * Structural changes (pages, placements, menus, theme, portal settings, import edges) and Studio's
+ * Reprocess button always assemble the whole manifest.
  */
 
 const HOST_ABI_PROP = 'runtime_abi_version';
+
+/** Incremental manifest patch after a compile (D). On unless x_312987_portal.release.incremental is 'false'. */
+export function incrementalPatch(): boolean {
+    return propBool('release.incremental', INCREMENTAL_DEFAULT);
+}
+const INCREMENTAL_DEFAULT = true;
+
+/** Debug: check every patched manifest against a full assembly (x_312987_portal.release.verify_patch). */
+function verifyPatches(): boolean {
+    return propBool('release.verify_patch', false);
+}
 
 export function releaseOf(portalId: string): GR | null {
     return findOne(T.release, `portal=${portalId}`);
@@ -96,22 +115,18 @@ function desiredEntries(m: Manifest): Record<string, DesiredEntry> {
     return out;
 }
 
+/** Bring the release's entries in line with `desired`: update in place, insert missing, delete the rest. */
 function syncEntries(releaseId: string, desired: Record<string, DesiredEntry>): void {
-    const existing: Record<string, GR> = {};
+    const kept: Record<string, boolean> = {};
     each(T.releaseEntry, `release=${releaseId}`, (e) => {
         const key = str(e, 'stable_key');
-        if (!desired[key] || existing[key]) e.deleteRecord();
-        else existing[key] = getById(T.releaseEntry, e.getUniqueValue());
-    });
-    for (const key of Object.keys(desired)) {
-        const want = desired[key];
-        const e = existing[key] || newGR(T.releaseEntry);
-        let dirty = !existing[key];
-        if (!existing[key]) {
-            e.initialize();
-            e.setValue('release', releaseId);
-            e.setValue('stable_key', key);
+        if (!desired[key] || kept[key]) {
+            e.deleteRecord();
+            return;
         }
+        kept[key] = true;
+        const want = desired[key];
+        let dirty = false;
         if (str(e, 'entry_type') !== want.type) {
             e.setValue('entry_type', want.type);
             dirty = true;
@@ -122,28 +137,29 @@ function syncEntries(releaseId: string, desired: Record<string, DesiredEntry>): 
                 dirty = true;
             }
         }
-        if (!dirty) continue;
-        if (existing[key]) e.update();
-        else e.insert();
+        if (dirty) e.update();
+    });
+    for (const key of Object.keys(desired)) {
+        if (kept[key]) continue;
+        const want = desired[key];
+        const e = newGR(T.releaseEntry);
+        e.initialize();
+        e.setValue('release', releaseId);
+        e.setValue('stable_key', key);
+        e.setValue('entry_type', want.type);
+        for (const f of Object.keys(want.fields)) e.setValue(f, want.fields[f]);
+        e.insert();
     }
 }
 
-/** Reprocess one portal's release. Writes only when the manifest changed. */
-export function processPortal(portalId: string, force = false): ReleaseSummary | null {
-    const portal = getById(T.portal, portalId);
-    if (!portal) return null;
-    const manifest = assembleManifest(portal);
-    let r = releaseOf(portalId);
-    // The portal utilities sheet: reused while the candidate union is unchanged; otherwise compiled at
-    // the end of this script, after which the portal is reprocessed again (portal-utilities.ts).
-    manifest.utilities = utilitiesFor(portalId, r, planUtilities(manifest), (id) => {
-        processPortal(id);
-    });
-    const hash = sha256(canonicalJson(manifest));
-    const problems = manifestProblems(manifest);
-
-    if (r && !force && str(r, 'manifest_hash') === hash) return releaseSummary(r);
-
+/** Write a new revision of a release (new record when `r` is null). id is '' when the write was refused. */
+function writeRelease(
+    portalId: string,
+    r: GR | null,
+    manifest: Manifest,
+    hash: string,
+    problems: string[]
+): { r: GR; id: string } {
     if (!r) {
         r = newGR(T.release);
         r.initialize();
@@ -157,9 +173,115 @@ export function processPortal(portalId: string, force = false): ReleaseSummary |
     r.setValue('problems_json', JSON.stringify(problems));
     r.setValue('processed_at', nowValue());
     r.setValue('processed_by', gs.getUserID());
-    const releaseId = r.isNewRecord() ? r.insert() : (r.update(), r.getUniqueValue());
-    if (releaseId) syncEntries(releaseId, desiredEntries(manifest));
-    return releaseSummary(r);
+    const id = r.isNewRecord() ? r.insert() : (r.update(), r.getUniqueValue());
+    return { r, id: id ? String(id) : '' };
+}
+
+/** The manifest stored on a release, or null when missing or of another manifest version. */
+function storedManifest(r: GR): Manifest | null {
+    const m = parseJson<Manifest | null>(str(r, 'manifest_json'), null);
+    return m && m.manifestVersion === MANIFEST_VERSION ? m : null;
+}
+
+/** Reprocess one portal's release. Writes only when the manifest changed. */
+export function processPortal(portalId: string, force = false): ReleaseSummary | null {
+    const portal = getById(T.portal, portalId);
+    if (!portal) return null;
+    const manifest = assembleManifest(portal);
+    const r = releaseOf(portalId);
+    // The portal utilities sheet: reused while the candidate union is unchanged; otherwise compiled at
+    // the end of this script, after which only the manifest's `utilities` is patched (patchUtilities).
+    manifest.utilities = utilitiesFor(portalId, r, planUtilities(manifest), patchUtilities);
+    const hash = sha256(canonicalJson(manifest));
+    const problems = manifestProblems(manifest);
+
+    if (r && !force && str(r, 'manifest_hash') === hash) return releaseSummary(r);
+
+    const written = writeRelease(portalId, r, manifest, hash, problems);
+    if (written.id) syncEntries(written.id, desiredEntries(manifest));
+    return releaseSummary(written.r);
+}
+
+/**
+ * The canonical hash a full reprocess would give the portal right now, without writing or queueing
+ * anything (the patch paths' debug check). null when the portal is gone.
+ */
+export function fullManifestHash(portalId: string): string | null {
+    const portal = getById(T.portal, portalId);
+    if (!portal) return null;
+    const manifest = assembleManifest(portal);
+    manifest.utilities = utilitiesDescriptor(releaseOf(portalId), planUtilities(manifest)).utilities;
+    return sha256(canonicalJson(manifest));
+}
+
+/** Debug check of a patched manifest: true when it matches a full assembly (or checks are off). */
+function patchMatchesFull(portalId: string, hash: string, label: string): boolean {
+    if (!verifyPatches()) return true;
+    const full = fullManifestHash(portalId);
+    if (full === hash) {
+        gs.info(`[rp] ${label} ${portalId}: verified against a full assembly (${hash.substring(0, 12)})`);
+        return true;
+    }
+    gs.error(`[rp] ${label} ${portalId}: MISMATCH patched ${hash} vs full ${full}; reprocessing in full`);
+    return false;
+}
+
+/**
+ * After a portal sheet compile (portal-utilities.ts): point the stored manifest at the new sheet. Only
+ * `utilities` changes, so the stored manifest is patched instead of reassembled. Falls back to a full
+ * reprocess when the stored manifest's union is no longer the compiled one.
+ */
+export function patchUtilities(portalId: string, plan: UtilitiesPlan): void {
+    const r = releaseOf(portalId);
+    const manifest = r ? storedManifest(r) : null;
+    if (!r || !manifest || str(r, 'utilities_hash') !== plan.hash) {
+        processPortal(portalId);
+        return;
+    }
+    const current = planUtilities(manifest);
+    if (current.hash !== plan.hash) {
+        processPortal(portalId);
+        return;
+    }
+    manifest.utilities = descriptor(r.getUniqueValue(), plan.hash, current.covers);
+    const hash = sha256(canonicalJson(manifest));
+    if (str(r, 'manifest_hash') === hash) return;
+    if (!patchMatchesFull(portalId, hash, 'utilities patch')) {
+        processPortal(portalId);
+        return;
+    }
+    writeRelease(portalId, r, manifest, hash, manifestProblems(manifest));
+}
+
+/**
+ * After a compile that changed only `componentId`'s entry assets (same build record, same import
+ * edges, usable before and after): rewrite its BuildRefs in the stored manifest (placements, layouts
+ * and every imports[] entry), then redo the utilities plan and the hash. Release entries hold build
+ * ids and server modes, which this can't change, so they stay. Returns null when the manifest can't
+ * be patched (the caller reprocesses in full).
+ */
+export function patchPortalBuild(portalId: string, componentId: string, ref: BuildRef): ReleaseSummary | null {
+    const r = releaseOf(portalId);
+    const manifest = r ? storedManifest(r) : null;
+    if (!r || !manifest) return null;
+    let ok = true;
+    const swap = (b: BuildRef | null): BuildRef | null => {
+        if (!b || b.id !== ref.id) ok = false;
+        return copyBuildRef(ref);
+    };
+    const patchRef = (cr: ComponentRef) => {
+        if (cr.id === componentId) cr.build = swap(cr.build);
+        for (const imp of cr.imports || []) if (imp.id === componentId) imp.build = swap(imp.build);
+    };
+    for (const id of Object.keys(manifest.layouts)) patchRef(manifest.layouts[id]);
+    for (const pl of allPlacements(manifest)) patchRef(pl.component);
+    if (!ok) return null;
+
+    manifest.utilities = utilitiesFor(portalId, r, planUtilities(manifest), patchUtilities);
+    const hash = sha256(canonicalJson(manifest));
+    if (str(r, 'manifest_hash') === hash) return releaseSummary(r);
+    if (!patchMatchesFull(portalId, hash, 'build patch')) return null;
+    return releaseSummary(writeRelease(portalId, r, manifest, hash, manifestProblems(manifest)).r);
 }
 
 /**
@@ -174,29 +296,80 @@ export function processAllPortals(): number {
     return n;
 }
 
-/** Reprocess every portal that uses a component (layout or placement) or a theme. */
-export function reprocessForOwner(type: 'component' | 'theme', id: string): number {
+/** reprocessForOwner calls per owner in this script (Studio's save checks whether its compile reprocessed). */
+const reprocessCalls: Record<string, number> = {};
+
+export function reprocessCount(type: 'component' | 'theme', id: string): number {
+    return reprocessCalls[`${type}:${id}`] || 0;
+}
+
+/**
+ * Reprocess every portal that uses a component or a theme.
+ * - cause 'record': the owner record changed (name, active, defaults…);
+ * - cause 'build': a compile changed its output. `patch` (the new BuildRef) is given when only the
+ *   entry assets changed: each portal's stored manifest is then patched instead of reassembled
+ *   (when x_312987_portal.release.incremental is on).
+ */
+export function reprocessForOwner(
+    type: 'component' | 'theme',
+    id: string,
+    cause: 'record' | 'build' = 'record',
+    patch?: BuildRef | null
+): number {
     // A batch (designer write, demo seed) sets the skip flag and reprocesses each portal once at
     // its end, so a compile inside the batch must not rebuild every portal that uses the component.
     if (reprocessSuppressed()) return 0;
-    const portals: Record<string, boolean> = {};
-    if (type === 'theme') {
-        each(T.portal, `theme=${id}`, (p) => (portals[p.getUniqueValue()] = true));
-    } else {
-        // The component itself plus every component that imports it (transitively): a primitive's
-        // new build URL must reach the manifests of the widgets that use it.
-        const ids = [id].concat(importersOf(id));
-        for (const cid of ids) {
-            each(T.portal, `default_layout=${cid}`, (p) => (portals[p.getUniqueValue()] = true));
-            each(T.page, `layout_override=${cid}`, (pg) => (portals[str(pg, 'portal')] = true));
-            each(T.placement, `component=${cid}`, (pl) => (portals[str(pl, 'portal')] = true));
-        }
-    }
+    const key = `${type}:${id}`;
+    reprocessCalls[key] = (reprocessCalls[key] || 0) + 1;
+    const usePatch = !!patch && type === 'component' && incrementalPatch();
     let n = 0;
-    for (const pid of Object.keys(portals)) {
-        if (pid && processPortal(pid)) n++;
+    for (const pid of portalsForOwner(type, id, cause === 'record')) {
+        const summary = (usePatch && patchPortalBuild(pid, id, patch as BuildRef)) || processPortal(pid);
+        if (summary) n++;
     }
     return n;
+}
+
+/**
+ * Portals whose release depends on a theme or a component.
+ *
+ * A component: the portals whose stored manifest mentions its sys_id (as a layout, a placed component
+ * or an imports[] entry at any depth: the manifest already holds the transitive import tree), so a
+ * primitive's change reaches only the portals that really use it. `direct` adds the portals whose
+ * records point at it (default layout, page layout override, placement), for record changes such as
+ * activating a component, which isn't in any manifest while inactive. Portals without a release fall
+ * back to the record-based lookup (records plus transitive importers).
+ */
+export function portalsForOwner(type: 'component' | 'theme', id: string, direct: boolean): string[] {
+    const portals: Record<string, boolean> = {};
+    if (type === 'theme') {
+        for (const row of distinctRows(T.portal, `theme=${id}`, ['sys_id'])) portals[row.sys_id] = true;
+        return Object.keys(portals);
+    }
+    const released: Record<string, boolean> = {};
+    each(T.release, 'manifest_jsonISNOTEMPTY', (r) => {
+        const pid = str(r, 'portal');
+        released[pid] = true;
+        if (str(r, 'manifest_json').indexOf(id) >= 0) portals[pid] = true;
+    });
+    const unreleased = distinctRows(T.portal, '', ['sys_id'])
+        .map((row) => row.sys_id)
+        .filter((pid) => !released[pid]);
+    const addRecordPortals = (cid: string, only: Record<string, boolean> | null) => {
+        const add = (pid: string) => {
+            if (pid && (!only || only[pid])) portals[pid] = true;
+        };
+        for (const row of distinctRows(T.portal, `default_layout=${cid}`, ['sys_id'])) add(row.sys_id);
+        for (const row of distinctRows(T.page, `layout_override=${cid}`, ['portal'])) add(row.portal);
+        for (const row of distinctRows(T.placement, `component=${cid}`, ['portal'])) add(row.portal);
+    };
+    if (direct) addRecordPortals(id, null);
+    if (unreleased.length) {
+        const only: Record<string, boolean> = {};
+        for (const pid of unreleased) only[pid] = true;
+        for (const cid of [id].concat(importersOf(id))) addRecordPortals(cid, only);
+    }
+    return Object.keys(portals);
 }
 
 /** Components whose builds import `componentId`, transitively. */
@@ -207,15 +380,17 @@ export function importersOf(componentId: string): string[] {
     for (let depth = 0; frontier.length && depth < 12; depth++) {
         const next: string[] = [];
         for (const cid of frontier) {
-            each(T.buildDep, `kind=component^target_build.owner_key=component:${cid}`, (dep) => {
-                const b = getById(T.build, str(dep, 'build'));
-                const importer = b ? str(b, 'owner_key').replace(/^component:/, '') : '';
+            // One GROUP BY per level: the distinct importing builds' owners (no row or build lookups).
+            for (const row of distinctRows(T.buildDep, `kind=component^target_build.owner_key=component:${cid}`, [
+                'build.owner_key',
+            ])) {
+                const importer = row['build.owner_key'].replace(/^component:/, '');
                 if (importer && !found[importer]) {
                     found[importer] = true;
                     out.push(importer);
                     next.push(importer);
                 }
-            });
+            }
         }
         frontier = next;
     }
