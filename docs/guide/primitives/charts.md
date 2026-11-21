@@ -197,9 +197,66 @@ The lazy chart chunk also carries [Motion](https://motion.dev) 12.43.0 (MIT), ex
 
 ### Blocks
 
-| Family | Block | Record |
-|---|---|---|
-| Area | Campaign Impressions: this period vs the prior one as dashed area fills; KPI tiles; channel filter; period menu; accent colour; per-channel tooltip | `charts/campaign-impressions` |
+The gallery has 54 blocks in ten families, plus the **Live data** family (blocks bound to records, below).
+
+| Family | Block | What it shows | Record |
+|---|---|---|---|
+| Area | Campaign Impressions | This period vs the prior one as dashed area fills; KPI tiles, channel filter, period menu, accent colour, per-channel tooltip | `charts/campaign-impressions` |
+| Area | Orders Overview | Orders, revenue and average order value vs the prior period; metric tabs, hatched gradient area, curve and layer menu | `charts/orders-overview` |
+| Area | Inbound Leads | Leads this year vs last year by month or quarter; drifting particles, moving-average trend, display menu | `charts/inbound-leads` |
+| Area | Generation Mix | Hourly output by source as gradient ridges in 3D depth; 3D / 2D toggle, baseline compare, hour readout | `charts/generation-mix` |
+| Bar | Inventory Velocity | Units sold per day by category as pill bars coloured by days of supply; warehouse filter, sort, period menu | `charts/inventory-velocity` |
+| Bar | Training Volume | Weekly volume for a 12-week block as patterned columns; the last block as ghost lanes or the plan as a checker | `charts/training-volume` |
+| Bar | Cron Run Durations | A job's last 20 runs as stacked phase columns by status; p50 to p95 band, timeout line, outlier and deploy markers | `charts/cron-run-durations` |
+| Bar | Cron Runner Load | Hourly runner time stacked by outcome; time window, job picker, outcome toggles, runner time or run count | `charts/cron-runner-load` |
+| Bar | Transit vs Target | Diverging lanes of transit days vs target per region and freight mode; median / P90 switch, sort | `charts/transit-vs-target` |
+| Bar | Yearly Fund Inflows | Yearly inflows as pseudo-3D prisms stacked by fund; run-rate estimate, a year picker that drives the KPI tiles | `charts/fund-inflows` |
+| Bar | Error Budget Burn | An SLO's daily budget burn-down as lollipops; forecast dots, warn line, over-budget ribbon, event markers | `charts/error-budget-burn` |
+| Bar | Data Sync Activity | Hourly sync runs (succeeded / slow / failed) or rows synced on a hatched track; source filter, KPI tiles | `charts/data-sync-activity` |
+| Bar | Sync Run History | One connection's last 24 hours as outcome columns above its recent runs; success rate, freshness, next sync | `charts/sync-run-history` |
+| Bar | SLO Burn Rate | Hourly burn rate on a log scale with a page line; multi-window burn lollipops and alert rules | `charts/slo-burn-rate` |
+| Bar | Audit Log Volume | Audit events as stacked outcome pills from 5-minute to daily buckets; denials awaiting review, filters | `charts/audit-log-volume` |
+| Bar | Firewall Traffic | Requests per hour as columns of pills (blocked, challenged, allowed) with incident markers; range and filters | `charts/firewall-traffic` |
+| Composed | Sales vs Goal | Monthly sales as area + line vs a dashed goal and last year; range menu, display menu, accent picker | `charts/sales-vs-goal` |
+| Composed | Operating Margin | Revenue and opex columns with the margin as a line above; target, projected and forecast months, KPI tiles | `charts/operating-margin` |
+| Composed | Cashflow Trend | The cash balance over in / out columns with a reserve floor, or a waterfall of net changes | `charts/cashflow-trend` |
+| Composed | Liquidity Flows | A lending pool's supply and withdrawals by asset, TVL as a lane above; range toggle, asset filter | `charts/liquidity-flows` |
+| Composed | Canary Rollback | Canary latency as stacked baseline / regression / excess columns under a limit line, with a rollout stage track | `charts/canary-rollback` |
+| Composed | Revenue Map | Revenue by region on a dotted world map (plain SVG); hover or pin a region, top hot spots, segment and period selects | `charts/revenue-map` |
+| Line | Balance Tracker | Daily balance with high / low markers and a halo on the last close; average line, rebased benchmark, range tabs | `charts/balance-tracker` |
+| Line | Metric Switcher | Four KPI tiles switching one gradient area over the previous period's ghost line; annotations, range tabs | `charts/metric-switcher` |
+| Line | Revenue Trend | Net revenue and its subscription / one-time parts with a comparison line and a dotted in-progress tail | `charts/revenue-trend` |
+| Line | Social Engagement | One line per channel for the chosen metric, optional previous-period ghosts; range, metric and format pickers | `charts/social-engagement` |
+| Line | Sales vs Traffic | Sales and product views on two y axes; KPI tiles, compare toggle, a colour per line | `charts/sales-vs-traffic` |
+| Line | Floor Monitor | Floor price vs top bid with the spread as a band and an alert level that turns the line red | `charts/floor-monitor` |
+| Pie | Inflows by Source | Donut of the top three sources plus a hatched rest; period total, per-source rows, week / month / year switch | `charts/inflows-by-source` |
+| Pie | Browser Usage | Hatched donut of visitors by browser with a previous-period ring and a breakdown table that hovers in sync | `charts/browser-usage` |
+| Pie | Cloud Spend | A budget rose (plain SVG): wedge width = budget share, length = budget use, overspend breaks a dashed ring | `charts/cloud-spend` |
+| Radial | Error Budgets | Budget left on four SLOs as concentric striped rings beside a table; service select, window switch | `charts/error-budgets` |
+| Radial | API Health | Four gateway SLO gauges as rings of ticks in green / amber / red with watch and redline bands | `charts/api-health` |
+| Radial | Inflows Gauge | A day clock of inflows: spokes stacked by source, ghost prior spokes, a target ring and a pace bead | `charts/inflows-gauge` |
+| Sankey | Revenue Flow | A quarterly income statement as a sankey; hover a node or ribbon for its lineage, click to pin | `charts/revenue-flow` |
+| Sankey | Trial Journey | A trial funnel as a sankey with named drop-off nodes and pulses travelling along the ribbons | `charts/trial-journey` |
+| Sankey | Pipeline Leakage | Deals narrowing through six stages as a centred ribbon, red drops leaking at each stage boundary | `charts/pipeline-leakage` |
+| Slope | Error Budget Runway | Services ranked by traffic joined to their days of budget left; thickness = traffic, colour = status | `charts/error-budget-runway` |
+| Slope | Retention Crossover | Channels ranked by signups joined to their retention rank on a chosen day; a scrubbable Day 1 to Day 90 ruler | `charts/retention-crossover` |
+| Sparkline | KPI Strip | A row of KPI tiles with a corner line sparkline, trend badge and day-by-day tooltip | `charts/kpi-strip` |
+| Sparkline | KPI Trend Cards | Three KPI cards, each with a monotone gradient sparkline area and a hover value | `charts/kpi-trend-cards` |
+| Sparkline | Order Metrics | A list of metrics with value, trend badge and a thin sparkline on a faint grid, green up / red down | `charts/order-metrics` |
+| Sparkline | Inventory Health | Four catalog metrics with change badges and sparklines; week / month / year tabs | `charts/inventory-health` |
+| Sparkline | Distance Tracker | A period total over a full-bleed dotted-area sparkline; week / month / year tabs (plain SVG) | `charts/distance-tracker` |
+| Sparkline | Wallet Balances | Balance cards with an icon tile, the change and a bottom-anchored line over a dotted bed | `charts/wallet-balances` |
+| Sparkline | Wealth Overview | A 2 × 2 grid of finance KPIs with delta badges and mini area sparklines | `charts/wealth-overview` |
+| Sparkline | Cron Job Health | Four cards for scheduled jobs: job state ticks, hourly success vs SLO and more | `charts/cron-job-health` |
+| Sparkline | SLO Fleet Health | Four SLO cards with lollipop minis: budget left per SLO, the fleet median, SLOs burning now | `charts/slo-fleet-health` |
+| Sparkline | SLO Budgets | An SLO list with diverging budget pins and a 28-day dot sparkline per row | `charts/slo-budgets` |
+| Sparkline | Connection Health | Four data-connection cards: health and sync-state segment bars, a rows-synced trend | `charts/connection-health` |
+| Status tracker | Cron Run History | One row per cron job, its last 10 / 20 runs as capsules (height = duration); fleet stats, filter, sort | `charts/cron-run-history` |
+| Status tracker | Deploy History | Pipeline runs with a segmented 6-stage meter and a per-stage hover card; environment filter | `charts/deploy-history` |
+| Status tracker | Release Lanes | Staging / Sandbox / Production lanes: health, latest deploy, live stage meter, service version matrix | `charts/release-lanes` |
+| Status tracker | Working Agreements | 26 weekly tiles per team practice shaded by share of target, team score and area rings, week cards to pause or retarget a practice | `charts/working-agreements` |
+| Live data | Incident Status Tracker | Records per group (priority) over the last N days as SLA-coloured day capsules (below) | `charts/incident-status-tracker` |
+| Live data | Live blocks | Campaign Impressions, KPI Strip and Order Metrics fed with live incident counts (below) | `charts/live-blocks` |
 
 ```tsx
 import { CampaignImpressions } from 'components:charts/campaign-impressions';
@@ -209,3 +266,60 @@ import { CampaignImpressions } from 'components:charts/campaign-impressions';
 ```
 
 Every block keeps the accessibility pattern of the other charts: a labelled `<figure>`, a text summary, a **View as table** item in its **…** menu, and Recharts' keyboard layer.
+
+### Incident status tracker
+
+`components:charts/incident-status-tracker` (`IncidentStatusTracker`, `useIncidentStatusRows`, `dayTone`) is a status tracker fed by records, in the visual language of Cron Run History. Each row is a group (incident priorities 1 to 4 by default, or any `groupBy` field). Each of the last `days` days is a capsule: its colour is the day's SLA status and its height is the number of records opened that day, scaled per row. A hover card shows the day's opened, resolved and breached counts and the within-SLA share. Each row ends with its within-SLA rate. Fleet tiles, a filter (all / breaching / healthy), a window and sort menu, CSV and copy-summary exports complete the card.
+
+| Prop | Default | Meaning |
+|---|---|---|
+| `table`, `query` | `incident`, none | Records to read, as the user |
+| `groupBy`, `groups` | `priority`, priorities 1 to 4 | Field for the rows; `groups` fixes the rows and their order (`{ key, label, description? }`, key = raw value) |
+| `dateField` | `opened_at` | The day a record counts on |
+| `resolvedField` | `resolved_at` | Day of the resolved count; `false` skips it |
+| `days` | 30 | Days shown (max 90); the window menu offers 7 / 14 / 30 within that |
+| `slaField`, `breachQuery` | `made_sla`, `made_sla=false` | What makes a record breached; `breachQuery` overrides `slaField` |
+| `amberAt`, `redAt`, `redShare` | 1, 3, 0.5 | Day status thresholds |
+| `rows` | none | Static rows `{ key, label, description?, days: [{ date, opened, breached, resolved? }] }`; nothing is read |
+| `live`, `refreshInterval` | off | Record-watch refetch; polling in seconds |
+| `title`, `description`, `groupLabel`, `noun` | | Text; `noun` is the plural used in labels (`incidents`) |
+| `onSelectDay({ row, day, query })` | none | Click a capsule: the day's records as an encoded query |
+
+Live data is three `useTimeSeries` requests (one alias per day, grouped by `groupBy`): records opened per day, the same AND `breachQuery`, and records resolved per day. Day status, from the records opened that day:
+- **No records** (muted dot): nothing opened.
+- **No breaches** (green): breached < `amberAt`, i.e. zero by default.
+- **Many breaches** (red): breached ≥ `redAt`, or breached / opened ≥ `redShare`.
+- **Some breaches** (amber): anything in between.
+
+```tsx
+import { IncidentStatusTracker } from 'components:charts/incident-status-tracker';
+
+<IncidentStatusTracker live />                                                  // incident by priority, 30 days
+<IncidentStatusTracker groupBy="assignment_group" query="active=true" days={14} title="SLA by group" />
+<IncidentStatusTracker table="sc_req_item" groupBy="cat_item" noun="requests"
+                       onSelectDay={({ query }) => navigate('requests-list', { table: 'sc_req_item', query })} />
+<IncidentStatusTracker rows={rows} />                                           // static data
+```
+
+### Live blocks
+
+`components:charts/live-blocks` holds thin adapters that feed existing gallery blocks with live incident counts. They only build the block's own data props, so the block renders exactly as in the gallery. Each takes `table` (default `incident`), `query`, `dateField`, `live`, `refreshInterval`, `title` and `className`.
+
+| Export | Block | Data |
+|---|---|---|
+| `LiveIncidentImpressions` | Campaign Impressions | Records opened per bucket, this period (area) vs the prior one (dashed), split by `groupBy` (priority) as the channels. All three periods (7 days daily, 30 days in 3-day buckets, 90 days in 9-day buckets) come from one aggregate request of 54 grouped counts. `groups` sets the channels (`{ value, label, light, dark }`) |
+| `LiveIncidentKpis` | KPI Strip | One `useScore` per tile over the last `period` days (7) vs the ones before, with a daily sparkline. Default tiles: opened, resolved, critical opened, breached SLA; `kpis={[{ key, label, query?, dateField?, seriesLabel? }]}` replaces them (up to six) |
+| `LiveIncidentTrends` | Order Metrics | One row per priority: records per day on `dateField` (`resolved_at`) over `days` (30), the change vs the prior `days`; one `useTimeSeries` request |
+
+```tsx
+import { LiveIncidentImpressions, LiveIncidentKpis, LiveIncidentTrends } from 'components:charts/live-blocks';
+
+<LiveIncidentImpressions query="active=true" live />
+<LiveIncidentKpis period={14} />
+<LiveIncidentTrends dateField="opened_at" verb="opened" days={14} />
+```
+
+Limits:
+- KPI Strip and Order Metrics colour trends by sign (up = green). For counts where up is bad (opened, breached), green means more.
+- Campaign Impressions' tooltip shows channel shares as `NaN%` for a bucket with no records (it divides by the bucket total).
+- Inventory Velocity is not adapted: on-hand stock, days of supply and warehouses have no incident meaning.

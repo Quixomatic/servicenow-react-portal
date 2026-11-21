@@ -26,6 +26,7 @@ import {
     MetaDot,
     RollingValue,
     copyCsv,
+    BelowBars,
 } from 'components:charts/composed-kit';
 import { MONTHS, LAST_YEAR, LATEST, FEED } from './data';
 import type { MarginMonth, LedgerEntry } from './data';
@@ -275,6 +276,7 @@ function MarginTooltip({ row }: { row: Row }) {
             {head}
             <div className="grid gap-1.5">
                 <TipRow
+                    mono={false}
                     swatch={sw('bg-(--color-revenue)')}
                     label={open ? 'Revenue posted' : 'Revenue'}
                     value={usd(open ? row.revenuePosted || 0 : row.revenue)}
@@ -282,6 +284,7 @@ function MarginTooltip({ row }: { row: Row }) {
                 />
                 <div className="flex flex-col gap-1.5">
                     <TipRow
+                        mono={false}
                         swatch={sw('bg-(--color-expenses)')}
                         label={open ? 'Expenses posted' : 'Expenses'}
                         value={usd(open ? row.expensesPosted || 0 : row.expenses)}
@@ -289,6 +292,7 @@ function MarginTooltip({ row }: { row: Row }) {
                     />
                     <TipSection>
                         <TipRow
+                            mono={false}
                             swatch={
                                 <span className="flex size-4 shrink-0 items-center justify-center">
                                     <Icon name="trending-up" className="size-4" />
@@ -299,6 +303,7 @@ function MarginTooltip({ row }: { row: Row }) {
                             valueClassName="font-sans"
                         />
                         <TipRow
+                            mono={false}
                             swatch={
                                 <span className="flex size-4 shrink-0 items-center justify-center">
                                     <MarginSwatch />
@@ -310,6 +315,7 @@ function MarginTooltip({ row }: { row: Row }) {
                         />
                         {open ? (
                             <TipRow
+                                mono={false}
                                 label="Projected margin"
                                 value={`${row.projected.toFixed(1)}%`}
                                 valueClassName="font-sans"
@@ -322,9 +328,24 @@ function MarginTooltip({ row }: { row: Row }) {
     );
 }
 
-function CursorBand({ x, y, width, height }: any) {
-    if (x == null) return null;
-    return <rect x={x} y={y} width={width} height={height} rx={4} ry={4} className="pointer-events-none fill-muted" />;
+// ComposedChart hands a custom cursor the line `points` (plus the plot offset), not a band rectangle: build the
+// band from the category centre and the plot width / category count.
+function CursorBand({ points, width, count = 1, lib }: any) {
+    if (!points || points.length < 2 || !width) return null;
+    const band = width / Math.max(1, count);
+    return (
+        <BelowBars lib={lib}>
+            <rect
+                x={points[0].x - band / 2}
+                y={points[0].y}
+                width={band}
+                height={points[1].y - points[0].y}
+                rx={4}
+                ry={4}
+                className="pointer-events-none fill-muted"
+            />
+        </BelowBars>
+    );
 }
 
 export function OperatingMargin({
@@ -810,7 +831,7 @@ export function OperatingMargin({
                                         <R.Tooltip
                                             isAnimationActive={false}
                                             position={{ y: 19 }}
-                                            cursor={<CursorBand />}
+                                            cursor={<CursorBand lib={R} count={rows.length} />}
                                             content={({ active: on, payload }: any) =>
                                                 on && payload && payload.length ? (
                                                     <MarginTooltip row={payload[0].payload} />

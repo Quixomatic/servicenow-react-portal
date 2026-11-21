@@ -221,7 +221,7 @@ function Overlay({
                     y2={0}
                 />
             </g>
-            <g className={`pointer-events-none text-(--color-current) ${FADE} group-data-[intro=drawing]/c6:opacity-0`}>
+            <g className={`pointer-events-none text-foreground ${FADE} group-data-[intro=drawing]/c6:opacity-0`}>
                 <circle fill="currentColor" fillOpacity={0.16} cx={lx} cy={ly} r={7} />
                 <circle fill="currentColor" stroke="var(--card)" strokeWidth={1.5} cx={lx} cy={ly} r={3.5} />
                 <text
@@ -367,7 +367,7 @@ export function MetricSwitcher({
 
     return (
         <SeriesScope config={config} className={className}>
-            <Frame stacked className="@container min-w-0">
+            <Frame className="@container min-w-0">
                 <FrameHeader className="flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2">
                     <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
                         <IconTile icon={icon} />
@@ -404,7 +404,7 @@ export function MetricSwitcher({
                             />
                             <BlockMenu
                                 size="default"
-                                exports={[
+                                exportItems={[
                                     {
                                         label: 'Download CSV',
                                         icon: 'download',

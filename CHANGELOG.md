@@ -2,6 +2,73 @@
 
 All notable changes to React Portal are documented here.
 
+## [1.23.0] - 2026-11-20
+
+The Chart gallery: 54 dashboard chart blocks across 10 families, rebuilt independently from
+ReUI's visual design, with records-fed and live-data variants and a performance pass.
+
+### Added: chart gallery
+- **54 chart blocks** as `components:charts/<key>` records. Each takes data props and ships a figure, text summary and table fallback, plus reduced-motion support.
+  - **Area:** campaign-impressions, orders-overview, inbound-leads, generation-mix.
+  - **Bar:**
+    - inventory-velocity, training-volume, cron-run-durations, cron-runner-load;
+    - transit-vs-target, fund-inflows, error-budget-burn, data-sync-activity;
+    - sync-run-history, slo-burn-rate, audit-log-volume, firewall-traffic.
+  - **Composed:** sales-vs-goal, operating-margin, cashflow-trend, liquidity-flows, canary-rollback, revenue-map.
+  - **Line:** balance-tracker, metric-switcher, revenue-trend, social-engagement, sales-vs-traffic, floor-monitor.
+  - **Pie:** inflows-by-source, browser-usage, cloud-spend.
+  - **Radial:** error-budgets, api-health, inflows-gauge.
+  - **Sankey:** revenue-flow, trial-journey, pipeline-leakage.
+  - **Slope:** error-budget-runway, retention-crossover.
+  - **Sparkline:**
+    - kpi-strip, kpi-trend-cards, order-metrics, inventory-health;
+    - distance-tracker, wallet-balances, wealth-overview, cron-job-health;
+    - slo-fleet-health, slo-budgets, connection-health.
+  - **Status tracker:** cron-run-history, deploy-history, release-lanes, working-agreements.
+- **Family kits:** `charts/` chart-kit, line-kit, composed-kit, bar-kit, bar-more-kit, radial-kit, sankey-kit, slope-kit, sparkline-kit, status-kit.
+- **Records-fed:**
+  - `charts/incident-status-tracker`: SLA status per day from incident records;
+  - `charts/live-blocks`: adapters feeding campaign-impressions, kpi-strip and order-metrics with live incident data, shown in a "Live data" gallery tab.
+- **Widget `charts/chart-gallery`** (Dashboard portal ▸ Chart gallery):
+  - a family switcher;
+  - blocks mount lazily as they scroll near (`useInViewOnce`), and off-screen sections use `content-visibility:auto`;
+  - fits phones (inline-size containment, a scrolling switcher).
+- **Licensing:** visual design inspired by ReUI's chart blocks; independent implementation. ReUI's blocks are a paid product, so nothing was taken from their source. Only ReUI's MIT `Frame` primitive is ported (`components:chart-frame`, MIT header). Brand logos are replaced with generic icons.
+- **Docs:** `primitives/charts.md` has the full 54-block table, the incident tracker and the live blocks.
+
+### Performance
+- **Bar tab:**
+
+  | | Before | After |
+  |---|---|---|
+  | Opening the tab: long tasks | 1,259 ms | 128 ms |
+  | Opening the tab: style recalc | 1,118 ms | 106 ms |
+  | Hovering all 12 blocks: fps | 14 | 68 |
+  | Hovering all 12 blocks: style work | 56 s | 14 s |
+
+  - Hover highlights now use data attributes or inline opacity instead of class swaps.
+  - Live tickers pause off screen.
+- **Other tabs:** composed 50 → 83 fps, status 91 → 124 fps. Area, line, pie, radial, slope and live are all above 120 fps.
+- **Root cause, outside our code:** the Next Experience shell element `sn-window-manager` adopts a daisyUI stylesheet with 127 `:has()` rules. Any class change, text change or node insert anywhere on the page therefore restyles the whole document (~72 ms on the Bar tab). Recharts' own active-bar layers and tooltip text still pay it, so liquidity-flows, slo-fleet-health and slo-burn-rate stay heavier.
+
+### Fixed (during the fidelity pass)
+- **Hover bands:** a custom ComposedChart cursor receives `points` and sits above the bars unless wrapped in a ZIndexLayer. The bands now draw below the bars in operating-margin, cashflow-trend, liquidity-flows and canary-rollback.
+- **Orders Overview:** the hover column is see-through, as in ReUI (the areas now draw above the cursor layer).
+- **Sankey:** node layout matches ReUI to ~1px (`layoutSankey` `relaxOrder:'recharts'`).
+- **The `exports` prop crash:** a prop named `exports` crashed the Line tab, because the compiler's CommonJS transform rewrites own exports to `exports.NAME`.
+- **Missing strokes:** dot strokes were missing because `@theme inline` emits no runtime `--color-*` variables; inline styles now use `var(--card)` etc.
+
+### Notes
+- **Known differences:**
+  - colours follow the portal theme;
+  - the host has no select or hover-card component (styled dropdowns, click-to-open);
+  - some sample data is inferred (listed in each block's header).
+- **Open:**
+  - an occasional console error "`<path>` attribute transform: undefined" (source not yet found);
+  - the platform stylesheet decision (neutralise it in the host, or raise it with ServiceNow).
+- **The old `app/*` chart records** (data-chart, chart-card, score-card, score-tile, analytics) are unused and instance-only.
+- Runtime Tests: 33/33.
+
 ## [1.22.0] - 2026-11-20
 
 Back navigation that follows where you were, slot-based seed placements and a component identity

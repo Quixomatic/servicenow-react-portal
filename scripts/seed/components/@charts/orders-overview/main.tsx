@@ -183,7 +183,7 @@ function ActiveDot({ cx, cy }: { cx?: number; cy?: number }) {
             cx={cx}
             cy={cy}
             r={5}
-            fill="var(--color-card)"
+            fill="var(--card)"
             stroke="var(--color-mid)"
             strokeWidth={2.5}
             {...anim}
@@ -355,6 +355,9 @@ export function OrdersOverview({
     const n = rows.length;
     const every = r.tickEvery || 1;
     const last = rows[n - 1];
+    // ReUI opens with the tooltip already pinned mid-range (12:00 on the day view).
+    const noon = rows.findIndex((d: any) => d.label === '12:00');
+    const defaultTip = noon >= 0 ? noon : Math.floor((n - 1) / 2);
     const metricLabel = METRICS.find((m) => m.key === metric)!.label;
 
     const rootRef = useRef<HTMLDivElement>(null);
@@ -561,7 +564,10 @@ export function OrdersOverview({
                         }
                     >
                         <div ref={rootRef} className="h-80 w-full">
-                            <ChartContainer config={config} className="aspect-auto h-full w-full">
+                            <ChartContainer
+                                config={config}
+                                className="aspect-auto h-full w-full [&_.recharts-surface]:overflow-visible"
+                            >
                                 {(R: any) => (
                                     <R.AreaChart
                                         data={rows}
@@ -624,7 +630,9 @@ export function OrdersOverview({
                                             }}
                                         />
                                         <R.YAxis
-                                            width={0}
+                                            mirror
+                                            width={60}
+                                            interval={0}
                                             tickLine={false}
                                             axisLine={false}
                                             domain={[0, hi]}
@@ -635,7 +643,7 @@ export function OrdersOverview({
                                                         x={0}
                                                         y={tk.y}
                                                         dy={-6}
-                                                        stroke="var(--color-card)"
+                                                        stroke="var(--card)"
                                                         strokeWidth={4}
                                                         strokeLinejoin="round"
                                                         paintOrder="stroke"
@@ -650,6 +658,7 @@ export function OrdersOverview({
                                         />
                                         <R.Tooltip
                                             cursor={<HoverColumn />}
+                                            defaultIndex={defaultTip}
                                             position={{ x: 0, y: 0 }}
                                             isAnimationActive={false}
                                             content={({ active, payload, coordinate }: any) =>
@@ -674,6 +683,7 @@ export function OrdersOverview({
                                                 fillOpacity={0.7}
                                                 stroke="none"
                                                 mask={`url(#orders-hatch-mask-${uid})`}
+                                                zIndex={1115}
                                                 activeDot={false}
                                                 isAnimationActive={false}
                                             />
@@ -687,16 +697,24 @@ export function OrdersOverview({
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
                                             vectorEffect="non-scaling-stroke"
+                                            zIndex={1150}
                                             isAnimationActive={false}
-                                            dot={(d: any) =>
-                                                layers.latest && d.index === n - 1 && d.cx != null ? (
-                                                    <LatestMarker key="latest" cx={d.cx} cy={d.cy} />
-                                                ) : (
-                                                    <g key={`d${d.index}`} />
-                                                )
-                                            }
+                                            dot={false}
                                             activeDot={(d: any) => <ActiveDot cx={d.cx} cy={d.cy} />}
                                         />
+                                        {/* The hover column (zIndex 1100) sits under both area layers, so the hatched
+                                            fill and the line show through it, as in ReUI. */}
+                                        {layers.latest && last ? (
+                                            <R.ReferenceDot
+                                                x={last.label}
+                                                y={last.value}
+                                                zIndex={1170}
+                                                ifOverflow="visible"
+                                                shape={(d: any) =>
+                                                    d.cx != null ? <LatestMarker cx={d.cx} cy={d.cy} /> : <g />
+                                                }
+                                            />
+                                        ) : null}
                                     </R.AreaChart>
                                 )}
                             </ChartContainer>

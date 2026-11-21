@@ -58,17 +58,32 @@ export function usdTick(n: number): string {
     return `${sign}$${Math.round(a)}`;
 }
 
+/**
+ * Draws a custom tooltip cursor below the bars. A ComposedChart renders every cursor in the line-cursor layer
+ * (above the bars); pass the chart's Recharts namespace as `lib` to move it to the rectangle-cursor layer.
+ */
+export function BelowBars({ lib, children }: { lib?: any; children?: any }) {
+    const Layer = lib && lib.ZIndexLayer;
+    if (!Layer) return children;
+    const z =
+        lib.DefaultZIndexes && lib.DefaultZIndexes.cursorRectangle != null ? lib.DefaultZIndexes.cursorRectangle : 200;
+    return <Layer zIndex={z}>{children}</Layer>;
+}
+
 /** A tooltip row: optional swatch + muted label on the left, mono value on the right. */
 export function TipRow({
     swatch,
     label,
     value,
     valueClassName = 'text-foreground',
+    mono = true,
 }: {
     swatch?: any;
     label: any;
     value: any;
     valueClassName?: string;
+    /** Mono value font (default); false = the sans tabular figures some blocks use. */
+    mono?: boolean;
 }) {
     return (
         <div className="flex h-4 items-center justify-between gap-4 whitespace-nowrap">
@@ -76,7 +91,9 @@ export function TipRow({
                 {swatch}
                 <span className={TEXT_TRIM}>{label}</span>
             </span>
-            <span className={`font-mono font-medium tabular-nums ${TEXT_TRIM} ${valueClassName}`}>{value}</span>
+            <span className={`${mono ? 'font-mono ' : ''}font-medium tabular-nums ${TEXT_TRIM} ${valueClassName}`}>
+                {value}
+            </span>
         </div>
     );
 }

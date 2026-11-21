@@ -217,7 +217,7 @@ export function PingDot({
                 fillOpacity={0.3}
                 className="origin-center animate-[ping_2.4s_cubic-bezier(0,0,0.2,1)_infinite] [transform-box:fill-box] motion-reduce:animate-none"
             />
-            <circle cx={cx} cy={cy} r={r} fill={color} stroke="var(--color-card)" strokeWidth={strokeWidth} />
+            <circle cx={cx} cy={cy} r={r} fill={color} stroke="var(--card)" strokeWidth={strokeWidth} />
         </g>
     );
 }
@@ -238,16 +238,8 @@ export function HaloDot({ cx, cy, color }: { cx?: number; cy?: number; color: st
     return (
         <G className="pointer-events-none origin-center [transform-box:fill-box]" {...anim}>
             <circle cx={cx} cy={cy} r={13} fill={color} fillOpacity={0.16} />
-            <circle
-                cx={cx}
-                cy={cy}
-                r={8}
-                fill="var(--color-card)"
-                fillOpacity={0.65}
-                stroke={color}
-                strokeOpacity={0.45}
-            />
-            <circle cx={cx} cy={cy} r={4} fill={color} stroke="var(--color-card)" strokeWidth={1.5} />
+            <circle cx={cx} cy={cy} r={8} fill="var(--card)" fillOpacity={0.65} stroke={color} strokeOpacity={0.45} />
+            <circle cx={cx} cy={cy} r={4} fill={color} stroke="var(--card)" strokeWidth={1.5} />
         </G>
     );
 }

@@ -318,7 +318,7 @@ export function BalanceTracker({
 
     return (
         <SeriesScope config={config} className={className}>
-            <Frame stacked className="@container min-w-0">
+            <Frame className="@container min-w-0">
                 <FrameHeader className="flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2">
                     <div className="flex min-w-0 flex-1 basis-56 items-center gap-3">
                         <IconTile icon={icon} />
@@ -369,7 +369,7 @@ export function BalanceTracker({
                                     },
                                     { label: 'Average Line', icon: 'minus', checked: average, onChange: setAverage },
                                 ]}
-                                exports={exportActions({
+                                exportItems={exportActions({
                                     filename: 'portfolio-balance.csv',
                                     rows,
                                     columns,

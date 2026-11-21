@@ -12,7 +12,7 @@ import {
 } from 'components:chart-frame';
 import { Icon } from 'components:icon';
 import { series, SeriesScope, useEnterAnimation, useElementWidth } from 'components:charts/chart-kit';
-import { TEXT_TRIM, StatusBadge, ToggleMenu, MenuSelect, copyCsv } from 'components:charts/composed-kit';
+import { TEXT_TRIM, StatusBadge, ToggleMenu, MenuSelect, copyCsv, BelowBars } from 'components:charts/composed-kit';
 import { MONTHS, OPENING, PRIOR, RESERVE, CASH_IN, CASH_OUT, RANGES } from './data';
 import type { CashMonth } from './data';
 
@@ -80,6 +80,14 @@ function niceStep(raw: number) {
     return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
 }
 
+/** Finer steps for the flows axis (ReUI labels ±$400K / ±$800K for the 12-month view). */
+function flowStep(raw: number) {
+    const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+    const n = raw / mag;
+    const steps = [1, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    return (steps.find((s) => n <= s) || 10) * mag;
+}
+
 function roundedPath(x: number, y: number, w: number, h: number, r: number, top: boolean, bottom: boolean) {
     if (h <= 0 || w <= 0) return '';
     const rt = top ? Math.min(r, w / 2, h / (bottom ? 2 : 1)) : 0;
@@ -98,16 +106,21 @@ function roundedPath(x: number, y: number, w: number, h: number, r: number, top:
 }
 
 /** The shared hover band: a full-height muted column (covers the chart margins too). */
-function CursorBand({ x, y, width, height, top = 0, bottom = 0 }: any) {
-    if (x == null) return null;
+// ComposedChart hands a custom cursor the line `points` (plus the plot offset), not a band rectangle: build the
+// band from the category centre and the plot width / category count.
+function CursorBand({ points, width, count = 1, top = 0, bottom = 0, lib }: any) {
+    if (!points || points.length < 2 || !width) return null;
+    const band = width / Math.max(1, count);
     return (
-        <rect
-            x={x}
-            y={y - top}
-            width={width}
-            height={height + top + bottom}
-            className="pointer-events-none fill-muted"
-        />
+        <BelowBars lib={lib}>
+            <rect
+                x={points[0].x - band / 2}
+                y={points[0].y - top}
+                width={band}
+                height={points[1].y - points[0].y + top + bottom}
+                className="pointer-events-none fill-muted"
+            />
+        </BelowBars>
     );
 }
 
@@ -347,7 +360,7 @@ export function CashflowTrend({
     const t2 = Math.round((t1 + bSpan * 0.6) / 1e5) * 1e5;
     const bTicks = [t1, t2].filter((t) => t <= bDomain[1]);
     const fMax = Math.max(...rows.map((r) => Math.max(r.inflow, r.outflow)));
-    const fStep = niceStep(fMax / 2);
+    const fStep = flowStep(fMax / 2);
     const fTicks = [-2 * fStep, -fStep, 0, fStep, 2 * fStep];
     const lowIdx = rows.reduce((a, r, i) => (r.balance < rows[a].balance ? i : a), 0);
 
@@ -550,7 +563,10 @@ export function CashflowTrend({
 
     const flows = (
         <div className="flex h-76 w-full flex-col">
-            <div ref={topRef} className={`h-24 w-full ${show('balance') || show('reserve') ? '' : 'hidden'}`}>
+            <div
+                ref={topRef}
+                className={`h-24 w-full [&_.recharts-area-dots]:[clip-path:none] ${show('balance') || show('reserve') ? '' : 'hidden'}`}
+            >
                 <ChartContainer config={config} className="aspect-auto h-full w-full">
                     {(R: any) => (
                         <R.ComposedChart data={rows} syncId="rp-c21" margin={{ top: 8, right: 8, bottom: 12, left: 0 }}>
@@ -568,7 +584,7 @@ export function CashflowTrend({
                             />
                             <R.Tooltip
                                 isAnimationActive={false}
-                                cursor={<CursorBand top={8} bottom={12} />}
+                                cursor={<CursorBand lib={R} count={rows.length} top={8} bottom={12} />}
                                 content={() => null}
                             />
                             <R.Bar dataKey="zero" fill="none" isAnimationActive={false} legendType="none" />
@@ -663,7 +679,7 @@ export function CashflowTrend({
                             />
                             <R.Tooltip
                                 isAnimationActive={false}
-                                cursor={<CursorBand top={12} bottom={30} />}
+                                cursor={<CursorBand lib={R} count={rows.length} top={12} bottom={30} />}
                                 content={flowTip}
                             />
                             <R.ReferenceLine y={0} stroke="var(--muted-foreground)" strokeOpacity={0.5} />
@@ -770,7 +786,7 @@ export function CashflowTrend({
                         />
                         <R.Tooltip
                             isAnimationActive={false}
-                            cursor={<CursorBand top={12} bottom={30} />}
+                            cursor={<CursorBand lib={R} count={wf.length} top={12} bottom={30} />}
                             content={wfTip}
                         />
                         <R.ReferenceLine y={0} stroke="var(--muted-foreground)" strokeOpacity={0.7} />
@@ -958,7 +974,7 @@ export function CashflowTrend({
                     </ChartToolbar>
                 </FrameHeader>
                 <FramePanel className="p-0">
-                    <div className="grid @xl:grid-cols-3 @4xl:grid-cols-[minmax(0,1.35fr)_repeat(3,minmax(0,1fr))]">
+                    <div className="grid @xl:grid-cols-3 @4xl:grid-cols-[minmax(0,1.35fr)_repeat(3,minmax(0,1fr))]!">
                         <Kpi
                             label="Closing Cash"
                             value={cash(closing)}

@@ -288,7 +288,7 @@ export function SalesVsGoal({
 
     return (
         <SeriesScope config={config} className={className}>
-            <Card className="@container/sales w-full max-w-4xl min-w-0">
+            <Card className="@container/sales w-full min-w-0">
                 <CardHeader>
                     <CardTitle>{title}</CardTitle>
                     <CardDescription className="col-start-1">
@@ -564,6 +564,7 @@ function SalesPlot({ rows, data, opening, priorLabel, marker, on, hi, ticks, con
                             type="monotone"
                             stroke="none"
                             fill="url(#rp-c20-fill)"
+                            fillOpacity={1}
                             className={`c20-fill pointer-events-none transition-opacity duration-200 ${EASE} group-data-[fill=off]/c20:opacity-0`}
                             isAnimationActive={false}
                             activeDot={false}

@@ -99,7 +99,7 @@ function TooltipBody({ row, keys, channels, unit }: { row: any; keys: string[]; 
                             key={c.key}
                             className="basis-0 rounded-full"
                             style={{
-                                flexGrow: Math.round(((Number(row[c.key]) || 0) / row.current) * 100),
+                                flexGrow: Math.round(((Number(row[c.key]) || 0) / (row.current || 1)) * 100),
                                 background: `var(--color-${c.key})`,
                             }}
                         />
@@ -122,7 +122,7 @@ function TooltipBody({ row, keys, channels, unit }: { row: any; keys: string[]; 
                                 {compact(Number(row[c.key]) || 0)}
                             </span>
                             <span className={`w-8 text-end tabular-nums ${TEXT_TRIM}`}>
-                                {Math.round(((Number(row[c.key]) || 0) / row.current) * 100)}%
+                                {Math.round(((Number(row[c.key]) || 0) / (row.current || 1)) * 100)}%
                             </span>
                         </span>
                     ))}
@@ -471,7 +471,7 @@ export function CampaignImpressions({
                                                         cy={d.cy}
                                                         r={3}
                                                         fill="var(--color-prior)"
-                                                        stroke="var(--color-card)"
+                                                        stroke="var(--card)"
                                                         strokeWidth={1.5}
                                                     />
                                                 )}
@@ -481,7 +481,7 @@ export function CampaignImpressions({
                                                         cy={d.cy}
                                                         r={4}
                                                         fill="var(--color-prior)"
-                                                        stroke="var(--color-card)"
+                                                        stroke="var(--card)"
                                                         strokeWidth={2}
                                                         className="pointer-events-none"
                                                     />
@@ -510,7 +510,7 @@ export function CampaignImpressions({
                                                                 cy={d.cy}
                                                                 r={3.5}
                                                                 fill="var(--color-current)"
-                                                                stroke="var(--color-card)"
+                                                                stroke="var(--card)"
                                                                 strokeWidth={1.5}
                                                             />
                                                         )}

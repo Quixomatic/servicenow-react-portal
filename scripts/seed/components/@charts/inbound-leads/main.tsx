@@ -174,14 +174,7 @@ function ActiveMark({ cx, cy }: { cx?: number; cy?: number }) {
             <line x1={cx} x2={cx} y1={cy + 7} y2={HEIGHT - AXIS} stroke="var(--color-current)" strokeOpacity={0.55} />
             <G className="origin-center [transform-box:fill-box]" {...anim}>
                 <circle cx={cx} cy={cy} r={11} fill="var(--color-current)" fillOpacity={0.14} />
-                <circle
-                    cx={cx}
-                    cy={cy}
-                    r={5}
-                    fill="var(--color-current)"
-                    stroke="var(--color-card)"
-                    strokeWidth={2.5}
-                />
+                <circle cx={cx} cy={cy} r={5} fill="var(--color-current)" stroke="var(--card)" strokeWidth={2.5} />
             </G>
         </g>
     );
@@ -329,7 +322,7 @@ export function InboundLeads({
     return (
         <SeriesScope config={config} className={className}>
             <style>{PARTICLE_CSS}</style>
-            <Card className="@container/leads w-full max-w-4xl min-w-0">
+            <Card className="@container/leads w-full min-w-0">
                 <CardHeader>
                     <CardTitle>{title}</CardTitle>
                     <CardDescription className="col-start-1">
@@ -347,10 +340,18 @@ export function InboundLeads({
                     <CardAction className="col-start-1 row-span-1 row-start-3 mt-2 justify-self-start @2xl/card-header:col-start-2 @2xl/card-header:row-span-2 @2xl/card-header:row-start-1 @2xl/card-header:mt-0 @2xl/card-header:justify-self-end">
                         <div className="flex flex-wrap items-center gap-2">
                             <ToggleGroup variant="outline" size="sm" aria-label="Granularity" {...grainToggle}>
-                                <ToggleGroupItem value="month" aria-label="By month">
+                                <ToggleGroupItem
+                                    value="month"
+                                    aria-label="By month"
+                                    className="gap-1 text-[0.8rem] text-foreground"
+                                >
                                     Month
                                 </ToggleGroupItem>
-                                <ToggleGroupItem value="quarter" aria-label="By quarter">
+                                <ToggleGroupItem
+                                    value="quarter"
+                                    aria-label="By quarter"
+                                    className="gap-1 text-[0.8rem] text-foreground"
+                                >
                                     Quarter
                                 </ToggleGroupItem>
                             </ToggleGroup>
@@ -624,7 +625,7 @@ export function InboundLeads({
                                                         cy={d.cy}
                                                         r={3.5}
                                                         fill="var(--color-prior)"
-                                                        stroke="var(--color-card)"
+                                                        stroke="var(--card)"
                                                         strokeWidth={1.5}
                                                     />
                                                 )}
@@ -635,7 +636,7 @@ export function InboundLeads({
                                                         cy={d.cy}
                                                         r={4.5}
                                                         fill="var(--color-prior)"
-                                                        stroke="var(--color-card)"
+                                                        stroke="var(--card)"
                                                         strokeWidth={2}
                                                     />
                                                 )}
@@ -681,7 +682,7 @@ export function InboundLeads({
                                                         cy={d.cy}
                                                         r={4}
                                                         fill="var(--color-current)"
-                                                        stroke="var(--color-card)"
+                                                        stroke="var(--card)"
                                                         strokeWidth={2}
                                                     />
                                                 )}

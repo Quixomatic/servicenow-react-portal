@@ -12,7 +12,7 @@
  * Re-running updates records in place.
  */
 (function () {
-    var ROOT = 'x_312987_portal/x-312987-react-portal/1.22.0/src/server/';
+    var ROOT = 'x_312987_portal/x-312987-react-portal/1.23.0/src/server/';
     var releases = require(ROOT + 'release/release-service.ts');
     var T = 'x_312987_portal_';
     // Existing OOB user criteria used by the demo ("Users with 'itil' role"; field-based, role = itil).

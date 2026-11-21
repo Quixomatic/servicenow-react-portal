@@ -39,11 +39,17 @@ export function LineSwatch({
     color,
     dashed,
     width = 12,
+    dash,
+    inset,
 }: {
     className?: string;
     color?: string;
     dashed?: boolean;
     width?: number;
+    /** Custom dash pattern (round caps), e.g. '2 3'; overrides `dashed`. */
+    dash?: string;
+    /** Draw from x=1 to width-1 (round caps stay inside the box). */
+    inset?: boolean;
 }) {
     return (
         <svg
@@ -55,14 +61,14 @@ export function LineSwatch({
             style={color ? { color } : undefined}
         >
             <line
-                x1="0"
-                x2={width}
+                x1={inset ? 1 : 0}
+                x2={inset ? width - 1 : width}
                 y1="1"
                 y2="1"
                 stroke="currentColor"
                 strokeWidth="2"
-                strokeDasharray={dashed ? '3 2' : undefined}
-                strokeLinecap={dashed ? 'butt' : 'round'}
+                strokeDasharray={dash || (dashed ? '3 2' : undefined)}
+                strokeLinecap={dashed && !dash ? 'butt' : 'round'}
             />
         </svg>
     );
@@ -196,12 +202,18 @@ export function ToggleChip({
     children,
     className,
     label,
+    tone = 'card',
 }: {
     pressed: boolean;
     onPressedChange: (v: boolean) => void;
     children?: any;
     className?: string;
     label?: string;
+    /**
+     * 'card': muted text, pressed = card bg. 'accent': foreground text, pressed = muted bg.
+     * 'muted': muted text, pressed = muted bg + foreground.
+     */
+    tone?: 'card' | 'accent' | 'muted';
 }) {
     return (
         <button
@@ -210,7 +222,7 @@ export function ToggleChip({
             aria-label={label}
             data-slot="toggle"
             onClick={() => onPressedChange(!pressed)}
-            className={`inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-border bg-transparent px-2.5 text-[0.8rem] font-medium whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-card aria-pressed:text-foreground dark:border-input dark:aria-pressed:bg-muted [&_svg]:pointer-events-none [&_svg]:shrink-0 ${className || ''}`}
+            className={`inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-border bg-transparent px-2.5 text-[0.8rem] font-medium whitespace-nowrap outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-input [&_svg]:pointer-events-none [&_svg]:shrink-0 ${tone === 'accent' ? 'text-foreground aria-pressed:bg-muted' : tone === 'muted' ? 'text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground' : 'text-muted-foreground aria-pressed:bg-card aria-pressed:text-foreground dark:aria-pressed:bg-muted'} ${className || ''}`}
         >
             {children}
         </button>
@@ -223,14 +235,14 @@ export type MenuAction = { label: string; icon?: string; onSelect: () => void; d
 /** The "…" menu: optional Show group (checkboxes), Export group, then extra actions (Reset View). */
 export function BlockMenu({
     show,
-    exports,
+    exportItems,
     actions,
     label = 'More actions',
     size = 'sm',
     trigger,
 }: {
     show?: MenuCheck[];
-    exports?: MenuAction[];
+    exportItems?: MenuAction[];
     actions?: MenuAction[];
     label?: string;
     /** 'sm' (28px) or 'default' (32px) trigger. */
@@ -255,11 +267,11 @@ export function BlockMenu({
                 ))}
             </DropdownMenuGroup>
         );
-    if (exports && exports.length)
+    if (exportItems && exportItems.length)
         groups.push(
             <DropdownMenuGroup key="export">
                 <DropdownMenuLabel>Export</DropdownMenuLabel>
-                {exports.map((a) => (
+                {exportItems.map((a) => (
                     <DropdownMenuItem key={a.label} onClick={a.onSelect} disabled={a.disabled}>
                         {a.icon ? <Icon name={a.icon} /> : null}
                         {a.label}
@@ -358,12 +370,18 @@ export function RangeTabs({
     onValueChange,
     label = 'Range',
     size = 'sm',
+    tone = 'card',
 }: {
     options: { value: string; label: string }[];
     value: string;
     onValueChange: (v: string) => void;
     label?: string;
     size?: 'sm' | 'default';
+    /**
+     * 'card': pressed = card bg, others muted text. 'accent': pressed = muted bg, all foreground text.
+     * 'muted': pressed = muted bg + foreground, others muted text.
+     */
+    tone?: 'card' | 'accent' | 'muted';
 }) {
     const onKey = (e: any, i: number) => {
         const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
@@ -389,8 +407,20 @@ export function RangeTabs({
                         onClick={() => onValueChange(o.value)}
                         onKeyDown={(e) => onKey(e, i)}
                         className={`inline-flex shrink-0 items-center justify-center border border-border font-medium whitespace-nowrap transition-colors outline-none not-first:-ml-px first:rounded-l-lg last:rounded-r-lg focus-visible:z-10 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-input ${
-                            size === 'sm' ? 'h-7 px-2 text-[0.8rem]' : 'h-8 px-2.5 text-sm'
-                        } ${on ? 'bg-card text-foreground dark:bg-muted' : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                            size === 'sm' ? 'h-7 px-2 text-[0.8rem]' : 'h-8 px-2 text-sm'
+                        } ${
+                            tone === 'muted'
+                                ? on
+                                    ? 'bg-muted text-foreground'
+                                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                                : tone === 'accent'
+                                  ? on
+                                      ? 'bg-muted text-foreground'
+                                      : 'bg-transparent text-foreground hover:bg-muted'
+                                  : on
+                                    ? 'bg-card text-foreground dark:bg-muted'
+                                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
                     >
                         <span className={TRIM}>{o.label}</span>
                     </button>
